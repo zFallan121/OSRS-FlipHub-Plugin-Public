@@ -1,0 +1,453 @@
+/*
+ * Copyright (c) 2026, zFallan121
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ * ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+package com.osrsfliphub;
+
+import static com.osrsfliphub.GeLifecyclePluginConstants.*;
+
+import com.google.gson.Gson;
+import com.google.inject.Provides;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ScheduledExecutorService;
+import java.nio.file.Path;
+import javax.inject.Inject;
+import net.runelite.api.Client;
+import net.runelite.api.GameState;
+import net.runelite.api.GrandExchangeOffer;
+import net.runelite.api.ScriptID;
+import net.runelite.api.VarClientInt;
+import net.runelite.api.events.PostClientTick;
+import net.runelite.api.events.GrandExchangeOfferChanged;
+import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.ScriptPostFired;
+import net.runelite.api.events.VarClientIntChanged;
+import net.runelite.api.widgets.Widget;
+import net.runelite.api.widgets.ComponentID;
+import net.runelite.client.callback.ClientThread;
+import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.game.ItemManager;
+import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.client.plugins.Plugin;
+import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.ui.ClientToolbar;
+import net.runelite.client.ui.NavigationButton;
+import okhttp3.OkHttpClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+@PluginDescriptor(
+    name = "OSRS FlipHub",
+    description = "Track Grand Exchange flips locally (offer history, margins, buy limits, wiki prices). "
+        + "Optionally link a FlipHub account to sync flips to the osrsfliphub.com dashboard.",
+    configName = FliphubConfigGroups.CONFIG_GROUP,
+    tags = {"ge", "flipping", "analytics"},
+    hidden = false,
+    developerPlugin = false
+)
+public class GeLifecyclePlugin extends Plugin {
+    static final Logger log = LoggerFactory.getLogger(GeLifecyclePlugin.class);
+
+    @Inject
+    Client client;
+
+    @Inject
+    ClientThread clientThread;
+
+    @Inject
+    PluginConfig config;
+
+    @Inject
+    ConfigManager configManager;
+
+    @Inject
+    OkHttpClient httpClient;
+
+    @Inject
+    Gson gson;
+
+    @Inject
+    ClientToolbar clientToolbar;
+
+    @Inject
+    ItemManager itemManager;
+
+    @Inject
+    OverlayManager overlayManager;
+
+    ApiClient apiClient;
+    GeLifecycleProfileLinkWorkflowRuntimeServices profileLinkWorkflowRuntimeServices;
+    final PanelRefreshCoordinatorFactoryService panelRefreshCoordinatorFactoryService = new PanelRefreshCoordinatorFactoryService();
+    GeLifecycleCoreFeatureRuntimeServices coreFeatureRuntimeServices;
+    GeLifecycleOfferUiRuntimeServices offerUiRuntimeServices;
+    GeLifecyclePanelLocalRuntimeServices panelLocalRuntimeServices;
+    final GeLifecyclePanelBootstrapService panelBootstrapService = new GeLifecyclePanelBootstrapService();
+    final GeLifecycleRuntimeSchedulerServices runtimeSchedulerServices = new GeLifecycleRuntimeSchedulerServices();
+    final GeLifecycleRuntimeUtilityServices runtimeUtilityServices = new GeLifecycleRuntimeUtilityServices();
+    final GeLifecycleProfileWatcherService profileWatcherService = new GeLifecycleProfileWatcherService();
+    final ProfileSelectionState profileSelection = new ProfileSelectionState(ACCOUNTWIDE_KEY_STRING);
+    final BookmarkConfigStore bookmarkConfigStore = new BookmarkConfigStore(ACCOUNTWIDE_KEY);
+    final HiddenItemConfigStore hiddenItemConfigStore = new HiddenItemConfigStore();
+    final OfferUpdateStampConfigStore offerUpdateStampConfigStore = new OfferUpdateStampConfigStore();
+    final OfferUpdateStampLegacyMatcher offerUpdateStampLegacyMatcher = new OfferUpdateStampLegacyMatcher();
+    ScheduledExecutorService scheduler;
+    ExecutorService ioExecutor;
+    final UploadDiagnosticsState uploadState = new UploadDiagnosticsState();
+    GeLifecycleUploadRuntimeServices uploadRuntimeServices;
+    BackfillRetryScheduler backfillRetryScheduler;
+    GeLifecyclePluginRuntimeFactoryServices runtimeFactoryServices;
+    final Map<Integer, OfferSnapshot> snapshots = new ConcurrentHashMap<>();
+    final Map<Integer, OfferUpdateStamp> offerUpdateStamps = new ConcurrentHashMap<>();
+    final Set<Integer> bookmarkedItems = ConcurrentHashMap.newKeySet();
+    final Set<Integer> hiddenItems = ConcurrentHashMap.newKeySet();
+    final Map<String, Integer> itemNameLookupCache = new ConcurrentHashMap<>();
+    volatile Integer offerPreviewItemId;
+    volatile FlipHubItem offerPreviewItem;
+    FlipHubPanel panel;
+    NavigationButton navButton;
+    final Set<Long> loadedProfiles = ConcurrentHashMap.newKeySet();
+    final Map<Long, Long> loadedProfileFileMs = new ConcurrentHashMap<>();
+    final Map<Long, String> profileDisplayNames = new ConcurrentHashMap<>();
+    final Map<Long, LocalStatsCache> statsCacheByAccount = new ConcurrentHashMap<>();
+    volatile String currentQuery = "";
+    volatile int currentPage = 1;
+    volatile boolean bookmarkFilterEnabled = false;
+    volatile boolean panelVisible;
+    volatile StatsRange currentStatsRange = StatsRange.SESSION;
+    volatile StatsItemSort currentStatsSort = StatsItemSort.COMPLETION;
+    final Object localStatsLock = new Object();
+    final LocalTradesLoadCoordinator.State localTradesLoadState = new LocalTradesLoadCoordinator.State();
+    final Map<Long, List<LocalTradeDelta>> localTradeDeltasByAccount = new HashMap<>();
+    final Map<Long, Long> localSessionStartByAccount = new HashMap<>();
+    final Map<Integer, String> itemNameCache = new ConcurrentHashMap<>();
+    boolean localTradesLoadedThisLogin = false;
+    final Map<Long, String> legacyNameKeysByHash = new ConcurrentHashMap<>();
+    final GeLifecycleSharedState sharedState = new GeLifecycleSharedState(
+        localStatsLock,
+        localTradeDeltasByAccount,
+        localSessionStartByAccount,
+        statsCacheByAccount,
+        loadedProfiles,
+        loadedProfileFileMs,
+        legacyNameKeysByHash,
+        profileDisplayNames,
+        bookmarkedItems,
+        hiddenItems,
+        snapshots,
+        offerUpdateStamps
+    );
+    GeOfferTimerOverlay offerTimerOverlay;
+
+    @Provides
+    PluginConfig provideConfig(ConfigManager configManager) {
+        return configManager.getConfig(PluginConfig.class);
+    }
+
+    @Override
+    protected void startUp() {
+        GeLifecyclePluginLifecycleCoordinator.startUp(this);
+    }
+
+    @Override
+    protected void shutDown() {
+        GeLifecyclePluginLifecycleCoordinator.shutDown(this);
+    }
+
+    @Subscribe
+    public void onConfigChanged(ConfigChanged event) {
+        getEventManageHistoryServices().getConfigChangedHandlerService().handle(event);
+    }
+
+    @Subscribe
+    public void onGameStateChanged(GameStateChanged event) {
+        getEventManageHistoryServices().getGameStateChangedHandlerService().handle(event.getGameState());
+    }
+
+    @Subscribe
+    public void onGrandExchangeOfferChanged(GrandExchangeOfferChanged event) {
+        getEventManageHistoryServices().getGrandExchangeOfferChangedHandlerService().handle(event);
+    }
+
+    @Subscribe
+    public void onPostClientTick(PostClientTick event) {
+        panelVisible = getOfferUiRuntimeServices().getTickServices().handlePostClientTick(panelVisible);
+        // local profile loads are handled on login/selection
+    }
+
+    @Subscribe
+    public void onScriptPostFired(ScriptPostFired event) {
+        int scriptId = event.getScriptId();
+        if (scriptId == ScriptID.CHAT_TEXT_INPUT_REBUILD ||
+            scriptId == ScriptID.CHAT_PROMPT_INIT ||
+            scriptId == ScriptID.MESSAGE_LAYER_OPEN) {
+            getOfferUiRuntimeServices().getSuggestionServices().getChatboxSuggestionRuntimeStateService().markSuggestionDirty();
+        }
+    }
+
+    @Subscribe
+    public void onVarClientIntChanged(VarClientIntChanged event) {
+        if (event.getIndex() != VarClientInt.INPUT_TYPE) {
+            return;
+        }
+        // Fallback trigger for GE chatbox prompts when specific chat scripts do not fire on some client builds.
+        getOfferUiRuntimeServices().getSuggestionServices().getChatboxSuggestionRuntimeStateService().markSuggestionDirty();
+    }
+
+    long getOfferLastUpdateMs(int slot, GrandExchangeOffer offer) {
+        return getOfferStampStateServices().getOfferLastUpdateMs(slot, offer);
+    }
+
+    GeLifecycleOfferStampStateServices getOfferStampStateServices() {
+        return getOfferUiRuntimeServices().getOfferStampStateServices();
+    }
+
+    boolean isOfferStatusOpen() {
+        OfferPreviewRuntimeFacadeService previewFacade = getOfferUiRuntimeServices().getOfferPreviewRuntimeFacadeService();
+        Widget geRoot = previewFacade
+            .getVisibleGeRoot(client, ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
+        if (geRoot == null) {
+            return false;
+        }
+        return previewFacade.isOfferStatusOpen(geRoot, OFFER_STATUS_MARKERS);
+    }
+
+    GeLifecyclePluginRuntimeFactoryServices getRuntimeFactoryServices() {
+        return GeLifecyclePluginRuntimeFactoryContextFactory.getOrCreate(this);
+    }
+
+    GeLifecycleOfferUiRuntimeServices getOfferUiRuntimeServices() {
+        GeLifecycleOfferUiRuntimeServices services = offerUiRuntimeServices;
+        if (services != null) {
+            return services;
+        }
+        services = getRuntimeFactoryServices().createOfferUiRuntimeServices();
+        offerUiRuntimeServices = services;
+        return services;
+    }
+
+    BackfillRetryScheduler getBackfillRetryScheduler() {
+        BackfillRetryScheduler scheduler = backfillRetryScheduler;
+        if (scheduler != null) {
+            return scheduler;
+        }
+        scheduler = getUploadRuntimeServices().getBackfillRetryScheduler();
+        backfillRetryScheduler = scheduler;
+        return scheduler;
+    }
+
+    GeLifecycleUploadRuntimeServices getUploadRuntimeServices() {
+        GeLifecycleUploadRuntimeServices services = uploadRuntimeServices;
+        if (services != null) {
+            return services;
+        }
+        services = getRuntimeFactoryServices().createUploadRuntimeServices();
+        uploadRuntimeServices = services;
+        return services;
+    }
+
+    GeLifecyclePanelLocalRuntimeServices getPanelLocalRuntimeServices() {
+        GeLifecyclePanelLocalRuntimeServices service = panelLocalRuntimeServices;
+        if (service != null) {
+            return service;
+        }
+        service = getRuntimeFactoryServices().createPanelLocalRuntimeServices();
+        panelLocalRuntimeServices = service;
+        return service;
+    }
+
+    GeLifecycleLocalTradesRuntimeService getLocalTradesRuntimeService() {
+        return getPanelLocalRuntimeServices().getLocalTradesRuntimeService();
+    }
+
+    void refreshPanelData() {
+        getPanelRefreshCoordinator().refreshPanelData(scheduler);
+    }
+
+    void refreshStatsData() {
+        getPanelRefreshCoordinator().refreshStatsData(scheduler);
+    }
+
+    // Retained as narrow compatibility shims for reflection-based tests.
+    private void ensureProfileLoaded(long accountKey) {
+        getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
+    }
+
+    GeLifecycleProfileSelectionServices getProfileSelectionServices() {
+        return getProfileLinkWorkflowRuntimeServices().getProfileSelectionServices();
+    }
+
+    GeLifecycleLinkServices getLinkServices() {
+        return getProfileLinkWorkflowRuntimeServices().getLinkServices();
+    }
+
+    GeLifecycleProfileLinkWorkflowRuntimeServices getProfileLinkWorkflowRuntimeServices() {
+        GeLifecycleProfileLinkWorkflowRuntimeServices services = profileLinkWorkflowRuntimeServices;
+        if (services != null) {
+            return services;
+        }
+        services = getRuntimeFactoryServices().createProfileLinkWorkflowRuntimeServices();
+        profileLinkWorkflowRuntimeServices = services;
+        return services;
+    }
+
+    GeLifecycleCoreFeatureRuntimeServices getCoreFeatureRuntimeServices() {
+        GeLifecycleCoreFeatureRuntimeServices services = coreFeatureRuntimeServices;
+        if (services != null) {
+            return services;
+        }
+        services = getRuntimeFactoryServices().createCoreFeatureRuntimeServices();
+        coreFeatureRuntimeServices = services;
+        return services;
+    }
+
+    GeLifecycleEventManageHistoryServices getEventManageHistoryServices() {
+        return getCoreFeatureRuntimeServices().getEventManageHistoryServices();
+    }
+
+    void executeOnScheduler(ScheduledExecutorService scheduler, Runnable task) {
+        if (scheduler != null && task != null) {
+            scheduler.execute(task);
+        }
+    }
+
+    void invokeOnClientThread(Runnable task) {
+        if (clientThread != null && task != null) {
+            clientThread.invokeLater(task);
+        }
+    }
+
+    ApiClient.WipeStatsResponse wipeWebsiteStats(String sessionToken, String signingSecret) throws Exception {
+        if (apiClient == null) {
+            apiClient = new ApiClient(httpClient, gson);
+        }
+        return apiClient.wipeWebsiteStats(sessionToken, signingSecret);
+    }
+
+    GeLifecycleStatsTradesServices getStatsTradesServices() {
+        return getCoreFeatureRuntimeServices().getStatsTradesServices();
+    }
+
+    PanelRefreshCoordinator getPanelRefreshCoordinator() {
+        return getCoreFeatureRuntimeServices().getPanelRefreshCoordinator();
+    }
+
+    GeLifecycleBackfillServices getBackfillServices() {
+        return getCoreFeatureRuntimeServices().getBackfillServices();
+    }
+
+    // Retained as a narrow compatibility shim for reflection-based tests.
+    private AccountwideSummaryUploader getAccountwideSummaryUploader() {
+        return getBackfillServices().getAccountwideSummaryUploader();
+    }
+
+    long getProfileFileModifiedMs(Path file) {
+        return getProfileSelectionServices().getProfileStore().getProfileFileModifiedMs(file);
+    }
+
+    void executeAsync(Runnable task) {
+        if (task == null) {
+            return;
+        }
+        ScheduledExecutorService activeScheduler = scheduler;
+        if (activeScheduler != null && !activeScheduler.isShutdown()) {
+            activeScheduler.execute(task);
+            return;
+        }
+        ForkJoinPool.commonPool().execute(task);
+    }
+
+    void executeIo(Runnable task) {
+        if (task == null) {
+            return;
+        }
+        ExecutorService activeIoExecutor = ioExecutor;
+        if (activeIoExecutor != null && !activeIoExecutor.isShutdown()) {
+            activeIoExecutor.execute(task);
+            return;
+        }
+        executeAsync(task);
+    }
+
+    // Retained as a narrow compatibility shim for reflection-based tests.
+    private void requestBackfillAttempt(long delaySeconds, boolean resetBackoff) {
+        getBackfillRetryScheduler();
+        getUploadRuntimeServices().requestBackfillAttempt(delaySeconds, resetBackoff);
+    }
+
+    // Retained as a narrow compatibility shim for reflection-based tests.
+    private void scheduleBackfillRetry() {
+        getBackfillRetryScheduler();
+        getUploadRuntimeServices().scheduleBackfillRetry();
+    }
+
+    // Retained as a narrow compatibility shim for reflection-based tests.
+    private void resetBackfillRetryState() {
+        getBackfillRetryScheduler();
+        getUploadRuntimeServices().resetBackfillRetryState();
+    }
+
+    // Retained as a narrow compatibility shim for reflection-based tests.
+    void markAccountwideUploadDirty() {
+        getBackfillServices().getAccountwideSummaryUploader().markDirty();
+        if (getProfileSelectionServices().getProfileSelectionPresentationFacadeService().isLinked()) {
+            getUploadRuntimeServices().getUploadBackfillDispatchService().requestAccountwideSync();
+        }
+    }
+
+    void startProfileWatcher() {
+        profileWatcherService.start(
+            scheduler,
+            PROFILE_WATCH_DEBOUNCE_MS,
+            () -> getProfileSelectionServices().getProfileStorageFacadeService(),
+            () -> getProfileSelectionServices().getProfileStore(),
+            loadedProfileFileMs::get,
+            getProfileWorkflowService()::reloadProfileFromDisk
+        );
+    }
+
+    void stopProfileWatcher() {
+        profileWatcherService.stop();
+    }
+
+    GeLifecycleProfileWorkflowService getProfileWorkflowService() {
+        return getProfileLinkWorkflowRuntimeServices().getProfileWorkflowService();
+    }
+
+    LegacyLocalTradesFilterService getLegacyLocalTradesFilterService() {
+        return getProfileLinkWorkflowRuntimeServices().getLegacyLocalTradesFilterService();
+    }
+
+}
+
+
+
+
+

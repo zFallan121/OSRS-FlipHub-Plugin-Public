@@ -1,0 +1,78 @@
+plugins {
+	id 'java'
+}
+
+repositories {
+	mavenLocal()
+	maven {
+		url = 'https://repo.runelite.net'
+		content {
+			includeGroupByRegex("net\\.runelite.*")
+		}
+	}
+	mavenCentral()
+}
+
+def runeLiteVersion = 'latest.release'
+def devClientMainClass = 'com.osrsfliphub.GeLifecyclePluginTest'
+def devRuneLiteProfile = 'fliphub-dev'
+
+dependencies {
+	compileOnly group: 'net.runelite', name: 'client', version: runeLiteVersion
+
+	testImplementation 'junit:junit:4.13.2'
+	testImplementation group: 'net.runelite', name: 'client', version: runeLiteVersion
+	testImplementation group: 'net.runelite', name: 'jshell', version: runeLiteVersion
+}
+
+group = 'com.osrsfliphub'
+version = '1.0.0'
+
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = 'UTF-8'
+	options.release.set(11)
+}
+
+tasks.register('run', JavaExec) {
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = devClientMainClass
+
+	jvmArgs "-ea",
+		"--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+		"-Dsun.java2d.d3d=false",
+		"-Dsun.java2d.noddraw=true",
+		"-XX:ErrorFile=build/hs_err_pid%p.log"
+	args "--developer-mode", "--profile=${devRuneLiteProfile}"
+}
+
+tasks.register('runDebug', JavaExec) {
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = devClientMainClass
+
+	jvmArgs "-ea",
+		"--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+		"-Dsun.java2d.d3d=false",
+		"-Dsun.java2d.noddraw=true",
+		"-XX:ErrorFile=build/hs_err_pid%p.log"
+	args "--developer-mode", "--debug", "--profile=${devRuneLiteProfile}"
+}
+
+tasks.register('runSafe', JavaExec) {
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = devClientMainClass
+
+	jvmArgs "-ea",
+		"--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+		"-Dsun.java2d.d3d=false",
+		"-Dsun.java2d.noddraw=true",
+		"-XX:ErrorFile=build/hs_err_pid%p.log"
+	args "--developer-mode", "--safe-mode", "--profile=${devRuneLiteProfile}"
+}
+
+tasks.register('shadowJar', Jar) {
+	dependsOn tasks.named('classes')
+	from sourceSets.main.output
+	group = LifecycleBasePlugin.BUILD_GROUP
+	archiveClassifier.set('shadow')
+	archiveFileName.set("${rootProject.name}-${project.version}-all.jar")
+}

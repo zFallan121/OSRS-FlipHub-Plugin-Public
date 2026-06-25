@@ -1,0 +1,14 @@
+.gradle/
+.idea/
+build
+.project
+.settings/
+.classpath
+nbactions.xml
+nb-configuration.xml
+nbproject/
+
+bin/
+.tmp_rlsrc/
+replay_pid*.log
+_legacy_untracked_backup_*/
