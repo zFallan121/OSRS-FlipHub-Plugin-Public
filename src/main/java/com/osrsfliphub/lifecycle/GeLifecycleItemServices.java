@@ -59,8 +59,6 @@ final class GeLifecycleItemServices {
     private final Consumer<FlipHubItem> offerPreviewItemSetter;
     private final int defaultItemsPageSize;
 
-    private ItemLookupService itemLookupService;
-    private ItemLookupFactoryService itemLookupFactoryService;
     private LocalItemsAssemblerFactoryService localItemsAssemblerFactoryService;
     private LocalItemsAssembler localItemsAssembler;
     private LocalItemsResponseBuilderFactoryService localItemsResponseBuilderFactoryService;
@@ -121,20 +119,7 @@ final class GeLifecycleItemServices {
     }
 
     ItemLookupService getItemLookupService() {
-        ItemLookupService service = itemLookupService;
-        if (service != null) {
-            return service;
-        }
-        service = getItemLookupFactoryService().create(
-            new RuneLiteItemLookupPluginHooks(
-                itemManager,
-                clientThreadSupplier != null ? clientThreadSupplier.get() : null,
-                scheduleRefreshSoon,
-                triggerStatsRefresh
-            )
-        );
-        itemLookupService = service;
-        return service;
+        return PluginInjectorBridge.get(ItemLookupService.class);
     }
 
     LocalItemsResponseBuilder getLocalItemsResponseBuilder() {
@@ -205,15 +190,6 @@ final class GeLifecycleItemServices {
         return service;
     }
 
-    private ItemLookupFactoryService getItemLookupFactoryService() {
-        ItemLookupFactoryService service = itemLookupFactoryService;
-        if (service != null) {
-            return service;
-        }
-        service = new ItemLookupFactoryService(itemNameLookupCache, itemNameCache);
-        itemLookupFactoryService = service;
-        return service;
-    }
 
     private LocalItemsAssembler getLocalItemsAssembler() {
         LocalItemsAssembler assembler = localItemsAssembler;

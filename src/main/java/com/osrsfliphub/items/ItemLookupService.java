@@ -25,7 +25,15 @@
 package com.osrsfliphub;
 
 import java.util.Map;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.api.ItemComposition;
+import net.runelite.client.callback.ClientThread;
+import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.ItemStats;
+import net.runelite.http.api.item.ItemPrice;
 
+@Singleton
 final class ItemLookupService {
     interface Hooks {
         Integer findItemIdByExactName(String name);
@@ -41,12 +49,86 @@ final class ItemLookupService {
     private final Map<Integer, String> itemNameCache;
     private final Hooks hooks;
 
+    @Inject
+    ItemLookupService(ItemManager itemManager, ClientThread clientThread, PluginState state) {
+        this(state.getItemNameLookupCache(), state.getItemNameCache(), productionHooks(itemManager, clientThread));
+    }
+
     ItemLookupService(Map<String, Integer> itemNameLookupCache,
                       Map<Integer, String> itemNameCache,
                       Hooks hooks) {
         this.itemNameLookupCache = itemNameLookupCache;
         this.itemNameCache = itemNameCache;
         this.hooks = hooks;
+    }
+
+    private static Hooks productionHooks(ItemManager itemManager, ClientThread clientThread) {
+        return new Hooks() {
+            @Override
+            public Integer findItemIdByExactName(String name) {
+                if (name == null || itemManager == null) {
+                    return null;
+                }
+                for (ItemPrice price : itemManager.search(name)) {
+                    if (price.getName() != null && price.getName().equalsIgnoreCase(name)) {
+                        return price.getId();
+                    }
+                }
+                return null;
+            }
+
+            @Override
+            public String lookupItemName(int itemId) {
+                if (itemManager == null || itemId <= 0) {
+                    return null;
+                }
+                ItemComposition composition = itemManager.getItemComposition(itemId);
+                return composition != null ? composition.getName() : null;
+            }
+
+            @Override
+            public Integer lookupGeLimit(int itemId) {
+                if (itemManager == null || itemId <= 0) {
+                    return null;
+                }
+                ItemStats stats = itemManager.getItemStats(itemId);
+                if (stats != null && stats.getGeLimit() > 0) {
+                    return stats.getGeLimit();
+                }
+                return null;
+            }
+
+            @Override
+            public Integer lookupGuidePrice(int itemId) {
+                if (itemManager == null || itemId <= 0) {
+                    return null;
+                }
+                int guidePrice = itemManager.getItemPrice(itemId);
+                return guidePrice > 0 ? guidePrice : null;
+            }
+
+            @Override
+            public boolean canCacheItemNamesAsync() {
+                return itemManager != null && clientThread != null;
+            }
+
+            @Override
+            public void invokeOnClientThread(Runnable task) {
+                if (task != null && clientThread != null) {
+                    clientThread.invokeLater(task);
+                }
+            }
+
+            @Override
+            public void onItemNameCacheUpdated() {
+                GeLifecyclePlugin plugin = PluginAccess.plugin();
+                PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
+                if (coordinator != null) {
+                    coordinator.scheduleRefreshSoon(plugin.scheduler);
+                    coordinator.triggerStatsRefresh(plugin.scheduler);
+                }
+            }
+        };
     }
 
     int resolveItemIdFromName(String name) {
