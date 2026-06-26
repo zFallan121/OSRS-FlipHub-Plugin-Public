@@ -27,11 +27,15 @@ package com.osrsfliphub;
 import com.google.gson.Gson;
 import java.io.IOException;
 import java.util.List;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import okhttp3.OkHttpClient;
 
+@Singleton
 public class ApiClient {
     private final ApiClientCore core;
 
+    @Inject
     public ApiClient(OkHttpClient httpClient, Gson gson) {
         this.core = new ApiClientCore(httpClient, gson);
     }
