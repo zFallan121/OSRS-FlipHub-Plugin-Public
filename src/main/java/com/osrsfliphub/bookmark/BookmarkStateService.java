@@ -27,7 +27,11 @@ package com.osrsfliphub;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.client.config.ConfigManager;
 
+@Singleton
 final class BookmarkStateService {
     interface Hooks {
         String readBookmarksForProfile(long normalizedProfileKey);
@@ -39,9 +43,65 @@ final class BookmarkStateService {
     private final Hooks hooks;
     private final Map<Long, Set<Integer>> bookmarksByProfile = new ConcurrentHashMap<>();
 
+    @Inject
+    BookmarkStateService(ConfigManager configManager, PluginConfig config, PluginState state) {
+        this(state.getBookmarkConfigStore(), productionHooks(configManager, config, state.getBookmarkConfigStore()));
+    }
+
     BookmarkStateService(BookmarkConfigStore configStore, Hooks hooks) {
         this.configStore = configStore;
         this.hooks = hooks;
+    }
+
+    private static Hooks productionHooks(ConfigManager configManager, PluginConfig config, BookmarkConfigStore configStore) {
+        return new Hooks() {
+            @Override
+            public String readBookmarksForProfile(long normalizedProfileKey) {
+                if (configStore == null) {
+                    return "";
+                }
+                if (configManager == null) {
+                    return configStore.isAccountwide(normalizedProfileKey) && config != null
+                        ? config.bookmarks()
+                        : "";
+                }
+                return configManager.getConfiguration(
+                    FliphubConfigGroups.CONFIG_GROUP,
+                    configStore.buildConfigKey(normalizedProfileKey));
+            }
+
+            @Override
+            public void persistBookmarksForProfile(long normalizedProfileKey, String serializedBookmarkIds) {
+                if (configManager == null || configStore == null) {
+                    return;
+                }
+                configManager.setConfiguration(
+                    FliphubConfigGroups.CONFIG_GROUP,
+                    configStore.buildConfigKey(normalizedProfileKey),
+                    serializedBookmarkIds);
+            }
+
+            @Override
+            public Long resolveActiveProfileKey() {
+                GeLifecycleStatsTradesServices statsTrades = PluginAccess.plugin().getStatsTradesServices();
+                LocalAccountSessionService localAccountSessionService = statsTrades.getLocalAccountSessionService();
+                if (localAccountSessionService != null) {
+                    long localAccountKey = localAccountSessionService.resolveLocalAccountKey();
+                    if (localAccountKey > 0) {
+                        return localAccountKey;
+                    }
+                }
+                LocalTradeSessionFacadeService localTradeSessionFacadeService =
+                    statsTrades.getLocalTradeSessionFacadeService();
+                if (localTradeSessionFacadeService != null) {
+                    long accountHash = localTradeSessionFacadeService.resolveAccountHash();
+                    if (accountHash > 0) {
+                        return accountHash;
+                    }
+                }
+                return null;
+            }
+        };
     }
 
     void clearCache() {

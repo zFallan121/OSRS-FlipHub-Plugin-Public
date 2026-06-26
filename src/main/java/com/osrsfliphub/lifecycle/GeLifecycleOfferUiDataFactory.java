@@ -75,23 +75,6 @@ final class GeLifecycleOfferUiDataFactory {
         );
     }
 
-    static BookmarkStateService createBookmarkStateService(
-        GeLifecycleOfferUiRuntimeContext context,
-        Supplier<GeLifecycleStatsTradesServices> statsTradesServicesSupplier
-    ) {
-        return new BookmarkStateService(
-            context.bookmarkConfigStore,
-            new BookmarkStatePluginHooks(
-                context.configManagerSupplier,
-                context.configSupplier,
-                context.bookmarkConfigStore,
-                () -> statsTradesServicesSupplier.get().getLocalAccountSessionService(),
-                () -> statsTradesServicesSupplier.get().getLocalTradeSessionFacadeService(),
-                FliphubConfigGroups.CONFIG_GROUP
-            )
-        );
-    }
-
     static OfferEventBuildService createOfferEventBuildService(
         Supplier<OfferUpdateStampService> offerUpdateStampServiceSupplier,
         Supplier<GeLifecycleOfferStampStateServices> offerStampStateServicesSupplier,

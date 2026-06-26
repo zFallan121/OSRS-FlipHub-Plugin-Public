@@ -208,13 +208,7 @@ final class GeLifecycleOfferUiRuntimeServices {
     }
 
     BookmarkStateService getBookmarkStateService() {
-        BookmarkStateService service = bookmarkStateService;
-        if (service != null) {
-            return service;
-        }
-        service = GeLifecycleOfferUiDataFactory.createBookmarkStateService(context, this::getStatsTradesServices);
-        bookmarkStateService = service;
-        return service;
+        return PluginInjectorBridge.get(BookmarkStateService.class);
     }
 
     OfferEventBuildService getOfferEventBuildService() {
