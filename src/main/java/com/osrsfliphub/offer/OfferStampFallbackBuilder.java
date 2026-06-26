@@ -26,7 +26,10 @@ package com.osrsfliphub;
 
 import java.util.ArrayList;
 import java.util.List;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class OfferStampFallbackBuilder {
     interface Hooks {
         String getItemName(int itemId);
@@ -35,8 +38,33 @@ final class OfferStampFallbackBuilder {
 
     private final Hooks hooks;
 
+    @Inject
+    OfferStampFallbackBuilder() {
+        this(productionHooks());
+    }
+
     OfferStampFallbackBuilder(Hooks hooks) {
         this.hooks = hooks;
+    }
+
+    private static Hooks productionHooks() {
+        return new Hooks() {
+            @Override
+            public String getItemName(int itemId) {
+                ItemLookupService service = itemLookupService();
+                return service != null ? service.lookupItemNameSafe(itemId) : null;
+            }
+
+            @Override
+            public Integer getGuidePrice(int itemId) {
+                ItemLookupService service = itemLookupService();
+                return service != null ? service.lookupGuidePriceSafe(itemId) : null;
+            }
+
+            private ItemLookupService itemLookupService() {
+                return PluginAccess.plugin().getOfferUiRuntimeServices().getItemServices().getItemLookupService();
+            }
+        };
     }
 
     List<FlipHubItem> buildItems(Iterable<OfferUpdateStamp> stamps) {

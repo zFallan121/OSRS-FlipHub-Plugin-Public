@@ -128,13 +128,7 @@ final class GeLifecycleOfferUiRuntimeServices {
     }
 
     OfferPreviewRuntimeFacadeService getOfferPreviewRuntimeFacadeService() {
-        OfferPreviewRuntimeFacadeService service = offerPreviewRuntimeFacadeService;
-        if (service != null) {
-            return service;
-        }
-        service = GeLifecycleOfferUiCoreFactory.createOfferPreviewRuntimeFacadeService();
-        offerPreviewRuntimeFacadeService = service;
-        return service;
+        return PluginInjectorBridge.get(OfferPreviewRuntimeFacadeService.class);
     }
 
     OfferPreviewItemResolver getOfferPreviewItemResolver() {

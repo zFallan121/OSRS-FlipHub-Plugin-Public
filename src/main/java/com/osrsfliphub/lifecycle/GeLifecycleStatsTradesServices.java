@@ -258,12 +258,6 @@ final class GeLifecycleStatsTradesServices {
     }
 
     OfferStampFallbackBuilder getOfferStampFallbackBuilder() {
-        OfferStampFallbackBuilder builder = offerStampFallbackBuilder;
-        if (builder != null) {
-            return builder;
-        }
-        builder = new OfferStampFallbackBuilder(new OfferStampFallbackPluginHooks(ops::getItemLookupService));
-        offerStampFallbackBuilder = builder;
-        return builder;
+        return PluginInjectorBridge.get(OfferStampFallbackBuilder.class);
     }
 }

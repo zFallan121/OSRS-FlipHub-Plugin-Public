@@ -25,10 +25,16 @@
 package com.osrsfliphub;
 
 import java.util.List;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.api.Client;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
+import net.runelite.api.gameval.VarbitID;
+import net.runelite.api.widgets.ComponentID;
 import net.runelite.api.widgets.Widget;
 
+@Singleton
 final class OfferTypeResolver {
     interface Hooks {
         Widget getOfferContainer();
@@ -44,8 +50,49 @@ final class OfferTypeResolver {
     private Integer newOfferTypeSellValue;
     private Boolean lastResolvedOfferType;
 
+    @Inject
+    OfferTypeResolver(Client client, OfferPreviewRuntimeFacadeService facade) {
+        this(productionHooks(client, facade));
+    }
+
     OfferTypeResolver(Hooks hooks) {
         this.hooks = hooks;
+    }
+
+    private static Hooks productionHooks(Client client, OfferPreviewRuntimeFacadeService facade) {
+        return new Hooks() {
+            @Override
+            public Widget getOfferContainer() {
+                return client != null ? client.getWidget(ComponentID.GRAND_EXCHANGE_OFFER_CONTAINER) : null;
+            }
+
+            @Override
+            public GrandExchangeOffer getSelectedOffer() {
+                return facade != null ? facade.getSelectedOffer(client, VarbitID.GE_SELECTEDSLOT) : null;
+            }
+
+            @Override
+            public int getNewOfferTypeVarbit() {
+                return client != null ? client.getVarbitValue(VarbitID.GE_NEWOFFER_TYPE) : 0;
+            }
+
+            @Override
+            public Widget getVisibleGeRoot() {
+                return facade != null
+                    ? facade.getVisibleGeRoot(client, ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER)
+                    : null;
+            }
+
+            @Override
+            public List<String> collectWidgetText(Widget widget) {
+                return OfferPreviewWidgetParser.collectWidgetText(widget);
+            }
+
+            @Override
+            public String normalizeOfferText(String text) {
+                return OfferPreviewWidgetParser.normalizeText(text);
+            }
+        };
     }
 
     Boolean resolveOfferType() {

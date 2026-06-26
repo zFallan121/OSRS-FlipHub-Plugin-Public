@@ -112,18 +112,7 @@ final class GeLifecycleSuggestionServices {
     }
 
     OfferTypeResolver getOfferTypeResolver() {
-        OfferTypeResolver resolver = offerTypeResolver;
-        if (resolver != null) {
-            return resolver;
-        }
-        resolver = new OfferTypeResolver(
-            new OfferTypeResolverPluginHooks(
-                clientSupplier,
-                offerPreviewRuntimeFacadeServiceSupplier
-            )
-        );
-        offerTypeResolver = resolver;
-        return resolver;
+        return PluginInjectorBridge.get(OfferTypeResolver.class);
     }
 
     ChatboxSuggestionRuntimeStateService getChatboxSuggestionRuntimeStateService() {
