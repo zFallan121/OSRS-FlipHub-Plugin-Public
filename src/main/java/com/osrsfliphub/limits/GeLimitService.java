@@ -30,8 +30,19 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.api.Client;
+import net.runelite.api.GameState;
+import net.runelite.client.callback.ClientThread;
+import net.runelite.client.game.ItemManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+@Singleton
 final class GeLimitService {
+    private static final Logger log = LoggerFactory.getLogger(GeLimitService.class);
+
     interface Hooks {
         boolean isClientFullyReady();
         void invokeOnClientThread(Runnable task);
@@ -46,9 +57,62 @@ final class GeLimitService {
     private final Map<Integer, Integer> geLimitCache = new HashMap<>();
     private final Set<Integer> geLimitPending = new HashSet<>();
 
+    @Inject
+    GeLimitService(ItemManager itemManager, ClientThread clientThread, Client client) {
+        this(GeLifecyclePluginConstants.MAX_GE_LIMIT_LOOKUPS_PER_REQUEST,
+            productionHooks(itemManager, clientThread, client));
+    }
+
     GeLimitService(int maxLookupsPerRequest, Hooks hooks) {
         this.maxLookupsPerRequest = maxLookupsPerRequest;
         this.hooks = hooks;
+    }
+
+    private static ItemLookupService itemLookupService() {
+        return PluginAccess.plugin().getOfferUiRuntimeServices().getItemServices().getItemLookupService();
+    }
+
+    private static Hooks productionHooks(ItemManager itemManager, ClientThread clientThread, Client client) {
+        return new Hooks() {
+            @Override
+            public boolean isClientFullyReady() {
+                return client != null
+                    && client.getGameState() == GameState.LOGGED_IN
+                    && client.getLocalPlayer() != null
+                    && clientThread != null
+                    && itemManager != null;
+            }
+
+            @Override
+            public void invokeOnClientThread(Runnable task) {
+                if (task != null && clientThread != null) {
+                    clientThread.invokeLater(task);
+                }
+            }
+
+            @Override
+            public Integer lookupGeLimit(int itemId) {
+                ItemLookupService service = itemLookupService();
+                Integer geLimit = service != null ? service.lookupGeLimitSafe(itemId) : null;
+                return geLimit != null ? geLimit : 0;
+            }
+
+            @Override
+            public void onLimitsUpdated() {
+                GeLifecyclePlugin plugin = PluginAccess.plugin();
+                PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
+                if (coordinator != null) {
+                    coordinator.scheduleRefreshSoon(plugin.scheduler);
+                }
+            }
+
+            @Override
+            public void logDebug(String message) {
+                if (message != null && log.isDebugEnabled()) {
+                    log.debug(message);
+                }
+            }
+        };
     }
 
     Integer getCachedGeLimit(int itemId) {

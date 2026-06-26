@@ -51,8 +51,6 @@ final class GeLifecycleBackfillMarketDataServices {
     private final BooleanSupplier isClientFullyReadySupplier;
     private final boolean hasItemManager;
 
-    private GeLimitFactoryService geLimitFactoryService;
-    private GeLimitService geLimitService;
     private LocalItemEnrichmentFactoryService localItemEnrichmentFactoryService;
     private LocalItemEnrichmentService localItemEnrichmentService;
     private RecentTradeDeduper recentTradeDeduper;
@@ -98,22 +96,7 @@ final class GeLifecycleBackfillMarketDataServices {
     }
 
     GeLimitService getGeLimitService() {
-        GeLimitService service = geLimitService;
-        if (service != null) {
-            return service;
-        }
-        service = getGeLimitFactoryService().create(
-            new GeLimitPluginHooks(
-                this::isReadyForGeLimitLookup,
-                clientThreadSupplier,
-                this::lookupGeLimitSafe,
-                scheduleRefreshSoon,
-                loggerSupplier,
-                this::isDebugEnabled
-            )
-        );
-        geLimitService = service;
-        return service;
+        return PluginInjectorBridge.get(GeLimitService.class);
     }
 
     LocalItemEnrichmentService getLocalItemEnrichmentService() {
@@ -146,15 +129,6 @@ final class GeLifecycleBackfillMarketDataServices {
         return PluginInjectorBridge.get(WikiPriceService.class);
     }
 
-    private GeLimitFactoryService getGeLimitFactoryService() {
-        GeLimitFactoryService service = geLimitFactoryService;
-        if (service != null) {
-            return service;
-        }
-        service = new GeLimitFactoryService(maxGeLimitLookupsPerRequest);
-        geLimitFactoryService = service;
-        return service;
-    }
 
     private LocalItemEnrichmentFactoryService getLocalItemEnrichmentFactoryService() {
         LocalItemEnrichmentFactoryService service = localItemEnrichmentFactoryService;

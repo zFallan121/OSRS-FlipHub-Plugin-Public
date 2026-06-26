@@ -60,10 +60,6 @@ final class GeLifecycleSuggestionServices {
     private ChatboxSuggestionApplyService chatboxSuggestionApplyService;
     private ChatboxSuggestionWidgetFactoryService chatboxSuggestionWidgetFactoryService;
     private ChatboxPromptWidgetResolverService chatboxPromptWidgetResolverService;
-    private RemainingLimitSuggestionFactoryService remainingLimitSuggestionFactoryService;
-    private RemainingLimitSuggestionService remainingLimitSuggestionService;
-    private AffordableLimitSuggestionFactoryService affordableLimitSuggestionFactoryService;
-    private AffordableLimitSuggestionService affordableLimitSuggestionService;
 
     GeLifecycleSuggestionServices(
         Supplier<Client> clientSupplier,
@@ -225,42 +221,11 @@ final class GeLifecycleSuggestionServices {
     }
 
     RemainingLimitSuggestionService getRemainingLimitSuggestionService() {
-        RemainingLimitSuggestionService service = remainingLimitSuggestionService;
-        if (service != null) {
-            return service;
-        }
-        service = getRemainingLimitSuggestionFactoryService().create(
-            new RemainingLimitSuggestionPluginHooks(
-                localAccountSessionServiceSupplier,
-                profileSelectionPresentationFacadeServiceSupplier,
-                ensureProfileLoaded,
-                geLimitServiceSupplier,
-                itemLookupServiceSupplier,
-                localTradeSessionFacadeServiceSupplier,
-                offerPreviewItemSupplier,
-                System::currentTimeMillis
-            )
-        );
-        remainingLimitSuggestionService = service;
-        return service;
+        return PluginInjectorBridge.get(RemainingLimitSuggestionService.class);
     }
 
     AffordableLimitSuggestionService getAffordableLimitSuggestionService() {
-        AffordableLimitSuggestionService service = affordableLimitSuggestionService;
-        if (service != null) {
-            return service;
-        }
-        service = getAffordableLimitSuggestionFactoryService().create(
-            new RuneLiteAffordableLimitSuggestionPluginHooks(
-                clientSupplier,
-                geOfferPriceVarbit,
-                coinsItemId,
-                selectedSlotVarbit,
-                offerPreviewRuntimeFacadeServiceSupplier
-            )
-        );
-        affordableLimitSuggestionService = service;
-        return service;
+        return PluginInjectorBridge.get(AffordableLimitSuggestionService.class);
     }
 
     private ChatboxSuggestionCycleFactoryService getChatboxSuggestionCycleFactoryService() {
@@ -273,23 +238,4 @@ final class GeLifecycleSuggestionServices {
         return service;
     }
 
-    private RemainingLimitSuggestionFactoryService getRemainingLimitSuggestionFactoryService() {
-        RemainingLimitSuggestionFactoryService service = remainingLimitSuggestionFactoryService;
-        if (service != null) {
-            return service;
-        }
-        service = new RemainingLimitSuggestionFactoryService();
-        remainingLimitSuggestionFactoryService = service;
-        return service;
-    }
-
-    private AffordableLimitSuggestionFactoryService getAffordableLimitSuggestionFactoryService() {
-        AffordableLimitSuggestionFactoryService service = affordableLimitSuggestionFactoryService;
-        if (service != null) {
-            return service;
-        }
-        service = new AffordableLimitSuggestionFactoryService();
-        affordableLimitSuggestionFactoryService = service;
-        return service;
-    }
 }

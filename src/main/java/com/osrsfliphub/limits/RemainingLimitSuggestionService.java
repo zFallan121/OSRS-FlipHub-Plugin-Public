@@ -27,7 +27,10 @@ package com.osrsfliphub;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class RemainingLimitSuggestionService {
     private static final long LIMIT_SUGGESTION_REFRESH_MS = 1000L;
     private static final long GE_LIMIT_WINDOW_MS = 4L * 60L * 60L * 1000L;
@@ -50,8 +53,78 @@ final class RemainingLimitSuggestionService {
     private long cachedRemainingLimitAccountKey = Long.MIN_VALUE;
     private long cachedRemainingLimitAtMs;
 
+    @Inject
+    RemainingLimitSuggestionService() {
+        this(productionHooks());
+    }
+
     RemainingLimitSuggestionService(Hooks hooks) {
         this.hooks = hooks;
+    }
+
+    private static GeLimitService geLimitService() {
+        return PluginAccess.plugin().getBackfillServices().getBackfillMarketServices().getGeLimitService();
+    }
+
+    private static Hooks productionHooks() {
+        return new Hooks() {
+            @Override
+            public long resolveLocalAccountKey() {
+                LocalAccountSessionService service =
+                    PluginAccess.plugin().getStatsTradesServices().getLocalAccountSessionService();
+                return service != null ? service.resolveLocalAccountKey() : 0L;
+            }
+
+            @Override
+            public long resolveSelectedProfileKey() {
+                ProfileSelectionPresentationFacadeService service = PluginAccess.plugin()
+                    .getProfileSelectionServices().getProfileSelectionPresentationFacadeService();
+                return service != null ? service.resolveSelectedProfileKey() : 0L;
+            }
+
+            @Override
+            public void ensureProfileLoaded(long accountKey) {
+                PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
+            }
+
+            @Override
+            public void requestGeLimits(Set<Integer> itemIds) {
+                GeLimitService service = geLimitService();
+                if (service != null) {
+                    service.requestGeLimits(itemIds);
+                }
+            }
+
+            @Override
+            public Integer getCachedGeLimit(int itemId) {
+                GeLimitService service = geLimitService();
+                return service != null ? service.getCachedGeLimit(itemId) : null;
+            }
+
+            @Override
+            public Integer lookupGeLimitSafe(int itemId) {
+                ItemLookupService service =
+                    PluginAccess.plugin().getOfferUiRuntimeServices().getItemServices().getItemLookupService();
+                return service != null ? service.lookupGeLimitSafe(itemId) : null;
+            }
+
+            @Override
+            public Map<Integer, LocalLimitInfo> buildLocalLimitInfo(long accountKey, long nowMs) {
+                LocalTradeSessionFacadeService service =
+                    PluginAccess.plugin().getStatsTradesServices().getLocalTradeSessionFacadeService();
+                return service != null ? service.buildLocalLimitInfo(accountKey, nowMs) : null;
+            }
+
+            @Override
+            public FlipHubItem getOfferPreviewItem() {
+                return PluginAccess.plugin().offerPreviewItem;
+            }
+
+            @Override
+            public long nowMs() {
+                return System.currentTimeMillis();
+            }
+        };
     }
 
     Integer getThrottledSuggestion(int itemId) {

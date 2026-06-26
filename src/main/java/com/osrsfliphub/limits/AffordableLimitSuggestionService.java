@@ -24,6 +24,16 @@
  */
 package com.osrsfliphub;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.api.Client;
+import net.runelite.api.GrandExchangeOffer;
+import net.runelite.api.InventoryID;
+import net.runelite.api.Item;
+import net.runelite.api.ItemContainer;
+import net.runelite.api.gameval.VarbitID;
+
+@Singleton
 final class AffordableLimitSuggestionService {
     interface Hooks {
         Integer getEnteredOfferPrice();
@@ -33,8 +43,61 @@ final class AffordableLimitSuggestionService {
 
     private final Hooks hooks;
 
+    @Inject
+    AffordableLimitSuggestionService(Client client, OfferPreviewRuntimeFacadeService facade) {
+        this(productionHooks(client, facade));
+    }
+
     AffordableLimitSuggestionService(Hooks hooks) {
         this.hooks = hooks;
+    }
+
+    private static Hooks productionHooks(Client client, OfferPreviewRuntimeFacadeService facade) {
+        return new Hooks() {
+            @Override
+            public Integer getEnteredOfferPrice() {
+                if (client == null) {
+                    return null;
+                }
+                int enteredPrice = client.getVarbitValue(GeLifecyclePluginConstants.GE_OFFER_PRICE_VARBIT);
+                return enteredPrice > 0 ? enteredPrice : null;
+            }
+
+            @Override
+            public Integer getSelectedOfferPrice() {
+                if (client == null || facade == null) {
+                    return null;
+                }
+                GrandExchangeOffer offer = facade.getSelectedOffer(client, VarbitID.GE_SELECTEDSLOT);
+                if (offer == null || offer.getPrice() <= 0) {
+                    return null;
+                }
+                return offer.getPrice();
+            }
+
+            @Override
+            public long getInventoryCoins() {
+                if (client == null) {
+                    return 0L;
+                }
+                ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
+                if (inventory == null) {
+                    return 0L;
+                }
+                Item[] items = inventory.getItems();
+                if (items == null || items.length == 0) {
+                    return 0L;
+                }
+                long totalCoins = 0L;
+                for (Item item : items) {
+                    if (item == null || item.getId() != GeLifecyclePluginConstants.COINS_ITEM_ID) {
+                        continue;
+                    }
+                    totalCoins += Math.max(0, item.getQuantity());
+                }
+                return totalCoins;
+            }
+        };
     }
 
     Integer computeAffordableLimit(Integer remainingLimit) {
