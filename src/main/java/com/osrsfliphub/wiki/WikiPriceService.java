@@ -24,6 +24,8 @@
  */
 package com.osrsfliphub;
 
+import com.google.gson.Gson;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
@@ -31,8 +33,20 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import okhttp3.Call;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+@Singleton
 final class WikiPriceService {
+    private static final Logger log = LoggerFactory.getLogger(WikiPriceService.class);
+
     interface Hooks {
         boolean isPanelVisible();
         boolean isDebugEnabled();
@@ -59,11 +73,100 @@ final class WikiPriceService {
     private volatile long wikiLatestFetchedMs;
     private volatile ScheduledFuture<?> wikiFetchTask;
 
+    @Inject
+    WikiPriceService(OkHttpClient httpClient, Gson gson, PluginRuntime runtime) {
+        this(
+            GeLifecyclePluginConstants.WIKI_CACHE_TTL_MS,
+            GeLifecyclePluginConstants.WIKI_MIN_REFRESH_MS,
+            new Hooks() {
+                @Override
+                public boolean isPanelVisible() {
+                    return runtime != null && runtime.isPanelVisible();
+                }
+
+                @Override
+                public boolean isDebugEnabled() {
+                    return log.isDebugEnabled();
+                }
+
+                @Override
+                public void logDebug(String message) {
+                    if (message != null && log.isDebugEnabled()) {
+                        log.debug(message);
+                    }
+                }
+            },
+            httpFetcher(httpClient, gson,
+                GeLifecyclePluginConstants.WIKI_LATEST_URL,
+                GeLifecyclePluginConstants.WIKI_USER_AGENT)
+        );
+    }
+
     WikiPriceService(long cacheTtlMs, long minRefreshMs, Hooks hooks, Fetcher fetcher) {
         this.cacheTtlMs = cacheTtlMs;
         this.minRefreshMs = minRefreshMs;
         this.hooks = hooks;
         this.fetcher = fetcher;
+    }
+
+    private static Fetcher httpFetcher(OkHttpClient httpClient, Gson gson, String latestUrl, String userAgent) {
+        return callback -> {
+            if (callback == null) {
+                return;
+            }
+            if (httpClient == null || gson == null) {
+                callback.onFailure(new IllegalStateException("Wiki fetch unavailable"));
+                return;
+            }
+            Request request = new Request.Builder()
+                .url(latestUrl)
+                .get()
+                .addHeader("User-Agent", userAgent)
+                .addHeader("Accept", "application/json")
+                .build();
+            httpClient.newCall(request).enqueue(new okhttp3.Callback() {
+                @Override
+                public void onFailure(Call call, IOException e) {
+                    callback.onFailure(e);
+                }
+
+                @Override
+                public void onResponse(Call call, Response response) {
+                    try (ResponseBody responseBody = response.body()) {
+                        if (!response.isSuccessful()) {
+                            callback.onFailure(new IOException("HTTP " + response.code()));
+                            return;
+                        }
+                        String body = responseBody != null ? responseBody.string() : null;
+                        if (body == null || body.isEmpty()) {
+                            callback.onFailure(new IOException("Empty wiki price response"));
+                            return;
+                        }
+                        WikiLatestResponse latest = gson.fromJson(body, WikiLatestResponse.class);
+                        if (latest == null || latest.data == null) {
+                            callback.onFailure(new IOException("Malformed wiki price response"));
+                            return;
+                        }
+                        Map<Integer, WikiPriceEntry> next = new HashMap<>();
+                        for (Map.Entry<String, WikiPriceEntry> entry : latest.data.entrySet()) {
+                            if (entry == null || entry.getKey() == null || entry.getValue() == null) {
+                                continue;
+                            }
+                            try {
+                                int itemId = Integer.parseInt(entry.getKey());
+                                if (itemId > 0) {
+                                    next.put(itemId, entry.getValue());
+                                }
+                            } catch (NumberFormatException ignored) {
+                            }
+                        }
+                        callback.onSuccess(next);
+                    } catch (IOException | RuntimeException ex) {
+                        callback.onFailure(ex);
+                    }
+                }
+            });
+        };
     }
 
     WikiPriceEntry getPriceEntry(int itemId, boolean allowRefresh) {

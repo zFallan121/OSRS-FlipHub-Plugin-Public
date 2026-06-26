@@ -173,6 +173,7 @@ public class GeLifecyclePlugin extends Plugin {
 
     @Override
     protected void startUp() {
+        PluginInjectorBridge.set(getInjector());
         GeLifecyclePluginLifecycleCoordinator.startUp(this);
     }
 

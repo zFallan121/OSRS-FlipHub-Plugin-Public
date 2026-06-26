@@ -56,8 +56,6 @@ final class GeLifecycleBackfillMarketDataServices {
     private LocalItemEnrichmentFactoryService localItemEnrichmentFactoryService;
     private LocalItemEnrichmentService localItemEnrichmentService;
     private RecentTradeDeduper recentTradeDeduper;
-    private WikiPriceFactoryService wikiPriceFactoryService;
-    private WikiPriceService wikiPriceService;
 
     GeLifecycleBackfillMarketDataServices(
         int maxGeLimitLookupsPerRequest,
@@ -145,21 +143,7 @@ final class GeLifecycleBackfillMarketDataServices {
     }
 
     WikiPriceService getWikiPriceService() {
-        WikiPriceService service = wikiPriceService;
-        if (service != null) {
-            return service;
-        }
-        service = getWikiPriceFactoryService().create(
-            new WikiPricePluginHooks(
-                panelVisibleSupplier,
-                this::isDebugEnabled,
-                loggerSupplier,
-                httpClient,
-                gson
-            )
-        );
-        wikiPriceService = service;
-        return service;
+        return PluginInjectorBridge.get(WikiPriceService.class);
     }
 
     private GeLimitFactoryService getGeLimitFactoryService() {
@@ -179,21 +163,6 @@ final class GeLifecycleBackfillMarketDataServices {
         }
         service = new LocalItemEnrichmentFactoryService(localLimitWindowMs);
         localItemEnrichmentFactoryService = service;
-        return service;
-    }
-
-    private WikiPriceFactoryService getWikiPriceFactoryService() {
-        WikiPriceFactoryService service = wikiPriceFactoryService;
-        if (service != null) {
-            return service;
-        }
-        service = new WikiPriceFactoryService(
-            wikiCacheTtlMs,
-            wikiMinRefreshMs,
-            wikiLatestUrl,
-            wikiUserAgent
-        );
-        wikiPriceFactoryService = service;
         return service;
     }
 
