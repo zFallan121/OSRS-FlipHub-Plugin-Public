@@ -24,6 +24,11 @@
  */
 package com.osrsfliphub;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.client.config.ConfigManager;
+
+@Singleton
 final class LinkSessionConfigStore {
     static final String SESSION_TOKEN_KEY = "sessionToken";
     static final String SIGNING_SECRET_KEY = "signingSecret";
@@ -39,9 +44,32 @@ final class LinkSessionConfigStore {
     private final Hooks hooks;
     private final String configGroup;
 
+    @Inject
+    LinkSessionConfigStore(ConfigManager configManager) {
+        this(productionHooks(configManager), FliphubConfigGroups.CONFIG_GROUP);
+    }
+
     LinkSessionConfigStore(Hooks hooks, String configGroup) {
         this.hooks = hooks;
         this.configGroup = configGroup;
+    }
+
+    private static Hooks productionHooks(ConfigManager configManager) {
+        return new Hooks() {
+            @Override
+            public void setString(String group, String key, String value) {
+                if (configManager != null) {
+                    configManager.setConfiguration(group, key, value);
+                }
+            }
+
+            @Override
+            public void setBoolean(String group, String key, boolean value) {
+                if (configManager != null) {
+                    configManager.setConfiguration(group, key, value);
+                }
+            }
+        };
     }
 
     void clearLinkState() {

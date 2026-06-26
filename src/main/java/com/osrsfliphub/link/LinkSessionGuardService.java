@@ -24,6 +24,10 @@
  */
 package com.osrsfliphub;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
+@Singleton
 final class LinkSessionGuardService {
     interface Hooks {
         String getSessionToken();
@@ -41,6 +45,21 @@ final class LinkSessionGuardService {
     }
 
     private final Hooks hooks;
+
+    @Inject
+    LinkSessionGuardService(PluginConfig config) {
+        this(new Hooks() {
+            @Override
+            public String getSessionToken() {
+                return config != null ? config.sessionToken() : null;
+            }
+
+            @Override
+            public String getSigningSecret() {
+                return config != null ? config.signingSecret() : null;
+            }
+        });
+    }
 
     LinkSessionGuardService(Hooks hooks) {
         this.hooks = hooks;

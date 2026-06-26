@@ -63,8 +63,6 @@ final class GeLifecycleBackfillExecutionServices {
     private final Supplier<Logger> loggerSupplier;
     private final BooleanSupplier debugEnabledSupplier;
 
-    private SessionRefreshFactoryService sessionRefreshFactoryService;
-    private SessionRefreshService sessionRefreshService;
     private AccountwideBackfillCoordinatorFactoryService accountwideBackfillCoordinatorFactoryService;
     private AccountwideBackfillCoordinator accountwideBackfillCoordinator;
     private BackfillUploaderFactoryService backfillUploaderFactoryService;
@@ -133,22 +131,7 @@ final class GeLifecycleBackfillExecutionServices {
     }
 
     SessionRefreshService getSessionRefreshService() {
-        SessionRefreshService service = sessionRefreshService;
-        if (service != null) {
-            return service;
-        }
-        service = getSessionRefreshFactoryService().create(
-            new SessionRefreshPluginHooks(
-                apiClientSupplier,
-                configSupplier,
-                configManagerSupplier,
-                accountwideSummaryUploaderSupplier,
-                uploadBackfillDispatchServiceSupplier,
-                uploadEventDispatchFacadeServiceSupplier
-            )
-        );
-        sessionRefreshService = service;
-        return service;
+        return PluginInjectorBridge.get(SessionRefreshService.class);
     }
 
     AccountwideBackfillCoordinator getAccountwideBackfillCoordinator() {
@@ -228,16 +211,6 @@ final class GeLifecycleBackfillExecutionServices {
         );
         backfillSyncMatcher = matcher;
         return matcher;
-    }
-
-    private SessionRefreshFactoryService getSessionRefreshFactoryService() {
-        SessionRefreshFactoryService service = sessionRefreshFactoryService;
-        if (service != null) {
-            return service;
-        }
-        service = new SessionRefreshFactoryService();
-        sessionRefreshFactoryService = service;
-        return service;
     }
 
     private AccountwideBackfillCoordinatorFactoryService getAccountwideBackfillCoordinatorFactoryService() {

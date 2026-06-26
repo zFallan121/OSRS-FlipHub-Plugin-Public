@@ -25,7 +25,11 @@
 package com.osrsfliphub;
 
 import java.io.IOException;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.client.config.ConfigManager;
 
+@Singleton
 final class SessionRefreshService {
     private static final String DEFAULT_CONFIG_GROUP = FliphubConfigGroups.CONFIG_GROUP;
     private static final String SESSION_TOKEN_KEY = "sessionToken";
@@ -44,6 +48,68 @@ final class SessionRefreshService {
     }
 
     private final Hooks hooks;
+
+    @Inject
+    SessionRefreshService(ApiClient apiClient, PluginConfig config, ConfigManager configManager) {
+        this(productionHooks(apiClient, config, configManager));
+    }
+
+    private static Hooks productionHooks(ApiClient apiClient, PluginConfig config, ConfigManager configManager) {
+        return new Hooks() {
+            @Override
+            public ApiClient.LinkResponse refreshSession(String currentToken, String signingSecret, String deviceId)
+                throws IOException {
+                if (apiClient == null) {
+                    throw new IllegalStateException("Refresh failed: api client unavailable");
+                }
+                return apiClient.refreshSession(currentToken, signingSecret, deviceId);
+            }
+
+            @Override
+            public String getSigningSecret() {
+                return config != null ? config.signingSecret() : null;
+            }
+
+            @Override
+            public String getDeviceId() {
+                return config != null ? config.deviceId() : null;
+            }
+
+            @Override
+            public void setConfiguration(String group, String key, String value) {
+                if (configManager != null) {
+                    configManager.setConfiguration(group, key, value);
+                }
+            }
+
+            @Override
+            public void resetAccountwideUploadSnapshot() {
+                AccountwideSummaryUploader uploader =
+                    PluginAccess.plugin().getBackfillServices().getAccountwideSummaryUploader();
+                if (uploader != null) {
+                    uploader.resetUploadSnapshot();
+                }
+            }
+
+            @Override
+            public void resetBackfillRetryState() {
+                UploadBackfillDispatchService service =
+                    PluginAccess.plugin().getUploadRuntimeServices().getUploadBackfillDispatchService();
+                if (service != null) {
+                    service.resetBackfillRetryState();
+                }
+            }
+
+            @Override
+            public void setUploadBlocked(String reason) {
+                UploadEventDispatchFacadeService service =
+                    PluginAccess.plugin().getUploadRuntimeServices().getUploadEventDispatchFacadeService();
+                if (service != null) {
+                    service.markBlocked(reason);
+                }
+            }
+        };
+    }
 
     SessionRefreshService(Hooks hooks) {
         this.hooks = hooks;

@@ -93,54 +93,14 @@ final class GeLifecycleLinkServices {
     }
 
     LinkSessionGuardService getLinkSessionGuardService() {
-        LinkSessionGuardService service = linkSessionGuardService;
-        if (service != null) {
-            return service;
-        }
-        service = new LinkSessionGuardService(new LinkSessionGuardPluginHooks(configSupplier));
-        linkSessionGuardService = service;
-        return service;
+        return PluginInjectorBridge.get(LinkSessionGuardService.class);
     }
 
     LinkSessionConfigStore getLinkSessionConfigStore() {
-        LinkSessionConfigStore store = linkSessionConfigStore;
-        if (store != null) {
-            return store;
-        }
-        store = new LinkSessionConfigStore(
-            new LinkSessionConfigStorePluginHooks(configManagerSupplier),
-            configGroup
-        );
-        linkSessionConfigStore = store;
-        return store;
+        return PluginInjectorBridge.get(LinkSessionConfigStore.class);
     }
 
     LinkAttemptService getLinkAttemptService() {
-        LinkAttemptService service = linkAttemptService;
-        if (service != null) {
-            return service;
-        }
-        service = new LinkAttemptService(
-            new LinkAttemptPluginHooks(
-                isClientLoggedIn,
-                configSupplier,
-                apiClientSupplier,
-                username,
-                pluginVersion,
-                this::getLinkSessionConfigStore,
-                accountwideSummaryUploaderSupplier,
-                uploadEventDispatchFacadeServiceSupplier,
-                uploadBackfillDispatchServiceSupplier,
-                schedulerSupplier,
-                refreshPanelData,
-                updateProfileHeader,
-                timeoutExceptionPredicate,
-                logTimeout,
-                logFailure,
-                executeIoConsumer
-            )
-        );
-        linkAttemptService = service;
-        return service;
+        return PluginInjectorBridge.get(LinkAttemptService.class);
     }
 }

@@ -25,8 +25,22 @@
 package com.osrsfliphub;
 
 import java.io.IOException;
+import java.net.SocketTimeoutException;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.api.Client;
+import net.runelite.api.GameState;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+@Singleton
 final class LinkAttemptService {
+    private static final Logger log = LoggerFactory.getLogger(LinkAttemptService.class);
+    private static final String USERNAME = System.getProperty("user.name");
+    private static final String PLUGIN_VERSION = "1.0.0";
+
     interface Hooks {
         boolean isClientLoggedIn();
         String currentDeviceId();
@@ -52,8 +66,139 @@ final class LinkAttemptService {
 
     private final Hooks hooks;
 
+    @Inject
+    LinkAttemptService(Client client, PluginConfig config, ApiClient apiClient) {
+        this(productionHooks(client, config, apiClient));
+    }
+
     LinkAttemptService(Hooks hooks) {
         this.hooks = hooks;
+    }
+
+    private static ScheduledExecutorService scheduler() {
+        return PluginAccess.plugin().scheduler;
+    }
+
+    private static UploadBackfillDispatchService uploadBackfillDispatch() {
+        return PluginAccess.plugin().getUploadRuntimeServices().getUploadBackfillDispatchService();
+    }
+
+    private static UploadEventDispatchFacadeService uploadEventDispatchFacade() {
+        return PluginAccess.plugin().getUploadRuntimeServices().getUploadEventDispatchFacadeService();
+    }
+
+    private static Hooks productionHooks(Client client, PluginConfig config, ApiClient apiClient) {
+        return new Hooks() {
+            @Override
+            public boolean isClientLoggedIn() {
+                return client != null && client.getGameState() == GameState.LOGGED_IN;
+            }
+
+            @Override
+            public String currentDeviceId() {
+                return config != null ? config.deviceId() : null;
+            }
+
+            @Override
+            public ApiClient.LinkResponse linkDevice(String licenseKey, String deviceId) throws IOException {
+                return apiClient != null ? apiClient.linkDevice(licenseKey, deviceId, USERNAME, PLUGIN_VERSION) : null;
+            }
+
+            @Override
+            public void persistLinkedSession(String sessionToken, String signingSecret) {
+                PluginInjectorBridge.get(LinkSessionConfigStore.class).persistLinkedSession(sessionToken, signingSecret);
+            }
+
+            @Override
+            public void resetAccountwideUploadSnapshot() {
+                AccountwideSummaryUploader uploader =
+                    PluginAccess.plugin().getBackfillServices().getAccountwideSummaryUploader();
+                if (uploader != null) {
+                    uploader.resetUploadSnapshot();
+                }
+            }
+
+            @Override
+            public void resetUploadDiagnosticsState() {
+                UploadEventDispatchFacadeService service = uploadEventDispatchFacade();
+                if (service != null) {
+                    service.resetStatus();
+                }
+            }
+
+            @Override
+            public void updateUploadDiagnosticsUi() {
+                UploadEventDispatchFacadeService service = uploadEventDispatchFacade();
+                if (service != null) {
+                    service.updateUploadDiagnosticsUi();
+                }
+            }
+
+            @Override
+            public void requestBackfillAttempt(long delaySeconds, boolean resetBackoff) {
+                ScheduledExecutorService scheduler = scheduler();
+                UploadBackfillDispatchService dispatch = uploadBackfillDispatch();
+                if (scheduler != null && dispatch != null) {
+                    dispatch.requestBackfillAttempt(scheduler, delaySeconds, resetBackoff);
+                }
+            }
+
+            @Override
+            public void scheduleAccountwideSync(long delaySeconds) {
+                ScheduledExecutorService scheduler = scheduler();
+                UploadBackfillDispatchService dispatch = uploadBackfillDispatch();
+                if (scheduler != null && dispatch != null) {
+                    scheduler.schedule(dispatch::requestAccountwideSync, delaySeconds, TimeUnit.SECONDS);
+                }
+            }
+
+            @Override
+            public void refreshPanelData() {
+                PluginAccess.plugin().refreshPanelData();
+            }
+
+            @Override
+            public void updateProfileHeader() {
+                PluginAccess.plugin().getProfileWorkflowService().updateProfileHeader();
+            }
+
+            @Override
+            public boolean isTimeoutException(Throwable ex) {
+                Throwable current = ex;
+                while (current != null) {
+                    if (current instanceof SocketTimeoutException) {
+                        return true;
+                    }
+                    current = current.getCause();
+                }
+                return false;
+            }
+
+            @Override
+            public void logTimeout() {
+                if (log.isDebugEnabled()) {
+                    log.debug("FlipHub link timed out");
+                }
+            }
+
+            @Override
+            public void logFailure(Throwable ex) {
+                log.warn("FlipHub link failed", ex);
+            }
+
+            @Override
+            public void executeIo(Runnable task) {
+                PluginAccess.plugin().executeIo(task);
+            }
+
+            @Override
+            public void scheduleRetry(Runnable task, long delaySeconds) {
+                ScheduledExecutorService scheduler = scheduler();
+                if (scheduler != null && task != null) {
+                    scheduler.schedule(task, delaySeconds, TimeUnit.SECONDS);
+                }
+            }
+        };
     }
 
     String resolveLinkInput(String licenseKey, String linkCode) {
