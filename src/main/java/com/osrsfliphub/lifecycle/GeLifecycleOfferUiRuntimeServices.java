@@ -132,17 +132,7 @@ final class GeLifecycleOfferUiRuntimeServices {
     }
 
     OfferPreviewItemResolver getOfferPreviewItemResolver() {
-        OfferPreviewItemResolver resolver = offerPreviewItemResolver;
-        if (resolver != null) {
-            return resolver;
-        }
-        resolver = GeLifecycleOfferUiCoreFactory.createOfferPreviewItemResolver(
-            context,
-            this::getOfferPreviewRuntimeFacadeService,
-            () -> getItemServices().getItemLookupService()
-        );
-        offerPreviewItemResolver = resolver;
-        return resolver;
+        return PluginInjectorBridge.get(OfferPreviewItemResolver.class);
     }
 
     GeLifecycleSuggestionServices getSuggestionServices() {

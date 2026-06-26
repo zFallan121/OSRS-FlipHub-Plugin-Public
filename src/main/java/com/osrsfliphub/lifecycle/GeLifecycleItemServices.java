@@ -65,8 +65,6 @@ final class GeLifecycleItemServices {
     private LocalItemsResponseBuilder localItemsResponseBuilder;
     private LocalOfferPreviewBuilderFactoryService localOfferPreviewBuilderFactoryService;
     private LocalOfferPreviewBuilder localOfferPreviewBuilder;
-    private OfferPreviewSyncFactoryService offerPreviewSyncFactoryService;
-    private OfferPreviewSyncService offerPreviewSyncService;
 
     GeLifecycleItemServices(
         ItemManager itemManager,
@@ -169,25 +167,7 @@ final class GeLifecycleItemServices {
     }
 
     OfferPreviewSyncService getOfferPreviewSyncService() {
-        OfferPreviewSyncService service = offerPreviewSyncService;
-        if (service != null) {
-            return service;
-        }
-        service = getOfferPreviewSyncFactoryService().create(
-            new OfferPreviewSyncPluginHooks(
-                offerPreviewItemIdSupplier,
-                offerPreviewItemSupplier,
-                offerPreviewItemIdSetter,
-                offerPreviewItemSetter,
-                this::buildLocalOfferPreview,
-                panelSupplier,
-                chatboxSuggestionRuntimeStateServiceSupplier,
-                scheduleRefreshSoon,
-                System::currentTimeMillis
-            )
-        );
-        offerPreviewSyncService = service;
-        return service;
+        return PluginInjectorBridge.get(OfferPreviewSyncService.class);
     }
 
 
@@ -237,15 +217,6 @@ final class GeLifecycleItemServices {
         return service;
     }
 
-    private OfferPreviewSyncFactoryService getOfferPreviewSyncFactoryService() {
-        OfferPreviewSyncFactoryService service = offerPreviewSyncFactoryService;
-        if (service != null) {
-            return service;
-        }
-        service = new OfferPreviewSyncFactoryService();
-        offerPreviewSyncFactoryService = service;
-        return service;
-    }
 
     private ApiClient.ItemsResponse buildOfferStampFallback() {
         GeLifecyclePanelDataRuntimeService service = panelDataRuntimeServiceSupplier != null

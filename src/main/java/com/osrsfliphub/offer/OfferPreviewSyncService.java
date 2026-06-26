@@ -25,7 +25,10 @@
 package com.osrsfliphub;
 
 import java.util.Objects;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class OfferPreviewSyncService {
     interface Hooks {
         Integer getOfferPreviewItemId();
@@ -41,8 +44,74 @@ final class OfferPreviewSyncService {
 
     private final Hooks hooks;
 
+    @Inject
+    OfferPreviewSyncService() {
+        this(productionHooks());
+    }
+
     OfferPreviewSyncService(Hooks hooks) {
         this.hooks = hooks;
+    }
+
+    private static Hooks productionHooks() {
+        return new Hooks() {
+            @Override
+            public Integer getOfferPreviewItemId() {
+                return PluginAccess.plugin().offerPreviewItemId;
+            }
+
+            @Override
+            public FlipHubItem getOfferPreviewItem() {
+                return PluginAccess.plugin().offerPreviewItem;
+            }
+
+            @Override
+            public void setOfferPreviewItemId(Integer itemId) {
+                PluginAccess.plugin().offerPreviewItemId = itemId;
+            }
+
+            @Override
+            public void setOfferPreviewItem(FlipHubItem item) {
+                PluginAccess.plugin().offerPreviewItem = item;
+            }
+
+            @Override
+            public FlipHubItem buildLocalOfferPreview(int itemId) {
+                return PluginAccess.plugin().getPanelLocalRuntimeServices()
+                    .getPanelDataRuntimeService().buildLocalOfferPreview(itemId);
+            }
+
+            @Override
+            public void setPanelOfferPreview(FlipHubItem item, long asOfMs, Long priceCacheMs) {
+                FlipHubPanel panel = PluginAccess.plugin().panel;
+                if (panel != null) {
+                    panel.setOfferPreview(item, asOfMs, priceCacheMs);
+                }
+            }
+
+            @Override
+            public void markSuggestionDirty() {
+                ChatboxSuggestionRuntimeStateService service = PluginAccess.plugin().getOfferUiRuntimeServices()
+                    .getSuggestionServices().getChatboxSuggestionRuntimeStateService();
+                if (service != null) {
+                    service.markSuggestionDirty();
+                }
+            }
+
+            @Override
+            public void scheduleRefreshSoon() {
+                GeLifecyclePlugin plugin = PluginAccess.plugin();
+                PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
+                if (coordinator != null) {
+                    coordinator.scheduleRefreshSoon(plugin.scheduler);
+                }
+            }
+
+            @Override
+            public long nowMs() {
+                return System.currentTimeMillis();
+            }
+        };
     }
 
     void clearPreview() {

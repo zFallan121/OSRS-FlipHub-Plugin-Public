@@ -50,27 +50,6 @@ final class GeLifecycleOfferUiCoreFactory {
         );
     }
 
-    static OfferPreviewRuntimeFacadeService createOfferPreviewRuntimeFacadeService() {
-        return new OfferPreviewRuntimeFacadeService();
-    }
-
-    static OfferPreviewItemResolver createOfferPreviewItemResolver(
-        GeLifecycleOfferUiRuntimeContext context,
-        Supplier<OfferPreviewRuntimeFacadeService> offerPreviewRuntimeFacadeServiceSupplier,
-        Supplier<ItemLookupService> itemLookupServiceSupplier
-    ) {
-        return new OfferPreviewItemResolver(
-            new OfferPreviewItemResolverPluginHooks(
-                context.clientSupplier,
-                offerPreviewRuntimeFacadeServiceSupplier,
-                itemLookupServiceSupplier,
-                OFFER_STATUS_MARKERS,
-                ITEM_NAME_EXCLUDES
-            ),
-            OFFER_SETUP_BLOCKERS
-        );
-    }
-
     static GeLifecycleSuggestionServices createSuggestionServices(
         GeLifecycleOfferUiRuntimeContext context,
         Supplier<OfferPreviewRuntimeFacadeService> offerPreviewRuntimeFacadeServiceSupplier,

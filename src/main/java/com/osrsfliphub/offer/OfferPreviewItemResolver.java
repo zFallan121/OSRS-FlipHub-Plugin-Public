@@ -24,9 +24,16 @@
  */
 package com.osrsfliphub;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.api.Client;
 import net.runelite.api.GrandExchangeOffer;
+import net.runelite.api.VarPlayer;
+import net.runelite.api.gameval.VarbitID;
+import net.runelite.api.widgets.ComponentID;
 import net.runelite.api.widgets.Widget;
 
+@Singleton
 final class OfferPreviewItemResolver {
     interface Hooks {
         Widget getVisibleGeRoot();
@@ -77,9 +84,87 @@ final class OfferPreviewItemResolver {
     private final Hooks hooks;
     private final String[] setupBlockers;
 
+    @Inject
+    OfferPreviewItemResolver(Client client, OfferPreviewRuntimeFacadeService facade) {
+        this(productionHooks(client, facade), GeLifecyclePluginConstants.OFFER_SETUP_BLOCKERS);
+    }
+
     OfferPreviewItemResolver(Hooks hooks, String[] setupBlockers) {
         this.hooks = hooks;
         this.setupBlockers = setupBlockers != null ? setupBlockers : new String[0];
+    }
+
+    private static ItemLookupService itemLookupService() {
+        return PluginAccess.plugin().getOfferUiRuntimeServices().getItemServices().getItemLookupService();
+    }
+
+    private static Hooks productionHooks(Client client, OfferPreviewRuntimeFacadeService facade) {
+        return new Hooks() {
+            @Override
+            public Widget getVisibleGeRoot() {
+                return facade != null
+                    ? facade.getVisibleGeRoot(client, ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER)
+                    : null;
+            }
+
+            @Override
+            public boolean isOfferStatusOpen(Widget geRoot) {
+                return facade != null && facade.isOfferStatusOpen(geRoot, GeLifecyclePluginConstants.OFFER_STATUS_MARKERS);
+            }
+
+            @Override
+            public int getNewOfferTypeVarbit() {
+                return client != null ? client.getVarbitValue(VarbitID.GE_NEWOFFER_TYPE) : 0;
+            }
+
+            @Override
+            public int getSelectedSlotVarbit() {
+                return client != null ? client.getVarbitValue(VarbitID.GE_SELECTEDSLOT) : -1;
+            }
+
+            @Override
+            public Widget getOfferContainer() {
+                return client != null ? client.getWidget(ComponentID.GRAND_EXCHANGE_OFFER_CONTAINER) : null;
+            }
+
+            @Override
+            public String normalizeOfferText(String text) {
+                return OfferPreviewWidgetParser.normalizeText(text);
+            }
+
+            @Override
+            public int findFirstItemId(Widget widget) {
+                return facade != null ? facade.findFirstItemId(widget) : -1;
+            }
+
+            @Override
+            public int getCurrentGeItemVarp() {
+                return client != null ? client.getVarpValue(VarPlayer.CURRENT_GE_ITEM) : -1;
+            }
+
+            @Override
+            public GrandExchangeOffer getSelectedOffer() {
+                return facade != null ? facade.getSelectedOffer(client, VarbitID.GE_SELECTEDSLOT) : null;
+            }
+
+            @Override
+            public String findItemNameCandidate(Widget geRoot) {
+                ItemLookupService itemLookupService = itemLookupService();
+                if (facade == null || itemLookupService == null) {
+                    return null;
+                }
+                return facade.findItemNameCandidate(
+                    geRoot,
+                    GeLifecyclePluginConstants.ITEM_NAME_EXCLUDES,
+                    itemLookupService::resolveItemIdFromName);
+            }
+
+            @Override
+            public int resolveItemIdFromName(String name) {
+                ItemLookupService itemLookupService = itemLookupService();
+                return itemLookupService != null ? itemLookupService.resolveItemIdFromName(name) : -1;
+            }
+        };
     }
 
     Resolution resolve() {
