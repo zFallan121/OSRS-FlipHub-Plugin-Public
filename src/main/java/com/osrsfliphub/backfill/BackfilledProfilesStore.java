@@ -27,7 +27,11 @@ package com.osrsfliphub;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.client.config.ConfigManager;
 
+@Singleton
 final class BackfilledProfilesStore {
     interface Hooks {
         String getConfiguration(String group, String key);
@@ -37,6 +41,24 @@ final class BackfilledProfilesStore {
     private final String configGroup;
     private final String configKey;
     private final Hooks hooks;
+
+    @Inject
+    BackfilledProfilesStore(ConfigManager configManager) {
+        this(FliphubConfigGroups.CONFIG_GROUP, GeLifecyclePluginConstants.BACKFILLED_PROFILES_KEY,
+            new Hooks() {
+                @Override
+                public String getConfiguration(String group, String key) {
+                    return configManager != null ? configManager.getConfiguration(group, key) : null;
+                }
+
+                @Override
+                public void setConfiguration(String group, String key, String value) {
+                    if (configManager != null) {
+                        configManager.setConfiguration(group, key, value);
+                    }
+                }
+            });
+    }
 
     BackfilledProfilesStore(String configGroup, String configKey, Hooks hooks) {
         this.configGroup = configGroup;

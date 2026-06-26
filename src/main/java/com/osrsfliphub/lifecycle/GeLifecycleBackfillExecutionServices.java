@@ -65,11 +65,9 @@ final class GeLifecycleBackfillExecutionServices {
 
     private AccountwideBackfillCoordinatorFactoryService accountwideBackfillCoordinatorFactoryService;
     private AccountwideBackfillCoordinator accountwideBackfillCoordinator;
-    private BackfillUploaderFactoryService backfillUploaderFactoryService;
     private BackfillUploader backfillUploader;
     private AccountwideProfileBackfillFactoryService accountwideProfileBackfillFactoryService;
     private AccountwideProfileBackfillService accountwideProfileBackfillService;
-    private BackfillSyncMatcherFactoryService backfillSyncMatcherFactoryService;
     private BackfillSyncMatcher backfillSyncMatcher;
 
     GeLifecycleBackfillExecutionServices(
@@ -168,19 +166,7 @@ final class GeLifecycleBackfillExecutionServices {
     }
 
     BackfillUploader getBackfillUploader() {
-        BackfillUploader uploader = backfillUploader;
-        if (uploader != null) {
-            return uploader;
-        }
-        uploader = getBackfillUploaderFactoryService().create(
-            new BackfillUploaderPluginHooks(
-                currentToken -> getSessionRefreshService().attemptRefresh(currentToken),
-                () -> getSessionRefreshService().clearSession(),
-                uploadEventDispatchFacadeServiceSupplier
-            )
-        );
-        backfillUploader = uploader;
-        return uploader;
+        return PluginInjectorBridge.get(BackfillUploader.class);
     }
 
     AccountwideProfileBackfillService getAccountwideProfileBackfillService() {
@@ -199,18 +185,7 @@ final class GeLifecycleBackfillExecutionServices {
     }
 
     BackfillSyncMatcher getBackfillSyncMatcher() {
-        BackfillSyncMatcher matcher = backfillSyncMatcher;
-        if (matcher != null) {
-            return matcher;
-        }
-        matcher = getBackfillSyncMatcherFactoryService().create(
-            new BackfillSyncMatcherRuntimePluginHooks(
-                this::isDebugEnabled,
-                this::debugLog
-            )
-        );
-        backfillSyncMatcher = matcher;
-        return matcher;
+        return PluginInjectorBridge.get(BackfillSyncMatcher.class);
     }
 
     private AccountwideBackfillCoordinatorFactoryService getAccountwideBackfillCoordinatorFactoryService() {
@@ -220,16 +195,6 @@ final class GeLifecycleBackfillExecutionServices {
         }
         service = new AccountwideBackfillCoordinatorFactoryService(maxBackfillProfileCount);
         accountwideBackfillCoordinatorFactoryService = service;
-        return service;
-    }
-
-    private BackfillUploaderFactoryService getBackfillUploaderFactoryService() {
-        BackfillUploaderFactoryService service = backfillUploaderFactoryService;
-        if (service != null) {
-            return service;
-        }
-        service = new BackfillUploaderFactoryService();
-        backfillUploaderFactoryService = service;
         return service;
     }
 
@@ -245,16 +210,6 @@ final class GeLifecycleBackfillExecutionServices {
             duplicateTradeWindowMs
         );
         accountwideProfileBackfillFactoryService = service;
-        return service;
-    }
-
-    private BackfillSyncMatcherFactoryService getBackfillSyncMatcherFactoryService() {
-        BackfillSyncMatcherFactoryService service = backfillSyncMatcherFactoryService;
-        if (service != null) {
-            return service;
-        }
-        service = new BackfillSyncMatcherFactoryService(maxBackfillProfileCount, backfillMatchScoreThreshold);
-        backfillSyncMatcherFactoryService = service;
         return service;
     }
 

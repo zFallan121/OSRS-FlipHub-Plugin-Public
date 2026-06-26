@@ -29,8 +29,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+@Singleton
 final class BackfillSyncMatcher {
+    private static final Logger log = LoggerFactory.getLogger(BackfillSyncMatcher.class);
+
     interface Hooks {
         boolean isDebugEnabled();
         void logDebug(String message);
@@ -39,6 +46,25 @@ final class BackfillSyncMatcher {
     private final int maxBackfillProfileCount;
     private final double backfillMatchScoreThreshold;
     private final Hooks hooks;
+
+    @Inject
+    BackfillSyncMatcher() {
+        this(GeLifecyclePluginConstants.MAX_BACKFILL_PROFILE_COUNT,
+            GeLifecyclePluginConstants.BACKFILL_MATCH_SCORE_THRESHOLD,
+            new Hooks() {
+                @Override
+                public boolean isDebugEnabled() {
+                    return log.isDebugEnabled();
+                }
+
+                @Override
+                public void logDebug(String message) {
+                    if (message != null && log.isDebugEnabled()) {
+                        log.debug(message);
+                    }
+                }
+            });
+    }
 
     BackfillSyncMatcher(int maxBackfillProfileCount, double backfillMatchScoreThreshold, Hooks hooks) {
         this.maxBackfillProfileCount = Math.max(1, maxBackfillProfileCount);

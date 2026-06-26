@@ -28,8 +28,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import net.runelite.api.GrandExchangeOfferState;
 
+@Singleton
 final class BackfillUploader {
     interface Hooks {
         boolean attemptRefresh(String currentToken);
@@ -42,8 +45,63 @@ final class BackfillUploader {
 
     private final Hooks hooks;
 
+    @Inject
+    BackfillUploader() {
+        this(productionHooks());
+    }
+
     BackfillUploader(Hooks hooks) {
         this.hooks = hooks;
+    }
+
+    private static UploadEventDispatchFacadeService uploadEventDispatchFacade() {
+        return PluginAccess.plugin().getUploadRuntimeServices().getUploadEventDispatchFacadeService();
+    }
+
+    private static Hooks productionHooks() {
+        return new Hooks() {
+            @Override
+            public boolean attemptRefresh(String currentToken) {
+                return PluginInjectorBridge.get(SessionRefreshService.class).attemptRefresh(currentToken);
+            }
+
+            @Override
+            public void clearSession() {
+                PluginInjectorBridge.get(SessionRefreshService.class).clearSession();
+            }
+
+            @Override
+            public void setUploadBlocked(String reason) {
+                UploadEventDispatchFacadeService service = uploadEventDispatchFacade();
+                if (service != null) {
+                    service.markBlocked(reason);
+                }
+            }
+
+            @Override
+            public void recordUploadAttempt() {
+                UploadEventDispatchFacadeService service = uploadEventDispatchFacade();
+                if (service != null) {
+                    service.markAttempt();
+                }
+            }
+
+            @Override
+            public void recordUploadSuccess(int uploadedCount, int statusCode) {
+                UploadEventDispatchFacadeService service = uploadEventDispatchFacade();
+                if (service != null) {
+                    service.markSuccess(uploadedCount, statusCode);
+                }
+            }
+
+            @Override
+            public void recordUploadFailure(Integer statusCode, String errorMessage, boolean dropped, int droppedCount) {
+                UploadEventDispatchFacadeService service = uploadEventDispatchFacade();
+                if (service != null) {
+                    service.markFailure(statusCode, errorMessage, dropped, droppedCount);
+                }
+            }
+        };
     }
 
     GeEvent buildBackfillEvent(long profileKey, LocalTradeDelta delta, Integer world) {

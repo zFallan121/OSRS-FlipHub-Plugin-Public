@@ -244,17 +244,7 @@ final class GeLifecycleStatsTradesServices {
     }
 
     BackfilledProfilesStore getBackfilledProfilesStore() {
-        BackfilledProfilesStore store = backfilledProfilesStore;
-        if (store != null) {
-            return store;
-        }
-        store = new BackfilledProfilesStore(
-            FliphubConfigGroups.CONFIG_GROUP,
-            BACKFILLED_PROFILES_KEY,
-            new BackfilledProfilesStorePluginHooks(context.configManagerSupplier)
-        );
-        backfilledProfilesStore = store;
-        return store;
+        return PluginInjectorBridge.get(BackfilledProfilesStore.class);
     }
 
     OfferStampFallbackBuilder getOfferStampFallbackBuilder() {
