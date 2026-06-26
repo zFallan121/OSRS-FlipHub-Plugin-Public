@@ -24,6 +24,12 @@
  */
 package com.osrsfliphub;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
+
+@Singleton
 final class ManageDataDialogService {
     interface Hooks {
         boolean hasPanel();
@@ -44,9 +50,114 @@ final class ManageDataDialogService {
     private final long accountwideKey;
     private final Hooks hooks;
 
+    @Inject
+    ManageDataDialogService() {
+        this(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY, productionHooks());
+    }
+
     ManageDataDialogService(long accountwideKey, Hooks hooks) {
         this.accountwideKey = accountwideKey;
         this.hooks = hooks;
+    }
+
+    private static ProfileSelectionPresentationFacadeService profileSelectionFacade() {
+        return PluginAccess.plugin().getProfileSelectionServices().getProfileSelectionPresentationFacadeService();
+    }
+
+    private static GeLifecycleManageDataServices manageDataServices() {
+        return PluginAccess.plugin().getEventManageHistoryServices().getManageDataServices();
+    }
+
+    private static Hooks productionHooks() {
+        return new Hooks() {
+            @Override
+            public boolean hasPanel() {
+                return PluginAccess.plugin().panel != null;
+            }
+
+            @Override
+            public void invokeOnUiThread(Runnable task) {
+                if (task != null) {
+                    SwingUtilities.invokeLater(task);
+                }
+            }
+
+            @Override
+            public long resolveSelectedProfileKey() {
+                ProfileSelectionPresentationFacadeService service = profileSelectionFacade();
+                return service != null ? service.resolveSelectedProfileKey() : -1L;
+            }
+
+            @Override
+            public String resolveSelectedProfileLabel() {
+                ProfileSelectionPresentationFacadeService service = profileSelectionFacade();
+                return service != null ? service.resolveSelectedProfileLabel() : "";
+            }
+
+            @Override
+            public boolean isLinked() {
+                ProfileSelectionPresentationFacadeService service = profileSelectionFacade();
+                return service != null && service.isLinked();
+            }
+
+            @Override
+            public ManageDataCommandService getManageDataCommandService() {
+                return PluginInjectorBridge.get(ManageDataCommandService.class);
+            }
+
+            @Override
+            public int showOptionDialog(String body, Object[] options, Object defaultOption) {
+                return JOptionPane.showOptionDialog(
+                    PluginAccess.plugin().panel,
+                    body,
+                    "FlipHub Manage Data",
+                    JOptionPane.DEFAULT_OPTION,
+                    JOptionPane.WARNING_MESSAGE,
+                    null,
+                    options,
+                    defaultOption);
+            }
+
+            @Override
+            public String showInputDialog(String body, String title) {
+                return JOptionPane.showInputDialog(
+                    PluginAccess.plugin().panel, body, title, JOptionPane.WARNING_MESSAGE);
+            }
+
+            @Override
+            public void showError(String message) {
+                PluginAccess.plugin().getProfileWorkflowService().showManageDataError(message);
+            }
+
+            @Override
+            public void invokeOnClientThread(Runnable task) {
+                PluginAccess.plugin().invokeOnClientThread(task);
+            }
+
+            @Override
+            public void wipeSingleLocalProfile(long accountKey, String label) {
+                LocalProfileWipeService service = manageDataServices().getLocalProfileWipeService();
+                if (service != null) {
+                    service.wipeSingleLocalProfile(accountKey, label);
+                }
+            }
+
+            @Override
+            public void wipeAllLocalProfiles() {
+                LocalProfileWipeService service = manageDataServices().getLocalProfileWipeService();
+                if (service != null) {
+                    service.wipeAllLocalProfiles();
+                }
+            }
+
+            @Override
+            public void wipeWebsiteStatsAsync() {
+                WebsiteStatsWipeService service = manageDataServices().getWebsiteStatsWipeService();
+                if (service != null) {
+                    service.wipeWebsiteStatsAsync();
+                }
+            }
+        };
     }
 
     void showManageDataDialog() {

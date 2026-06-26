@@ -121,34 +121,11 @@ final class GeLifecycleManageDataServices {
     }
 
     ManageDataCommandService getManageDataCommandService() {
-        ManageDataCommandService service = manageDataCommandService;
-        if (service != null) {
-            return service;
-        }
-        service = new ManageDataCommandService();
-        manageDataCommandService = service;
-        return service;
+        return PluginInjectorBridge.get(ManageDataCommandService.class);
     }
 
     ManageDataDialogService getManageDataDialogService() {
-        ManageDataDialogService service = manageDataDialogService;
-        if (service != null) {
-            return service;
-        }
-        service = new ManageDataDialogService(
-            context.accountwideKey,
-            new ManageDataDialogPluginHooks(
-                context.panelSupplier,
-                context.profileSelectionPresentationFacadeServiceSupplier,
-                this::getManageDataCommandService,
-                this::showManageDataError,
-                this::invokeOnClientThread,
-                this::getLocalProfileWipeService,
-                this::getWebsiteStatsWipeService
-            )
-        );
-        manageDataDialogService = service;
-        return service;
+        return PluginInjectorBridge.get(ManageDataDialogService.class);
     }
 
     ProfileWipeDataService getProfileWipeDataService() {

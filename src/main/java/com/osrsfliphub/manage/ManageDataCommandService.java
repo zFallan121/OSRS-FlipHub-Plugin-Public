@@ -27,7 +27,9 @@ package com.osrsfliphub;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import javax.inject.Singleton;
 
+@Singleton
 final class ManageDataCommandService {
     static final String OPTION_WIPE_PROFILE = "Wipe this profile";
     static final String OPTION_WIPE_ALL_LOCAL = "Wipe ALL local profiles";
