@@ -54,7 +54,7 @@ final class GeLifecycleHistoryEventFactory {
     private final Runnable updateProfileHeaderAction;
     private final Runnable loadOfferUpdateTimesForCurrentAccountAction;
     private final Map<Integer, OfferSnapshot> snapshots;
-    private final GrandExchangeOfferChangedPluginHooks.OfferUpdateTracker trackOfferUpdateAction;
+    private final OfferUpdateTracker trackOfferUpdateAction;
     private final Supplier<ProfileSelectionPresentationFacadeService> profileSelectionPresentationFacadeServiceSupplier;
     private final LongSupplier resolveAccountHashSupplier;
     private final LongConsumer ensureLocalTradesLoadedAction;
@@ -85,7 +85,7 @@ final class GeLifecycleHistoryEventFactory {
         Runnable updateProfileHeaderAction,
         Runnable loadOfferUpdateTimesForCurrentAccountAction,
         Map<Integer, OfferSnapshot> snapshots,
-        GrandExchangeOfferChangedPluginHooks.OfferUpdateTracker trackOfferUpdateAction,
+        OfferUpdateTracker trackOfferUpdateAction,
         Supplier<ProfileSelectionPresentationFacadeService> profileSelectionPresentationFacadeServiceSupplier,
         LongSupplier resolveAccountHashSupplier,
         LongConsumer ensureLocalTradesLoadedAction,

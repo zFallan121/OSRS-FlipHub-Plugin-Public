@@ -24,8 +24,11 @@
  */
 package com.osrsfliphub;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import net.runelite.api.GameState;
 
+@Singleton
 final class GameStateChangedHandlerService {
     interface Hooks {
         void persistOfferUpdateTimes();
@@ -59,8 +62,197 @@ final class GameStateChangedHandlerService {
 
     private final Hooks hooks;
 
+    @Inject
+    GameStateChangedHandlerService(PluginConfig config) {
+        this(productionHooks(config));
+    }
+
     GameStateChangedHandlerService(Hooks hooks) {
         this.hooks = hooks;
+    }
+
+    private static GeLifecycleOfferStampStateServices offerStampState() {
+        return PluginAccess.plugin().getOfferStampStateServices();
+    }
+
+    private static GeLifecycleProfileWorkflowService profileWorkflow() {
+        return PluginAccess.plugin().getProfileWorkflowService();
+    }
+
+    private static ProfileSelectionPresentationFacadeService profileSelectionFacade() {
+        return PluginAccess.plugin().getProfileSelectionServices().getProfileSelectionPresentationFacadeService();
+    }
+
+    private static Hooks productionHooks(PluginConfig config) {
+        return new Hooks() {
+            @Override
+            public void persistOfferUpdateTimes() {
+                offerStampState().persistOfferUpdateTimes();
+            }
+
+            @Override
+            public void resetOfferUpdateStamps() {
+                offerStampState().resetOfferUpdateStampsOnLogout();
+            }
+
+            @Override
+            public void clearSnapshots() {
+                PluginAccess.plugin().snapshots.clear();
+            }
+
+            @Override
+            public void disarmGeHistoryAutoSync() {
+                PluginAccess.plugin().getEventManageHistoryServices().getGeHistoryAutoSyncStateService().disarm();
+            }
+
+            @Override
+            public void clearRecentTradeDeduper() {
+                RecentTradeDeduper deduper =
+                    PluginAccess.plugin().getBackfillServices().getBackfillMarketServices().getRecentTradeDeduper();
+                if (deduper != null) {
+                    deduper.clearAll();
+                }
+            }
+
+            @Override
+            public boolean isPanelAvailable() {
+                return PluginAccess.plugin().panel != null;
+            }
+
+            @Override
+            public void updateProfileOptionsUI() {
+                profileWorkflow().updateProfileOptionsUI();
+            }
+
+            @Override
+            public void updateProfileHeader() {
+                profileWorkflow().updateProfileHeader();
+            }
+
+            @Override
+            public void armGeHistoryAutoSync() {
+                PluginAccess.plugin().getEventManageHistoryServices().getGeHistoryAutoSyncStateService().arm();
+            }
+
+            @Override
+            public void setLastLoginNow() {
+                offerStampState().setLastLoginNow();
+            }
+
+            @Override
+            public void loadOfferUpdateTimesForCurrentAccount() {
+                offerStampState().loadOfferUpdateTimesForCurrentAccount();
+            }
+
+            @Override
+            public void updateLocalAccountSessionStart() {
+                LocalTradeSessionFacadeService service =
+                    PluginAccess.plugin().getStatsTradesServices().getLocalTradeSessionFacadeService();
+                if (service != null) {
+                    service.updateLocalAccountSessionStart();
+                }
+            }
+
+            @Override
+            public void updateProfileForLogin() {
+                profileWorkflow().updateProfileForLogin();
+            }
+
+            @Override
+            public void primeOfferSnapshots() {
+                profileWorkflow().primeOfferSnapshots();
+            }
+
+            @Override
+            public boolean hasSessionToken() {
+                ProfileSelectionPresentationFacadeService service = profileSelectionFacade();
+                return service != null && service.hasSessionToken();
+            }
+
+            @Override
+            public void resetLocalTradesLoadState() {
+                GeLifecyclePlugin plugin = PluginAccess.plugin();
+                plugin.localTradesLoadedThisLogin = false;
+                plugin.localTradesLoadState.setLastAttemptMs(0L);
+            }
+
+            @Override
+            public void scheduleLocalTradesLoad() {
+                PluginAccess.plugin().getLocalTradesRuntimeService().scheduleLocalTradesLoad();
+            }
+
+            @Override
+            public void refreshWikiLatestPrices() {
+                WikiPriceService service = PluginInjectorBridge.get(WikiPriceService.class);
+                if (service != null) {
+                    service.refreshPrices();
+                }
+            }
+
+            @Override
+            public String getLinkInput() {
+                LinkAttemptService linkAttemptService = PluginInjectorBridge.get(LinkAttemptService.class);
+                if (linkAttemptService == null || config == null) {
+                    return null;
+                }
+                return linkAttemptService.resolveLinkInput(config.licenseKey(), config.linkCode());
+            }
+
+            @Override
+            public void attemptLink(String linkInput) {
+                PluginInjectorBridge.get(LinkAttemptService.class).attemptLink(linkInput);
+            }
+
+            @Override
+            public boolean isPanelVisible() {
+                GeLifecyclePlugin plugin = PluginAccess.plugin();
+                return plugin.runtimeUtilityServices.isPanelVisible(plugin.panel);
+            }
+
+            @Override
+            public void setPanelVisible(boolean visible) {
+                PluginAccess.plugin().panelVisible = visible;
+            }
+
+            @Override
+            public void triggerPanelRefresh() {
+                GeLifecyclePlugin plugin = PluginAccess.plugin();
+                PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
+                if (coordinator != null) {
+                    coordinator.triggerPanelRefresh(plugin.scheduler);
+                }
+            }
+
+            @Override
+            public void triggerStatsRefresh() {
+                GeLifecyclePlugin plugin = PluginAccess.plugin();
+                PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
+                if (coordinator != null) {
+                    coordinator.triggerStatsRefresh(plugin.scheduler);
+                }
+            }
+
+            @Override
+            public boolean hasScheduler() {
+                return PluginAccess.plugin().scheduler != null;
+            }
+
+            @Override
+            public boolean isLinked() {
+                ProfileSelectionPresentationFacadeService service = profileSelectionFacade();
+                return service != null && service.isLinked();
+            }
+
+            @Override
+            public void requestBackfillAttempt(int delaySeconds, boolean forceRefresh) {
+                GeLifecyclePlugin plugin = PluginAccess.plugin();
+                UploadBackfillDispatchService dispatch =
+                    plugin.getUploadRuntimeServices().getUploadBackfillDispatchService();
+                if (dispatch != null && plugin.scheduler != null) {
+                    dispatch.requestBackfillAttempt(plugin.scheduler, delaySeconds, forceRefresh);
+                }
+            }
+        };
     }
 
     void handle(GameState gameState) {

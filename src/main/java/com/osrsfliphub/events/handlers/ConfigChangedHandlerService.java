@@ -24,8 +24,11 @@
  */
 package com.osrsfliphub;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import net.runelite.client.events.ConfigChanged;
 
+@Singleton
 final class ConfigChangedHandlerService {
     interface Hooks {
         String configGroup();
@@ -50,8 +53,139 @@ final class ConfigChangedHandlerService {
 
     private final Hooks hooks;
 
+    @Inject
+    ConfigChangedHandlerService(PluginConfig config, PluginState state) {
+        this(productionHooks(config, state));
+    }
+
     ConfigChangedHandlerService(Hooks hooks) {
         this.hooks = hooks;
+    }
+
+    private static Hooks productionHooks(PluginConfig config, PluginState state) {
+        return new Hooks() {
+            @Override
+            public String configGroup() {
+                return FliphubConfigGroups.CONFIG_GROUP;
+            }
+
+            @Override
+            public boolean isLinkInputConfigKey(String key) {
+                return "licenseKey".equals(key) || "linkCode".equals(key);
+            }
+
+            @Override
+            public String getLinkInput() {
+                LinkAttemptService linkAttemptService = PluginInjectorBridge.get(LinkAttemptService.class);
+                if (linkAttemptService == null || config == null) {
+                    return null;
+                }
+                return linkAttemptService.resolveLinkInput(config.licenseKey(), config.linkCode());
+            }
+
+            @Override
+            public void attemptLink(String linkInput) {
+                PluginInjectorBridge.get(LinkAttemptService.class).attemptLink(linkInput);
+            }
+
+            @Override
+            public boolean isUnlinkConfigKey(String key) {
+                return "unlinkNow".equals(key);
+            }
+
+            @Override
+            public boolean unlinkRequested() {
+                return config != null && config.unlinkNow();
+            }
+
+            @Override
+            public void clearLinkState() {
+                PluginInjectorBridge.get(LinkSessionConfigStore.class).clearLinkState();
+            }
+
+            @Override
+            public void resetUploadSnapshot() {
+                AccountwideSummaryUploader uploader =
+                    PluginAccess.plugin().getBackfillServices().getAccountwideSummaryUploader();
+                if (uploader != null) {
+                    uploader.resetUploadSnapshot();
+                }
+            }
+
+            @Override
+            public void setUploadBlocked(String message) {
+                UploadEventDispatchFacadeService service =
+                    PluginAccess.plugin().getUploadRuntimeServices().getUploadEventDispatchFacadeService();
+                if (service != null) {
+                    service.markBlocked(message);
+                }
+            }
+
+            @Override
+            public boolean isPanelAvailable() {
+                return PluginAccess.plugin().panel != null;
+            }
+
+            @Override
+            public void updateProfileHeader() {
+                PluginAccess.plugin().getProfileWorkflowService().updateProfileHeader();
+            }
+
+            @Override
+            public void triggerStatsRefresh() {
+                GeLifecyclePlugin plugin = PluginAccess.plugin();
+                PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
+                if (coordinator != null) {
+                    coordinator.triggerStatsRefresh(plugin.scheduler);
+                }
+            }
+
+            @Override
+            public boolean isBookmarksConfigKey(String key) {
+                BookmarkStateService bookmarkStateService = PluginInjectorBridge.get(BookmarkStateService.class);
+                return bookmarkStateService != null && bookmarkStateService.isBookmarksConfigKey(key);
+            }
+
+            @Override
+            public void reloadBookmarkState(String key) {
+                PluginInjectorBridge.get(BookmarkStateService.class).reloadFromConfigKey(key);
+            }
+
+            @Override
+            public void loadBookmarks() {
+                BookmarkStateService bookmarkStateService = PluginInjectorBridge.get(BookmarkStateService.class);
+                ProfileSelectionPresentationFacadeService profileSelectionService = PluginAccess.plugin()
+                    .getProfileSelectionServices().getProfileSelectionPresentationFacadeService();
+                if (bookmarkStateService == null || profileSelectionService == null) {
+                    return;
+                }
+                bookmarkStateService.loadSelectedBookmarks(
+                    profileSelectionService.resolveSelectedProfileKey(), state.getBookmarkedItems());
+            }
+
+            @Override
+            public void refreshBookmarksUi() {
+                FlipHubPanel panel = PluginAccess.plugin().panel;
+                if (panel != null) {
+                    panel.refreshBookmarks();
+                }
+            }
+
+            @Override
+            public boolean isHiddenItemsConfigKey(String key) {
+                return state.getHiddenItemConfigStore().isHiddenItemsConfigKey(key);
+            }
+
+            @Override
+            public void loadHiddenItems() {
+                if (config == null) {
+                    return;
+                }
+                state.getHiddenItems().clear();
+                state.getHiddenItems().addAll(
+                    state.getHiddenItemConfigStore().parseItemIds(config.hiddenItems()));
+            }
+        };
     }
 
     void handle(ConfigChanged event) {

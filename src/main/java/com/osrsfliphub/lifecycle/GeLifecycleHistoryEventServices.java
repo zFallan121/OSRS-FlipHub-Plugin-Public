@@ -61,7 +61,7 @@ final class GeLifecycleHistoryEventServices {
     private final Runnable updateProfileHeader;
     private final Runnable loadOfferUpdateTimesForCurrentAccount;
     private final Map<Integer, OfferSnapshot> snapshots;
-    private final GrandExchangeOfferChangedPluginHooks.OfferUpdateTracker trackOfferUpdate;
+    private final OfferUpdateTracker trackOfferUpdate;
     private final Supplier<ProfileSelectionPresentationFacadeService> profileSelectionPresentationFacadeServiceSupplier;
     private final LongSupplier resolveAccountHash;
     private final LongConsumer ensureLocalTradesLoaded;
@@ -110,7 +110,7 @@ final class GeLifecycleHistoryEventServices {
         Runnable updateProfileHeader,
         Runnable loadOfferUpdateTimesForCurrentAccount,
         Map<Integer, OfferSnapshot> snapshots,
-        GrandExchangeOfferChangedPluginHooks.OfferUpdateTracker trackOfferUpdate,
+        OfferUpdateTracker trackOfferUpdate,
         Supplier<ProfileSelectionPresentationFacadeService> profileSelectionPresentationFacadeServiceSupplier,
         LongSupplier resolveAccountHash,
         LongConsumer ensureLocalTradesLoaded,
@@ -288,31 +288,6 @@ final class GeLifecycleHistoryEventServices {
     }
 
     GrandExchangeOfferChangedHandlerService getGrandExchangeOfferChangedHandlerService() {
-        GrandExchangeOfferChangedHandlerService service = grandExchangeOfferChangedHandlerService;
-        if (service != null) {
-            return service;
-        }
-        service = new GrandExchangeOfferChangedHandlerService(
-            new GrandExchangeOfferChangedPluginHooks(
-                loadOfferUpdateTimesForCurrentAccount,
-                snapshots,
-                trackOfferUpdate,
-                profileSelectionPresentationFacadeServiceSupplier,
-                resolveAccountHash,
-                ensureLocalTradesLoaded,
-                offerEventBuildServiceSupplier,
-                offerUpdateStamps,
-                localTradesLoadedThisLoginSupplier,
-                lastLoginMsSupplier,
-                clientSupplier,
-                normalizeOrSuppressDuplicateTradeEvent,
-                clearRecentTradeEvent,
-                uploadEventDispatchFacadeServiceSupplier,
-                recordLocalTradeDelta,
-                scheduleRefreshSoon
-            )
-        );
-        grandExchangeOfferChangedHandlerService = service;
-        return service;
+        return PluginInjectorBridge.get(GrandExchangeOfferChangedHandlerService.class);
     }
 }

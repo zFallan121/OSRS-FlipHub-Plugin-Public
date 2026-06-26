@@ -102,7 +102,7 @@ final class GeLifecycleEventManageHistoryServices {
         BiConsumer<Integer, Boolean> requestBackfillAttemptAction,
         Consumer<Runnable> executeAsyncConsumer,
         LongConsumer loadLocalTradesAsyncAction,
-        GrandExchangeOfferChangedPluginHooks.OfferUpdateTracker trackOfferUpdateAction,
+        OfferUpdateTracker trackOfferUpdateAction,
         LongSupplier resolveAccountHashSupplier,
         LongConsumer ensureLocalTradesLoadedAction
     ) {

@@ -24,9 +24,13 @@
  */
 package com.osrsfliphub;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.api.Client;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.events.GrandExchangeOfferChanged;
 
+@Singleton
 final class GrandExchangeOfferChangedHandlerService {
     interface Hooks {
         void loadOfferUpdateTimesForCurrentAccount();
@@ -50,8 +54,127 @@ final class GrandExchangeOfferChangedHandlerService {
 
     private final Hooks hooks;
 
+    @Inject
+    GrandExchangeOfferChangedHandlerService(Client client, PluginState state) {
+        this(productionHooks(client, state));
+    }
+
     GrandExchangeOfferChangedHandlerService(Hooks hooks) {
         this.hooks = hooks;
+    }
+
+    private static GeLifecycleOfferStampStateServices offerStampState() {
+        return PluginAccess.plugin().getOfferStampStateServices();
+    }
+
+    private static RecentTradeDeduper recentTradeDeduper() {
+        return PluginAccess.plugin().getBackfillServices().getBackfillMarketServices().getRecentTradeDeduper();
+    }
+
+    private static Hooks productionHooks(Client client, PluginState state) {
+        return new Hooks() {
+            @Override
+            public void loadOfferUpdateTimesForCurrentAccount() {
+                offerStampState().loadOfferUpdateTimesForCurrentAccount();
+            }
+
+            @Override
+            public OfferSnapshot getSnapshot(int slot) {
+                return state.getSnapshots().get(slot);
+            }
+
+            @Override
+            public void putSnapshot(int slot, OfferSnapshot snapshot) {
+                state.getSnapshots().put(slot, snapshot);
+            }
+
+            @Override
+            public void trackOfferUpdate(int slot, OfferSnapshot previous, OfferSnapshot next) {
+                offerStampState().trackOfferUpdate(slot, previous, next);
+            }
+
+            @Override
+            public boolean hasSessionToken() {
+                ProfileSelectionPresentationFacadeService service = PluginAccess.plugin()
+                    .getProfileSelectionServices().getProfileSelectionPresentationFacadeService();
+                return service != null && service.hasSessionToken();
+            }
+
+            @Override
+            public long resolveAccountHash() {
+                LocalTradeSessionFacadeService service =
+                    PluginAccess.plugin().getStatsTradesServices().getLocalTradeSessionFacadeService();
+                return service != null ? service.resolveAccountHash() : -1L;
+            }
+
+            @Override
+            public void ensureLocalTradesLoaded(long accountKey) {
+                PluginAccess.plugin().getLocalTradesRuntimeService().ensureLocalTradesLoaded(accountKey);
+            }
+
+            @Override
+            public OfferEventBuildService getOfferEventBuildService() {
+                return PluginInjectorBridge.get(OfferEventBuildService.class);
+            }
+
+            @Override
+            public OfferUpdateStamp getOfferUpdateStamp(int slot) {
+                return state.getOfferUpdateStamps().get(slot);
+            }
+
+            @Override
+            public boolean localTradesLoadedThisLogin() {
+                return PluginAccess.plugin().localTradesLoadedThisLogin;
+            }
+
+            @Override
+            public long lastLoginMs() {
+                return offerStampState().getLastLoginMs();
+            }
+
+            @Override
+            public int currentWorld() {
+                return client != null ? client.getWorld() : 0;
+            }
+
+            @Override
+            public boolean normalizeOrSuppressDuplicateTradeEvent(GeEvent event) {
+                RecentTradeDeduper deduper = recentTradeDeduper();
+                return deduper != null && deduper.normalizeOrSuppress(event);
+            }
+
+            @Override
+            public void clearRecentTradeEvent(int slot) {
+                RecentTradeDeduper deduper = recentTradeDeduper();
+                if (deduper != null) {
+                    deduper.clearSlot(slot);
+                }
+            }
+
+            @Override
+            public void enqueueEvent(GeEvent event) {
+                UploadEventDispatchFacadeService service =
+                    PluginAccess.plugin().getUploadRuntimeServices().getUploadEventDispatchFacadeService();
+                if (service != null) {
+                    service.enqueueEvent(event);
+                }
+            }
+
+            @Override
+            public void recordLocalTradeDelta(GeEvent event, boolean baselineSynthetic) {
+                PluginAccess.plugin().getStatsTradesServices().getLocalTradeDeltaRecorder()
+                    .record(event, baselineSynthetic);
+            }
+
+            @Override
+            public void scheduleRefreshSoon() {
+                GeLifecyclePlugin plugin = PluginAccess.plugin();
+                PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
+                if (coordinator != null) {
+                    coordinator.scheduleRefreshSoon(plugin.scheduler);
+                }
+            }
+        };
     }
 
     void handle(GrandExchangeOfferChanged event) {

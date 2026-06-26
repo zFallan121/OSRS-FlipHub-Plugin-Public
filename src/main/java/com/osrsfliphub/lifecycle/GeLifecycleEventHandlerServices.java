@@ -140,67 +140,10 @@ final class GeLifecycleEventHandlerServices {
     }
 
     ConfigChangedHandlerService getConfigChangedHandlerService() {
-        ConfigChangedHandlerService service = configChangedHandlerService;
-        if (service != null) {
-            return service;
-        }
-        service = new ConfigChangedHandlerService(
-            new ConfigChangedPluginHooks(
-                configGroup,
-                linkAttemptServiceSupplier,
-                configSupplier,
-                linkSessionConfigStoreSupplier,
-                accountwideSummaryUploaderSupplier,
-                uploadEventDispatchFacadeServiceSupplier,
-                panelSupplier,
-                updateProfileHeaderAction,
-                triggerStatsRefreshAction,
-                bookmarkStateServiceSupplier,
-                profileSelectionPresentationFacadeServiceSupplier,
-                bookmarkedItems,
-                hiddenItemConfigStore,
-                hiddenItems
-            )
-        );
-        configChangedHandlerService = service;
-        return service;
+        return PluginInjectorBridge.get(ConfigChangedHandlerService.class);
     }
 
     GameStateChangedHandlerService getGameStateChangedHandlerService() {
-        GameStateChangedHandlerService service = gameStateChangedHandlerService;
-        if (service != null) {
-            return service;
-        }
-        service = new GameStateChangedHandlerService(
-            new GameStateChangedPluginHooks(
-                persistOfferUpdateTimesAction,
-                resetOfferUpdateStampsAction,
-                clearSnapshotsAction,
-                geHistoryAutoSyncStateServiceSupplier,
-                recentTradeDeduperSupplier,
-                panelSupplier,
-                updateProfileOptionsUiAction,
-                updateProfileHeaderAction,
-                setLastLoginNowAction,
-                loadOfferUpdateTimesForCurrentAccountAction,
-                localTradeSessionFacadeServiceSupplier,
-                updateProfileForLoginAction,
-                primeOfferSnapshotsAction,
-                profileSelectionPresentationFacadeServiceSupplier,
-                resetLocalTradesLoadStateAction,
-                scheduleLocalTradesLoadAction,
-                wikiPriceServiceSupplier,
-                linkAttemptServiceSupplier,
-                configSupplier,
-                isPanelVisibleSupplier,
-                setPanelVisibleConsumer,
-                triggerPanelRefreshAction,
-                triggerStatsRefreshAction,
-                schedulerSupplier,
-                requestBackfillAttemptAction
-            )
-        );
-        gameStateChangedHandlerService = service;
-        return service;
+        return PluginInjectorBridge.get(GameStateChangedHandlerService.class);
     }
 }
