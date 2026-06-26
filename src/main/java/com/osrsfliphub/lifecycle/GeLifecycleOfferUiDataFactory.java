@@ -75,49 +75,4 @@ final class GeLifecycleOfferUiDataFactory {
         );
     }
 
-    static OfferEventBuildService createOfferEventBuildService(
-        Supplier<OfferUpdateStampService> offerUpdateStampServiceSupplier,
-        Supplier<GeLifecycleOfferStampStateServices> offerStampStateServicesSupplier,
-        Supplier<GeLifecycleStatsTradesServices> statsTradesServicesSupplier
-    ) {
-        return new OfferEventBuildService(
-            new OfferEventBuildPluginHooks(
-                offerUpdateStampServiceSupplier,
-                () -> offerStampStateServicesSupplier.get().isWithinLoginGrace(),
-                () -> statsTradesServicesSupplier.get().getLocalTradeSessionFacadeService(),
-                System::currentTimeMillis
-            )
-        );
-    }
-
-    static OfferUpdateStampService createOfferUpdateStampService(
-        Supplier<GeLifecycleOfferStampStateServices> offerStampStateServicesSupplier
-    ) {
-        return new OfferUpdateStampService(
-            new OfferUpdateStampPluginHooks(
-                System::currentTimeMillis,
-                () -> offerStampStateServicesSupplier.get().isWithinLoginGrace(),
-                () -> offerStampStateServicesSupplier.get().persistOfferUpdateTimes()
-            )
-        );
-    }
-
-    static OfferUpdateStampPersistenceService createOfferUpdateStampPersistenceService(
-        GeLifecycleOfferUiRuntimeContext context,
-        Supplier<GeLifecycleStatsTradesServices> statsTradesServicesSupplier
-    ) {
-        return new OfferUpdateStampPersistenceService(
-            FliphubConfigGroups.CONFIG_GROUP,
-            LEGACY_DEV_CONFIG_GROUP,
-            context.offerUpdateStampConfigStore,
-            context.offerUpdateStampLegacyMatcher,
-            new OfferUpdateStampPersistencePluginHooks(
-                context.gsonSupplier,
-                context.configManagerSupplier,
-                context.clientSupplier,
-                () -> statsTradesServicesSupplier.get().getLocalTradeSessionFacadeService(),
-                () -> statsTradesServicesSupplier.get().getLocalAccountSessionService()
-            )
-        );
-    }
 }

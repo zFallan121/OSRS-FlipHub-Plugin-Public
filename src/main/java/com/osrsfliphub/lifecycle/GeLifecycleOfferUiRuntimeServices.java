@@ -206,40 +206,15 @@ final class GeLifecycleOfferUiRuntimeServices {
     }
 
     OfferEventBuildService getOfferEventBuildService() {
-        OfferEventBuildService service = offerEventBuildService;
-        if (service != null) {
-            return service;
-        }
-        service = GeLifecycleOfferUiDataFactory.createOfferEventBuildService(
-            this::getOfferUpdateStampService,
-            this::getOfferStampStateServices,
-            this::getStatsTradesServices
-        );
-        offerEventBuildService = service;
-        return service;
+        return PluginInjectorBridge.get(OfferEventBuildService.class);
     }
 
     OfferUpdateStampService getOfferUpdateStampService() {
-        OfferUpdateStampService service = offerUpdateStampService;
-        if (service != null) {
-            return service;
-        }
-        service = GeLifecycleOfferUiDataFactory.createOfferUpdateStampService(this::getOfferStampStateServices);
-        offerUpdateStampService = service;
-        return service;
+        return PluginInjectorBridge.get(OfferUpdateStampService.class);
     }
 
     OfferUpdateStampPersistenceService getOfferUpdateStampPersistenceService() {
-        OfferUpdateStampPersistenceService service = offerUpdateStampPersistenceService;
-        if (service != null) {
-            return service;
-        }
-        service = GeLifecycleOfferUiDataFactory.createOfferUpdateStampPersistenceService(
-            context,
-            this::getStatsTradesServices
-        );
-        offerUpdateStampPersistenceService = service;
-        return service;
+        return PluginInjectorBridge.get(OfferUpdateStampPersistenceService.class);
     }
 
     private PanelRefreshCoordinator getPanelRefreshCoordinator() {

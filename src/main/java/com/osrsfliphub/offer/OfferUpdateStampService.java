@@ -25,9 +25,12 @@
 package com.osrsfliphub;
 
 import java.util.Map;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
 
+@Singleton
 final class OfferUpdateStampService {
     interface Hooks {
         long nowMs();
@@ -38,9 +41,33 @@ final class OfferUpdateStampService {
     private final Hooks hooks;
     private final OfferUpdateStampRuleEvaluator ruleEvaluator;
 
+    @Inject
+    OfferUpdateStampService() {
+        this(productionHooks());
+    }
+
     OfferUpdateStampService(Hooks hooks) {
         this.hooks = hooks;
         this.ruleEvaluator = new OfferUpdateStampRuleEvaluator(this::nowMs, this::isWithinLoginGrace);
+    }
+
+    private static Hooks productionHooks() {
+        return new Hooks() {
+            @Override
+            public long nowMs() {
+                return System.currentTimeMillis();
+            }
+
+            @Override
+            public boolean isWithinLoginGrace() {
+                return PluginAccess.plugin().getOfferStampStateServices().isWithinLoginGrace();
+            }
+
+            @Override
+            public void persistOfferUpdateTimes() {
+                PluginAccess.plugin().getOfferStampStateServices().persistOfferUpdateTimes();
+            }
+        };
     }
 
     void trackOfferUpdate(Map<Integer, OfferUpdateStamp> stamps, int slot, OfferSnapshot prev, OfferSnapshot next) {

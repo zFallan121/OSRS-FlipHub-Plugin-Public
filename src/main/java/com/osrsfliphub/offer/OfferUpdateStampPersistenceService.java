@@ -26,8 +26,14 @@ package com.osrsfliphub;
 
 import com.google.gson.Gson;
 import java.util.Map;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.api.Client;
+import net.runelite.api.GameState;
 import net.runelite.api.GrandExchangeOffer;
+import net.runelite.client.config.ConfigManager;
 
+@Singleton
 final class OfferUpdateStampPersistenceService {
     static final class LoadState {
         final long accountKey;
@@ -58,6 +64,16 @@ final class OfferUpdateStampPersistenceService {
     private final OfferUpdateStampLegacyMatcher legacyMatcher;
     private final Hooks hooks;
 
+    @Inject
+    OfferUpdateStampPersistenceService(Gson gson, ConfigManager configManager, Client client, PluginState state) {
+        this(
+            FliphubConfigGroups.CONFIG_GROUP,
+            FliphubConfigGroups.LEGACY_DEV_CONFIG_GROUP,
+            state.getOfferUpdateStampConfigStore(),
+            state.getOfferUpdateStampLegacyMatcher(),
+            productionHooks(gson, configManager, client));
+    }
+
     OfferUpdateStampPersistenceService(String configGroup,
                                        String legacyDevConfigGroup,
                                        OfferUpdateStampConfigStore configStore,
@@ -68,6 +84,57 @@ final class OfferUpdateStampPersistenceService {
         this.configStore = configStore;
         this.legacyMatcher = legacyMatcher;
         this.hooks = hooks;
+    }
+
+    private static Hooks productionHooks(Gson gson, ConfigManager configManager, Client client) {
+        return new Hooks() {
+            @Override
+            public Gson gson() {
+                return gson;
+            }
+
+            @Override
+            public boolean hasConfigurationAccess() {
+                return configManager != null;
+            }
+
+            @Override
+            public boolean isClientLoggedIn() {
+                return client != null && client.getGameState() == GameState.LOGGED_IN;
+            }
+
+            @Override
+            public long resolveCurrentAccountKey() {
+                GeLifecycleStatsTradesServices statsTrades = PluginAccess.plugin().getStatsTradesServices();
+                LocalTradeSessionFacadeService localTradeSessionFacadeService =
+                    statsTrades.getLocalTradeSessionFacadeService();
+                if (localTradeSessionFacadeService != null) {
+                    long accountHash = localTradeSessionFacadeService.resolveAccountHash();
+                    if (accountHash > 0) {
+                        return accountHash;
+                    }
+                }
+                LocalAccountSessionService localAccountSessionService = statsTrades.getLocalAccountSessionService();
+                return localAccountSessionService != null ? localAccountSessionService.resolveLocalAccountKey() : -1L;
+            }
+
+            @Override
+            public GrandExchangeOffer[] currentOffers() {
+                return client != null ? client.getGrandExchangeOffers() : null;
+            }
+
+            @Override
+            public String readConfiguration(String configGroup, String key) {
+                return configManager != null ? configManager.getConfiguration(configGroup, key) : null;
+            }
+
+            @Override
+            public void writeConfiguration(String configGroup, String key, String value) {
+                if (configManager != null) {
+                    configManager.setConfiguration(configGroup, key, value);
+                }
+            }
+        };
     }
 
     void loadLegacyGlobal(Map<Integer, OfferUpdateStamp> destination) {
