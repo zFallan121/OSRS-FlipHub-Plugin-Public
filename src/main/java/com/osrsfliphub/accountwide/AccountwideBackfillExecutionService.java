@@ -26,7 +26,13 @@ package com.osrsfliphub;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.api.Client;
+import net.runelite.api.GameState;
+import net.runelite.client.config.ConfigManager;
 
+@Singleton
 final class AccountwideBackfillExecutionService {
     interface Hooks {
         boolean isClientLoggedIn();
@@ -43,9 +49,67 @@ final class AccountwideBackfillExecutionService {
     private final AtomicBoolean backfillInFlight = new AtomicBoolean(false);
     private volatile long lastBackfillAttemptMs;
 
+    @Inject
+    AccountwideBackfillExecutionService(Client client, ApiClient apiClient, ConfigManager configManager) {
+        this(GeLifecyclePluginConstants.BACKFILL_MIN_INTERVAL_MS, productionHooks(client, apiClient, configManager));
+    }
+
     AccountwideBackfillExecutionService(long backfillMinIntervalMs, Hooks hooks) {
         this.backfillMinIntervalMs = Math.max(0L, backfillMinIntervalMs);
         this.hooks = hooks;
+    }
+
+    private static UploadBackfillDispatchService uploadBackfillDispatch() {
+        return PluginAccess.plugin().getUploadRuntimeServices().getUploadBackfillDispatchService();
+    }
+
+    private static Hooks productionHooks(Client client, ApiClient apiClient, ConfigManager configManager) {
+        return new Hooks() {
+            @Override
+            public boolean isClientLoggedIn() {
+                return client != null && client.getGameState() == GameState.LOGGED_IN;
+            }
+
+            @Override
+            public boolean isLinked() {
+                ProfileSelectionPresentationFacadeService service = PluginAccess.plugin()
+                    .getProfileSelectionServices().getProfileSelectionPresentationFacadeService();
+                return service != null && service.isLinked();
+            }
+
+            @Override
+            public boolean isBackfillReady() {
+                return apiClient != null && configManager != null;
+            }
+
+            @Override
+            public long nowMs() {
+                return System.currentTimeMillis();
+            }
+
+            @Override
+            public void requestBackfillAttempt(long delaySeconds, boolean resetBackoff) {
+                UploadBackfillDispatchService service = uploadBackfillDispatch();
+                if (service != null) {
+                    service.requestBackfillAttempt(PluginAccess.plugin().scheduler, delaySeconds, resetBackoff);
+                }
+            }
+
+            @Override
+            public AccountwideBackfillCoordinator.Result runBackfillCycle() {
+                AccountwideBackfillCoordinator coordinator = PluginAccess.plugin()
+                    .getBackfillServices().getBackfillMarketServices().getAccountwideBackfillCoordinator();
+                return coordinator != null ? coordinator.runCycle() : null;
+            }
+
+            @Override
+            public void scheduleBackfillRetry() {
+                UploadBackfillDispatchService service = uploadBackfillDispatch();
+                if (service != null) {
+                    service.scheduleBackfillRetry(PluginAccess.plugin().scheduler);
+                }
+            }
+        };
     }
 
     void attemptIfNeeded() {

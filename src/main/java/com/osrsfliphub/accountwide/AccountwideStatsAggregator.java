@@ -30,7 +30,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class AccountwideStatsAggregator {
     interface Hooks {
         void ensureProfileLoaded(long accountKey);
@@ -41,8 +44,54 @@ final class AccountwideStatsAggregator {
 
     private final Hooks hooks;
 
+    @Inject
+    AccountwideStatsAggregator() {
+        this(productionHooks());
+    }
+
     AccountwideStatsAggregator(Hooks hooks) {
         this.hooks = hooks;
+    }
+
+    private static LocalStatsCacheService cacheService() {
+        return PluginAccess.plugin().getStatsTradesServices().getLocalStatsCacheService();
+    }
+
+    private static LocalStatsSnapshotService snapshotService() {
+        return PluginAccess.plugin().getStatsTradesServices().getLocalStatsSnapshotService();
+    }
+
+    private static Hooks productionHooks() {
+        return new Hooks() {
+            @Override
+            public void ensureProfileLoaded(long accountKey) {
+                PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
+            }
+
+            @Override
+            public LocalStatsSnapshot buildSnapshotForProfile(long accountKey, Long sinceMs) {
+                LocalStatsCacheService cacheService = cacheService();
+                LocalStatsCache cache = cacheService != null ? cacheService.getOrBuild(accountKey) : null;
+                if (cache == null) {
+                    return new LocalStatsSnapshot(new StatsSummary(), new ArrayList<>());
+                }
+                return cache.buildSnapshotSince(sinceMs);
+            }
+
+            @Override
+            public void hydrateItemNames(List<StatsItem> items) {
+                LocalStatsSnapshotService snapshotService = snapshotService();
+                if (snapshotService != null) {
+                    snapshotService.hydrateItemNames(items);
+                }
+            }
+
+            @Override
+            public Comparator<StatsItem> buildComparator(StatsItemSort sort) {
+                LocalStatsSnapshotService snapshotService = snapshotService();
+                return snapshotService != null ? snapshotService.buildComparator(sort) : null;
+            }
+        };
     }
 
     LocalStatsSnapshot buildFromProfiles(Set<Long> profileKeys, Long sinceMs, StatsItemSort sort) {

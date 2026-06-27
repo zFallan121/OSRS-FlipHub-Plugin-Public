@@ -168,36 +168,7 @@ final class GeLifecycleProfileSelectionServices {
     }
 
     AccountwideStatsAggregator getAccountwideStatsAggregator() {
-        AccountwideStatsAggregator aggregator = accountwideStatsAggregator;
-        if (aggregator != null) {
-            return aggregator;
-        }
-        aggregator = new AccountwideStatsAggregator(
-            new AccountwideStatsAggregatorPluginHooks(
-                accountKey -> {
-                    GeLifecycleLocalTradesRuntimeService localTradesRuntime = resolve(localTradesRuntimeServiceSupplier);
-                    if (localTradesRuntime != null) {
-                        localTradesRuntime.ensureProfileLoaded(accountKey);
-                    }
-                },
-                accountKey -> {
-                    LocalStatsCacheService cacheService = resolve(localStatsCacheServiceSupplier);
-                    return cacheService != null ? cacheService.getOrBuild(accountKey) : null;
-                },
-                items -> {
-                    LocalStatsSnapshotService snapshotService = resolve(localStatsSnapshotServiceSupplier);
-                    if (snapshotService != null) {
-                        snapshotService.hydrateItemNames(items);
-                    }
-                },
-                sort -> {
-                    LocalStatsSnapshotService snapshotService = resolve(localStatsSnapshotServiceSupplier);
-                    return snapshotService != null ? snapshotService.buildComparator(sort) : null;
-                }
-            )
-        );
-        accountwideStatsAggregator = aggregator;
-        return aggregator;
+        return PluginInjectorBridge.get(AccountwideStatsAggregator.class);
     }
 
     ProfilePresentationService getProfilePresentationService() {

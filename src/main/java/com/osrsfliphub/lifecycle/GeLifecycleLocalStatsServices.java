@@ -211,21 +211,7 @@ final class GeLifecycleLocalStatsServices {
     }
 
     AccountwideFlipHistoryService getAccountwideFlipHistoryService() {
-        AccountwideFlipHistoryService service = accountwideFlipHistoryService;
-        if (service != null) {
-            return service;
-        }
-        service = GeLifecycleLocalStatsHistoryFactory.createAccountwideFlipHistoryService(
-            context,
-            this::getLocalTradesRuntimeService,
-            this::getLocalTradeSessionFacadeService,
-            this::getLocalFlipHistoryService,
-            this::getAccountwideProfileKeyCollector,
-            this::getProfileStorageFacadeService,
-            this::getProfileSelectionPresentationFacadeService
-        );
-        accountwideFlipHistoryService = service;
-        return service;
+        return PluginInjectorBridge.get(AccountwideFlipHistoryService.class);
     }
 
     LocalAccountMergeService getLocalAccountMergeService() {

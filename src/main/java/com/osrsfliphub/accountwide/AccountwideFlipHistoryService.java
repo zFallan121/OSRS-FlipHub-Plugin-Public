@@ -30,7 +30,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class AccountwideFlipHistoryService {
     interface Hooks {
         long accountwideKey();
@@ -42,8 +45,58 @@ final class AccountwideFlipHistoryService {
 
     private final Hooks hooks;
 
+    @Inject
+    AccountwideFlipHistoryService(PluginState state) {
+        this(productionHooks(state));
+    }
+
     AccountwideFlipHistoryService(Hooks hooks) {
         this.hooks = hooks;
+    }
+
+    private static ProfileSelectionPresentationFacadeService profileSelectionFacade() {
+        return PluginAccess.plugin().getProfileSelectionServices().getProfileSelectionPresentationFacadeService();
+    }
+
+    private static ProfileStorageFacadeService profileStorage() {
+        return PluginAccess.plugin().getProfileSelectionServices().getProfileStorageFacadeService();
+    }
+
+    private static Hooks productionHooks(PluginState state) {
+        return new Hooks() {
+            @Override
+            public long accountwideKey() {
+                return GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
+            }
+
+            @Override
+            public void ensureProfileLoaded(long accountKey) {
+                PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
+            }
+
+            @Override
+            public List<LocalTradeDelta> snapshotLocalTradeDeltas(long accountKey) {
+                return PluginAccess.plugin().getStatsTradesServices()
+                    .getLocalTradeSessionFacadeService().snapshotLocalTradeDeltas(accountKey);
+            }
+
+            @Override
+            public Map<Integer, List<StatsFlipInstance>> buildLocalHistory(List<LocalTradeDelta> deltas, Long sinceMs) {
+                return PluginAccess.plugin().getStatsTradesServices().getLocalStatsServices()
+                    .getLocalFlipHistoryService().buildHistory(deltas, sinceMs);
+            }
+
+            @Override
+            public Set<Long> collectAccountwideProfileKeys() {
+                ProfileStorageFacadeService storage = profileStorage();
+                return PluginInjectorBridge.get(AccountwideProfileKeyCollector.class).collect(
+                    storage != null ? storage.getProfilesDir() : null,
+                    storage != null ? storage.getLegacyProfilesDir() : null,
+                    state.getLocalTradeDeltasByAccount(),
+                    state.getLocalStatsLock(),
+                    () -> profileSelectionFacade().loadProfilesFromDisk());
+            }
+        };
     }
 
     Map<Integer, List<StatsFlipInstance>> buildAccountwideHistory(Long sinceMs) {

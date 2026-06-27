@@ -35,7 +35,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class AccountwideTradesMergeService {
     interface Hooks {
         Path getProfilesDir();
@@ -48,10 +51,52 @@ final class AccountwideTradesMergeService {
     private final int maxLocalTrades;
     private final Hooks hooks;
 
+    @Inject
+    AccountwideTradesMergeService(Gson gson) {
+        this(gson, GeLifecyclePluginConstants.MAX_LOCAL_TRADES, productionHooks());
+    }
+
     AccountwideTradesMergeService(Gson gson, int maxLocalTrades, Hooks hooks) {
         this.gson = gson;
         this.maxLocalTrades = maxLocalTrades;
         this.hooks = hooks;
+    }
+
+    private static ProfileStorageFacadeService profileStorage() {
+        return PluginAccess.plugin().getProfileSelectionServices().getProfileStorageFacadeService();
+    }
+
+    private static Hooks productionHooks() {
+        return new Hooks() {
+            @Override
+            public Path getProfilesDir() {
+                ProfileStorageFacadeService service = profileStorage();
+                return service != null ? service.getProfilesDir() : null;
+            }
+
+            @Override
+            public Path getLegacyProfilesDir() {
+                ProfileStorageFacadeService service = profileStorage();
+                return service != null ? service.getLegacyProfilesDir() : null;
+            }
+
+            @Override
+            public ProfileData readProfileData(Path file) {
+                ProfileStorageFacadeService service = profileStorage();
+                return service != null ? service.readProfileData(file) : null;
+            }
+
+            @Override
+            public Map<String, String> getLegacyLocalTradesCache() {
+                LegacyLocalTradesFilterService filterService = PluginAccess.plugin().getLegacyLocalTradesFilterService();
+                LegacyLocalTradesStore store =
+                    PluginAccess.plugin().getProfileSelectionServices().getLegacyLocalTradesStore();
+                if (filterService == null || store == null) {
+                    return null;
+                }
+                return filterService.filter(store.getEntries());
+            }
+        };
     }
 
     List<LocalTradeDelta> buildAccountwideFromDisk() {

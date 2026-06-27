@@ -156,25 +156,7 @@ final class GeLifecycleUploadRuntimeServices {
     }
 
     AccountwideBackfillExecutionService getAccountwideBackfillExecutionService() {
-        AccountwideBackfillExecutionService service = accountwideBackfillExecutionService;
-        if (service != null) {
-            return service;
-        }
-        service = new AccountwideBackfillExecutionService(
-            backfillMinIntervalMs,
-            new AccountwideBackfillExecutionPluginHooks(
-                () -> runtimeUtilityServices.isClientLoggedIn(clientSupplier.get()),
-                profileSelectionPresentationFacadeServiceSupplier,
-                apiClientSupplier,
-                configManagerSupplier,
-                System::currentTimeMillis,
-                this::getUploadBackfillDispatchService,
-                schedulerSupplier,
-                () -> backfillServicesSupplier.get().getBackfillMarketServices().getAccountwideBackfillCoordinator()
-            )
-        );
-        accountwideBackfillExecutionService = service;
-        return service;
+        return PluginInjectorBridge.get(AccountwideBackfillExecutionService.class);
     }
 
     boolean attemptRefresh(String currentToken) {

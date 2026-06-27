@@ -29,7 +29,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class AccountwideSummaryUploader {
     interface Hooks {
         boolean isClientFullyReady();
@@ -44,6 +47,12 @@ final class AccountwideSummaryUploader {
     private volatile long lastUploadAttemptMs;
     private volatile long lastUploadSuccessMs;
     private volatile int lastSnapshotHash = Integer.MIN_VALUE;
+
+    @Inject
+    AccountwideSummaryUploader() {
+        this(GeLifecyclePluginConstants.ACCOUNTWIDE_UPLOAD_MIN_INTERVAL_MS,
+            GeLifecyclePluginConstants.ACCOUNTWIDE_UPLOAD_RESYNC_INTERVAL_MS);
+    }
 
     AccountwideSummaryUploader(long minUploadIntervalMs, long resyncIntervalMs) {
         this.minUploadIntervalMs = Math.max(0L, minUploadIntervalMs);

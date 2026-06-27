@@ -34,32 +34,6 @@ final class GeLifecycleLocalStatsHistoryFactory {
         return new LocalFlipHistoryService();
     }
 
-    static AccountwideFlipHistoryService createAccountwideFlipHistoryService(
-        GeLifecycleLocalStatsRuntimeContext context,
-        Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
-        Supplier<LocalTradeSessionFacadeService> localTradeSessionFacadeServiceSupplier,
-        Supplier<LocalFlipHistoryService> localFlipHistoryServiceSupplier,
-        Supplier<AccountwideProfileKeyCollector> accountwideProfileKeyCollectorSupplier,
-        Supplier<ProfileStorageFacadeService> profileStorageFacadeServiceSupplier,
-        Supplier<ProfileSelectionPresentationFacadeService> profileSelectionPresentationFacadeServiceSupplier
-    ) {
-        return new AccountwideFlipHistoryService(
-            new AccountwideFlipHistoryPluginHooks(
-                context.accountwideKey,
-                localTradesRuntimeServiceSupplier.get()::ensureProfileLoaded,
-                accountKey -> localTradeSessionFacadeServiceSupplier.get().snapshotLocalTradeDeltas(accountKey),
-                (deltas, sinceMs) -> localFlipHistoryServiceSupplier.get().buildHistory(deltas, sinceMs),
-                () -> accountwideProfileKeyCollectorSupplier.get().collect(
-                    profileStorageFacadeServiceSupplier.get().getProfilesDir(),
-                    profileStorageFacadeServiceSupplier.get().getLegacyProfilesDir(),
-                    context.localTradeDeltasByAccount,
-                    context.localStatsLock,
-                    () -> profileSelectionPresentationFacadeServiceSupplier.get().loadProfilesFromDisk()
-                )
-            )
-        );
-    }
-
     static LocalAccountMergeService createLocalAccountMergeService() {
         return new LocalAccountMergeService();
     }

@@ -110,21 +110,7 @@ final class GeLifecycleProfileTradesServices {
     }
 
     AccountwideTradesMergeService getAccountwideTradesMergeService() {
-        AccountwideTradesMergeService service = accountwideTradesMergeService;
-        if (service != null) {
-            return service;
-        }
-        service = new AccountwideTradesMergeService(
-            gson,
-            maxLocalTrades,
-            new AccountwideTradesMergePluginHooks(
-                profileStorageFacadeServiceSupplier,
-                legacyLocalTradesFilterServiceSupplier,
-                legacyLocalTradesStoreSupplier
-            )
-        );
-        accountwideTradesMergeService = service;
-        return service;
+        return PluginInjectorBridge.get(AccountwideTradesMergeService.class);
     }
 
     LocalProfileTradesLoadService getLocalProfileTradesLoadService() {

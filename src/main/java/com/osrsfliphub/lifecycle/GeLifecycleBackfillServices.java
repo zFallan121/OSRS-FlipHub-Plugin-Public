@@ -132,13 +132,7 @@ final class GeLifecycleBackfillServices {
     }
 
     AccountwideSummaryUploader getAccountwideSummaryUploader() {
-        AccountwideSummaryUploader uploader = accountwideSummaryUploader;
-        if (uploader != null) {
-            return uploader;
-        }
-        uploader = new AccountwideSummaryUploader(ACCOUNTWIDE_UPLOAD_MIN_INTERVAL_MS, ACCOUNTWIDE_UPLOAD_RESYNC_INTERVAL_MS);
-        accountwideSummaryUploader = uploader;
-        return uploader;
+        return PluginInjectorBridge.get(AccountwideSummaryUploader.class);
     }
 
     GeLifecycleBackfillMarketServices getBackfillMarketServices() {
