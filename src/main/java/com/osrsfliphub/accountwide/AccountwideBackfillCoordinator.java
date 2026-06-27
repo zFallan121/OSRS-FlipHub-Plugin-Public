@@ -30,8 +30,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.client.config.ConfigManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+@Singleton
 final class AccountwideBackfillCoordinator {
+    private static final Logger log = LoggerFactory.getLogger(AccountwideBackfillCoordinator.class);
+
     interface Hooks {
         Set<Long> collectAccountwideProfileKeys();
         Set<Long> loadBackfilledProfileKeys();
@@ -61,9 +69,146 @@ final class AccountwideBackfillCoordinator {
     private final int maxBackfillProfileCount;
     private final Hooks hooks;
 
+    @Inject
+    AccountwideBackfillCoordinator(ApiClient apiClient, PluginConfig config, PluginState state) {
+        this(GeLifecyclePluginConstants.MAX_BACKFILL_PROFILE_COUNT, productionHooks(apiClient, config, state));
+    }
+
     AccountwideBackfillCoordinator(int maxBackfillProfileCount, Hooks hooks) {
         this.maxBackfillProfileCount = Math.max(1, maxBackfillProfileCount);
         this.hooks = hooks;
+    }
+
+    private static BackfilledProfilesStore backfilledProfilesStore() {
+        return PluginInjectorBridge.get(BackfilledProfilesStore.class);
+    }
+
+    private static Hooks productionHooks(ApiClient apiClient, PluginConfig config, PluginState state) {
+        return new Hooks() {
+            @Override
+            public Set<Long> collectAccountwideProfileKeys() {
+                AccountwideProfileKeyCollector collector =
+                    PluginInjectorBridge.get(AccountwideProfileKeyCollector.class);
+                ProfileStorageFacadeService storage =
+                    PluginAccess.plugin().getProfileSelectionServices().getProfileStorageFacadeService();
+                ProfileSelectionPresentationFacadeService profileSelection = PluginAccess.plugin()
+                    .getProfileSelectionServices().getProfileSelectionPresentationFacadeService();
+                if (collector == null || storage == null || profileSelection == null) {
+                    return null;
+                }
+                return collector.collect(
+                    storage.getProfilesDir(),
+                    storage.getLegacyProfilesDir(),
+                    state.getLocalTradeDeltasByAccount(),
+                    state.getLocalStatsLock(),
+                    profileSelection::loadProfilesFromDisk);
+            }
+
+            @Override
+            public Set<Long> loadBackfilledProfileKeys() {
+                BackfilledProfilesStore store = backfilledProfilesStore();
+                return store != null ? store.load() : null;
+            }
+
+            @Override
+            public void ensureProfileLoaded(long key) {
+                PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(key);
+            }
+
+            @Override
+            public LocalStatsSnapshot buildLocalStatsSnapshot(long key) {
+                LocalStatsSnapshotService service =
+                    PluginAccess.plugin().getStatsTradesServices().getLocalStatsSnapshotService();
+                return service != null ? service.buildSnapshot(key, null, StatsItemSort.COMPLETION) : null;
+            }
+
+            @Override
+            public String getSessionToken() {
+                return config != null ? config.sessionToken() : null;
+            }
+
+            @Override
+            public ApiClient.StatsSummaryResponse fetchRemoteStatsSummary(String token) {
+                GeLifecyclePlugin plugin = PluginAccess.plugin();
+                SessionRefreshService sessionRefresh = PluginInjectorBridge.get(SessionRefreshService.class);
+                return plugin.runtimeUtilityServices.fetchRemoteStatsSummary(
+                    apiClient, config, sessionRefresh, token, null, true);
+            }
+
+            @Override
+            public Set<Long> inferLikelySyncedProfiles(Set<Long> profileKeys,
+                                                       Map<Long, StatsSummary> localSummaries,
+                                                       StatsSummary remoteSummary) {
+                BackfillSyncMatcher matcher = PluginInjectorBridge.get(BackfillSyncMatcher.class);
+                return matcher != null
+                    ? matcher.inferLikelySyncedProfiles(profileKeys, localSummaries, remoteSummary) : null;
+            }
+
+            @Override
+            public boolean backfillProfileTrades(long profileKey) {
+                AccountwideProfileBackfillService runner =
+                    PluginInjectorBridge.get(AccountwideProfileBackfillService.class);
+                BackfillUploader uploader = PluginInjectorBridge.get(BackfillUploader.class);
+                if (runner == null || apiClient == null || config == null || uploader == null) {
+                    return false;
+                }
+                return runner.backfillProfileTrades(profileKey, apiClient, config, uploader);
+            }
+
+            @Override
+            public void persistBackfilledProfileKeys(Set<Long> keys) {
+                BackfilledProfilesStore store = backfilledProfilesStore();
+                if (store != null) {
+                    store.persist(keys);
+                }
+            }
+
+            @Override
+            public void triggerStatsRefresh() {
+                GeLifecyclePlugin plugin = PluginAccess.plugin();
+                PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
+                if (coordinator != null) {
+                    coordinator.triggerStatsRefresh(plugin.scheduler);
+                }
+            }
+
+            @Override
+            public void triggerPanelRefresh() {
+                GeLifecyclePlugin plugin = PluginAccess.plugin();
+                PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
+                if (coordinator != null) {
+                    coordinator.triggerPanelRefresh(plugin.scheduler);
+                }
+            }
+
+            @Override
+            public void resetBackfillRetryState() {
+                UploadBackfillDispatchService service =
+                    PluginAccess.plugin().getUploadRuntimeServices().getUploadBackfillDispatchService();
+                if (service != null) {
+                    service.resetBackfillRetryState();
+                }
+            }
+
+            @Override
+            public void logWarn(String message) {
+                if (message != null) {
+                    log.warn(message);
+                }
+            }
+
+            @Override
+            public void logWarn(String message, Throwable error) {
+                if (message == null) {
+                    return;
+                }
+                if (error != null) {
+                    log.warn(message, error);
+                } else {
+                    log.warn(message);
+                }
+            }
+        };
     }
 
     Result runCycle() {

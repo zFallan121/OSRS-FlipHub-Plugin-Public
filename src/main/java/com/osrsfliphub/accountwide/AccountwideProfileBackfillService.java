@@ -26,7 +26,11 @@ package com.osrsfliphub;
 
 import java.util.ArrayList;
 import java.util.List;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.api.Client;
 
+@Singleton
 final class AccountwideProfileBackfillService {
     interface Hooks {
         List<LocalTradeDelta> snapshotLocalTrades(long profileKey);
@@ -38,6 +42,27 @@ final class AccountwideProfileBackfillService {
     private final long localEventBucketMs;
     private final long duplicateTradeWindowMs;
     private final Hooks hooks;
+
+    @Inject
+    AccountwideProfileBackfillService(Client client) {
+        this(GeLifecyclePluginConstants.MAX_BATCH_SIZE,
+            GeLifecyclePluginConstants.MAX_LOCAL_TRADES,
+            GeLifecyclePluginConstants.LOCAL_EVENT_BUCKET_MS,
+            GeLifecyclePluginConstants.DUPLICATE_TRADE_WINDOW_MS,
+            new Hooks() {
+                @Override
+                public List<LocalTradeDelta> snapshotLocalTrades(long profileKey) {
+                    LocalTradeSessionFacadeService service =
+                        PluginAccess.plugin().getStatsTradesServices().getLocalTradeSessionFacadeService();
+                    return service != null ? service.snapshotLocalTradeDeltas(profileKey) : null;
+                }
+
+                @Override
+                public Integer resolveWorld() {
+                    return client != null ? client.getWorld() : null;
+                }
+            });
+    }
 
     AccountwideProfileBackfillService(int maxBatchSize,
                                       int maxLocalTrades,

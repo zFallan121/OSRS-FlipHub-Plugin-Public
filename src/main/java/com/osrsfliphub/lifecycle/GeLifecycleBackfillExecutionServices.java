@@ -63,10 +63,8 @@ final class GeLifecycleBackfillExecutionServices {
     private final Supplier<Logger> loggerSupplier;
     private final BooleanSupplier debugEnabledSupplier;
 
-    private AccountwideBackfillCoordinatorFactoryService accountwideBackfillCoordinatorFactoryService;
     private AccountwideBackfillCoordinator accountwideBackfillCoordinator;
     private BackfillUploader backfillUploader;
-    private AccountwideProfileBackfillFactoryService accountwideProfileBackfillFactoryService;
     private AccountwideProfileBackfillService accountwideProfileBackfillService;
     private BackfillSyncMatcher backfillSyncMatcher;
 
@@ -133,36 +131,7 @@ final class GeLifecycleBackfillExecutionServices {
     }
 
     AccountwideBackfillCoordinator getAccountwideBackfillCoordinator() {
-        AccountwideBackfillCoordinator coordinator = accountwideBackfillCoordinator;
-        if (coordinator != null) {
-            return coordinator;
-        }
-        coordinator = getAccountwideBackfillCoordinatorFactoryService().create(
-            new AccountwideBackfillCoordinatorPluginHooks(
-                accountwideProfileKeyCollectorSupplier,
-                profileStorageFacadeServiceSupplier,
-                localTradeDeltasByAccount,
-                localStatsLock,
-                profileSelectionPresentationFacadeServiceSupplier,
-                backfilledProfilesStoreSupplier,
-                ensureProfileLoaded,
-                localStatsSnapshotServiceSupplier,
-                this::resolveSessionToken,
-                fetchRemoteStatsSummary,
-                this::getBackfillSyncMatcher,
-                (profileKey, activeApiClient, activeConfig, uploader) ->
-                    getAccountwideProfileBackfillService().backfillProfileTrades(profileKey, activeApiClient, activeConfig, uploader),
-                apiClientSupplier,
-                configSupplier,
-                this::getBackfillUploader,
-                triggerStatsRefresh,
-                triggerPanelRefresh,
-                uploadBackfillDispatchServiceSupplier,
-                loggerSupplier
-            )
-        );
-        accountwideBackfillCoordinator = coordinator;
-        return coordinator;
+        return PluginInjectorBridge.get(AccountwideBackfillCoordinator.class);
     }
 
     BackfillUploader getBackfillUploader() {
@@ -170,47 +139,11 @@ final class GeLifecycleBackfillExecutionServices {
     }
 
     AccountwideProfileBackfillService getAccountwideProfileBackfillService() {
-        AccountwideProfileBackfillService service = accountwideProfileBackfillService;
-        if (service != null) {
-            return service;
-        }
-        service = getAccountwideProfileBackfillFactoryService().create(
-            new AccountwideProfileBackfillRuntimePluginHooks(
-                localTradeSessionFacadeServiceSupplier,
-                clientSupplier
-            )
-        );
-        accountwideProfileBackfillService = service;
-        return service;
+        return PluginInjectorBridge.get(AccountwideProfileBackfillService.class);
     }
 
     BackfillSyncMatcher getBackfillSyncMatcher() {
         return PluginInjectorBridge.get(BackfillSyncMatcher.class);
-    }
-
-    private AccountwideBackfillCoordinatorFactoryService getAccountwideBackfillCoordinatorFactoryService() {
-        AccountwideBackfillCoordinatorFactoryService service = accountwideBackfillCoordinatorFactoryService;
-        if (service != null) {
-            return service;
-        }
-        service = new AccountwideBackfillCoordinatorFactoryService(maxBackfillProfileCount);
-        accountwideBackfillCoordinatorFactoryService = service;
-        return service;
-    }
-
-    private AccountwideProfileBackfillFactoryService getAccountwideProfileBackfillFactoryService() {
-        AccountwideProfileBackfillFactoryService service = accountwideProfileBackfillFactoryService;
-        if (service != null) {
-            return service;
-        }
-        service = new AccountwideProfileBackfillFactoryService(
-            maxBatchSize,
-            maxLocalTrades,
-            localEventBucketMs,
-            duplicateTradeWindowMs
-        );
-        accountwideProfileBackfillFactoryService = service;
-        return service;
     }
 
     private String resolveSessionToken() {
