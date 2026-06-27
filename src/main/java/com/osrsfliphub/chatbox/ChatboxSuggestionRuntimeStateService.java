@@ -26,11 +26,14 @@ package com.osrsfliphub;
 
 import java.text.NumberFormat;
 import java.util.Locale;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import net.runelite.api.Client;
 import net.runelite.api.VarClientInt;
 import net.runelite.api.widgets.ComponentID;
 import net.runelite.api.widgets.Widget;
 
+@Singleton
 final class ChatboxSuggestionRuntimeStateService {
     interface Hooks {
         Client getClient();
@@ -46,6 +49,26 @@ final class ChatboxSuggestionRuntimeStateService {
     private Widget cachedQuantityPromptWidget;
     private volatile boolean suggestionDirty;
     private long lastSuggestionUpdateMs;
+
+    @Inject
+    ChatboxSuggestionRuntimeStateService(Client client) {
+        this(new Hooks() {
+            @Override
+            public Client getClient() {
+                return client;
+            }
+
+            @Override
+            public ChatboxSuggestionWidgetFactoryService getWidgetFactoryService() {
+                return PluginInjectorBridge.get(ChatboxSuggestionWidgetFactoryService.class);
+            }
+
+            @Override
+            public ChatboxPromptWidgetResolverService getPromptWidgetResolverService() {
+                return PluginInjectorBridge.get(ChatboxPromptWidgetResolverService.class);
+            }
+        });
+    }
 
     ChatboxSuggestionRuntimeStateService(Hooks hooks) {
         this.hooks = hooks;

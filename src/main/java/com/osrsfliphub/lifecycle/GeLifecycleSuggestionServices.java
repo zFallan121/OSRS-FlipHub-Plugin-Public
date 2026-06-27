@@ -112,19 +112,7 @@ final class GeLifecycleSuggestionServices {
     }
 
     ChatboxSuggestionRuntimeStateService getChatboxSuggestionRuntimeStateService() {
-        ChatboxSuggestionRuntimeStateService service = chatboxSuggestionRuntimeStateService;
-        if (service != null) {
-            return service;
-        }
-        service = new ChatboxSuggestionRuntimeStateService(
-            new ChatboxSuggestionRuntimeStatePluginHooks(
-                clientSupplier,
-                this::getChatboxSuggestionWidgetFactoryService,
-                this::getChatboxPromptWidgetResolverService
-            )
-        );
-        chatboxSuggestionRuntimeStateService = service;
-        return service;
+        return PluginInjectorBridge.get(ChatboxSuggestionRuntimeStateService.class);
     }
 
     ChatboxSuggestionCycleService getChatboxSuggestionCycleService() {
@@ -166,58 +154,15 @@ final class GeLifecycleSuggestionServices {
     }
 
     ChatboxSuggestionApplyService getChatboxSuggestionApplyService() {
-        ChatboxSuggestionApplyService service = chatboxSuggestionApplyService;
-        if (service != null) {
-            return service;
-        }
-        service = new ChatboxSuggestionApplyService(
-            new ChatboxSuggestionApplyPluginHooks(
-                clientSupplier,
-                this::getOfferTypeResolver,
-                offerPreviewItemSupplier,
-                this::getRemainingLimitSuggestionService,
-                this::getAffordableLimitSuggestionService
-            )
-        );
-        chatboxSuggestionApplyService = service;
-        return service;
+        return PluginInjectorBridge.get(ChatboxSuggestionApplyService.class);
     }
 
     ChatboxSuggestionWidgetFactoryService getChatboxSuggestionWidgetFactoryService() {
-        ChatboxSuggestionWidgetFactoryService service = chatboxSuggestionWidgetFactoryService;
-        if (service != null) {
-            return service;
-        }
-        service = new ChatboxSuggestionWidgetFactoryService(
-            suggestionTextColor,
-            suggestionHoverTextColor,
-            suggestionTopY,
-            suggestionRightX,
-            suggestionRightWidthPadding,
-            priceSuggestionWidgetName,
-            limitSuggestionWidgetName,
-            affordableLimitSuggestionWidgetName,
-            new ChatboxSuggestionWidgetFactoryPluginHooks(this::getChatboxSuggestionApplyService)
-        );
-        chatboxSuggestionWidgetFactoryService = service;
-        return service;
+        return PluginInjectorBridge.get(ChatboxSuggestionWidgetFactoryService.class);
     }
 
     ChatboxPromptWidgetResolverService getChatboxPromptWidgetResolverService() {
-        ChatboxPromptWidgetResolverService service = chatboxPromptWidgetResolverService;
-        if (service != null) {
-            return service;
-        }
-        service = new ChatboxPromptWidgetResolverService(
-            ComponentID.CHATBOX_FULL_INPUT,
-            ComponentID.CHATBOX_TITLE,
-            ComponentID.CHATBOX_FIRST_MESSAGE,
-            ComponentID.CHATBOX_MESSAGE_LINES,
-            ComponentID.CHATBOX_CONTAINER,
-            new ChatboxPromptWidgetResolverPluginHooks(clientSupplier)
-        );
-        chatboxPromptWidgetResolverService = service;
-        return service;
+        return PluginInjectorBridge.get(ChatboxPromptWidgetResolverService.class);
     }
 
     RemainingLimitSuggestionService getRemainingLimitSuggestionService() {

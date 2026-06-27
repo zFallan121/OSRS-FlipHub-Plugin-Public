@@ -24,6 +24,13 @@
  */
 package com.osrsfliphub;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.api.Client;
+import net.runelite.api.ScriptID;
+import net.runelite.api.gameval.VarClientID;
+
+@Singleton
 final class ChatboxSuggestionApplyService {
     interface Hooks {
         boolean canApplyChatInput();
@@ -36,6 +43,55 @@ final class ChatboxSuggestionApplyService {
     }
 
     private final Hooks hooks;
+
+    @Inject
+    ChatboxSuggestionApplyService(Client client) {
+        this(new Hooks() {
+            @Override
+            public boolean canApplyChatInput() {
+                return client != null;
+            }
+
+            @Override
+            public Boolean resolveOfferType() {
+                OfferTypeResolver resolver = PluginInjectorBridge.get(OfferTypeResolver.class);
+                return resolver != null ? resolver.resolveOfferType() : null;
+            }
+
+            @Override
+            public FlipHubItem getOfferPreviewItem() {
+                return PluginAccess.plugin().offerPreviewItem;
+            }
+
+            @Override
+            public Integer computeRemainingLimitSuggestion(int itemId) {
+                RemainingLimitSuggestionService service =
+                    PluginInjectorBridge.get(RemainingLimitSuggestionService.class);
+                return service != null ? service.computeSuggestion(itemId) : null;
+            }
+
+            @Override
+            public Integer computeAffordableLimitSuggestion(Integer remainingLimit) {
+                AffordableLimitSuggestionService service =
+                    PluginInjectorBridge.get(AffordableLimitSuggestionService.class);
+                return service != null ? service.computeAffordableLimit(remainingLimit) : null;
+            }
+
+            @Override
+            public void setChatInput(String value) {
+                if (client != null && value != null) {
+                    client.setVarcStrValue(VarClientID.MESLAYERINPUT, value);
+                }
+            }
+
+            @Override
+            public void rebuildChatInput() {
+                if (client != null) {
+                    client.runScript(ScriptID.CHAT_TEXT_INPUT_REBUILD, "");
+                }
+            }
+        });
+    }
 
     ChatboxSuggestionApplyService(Hooks hooks) {
         this.hooks = hooks;

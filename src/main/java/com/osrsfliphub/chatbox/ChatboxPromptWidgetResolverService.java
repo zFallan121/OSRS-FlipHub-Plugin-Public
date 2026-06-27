@@ -24,8 +24,13 @@
  */
 package com.osrsfliphub;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.api.Client;
+import net.runelite.api.widgets.ComponentID;
 import net.runelite.api.widgets.Widget;
 
+@Singleton
 final class ChatboxPromptWidgetResolverService {
     interface Hooks {
         Widget getWidget(int componentId);
@@ -37,6 +42,16 @@ final class ChatboxPromptWidgetResolverService {
     private final int messageLinesComponentId;
     private final int containerComponentId;
     private final Hooks hooks;
+
+    @Inject
+    ChatboxPromptWidgetResolverService(Client client) {
+        this(ComponentID.CHATBOX_FULL_INPUT,
+            ComponentID.CHATBOX_TITLE,
+            ComponentID.CHATBOX_FIRST_MESSAGE,
+            ComponentID.CHATBOX_MESSAGE_LINES,
+            ComponentID.CHATBOX_CONTAINER,
+            componentId -> client != null ? client.getWidget(componentId) : null);
+    }
 
     ChatboxPromptWidgetResolverService(int fullInputComponentId,
                                        int titleComponentId,

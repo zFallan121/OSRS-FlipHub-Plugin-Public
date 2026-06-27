@@ -24,6 +24,8 @@
  */
 package com.osrsfliphub;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import net.runelite.api.FontID;
 import net.runelite.api.widgets.JavaScriptCallback;
 import net.runelite.api.widgets.Widget;
@@ -32,6 +34,7 @@ import net.runelite.api.widgets.WidgetSizeMode;
 import net.runelite.api.widgets.WidgetTextAlignment;
 import net.runelite.api.widgets.WidgetType;
 
+@Singleton
 final class ChatboxSuggestionWidgetFactoryService {
     interface Hooks {
         void onApplySuggestedPriceToChat();
@@ -48,6 +51,46 @@ final class ChatboxSuggestionWidgetFactoryService {
     private final String limitSuggestionWidgetName;
     private final String affordableLimitSuggestionWidgetName;
     private final Hooks hooks;
+
+    @Inject
+    ChatboxSuggestionWidgetFactoryService() {
+        this(GeLifecyclePluginConstants.SUGGESTION_TEXT_COLOR,
+            GeLifecyclePluginConstants.SUGGESTION_HOVER_TEXT_COLOR,
+            GeLifecyclePluginConstants.SUGGESTION_TOP_Y,
+            GeLifecyclePluginConstants.SUGGESTION_RIGHT_X,
+            GeLifecyclePluginConstants.SUGGESTION_RIGHT_WIDTH_PADDING,
+            GeLifecyclePluginConstants.PRICE_SUGGESTION_WIDGET_NAME,
+            GeLifecyclePluginConstants.LIMIT_SUGGESTION_WIDGET_NAME,
+            GeLifecyclePluginConstants.AFFORDABLE_LIMIT_SUGGESTION_WIDGET_NAME,
+            new Hooks() {
+                @Override
+                public void onApplySuggestedPriceToChat() {
+                    ChatboxSuggestionApplyService service =
+                        PluginInjectorBridge.get(ChatboxSuggestionApplyService.class);
+                    if (service != null) {
+                        service.applySuggestedPriceToChat();
+                    }
+                }
+
+                @Override
+                public void onApplySuggestedLimitToChat() {
+                    ChatboxSuggestionApplyService service =
+                        PluginInjectorBridge.get(ChatboxSuggestionApplyService.class);
+                    if (service != null) {
+                        service.applySuggestedLimitToChat();
+                    }
+                }
+
+                @Override
+                public void onApplySuggestedAffordableLimitToChat() {
+                    ChatboxSuggestionApplyService service =
+                        PluginInjectorBridge.get(ChatboxSuggestionApplyService.class);
+                    if (service != null) {
+                        service.applySuggestedAffordableLimitToChat();
+                    }
+                }
+            });
+    }
 
     ChatboxSuggestionWidgetFactoryService(int suggestionTextColor,
                                           int suggestionHoverTextColor,
