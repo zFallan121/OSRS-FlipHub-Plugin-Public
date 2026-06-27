@@ -128,43 +128,15 @@ final class GeLifecycleLocalStatsServices {
     }
 
     LocalAccountSessionService getLocalAccountSessionService() {
-        LocalAccountSessionService service = localAccountSessionService;
-        if (service != null) {
-            return service;
-        }
-        service = GeLifecycleLocalStatsCoreFactory.createLocalAccountSessionService(
-            context,
-            this::getProfileWorkflowService
-        );
-        localAccountSessionService = service;
-        return service;
+        return PluginInjectorBridge.get(LocalAccountSessionService.class);
     }
 
     LocalTradeAnalyticsService getLocalTradeAnalyticsService() {
-        LocalTradeAnalyticsService service = localTradeAnalyticsService;
-        if (service != null) {
-            return service;
-        }
-        service = GeLifecycleLocalStatsCoreFactory.createLocalTradeAnalyticsService(context);
-        localTradeAnalyticsService = service;
-        return service;
+        return PluginInjectorBridge.get(LocalTradeAnalyticsService.class);
     }
 
     LocalTradeSessionFacadeService getLocalTradeSessionFacadeService() {
-        LocalTradeSessionFacadeService service = localTradeSessionFacadeService;
-        if (service != null) {
-            return service;
-        }
-        service = GeLifecycleLocalStatsCoreFactory.createLocalTradeSessionFacadeService(
-            context,
-            this::getLocalAccountSessionService,
-            this::getLocalTradeAnalyticsService,
-            this::getLocalFlipHistoryService,
-            this::getAccountwideFlipHistoryService,
-            this::getLocalTradesRuntimeService
-        );
-        localTradeSessionFacadeService = service;
-        return service;
+        return PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
     }
 
     LocalStatsViewService getLocalStatsViewService() {

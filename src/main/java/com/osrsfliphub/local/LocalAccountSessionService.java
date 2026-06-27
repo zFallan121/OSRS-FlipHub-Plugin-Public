@@ -26,7 +26,12 @@ package com.osrsfliphub;
 
 import java.util.Locale;
 import java.util.Map;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.api.Client;
+import net.runelite.api.GameState;
 
+@Singleton
 final class LocalAccountSessionService {
     interface Hooks {
         boolean isLoggedIn();
@@ -39,6 +44,36 @@ final class LocalAccountSessionService {
     private final Hooks hooks;
     private long lastMergedAccountHash = -1L;
     private long lastMergedNameKey = -1L;
+
+    @Inject
+    LocalAccountSessionService(Client client) {
+        this(new Hooks() {
+            @Override
+            public boolean isLoggedIn() {
+                return client != null && client.getGameState() == GameState.LOGGED_IN;
+            }
+
+            @Override
+            public long readAccountHash() {
+                return client != null ? client.getAccountHash() : -1L;
+            }
+
+            @Override
+            public String readDisplayName() {
+                return client != null && client.getLocalPlayer() != null ? client.getLocalPlayer().getName() : null;
+            }
+
+            @Override
+            public long nowMs() {
+                return System.currentTimeMillis();
+            }
+
+            @Override
+            public void mergeLocalAccountData(long accountHash, long nameKey) {
+                PluginAccess.plugin().getProfileWorkflowService().mergeLocalAccountData(accountHash, nameKey);
+            }
+        });
+    }
 
     LocalAccountSessionService(Hooks hooks) {
         this.hooks = hooks;

@@ -66,50 +66,6 @@ final class GeLifecycleLocalStatsCoreFactory {
         );
     }
 
-    static LocalAccountSessionService createLocalAccountSessionService(
-        GeLifecycleLocalStatsRuntimeContext context,
-        Supplier<GeLifecycleProfileWorkflowService> profileWorkflowServiceSupplier
-    ) {
-        return new LocalAccountSessionService(
-            new LocalAccountSessionPluginHooks(
-                context.clientSupplier,
-                System::currentTimeMillis,
-                profileWorkflowServiceSupplier.get()::mergeLocalAccountData
-            )
-        );
-    }
-
-    static LocalTradeAnalyticsService createLocalTradeAnalyticsService(GeLifecycleLocalStatsRuntimeContext context) {
-        return new LocalTradeAnalyticsService(
-            context.localLimitWindowMs,
-            context.localLimitFutureToleranceMs,
-            context.localEventBucketMs
-        );
-    }
-
-    static LocalTradeSessionFacadeService createLocalTradeSessionFacadeService(
-        GeLifecycleLocalStatsRuntimeContext context,
-        Supplier<LocalAccountSessionService> localAccountSessionServiceSupplier,
-        Supplier<LocalTradeAnalyticsService> localTradeAnalyticsServiceSupplier,
-        Supplier<LocalFlipHistoryService> localFlipHistoryServiceSupplier,
-        Supplier<AccountwideFlipHistoryService> accountwideFlipHistoryServiceSupplier,
-        Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier
-    ) {
-        return new LocalTradeSessionFacadeService(
-            context.accountwideKey,
-            context.localTradeDeltasByAccount,
-            context.localSessionStartByAccount,
-            context.localStatsLock,
-            new LocalTradeSessionFacadePluginHooks(
-                localAccountSessionServiceSupplier,
-                localTradeAnalyticsServiceSupplier,
-                localFlipHistoryServiceSupplier,
-                accountwideFlipHistoryServiceSupplier,
-                localTradesRuntimeServiceSupplier.get()::ensureProfileLoaded
-            )
-        );
-    }
-
     static LocalStatsViewService createLocalStatsViewService(
         Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
         Supplier<ProfileSelectionPresentationFacadeService> profileSelectionPresentationFacadeServiceSupplier,

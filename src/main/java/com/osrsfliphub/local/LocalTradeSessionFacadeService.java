@@ -27,7 +27,10 @@ package com.osrsfliphub;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class LocalTradeSessionFacadeService {
     interface Hooks {
         LocalAccountSessionService getLocalAccountSessionService();
@@ -42,6 +45,41 @@ final class LocalTradeSessionFacadeService {
     private final Map<Long, Long> localSessionStartByAccount;
     private final Object localStatsLock;
     private final Hooks hooks;
+
+    @Inject
+    LocalTradeSessionFacadeService(PluginState state) {
+        this(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY,
+            state.getLocalTradeDeltasByAccount(),
+            state.getLocalSessionStartByAccount(),
+            state.getLocalStatsLock(),
+            new Hooks() {
+                @Override
+                public LocalAccountSessionService getLocalAccountSessionService() {
+                    return PluginInjectorBridge.get(LocalAccountSessionService.class);
+                }
+
+                @Override
+                public LocalTradeAnalyticsService getLocalTradeAnalyticsService() {
+                    return PluginInjectorBridge.get(LocalTradeAnalyticsService.class);
+                }
+
+                @Override
+                public LocalFlipHistoryService getLocalFlipHistoryService() {
+                    return PluginAccess.plugin().getStatsTradesServices().getLocalStatsServices()
+                        .getLocalFlipHistoryService();
+                }
+
+                @Override
+                public AccountwideFlipHistoryService getAccountwideFlipHistoryService() {
+                    return PluginInjectorBridge.get(AccountwideFlipHistoryService.class);
+                }
+
+                @Override
+                public void ensureProfileLoaded(long accountKey) {
+                    PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
+                }
+            });
+    }
 
     LocalTradeSessionFacadeService(long accountwideKey,
                                    Map<Long, List<LocalTradeDelta>> localTradeDeltasByAccount,

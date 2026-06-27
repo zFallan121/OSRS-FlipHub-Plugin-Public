@@ -30,11 +30,21 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class LocalTradeAnalyticsService {
     private final long limitWindowMs;
     private final long futureToleranceMs;
     private final long localEventBucketMs;
+
+    @Inject
+    LocalTradeAnalyticsService() {
+        this(GeLifecyclePluginConstants.LOCAL_LIMIT_WINDOW_MS,
+            GeLifecyclePluginConstants.LOCAL_LIMIT_FUTURE_TOLERANCE_MS,
+            GeLifecyclePluginConstants.LOCAL_EVENT_BUCKET_MS);
+    }
 
     LocalTradeAnalyticsService(long limitWindowMs, long futureToleranceMs, long localEventBucketMs) {
         this.limitWindowMs = Math.max(0L, limitWindowMs);
