@@ -106,13 +106,7 @@ final class GeLifecycleProfileTradesServices {
     }
 
     AccountwideProfileKeyCollector getAccountwideProfileKeyCollector() {
-        AccountwideProfileKeyCollector collector = accountwideProfileKeyCollector;
-        if (collector != null) {
-            return collector;
-        }
-        collector = new AccountwideProfileKeyCollector();
-        accountwideProfileKeyCollector = collector;
-        return collector;
+        return PluginInjectorBridge.get(AccountwideProfileKeyCollector.class);
     }
 
     AccountwideTradesMergeService getAccountwideTradesMergeService() {

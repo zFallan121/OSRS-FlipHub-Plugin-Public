@@ -30,7 +30,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
+import javax.inject.Singleton;
 
+@Singleton
 final class AccountwideProfileKeyCollector {
     Set<Long> collect(Path profilesDir,
                       Path legacyProfilesDir,
