@@ -25,7 +25,10 @@
 package com.osrsfliphub;
 
 import java.util.concurrent.ScheduledExecutorService;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class LocalTradesLoadCoordinator {
     interface Hooks {
         long nowMs();
@@ -50,6 +53,43 @@ final class LocalTradesLoadCoordinator {
 
     private final long retryMs;
     private final Hooks hooks;
+
+    @Inject
+    LocalTradesLoadCoordinator() {
+        this(GeLifecyclePluginConstants.LOCAL_TRADES_LOAD_RETRY_MS, new Hooks() {
+            @Override
+            public long nowMs() {
+                return System.currentTimeMillis();
+            }
+
+            @Override
+            public long resolveAccountHash() {
+                LocalTradeSessionFacadeService service =
+                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+                return service != null ? service.resolveAccountHash() : -1L;
+            }
+
+            @Override
+            public void invokeOnClientThread(Runnable task) {
+                PluginAccess.plugin().invokeOnClientThread(task);
+            }
+
+            @Override
+            public void scheduleAsync(ScheduledExecutorService scheduler, Runnable task) {
+                PluginAccess.plugin().executeOnScheduler(scheduler, task);
+            }
+
+            @Override
+            public void ensureProfileLoaded(long accountHash) {
+                PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoadedBoxed(accountHash);
+            }
+
+            @Override
+            public void markLocalTradesLoaded() {
+                PluginAccess.plugin().getLocalTradesRuntimeService().markLocalTradesLoadedForLogin();
+            }
+        });
+    }
 
     LocalTradesLoadCoordinator(long retryMs, Hooks hooks) {
         this.retryMs = Math.max(0L, retryMs);

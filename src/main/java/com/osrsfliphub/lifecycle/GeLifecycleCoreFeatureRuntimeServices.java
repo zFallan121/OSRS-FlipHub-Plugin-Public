@@ -82,7 +82,7 @@ final class GeLifecycleCoreFeatureRuntimeServices {
         Runnable resetLocalTradesLoadStateAction,
         Runnable markAccountwideUploadDirtyAction,
         Consumer<Runnable> invokeOnClientThreadConsumer,
-        LocalTradesLoadCoordinatorPluginHooks.LongConsumerWithScheduler executeOnSchedulerConsumer,
+        LongConsumerWithScheduler executeOnSchedulerConsumer,
         Consumer<Runnable> executeAsyncConsumer,
         WebsiteStatsWipePluginHooks.WipeStatsInvoker wipeStatsInvoker,
         ToLongFunction<Path> profileFileModifiedMsFn,

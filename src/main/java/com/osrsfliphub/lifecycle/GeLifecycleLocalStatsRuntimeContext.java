@@ -52,7 +52,7 @@ final class GeLifecycleLocalStatsRuntimeContext {
     final Supplier<StatsRange> currentStatsRangeSupplier;
     final Supplier<StatsItemSort> currentStatsSortSupplier;
     final Consumer<Runnable> invokeOnClientThreadAction;
-    final LocalTradesLoadCoordinatorPluginHooks.LongConsumerWithScheduler executeOnSchedulerAction;
+    final LongConsumerWithScheduler executeOnSchedulerAction;
     final Runnable triggerStatsRefreshAction;
     final Runnable triggerPanelRefreshAction;
 
@@ -77,7 +77,7 @@ final class GeLifecycleLocalStatsRuntimeContext {
         Supplier<StatsRange> currentStatsRangeSupplier,
         Supplier<StatsItemSort> currentStatsSortSupplier,
         Consumer<Runnable> invokeOnClientThreadAction,
-        LocalTradesLoadCoordinatorPluginHooks.LongConsumerWithScheduler executeOnSchedulerAction,
+        LongConsumerWithScheduler executeOnSchedulerAction,
         Runnable triggerStatsRefreshAction,
         Runnable triggerPanelRefreshAction
     ) {

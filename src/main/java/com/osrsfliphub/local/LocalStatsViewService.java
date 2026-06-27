@@ -28,7 +28,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class LocalStatsViewService {
     interface Hooks {
         void ensureSelectedProfileLoaded();
@@ -59,6 +62,72 @@ final class LocalStatsViewService {
     }
 
     private final Hooks hooks;
+
+    @Inject
+    LocalStatsViewService() {
+        this(productionHooks());
+    }
+
+    private static ProfileSelectionPresentationFacadeService profileSelectionFacade() {
+        return PluginAccess.plugin().getProfileSelectionServices().getProfileSelectionPresentationFacadeService();
+    }
+
+    private static LocalTradeSessionFacadeService localTradeSessionFacade() {
+        return PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+    }
+
+    private static Hooks productionHooks() {
+        return new Hooks() {
+            @Override
+            public void ensureSelectedProfileLoaded() {
+                ProfileSelectionPresentationFacadeService facade = profileSelectionFacade();
+                if (facade != null) {
+                    PluginAccess.plugin().getLocalTradesRuntimeService()
+                        .ensureProfileLoaded(facade.resolveSelectedProfileKey());
+                }
+            }
+
+            @Override
+            public long nowMs() {
+                return System.currentTimeMillis();
+            }
+
+            @Override
+            public StatsRange currentStatsRange() {
+                return PluginAccess.plugin().currentStatsRange;
+            }
+
+            @Override
+            public StatsItemSort currentStatsSort() {
+                return PluginAccess.plugin().currentStatsSort;
+            }
+
+            @Override
+            public long resolveSelectedProfileKey() {
+                ProfileSelectionPresentationFacadeService facade = profileSelectionFacade();
+                return facade != null ? facade.resolveSelectedProfileKey() : -1L;
+            }
+
+            @Override
+            public long resolveSessionStartMs(long accountKey, long nowMs) {
+                LocalTradeSessionFacadeService service = localTradeSessionFacade();
+                return service != null ? service.resolveStatsSessionStartMs(accountKey, nowMs) : 0L;
+            }
+
+            @Override
+            public LocalStatsSnapshot buildLocalStatsSnapshot(long accountKey, Long sinceMs, StatsItemSort sort) {
+                LocalStatsSnapshotService service =
+                    PluginAccess.plugin().getStatsTradesServices().getLocalStatsSnapshotService();
+                return service != null ? service.buildSnapshot(accountKey, sinceMs, sort) : null;
+            }
+
+            @Override
+            public Map<Integer, List<StatsFlipInstance>> buildStatsFlipHistory(long accountKey, Long sinceMs) {
+                LocalTradeSessionFacadeService service = localTradeSessionFacade();
+                return service != null ? service.buildStatsFlipHistory(accountKey, sinceMs) : null;
+            }
+        };
+    }
 
     LocalStatsViewService(Hooks hooks) {
         this.hooks = hooks;

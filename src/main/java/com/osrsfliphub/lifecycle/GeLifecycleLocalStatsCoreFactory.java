@@ -24,8 +24,6 @@
  */
 package com.osrsfliphub;
 
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 final class GeLifecycleLocalStatsCoreFactory {
@@ -66,46 +64,4 @@ final class GeLifecycleLocalStatsCoreFactory {
         );
     }
 
-    static LocalStatsViewService createLocalStatsViewService(
-        Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
-        Supplier<ProfileSelectionPresentationFacadeService> profileSelectionPresentationFacadeServiceSupplier,
-        Supplier<StatsRange> currentStatsRangeSupplier,
-        Supplier<StatsItemSort> currentStatsSortSupplier,
-        Supplier<LocalTradeSessionFacadeService> localTradeSessionFacadeServiceSupplier,
-        Supplier<LocalStatsSnapshotService> localStatsSnapshotServiceSupplier
-    ) {
-        return new LocalStatsViewService(
-            new LocalStatsViewPluginHooks(
-                () -> localTradesRuntimeServiceSupplier.get().ensureProfileLoaded(
-                    profileSelectionPresentationFacadeServiceSupplier.get().resolveSelectedProfileKey()
-                ),
-                System::currentTimeMillis,
-                currentStatsRangeSupplier,
-                currentStatsSortSupplier,
-                profileSelectionPresentationFacadeServiceSupplier,
-                localTradeSessionFacadeServiceSupplier,
-                localStatsSnapshotServiceSupplier
-            )
-        );
-    }
-
-    static LocalTradesLoadCoordinator createLocalTradesLoadCoordinator(
-        GeLifecycleLocalStatsRuntimeContext context,
-        Supplier<LocalTradeSessionFacadeService> localTradeSessionFacadeServiceSupplier,
-        Consumer<Runnable> invokeOnClientThreadConsumer,
-        LocalTradesLoadCoordinatorPluginHooks.LongConsumerWithScheduler executeOnSchedulerConsumer,
-        Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier
-    ) {
-        return new LocalTradesLoadCoordinator(
-            context.localTradesLoadRetryMs,
-            new LocalTradesLoadCoordinatorPluginHooks(
-                System::currentTimeMillis,
-                localTradeSessionFacadeServiceSupplier,
-                invokeOnClientThreadConsumer,
-                executeOnSchedulerConsumer,
-                localTradesRuntimeServiceSupplier.get()::ensureProfileLoadedBoxed,
-                localTradesRuntimeServiceSupplier.get()::markLocalTradesLoadedForLogin
-            )
-        );
-    }
 }

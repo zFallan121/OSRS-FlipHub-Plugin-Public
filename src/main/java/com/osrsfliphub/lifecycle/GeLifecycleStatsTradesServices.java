@@ -58,7 +58,7 @@ final class GeLifecycleStatsTradesServices {
         Supplier<StatsRange> currentStatsRangeSupplier,
         Supplier<StatsItemSort> currentStatsSortSupplier,
         Consumer<Runnable> invokeOnClientThreadAction,
-        LocalTradesLoadCoordinatorPluginHooks.LongConsumerWithScheduler executeOnSchedulerAction,
+        LongConsumerWithScheduler executeOnSchedulerAction,
         Runnable triggerStatsRefreshAction,
         Runnable triggerPanelRefreshAction,
         Supplier<BackfillUploader> backfillUploaderSupplier,

@@ -26,7 +26,6 @@ package com.osrsfliphub;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import net.runelite.api.Client;
@@ -39,8 +38,6 @@ final class GeLifecycleLocalStatsServices {
     private LocalAccountSessionService localAccountSessionService;
     private LocalTradeAnalyticsService localTradeAnalyticsService;
     private LocalTradeSessionFacadeService localTradeSessionFacadeService;
-    private LocalStatsViewService localStatsViewService;
-    private LocalTradesLoadCoordinator localTradesLoadCoordinator;
     private LocalFlipHistoryService localFlipHistoryService;
     private AccountwideFlipHistoryService accountwideFlipHistoryService;
     private LocalAccountMergeService localAccountMergeService;
@@ -67,7 +64,7 @@ final class GeLifecycleLocalStatsServices {
         Supplier<StatsRange> currentStatsRangeSupplier,
         Supplier<StatsItemSort> currentStatsSortSupplier,
         Consumer<Runnable> invokeOnClientThreadAction,
-        LocalTradesLoadCoordinatorPluginHooks.LongConsumerWithScheduler executeOnSchedulerAction,
+        LongConsumerWithScheduler executeOnSchedulerAction,
         Runnable triggerStatsRefreshAction,
         Runnable triggerPanelRefreshAction
     ) {
@@ -140,36 +137,11 @@ final class GeLifecycleLocalStatsServices {
     }
 
     LocalStatsViewService getLocalStatsViewService() {
-        LocalStatsViewService service = localStatsViewService;
-        if (service != null) {
-            return service;
-        }
-        service = GeLifecycleLocalStatsCoreFactory.createLocalStatsViewService(
-            this::getLocalTradesRuntimeService,
-            this::getProfileSelectionPresentationFacadeService,
-            this::getCurrentStatsRange,
-            this::getCurrentStatsSort,
-            this::getLocalTradeSessionFacadeService,
-            this::getLocalStatsSnapshotService
-        );
-        localStatsViewService = service;
-        return service;
+        return PluginInjectorBridge.get(LocalStatsViewService.class);
     }
 
     LocalTradesLoadCoordinator getLocalTradesLoadCoordinator() {
-        LocalTradesLoadCoordinator coordinator = localTradesLoadCoordinator;
-        if (coordinator != null) {
-            return coordinator;
-        }
-        coordinator = GeLifecycleLocalStatsCoreFactory.createLocalTradesLoadCoordinator(
-            context,
-            this::getLocalTradeSessionFacadeService,
-            this::invokeOnClientThread,
-            this::executeOnScheduler,
-            this::getLocalTradesRuntimeService
-        );
-        localTradesLoadCoordinator = coordinator;
-        return coordinator;
+        return PluginInjectorBridge.get(LocalTradesLoadCoordinator.class);
     }
 
     LocalFlipHistoryService getLocalFlipHistoryService() {
@@ -245,26 +217,6 @@ final class GeLifecycleLocalStatsServices {
 
     private GeLifecycleProfileWorkflowService getProfileWorkflowService() {
         return context.profileWorkflowServiceSupplier.get();
-    }
-
-    private StatsRange getCurrentStatsRange() {
-        return context.currentStatsRangeSupplier != null ? context.currentStatsRangeSupplier.get() : StatsRange.SESSION;
-    }
-
-    private StatsItemSort getCurrentStatsSort() {
-        return context.currentStatsSortSupplier != null ? context.currentStatsSortSupplier.get() : StatsItemSort.COMPLETION;
-    }
-
-    private void invokeOnClientThread(Runnable task) {
-        if (context.invokeOnClientThreadAction != null) {
-            context.invokeOnClientThreadAction.accept(task);
-        }
-    }
-
-    private void executeOnScheduler(ScheduledExecutorService scheduler, Runnable task) {
-        if (context.executeOnSchedulerAction != null) {
-            context.executeOnSchedulerAction.schedule(scheduler, task);
-        }
     }
 
     private void triggerStatsRefresh() {

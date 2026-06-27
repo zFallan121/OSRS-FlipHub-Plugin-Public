@@ -126,7 +126,7 @@ final class GeLifecyclePluginRuntimeFactoryContext {
     final Runnable setLocalTradesLoadedThisLoginAction;
 
     final Consumer<Runnable> invokeOnClientThreadConsumer;
-    final LocalTradesLoadCoordinatorPluginHooks.LongConsumerWithScheduler executeOnSchedulerConsumer;
+    final LongConsumerWithScheduler executeOnSchedulerConsumer;
     final Consumer<Runnable> executeAsyncConsumer;
     final Consumer<Runnable> executeIoConsumer;
     final WebsiteStatsWipePluginHooks.WipeStatsInvoker wipeStatsInvoker;
@@ -210,7 +210,7 @@ final class GeLifecyclePluginRuntimeFactoryContext {
         Runnable markAccountwideUploadDirtyAction,
         Runnable setLocalTradesLoadedThisLoginAction,
         Consumer<Runnable> invokeOnClientThreadConsumer,
-        LocalTradesLoadCoordinatorPluginHooks.LongConsumerWithScheduler executeOnSchedulerConsumer,
+        LongConsumerWithScheduler executeOnSchedulerConsumer,
         Consumer<Runnable> executeAsyncConsumer,
         Consumer<Runnable> executeIoConsumer,
         WebsiteStatsWipePluginHooks.WipeStatsInvoker wipeStatsInvoker,

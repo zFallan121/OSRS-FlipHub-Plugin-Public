@@ -78,7 +78,7 @@ final class GeLifecycleCoreFeatureRuntimeContext {
     final Runnable markAccountwideUploadDirtyAction;
 
     final Consumer<Runnable> invokeOnClientThreadConsumer;
-    final LocalTradesLoadCoordinatorPluginHooks.LongConsumerWithScheduler executeOnSchedulerConsumer;
+    final LongConsumerWithScheduler executeOnSchedulerConsumer;
     final Consumer<Runnable> executeAsyncConsumer;
     final WebsiteStatsWipePluginHooks.WipeStatsInvoker wipeStatsInvoker;
     final ToLongFunction<Path> profileFileModifiedMsFn;
@@ -121,7 +121,7 @@ final class GeLifecycleCoreFeatureRuntimeContext {
         Runnable resetLocalTradesLoadStateAction,
         Runnable markAccountwideUploadDirtyAction,
         Consumer<Runnable> invokeOnClientThreadConsumer,
-        LocalTradesLoadCoordinatorPluginHooks.LongConsumerWithScheduler executeOnSchedulerConsumer,
+        LongConsumerWithScheduler executeOnSchedulerConsumer,
         Consumer<Runnable> executeAsyncConsumer,
         WebsiteStatsWipePluginHooks.WipeStatsInvoker wipeStatsInvoker,
         ToLongFunction<Path> profileFileModifiedMsFn,
