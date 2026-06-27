@@ -81,7 +81,6 @@ final class GeLifecycleHistoryEventServices {
     private GeHistoryAutoSyncStateService geHistoryAutoSyncStateService;
     private GeHistoryAutoSyncMessageService geHistoryAutoSyncMessageService;
     private GeHistoryWipeBaselineDecisionService geHistoryWipeBaselineDecisionService;
-    private GeHistoryAutoSyncCoordinatorFactoryService geHistoryAutoSyncCoordinatorFactoryService;
     private GeHistoryAutoSyncCoordinatorService geHistoryAutoSyncCoordinatorService;
     private ProfileLoginService profileLoginService;
     private GrandExchangeOfferChangedHandlerService grandExchangeOfferChangedHandlerService;
@@ -219,41 +218,8 @@ final class GeLifecycleHistoryEventServices {
         return service;
     }
 
-    GeHistoryAutoSyncCoordinatorFactoryService getGeHistoryAutoSyncCoordinatorFactoryService() {
-        GeHistoryAutoSyncCoordinatorFactoryService service = geHistoryAutoSyncCoordinatorFactoryService;
-        if (service != null) {
-            return service;
-        }
-        service = new GeHistoryAutoSyncCoordinatorFactoryService(
-            getGeHistoryWidgetReadService(),
-            getGeHistoryCursorService(),
-            getGeHistoryWipeBaselineDecisionService(),
-            getGeHistoryAutoSyncMessageService(),
-            getGeHistoryWipeStateStore(),
-            geHistoryAutoSyncServiceSupplier != null ? geHistoryAutoSyncServiceSupplier.get() : null
-        );
-        geHistoryAutoSyncCoordinatorFactoryService = service;
-        return service;
-    }
-
     GeHistoryAutoSyncCoordinatorService getGeHistoryAutoSyncCoordinatorService() {
-        GeHistoryAutoSyncCoordinatorService service = geHistoryAutoSyncCoordinatorService;
-        if (service != null) {
-            return service;
-        }
-        service = getGeHistoryAutoSyncCoordinatorFactoryService().create(
-            getGeHistoryAutoSyncStateService(),
-            new GeHistoryAutoSyncCoordinatorPluginHooks(
-                clientSupplier,
-                geHistoryGroupId,
-                geHistoryContainerChildId,
-                localAccountSessionServiceSupplier,
-                pushGameMessage,
-                loggerSupplier
-            )
-        );
-        geHistoryAutoSyncCoordinatorService = service;
-        return service;
+        return PluginInjectorBridge.get(GeHistoryAutoSyncCoordinatorService.class);
     }
 
     ProfileLoginService getProfileLoginService() {

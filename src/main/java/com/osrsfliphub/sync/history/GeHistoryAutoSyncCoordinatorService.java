@@ -26,9 +26,18 @@ package com.osrsfliphub;
 
 import java.util.ArrayList;
 import java.util.List;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.api.Client;
+import net.runelite.api.GameState;
 import net.runelite.api.widgets.Widget;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+@Singleton
 final class GeHistoryAutoSyncCoordinatorService {
+    private static final Logger log = LoggerFactory.getLogger(GeHistoryAutoSyncCoordinatorService.class);
+
     static final class HistorySnapshot {
         final boolean visible;
         final Widget[] widgets;
@@ -65,6 +74,144 @@ final class GeHistoryAutoSyncCoordinatorService {
 
     private final GeHistoryAutoSyncStateService autoSyncState;
     private final Hooks hooks;
+
+    @Inject
+    GeHistoryAutoSyncCoordinatorService(Client client) {
+        this(PluginAccess.plugin().getEventManageHistoryServices().getGeHistoryAutoSyncStateService(),
+            productionHooks(client));
+    }
+
+    private static GeLifecycleHistoryEventServices historyEvents() {
+        return PluginAccess.plugin().getEventManageHistoryServices().getHistoryEventServices();
+    }
+
+    private static Hooks productionHooks(Client client) {
+        return new Hooks() {
+            @Override
+            public boolean isClientLoggedIn() {
+                return client != null && client.getGameState() == GameState.LOGGED_IN;
+            }
+
+            @Override
+            public long resolveLocalAccountKey() {
+                LocalAccountSessionService service =
+                    PluginAccess.plugin().getStatsTradesServices().getLocalAccountSessionService();
+                return service != null ? service.resolveLocalAccountKey() : -1L;
+            }
+
+            @Override
+            public HistorySnapshot readHistorySnapshot() {
+                Widget historyContainer = client != null
+                    ? client.getWidget(GeLifecyclePluginConstants.GE_HISTORY_GROUP_ID,
+                        GeLifecyclePluginConstants.GE_HISTORY_CONTAINER_CHILD_ID)
+                    : null;
+                if (historyContainer == null || historyContainer.isHidden()) {
+                    return new HistorySnapshot(false, null);
+                }
+                return new HistorySnapshot(true, historyContainer.getDynamicChildren());
+            }
+
+            @Override
+            public long nowMs() {
+                return System.currentTimeMillis();
+            }
+
+            @Override
+            public boolean hasCompleteWidgetGroups(Widget[] historyWidgets) {
+                GeHistoryWidgetReadService service = historyEvents().getGeHistoryWidgetReadService();
+                return service != null && service.hasCompleteWidgetGroups(historyWidgets);
+            }
+
+            @Override
+            public List<GeHistoryTrade> parseHistoryTrades(Widget[] historyWidgets) {
+                GeHistoryWidgetReadService service = historyEvents().getGeHistoryWidgetReadService();
+                return service != null ? service.parseTrades(historyWidgets) : new ArrayList<>();
+            }
+
+            @Override
+            public List<String> buildCursorSignatures(List<GeHistoryTrade> trades) {
+                GeHistoryCursorService service = historyEvents().getGeHistoryCursorService();
+                return service != null ? service.buildCursorSignatures(trades) : new ArrayList<>();
+            }
+
+            @Override
+            public int computeCursorOverlap(List<String> currentCursor, List<String> storedCursor) {
+                GeHistoryCursorService service = historyEvents().getGeHistoryCursorService();
+                return service != null ? service.computeOverlap(currentCursor, storedCursor) : 0;
+            }
+
+            @Override
+            public GeHistoryWipeBaselineDecisionService.Decision decideWipeBaseline(List<String> currentCursor,
+                                                                                    List<String> storedCursor,
+                                                                                    int parsedTradesCount,
+                                                                                    int overlap) {
+                GeHistoryWipeBaselineDecisionService service = historyEvents().getGeHistoryWipeBaselineDecisionService();
+                return service != null
+                    ? service.decide(currentCursor, storedCursor, parsedTradesCount, overlap)
+                    : GeHistoryWipeBaselineDecisionService.Decision.proceed(parsedTradesCount);
+            }
+
+            @Override
+            public String baselineSetMessage(int cursorSize) {
+                GeHistoryAutoSyncMessageService service = historyEvents().getGeHistoryAutoSyncMessageService();
+                return service != null ? service.baselineSetMessage(cursorSize) : "";
+            }
+
+            @Override
+            public String baselineMismatchMessage() {
+                GeHistoryAutoSyncMessageService service = historyEvents().getGeHistoryAutoSyncMessageService();
+                return service != null ? service.baselineMismatchMessage() : "";
+            }
+
+            @Override
+            public String syncResultMessage(int addedTrades) {
+                GeHistoryAutoSyncMessageService service = historyEvents().getGeHistoryAutoSyncMessageService();
+                return service != null ? service.syncResultMessage(addedTrades) : "";
+            }
+
+            @Override
+            public boolean isWipeBarrierArmed(long accountKey) {
+                GeHistoryWipeStateStore store = PluginInjectorBridge.get(GeHistoryWipeStateStore.class);
+                return store != null && store.isWipeBarrierArmed(accountKey);
+            }
+
+            @Override
+            public List<String> loadCursor(long accountKey) {
+                GeHistoryWipeStateStore store = PluginInjectorBridge.get(GeHistoryWipeStateStore.class);
+                return store != null ? store.loadCursor(accountKey) : new ArrayList<>();
+            }
+
+            @Override
+            public void persistCursor(long accountKey, List<String> cursor) {
+                GeHistoryWipeStateStore store = PluginInjectorBridge.get(GeHistoryWipeStateStore.class);
+                if (store != null) {
+                    store.persistCursor(accountKey, cursor);
+                }
+            }
+
+            @Override
+            public GeHistoryAutoSyncService.SyncResult sync(long accountKey, List<GeHistoryTrade> eligibleTrades) {
+                GeHistoryAutoSyncService service = PluginInjectorBridge.get(GeHistoryAutoSyncService.class);
+                if (service == null) {
+                    return new GeHistoryAutoSyncService.SyncResult(
+                        eligibleTrades != null ? eligibleTrades.size() : 0, 0);
+                }
+                return service.sync(accountKey, eligibleTrades);
+            }
+
+            @Override
+            public void pushGameMessage(String message) {
+                GeLifecyclePlugin plugin = PluginAccess.plugin();
+                plugin.runtimeUtilityServices.pushGameMessage(plugin.client, message);
+            }
+
+            @Override
+            public void logAddedTrades(int addedTrades, int parsedTrades, long accountKey) {
+                log.info("GE history auto-sync added {} missing trades ({} parsed) for account {}",
+                    addedTrades, parsedTrades, accountKey);
+            }
+        };
+    }
 
     GeHistoryAutoSyncCoordinatorService(GeHistoryAutoSyncStateService autoSyncState, Hooks hooks) {
         this.autoSyncState = autoSyncState;
