@@ -31,7 +31,11 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.api.Client;
 
+@Singleton
 final class GeHistoryAutoSyncService {
     interface Hooks {
         void ensureProfileLoaded(long accountKey);
@@ -65,9 +69,121 @@ final class GeHistoryAutoSyncService {
     private final long accountwideKey;
     private final Hooks hooks;
 
+    @Inject
+    GeHistoryAutoSyncService(Client client) {
+        this(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY, productionHooks(client));
+    }
+
     GeHistoryAutoSyncService(long accountwideKey, Hooks hooks) {
         this.accountwideKey = accountwideKey;
         this.hooks = hooks;
+    }
+
+    private static GeLifecyclePlugin plugin() {
+        return PluginAccess.plugin();
+    }
+
+    private static Hooks productionHooks(Client client) {
+        return new Hooks() {
+            @Override
+            public void ensureProfileLoaded(long accountKey) {
+                plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
+            }
+
+            @Override
+            public void ensureLocalSessionStart(long accountKey, long tsClientMs) {
+                LocalTradeSessionFacadeService service =
+                    plugin().getStatsTradesServices().getLocalTradeSessionFacadeService();
+                if (service != null) {
+                    service.ensureLocalSessionStart(accountKey, tsClientMs);
+                }
+            }
+
+            @Override
+            public List<LocalTradeDelta> snapshotLocalTradeDeltas(long accountKey) {
+                LocalTradeSessionFacadeService service =
+                    plugin().getStatsTradesServices().getLocalTradeSessionFacadeService();
+                return service != null ? service.snapshotLocalTradeDeltas(accountKey) : null;
+            }
+
+            @Override
+            public void cacheItemName(int itemId) {
+                ItemLookupService lookup =
+                    plugin().getOfferUiRuntimeServices().getItemServices().getItemLookupService();
+                if (lookup != null) {
+                    lookup.cacheItemName(itemId);
+                }
+            }
+
+            @Override
+            public void appendTradeDeltaPair(long accountKey, long accountwideKey, LocalTradeDelta delta) {
+                plugin().getLocalTradesRuntimeService().appendTradeDeltaPair(accountKey, accountwideKey, delta);
+            }
+
+            @Override
+            public void applyDeltaToStatsCache(long accountKey, LocalTradeDelta delta) {
+                LocalStatsCacheService cacheService = plugin().getStatsTradesServices().getLocalStatsCacheService();
+                if (cacheService != null) {
+                    cacheService.applyDelta(accountKey, delta);
+                }
+            }
+
+            @Override
+            public GeEvent buildUploadEvent(long profileKey, LocalTradeDelta delta) {
+                BackfillUploader uploader = PluginInjectorBridge.get(BackfillUploader.class);
+                if (uploader == null || delta == null) {
+                    return null;
+                }
+                return uploader.buildBackfillEvent(profileKey, delta, client != null ? client.getWorld() : null);
+            }
+
+            @Override
+            public void enqueueUploadEvent(GeEvent event) {
+                if (event == null) {
+                    return;
+                }
+                UploadEventDispatchFacadeService service =
+                    plugin().getUploadRuntimeServices().getUploadEventDispatchFacadeService();
+                if (service != null) {
+                    service.enqueueEvent(event);
+                }
+            }
+
+            @Override
+            public void requestEventFlush() {
+                UploadBackfillDispatchService service =
+                    plugin().getUploadRuntimeServices().getUploadBackfillDispatchService();
+                if (service != null) {
+                    service.requestEventFlush();
+                }
+            }
+
+            @Override
+            public void persistLocalTrades(long accountKey) {
+                plugin().getLocalTradesRuntimeService().persistLocalTrades(accountKey);
+            }
+
+            @Override
+            public void triggerStatsRefresh() {
+                PanelRefreshCoordinator coordinator = plugin().getPanelRefreshCoordinator();
+                if (coordinator != null) {
+                    coordinator.triggerStatsRefresh(plugin().scheduler);
+                }
+            }
+
+            @Override
+            public void triggerPanelRefresh() {
+                PanelRefreshCoordinator coordinator = plugin().getPanelRefreshCoordinator();
+                if (coordinator != null) {
+                    coordinator.triggerPanelRefresh(plugin().scheduler);
+                }
+            }
+
+            @Override
+            public long nowMs() {
+                return System.currentTimeMillis();
+            }
+        };
     }
 
     SyncResult sync(long accountKey, List<GeHistoryTrade> historyTrades) {

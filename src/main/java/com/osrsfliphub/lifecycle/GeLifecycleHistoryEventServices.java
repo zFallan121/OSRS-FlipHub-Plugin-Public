@@ -163,19 +163,7 @@ final class GeLifecycleHistoryEventServices {
     }
 
     GeHistoryWipeStateStore getGeHistoryWipeStateStore() {
-        GeHistoryWipeStateStore store = geHistoryWipeStateStore;
-        if (store != null) {
-            return store;
-        }
-        store = new GeHistoryWipeStateStore(
-            new GeHistoryWipeStateStorePluginHooks(configManagerSupplier),
-            configGroup,
-            wipeBarrierKeyPrefix,
-            geHistoryCursorKeyPrefix,
-            geHistoryCursorMaxTrades
-        );
-        geHistoryWipeStateStore = store;
-        return store;
+        return PluginInjectorBridge.get(GeHistoryWipeStateStore.class);
     }
 
     GeHistoryCursorService getGeHistoryCursorService() {

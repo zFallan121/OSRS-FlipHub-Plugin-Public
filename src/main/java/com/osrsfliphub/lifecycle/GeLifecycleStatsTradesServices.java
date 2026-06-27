@@ -176,31 +176,7 @@ final class GeLifecycleStatsTradesServices {
     }
 
     GeHistoryAutoSyncService getGeHistoryAutoSyncService() {
-        GeHistoryAutoSyncService service = geHistoryAutoSyncService;
-        if (service != null) {
-            return service;
-        }
-        BackfillUploader uploader = context.backfillUploaderSupplier != null ? context.backfillUploaderSupplier.get() : null;
-        service = new GeHistoryAutoSyncFactoryService(uploader).create(
-            ACCOUNTWIDE_KEY,
-            new GeHistoryAutoSyncPluginHooks(
-                ops::ensureProfileLoaded,
-                ops::ensureLocalSessionStart,
-                ops::snapshotLocalTradeDeltas,
-                ops::cacheItemName,
-                ops::appendTradeDeltaPair,
-                ops::applyDeltaToStatsCache,
-                context.clientSupplier,
-                context.uploadEventDispatchFacadeServiceSupplier,
-                context.uploadBackfillDispatchServiceSupplier,
-                ops::persistLocalTrades,
-                ops::triggerStatsRefresh,
-                ops::triggerPanelRefresh,
-                System::currentTimeMillis
-            )
-        );
-        geHistoryAutoSyncService = service;
-        return service;
+        return PluginInjectorBridge.get(GeHistoryAutoSyncService.class);
     }
 
     GeLifecycleProfileTradesServices getProfileTradesServices() {

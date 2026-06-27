@@ -26,7 +26,11 @@ package com.osrsfliphub;
 
 import java.util.ArrayList;
 import java.util.List;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.client.config.ConfigManager;
 
+@Singleton
 final class GeHistoryWipeStateStore {
     interface Hooks {
         String readConfiguration(String configGroup, String key);
@@ -38,6 +42,27 @@ final class GeHistoryWipeStateStore {
     private final String wipeBarrierKeyPrefix;
     private final String cursorKeyPrefix;
     private final int maxCursorTrades;
+
+    @Inject
+    GeHistoryWipeStateStore(ConfigManager configManager) {
+        this(new Hooks() {
+            @Override
+            public String readConfiguration(String configGroup, String key) {
+                return configManager != null ? configManager.getConfiguration(configGroup, key) : null;
+            }
+
+            @Override
+            public void writeConfiguration(String configGroup, String key, String value) {
+                if (configManager != null) {
+                    configManager.setConfiguration(configGroup, key, value);
+                }
+            }
+        },
+            FliphubConfigGroups.CONFIG_GROUP,
+            GeLifecyclePluginConstants.WIPE_BARRIER_KEY_PREFIX,
+            GeLifecyclePluginConstants.GE_HISTORY_CURSOR_KEY_PREFIX,
+            GeLifecyclePluginConstants.GE_HISTORY_CURSOR_MAX_TRADES);
+    }
 
     GeHistoryWipeStateStore(Hooks hooks,
                             String configGroup,
