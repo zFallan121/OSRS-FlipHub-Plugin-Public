@@ -24,9 +24,14 @@
  */
 package com.osrsfliphub;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.api.Client;
+import net.runelite.api.GameState;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetSizeMode;
 
+@Singleton
 final class ChatboxSuggestionPresentationService {
     private static final int MIN_SUGGESTION_WIDTH = 12;
     private static final int SUGGESTION_TEXT_CHAR_PX = 7;
@@ -61,6 +66,157 @@ final class ChatboxSuggestionPresentationService {
     private Boolean lastSuggestedIsBuy;
     private Integer lastSuggestedLimit;
     private Integer lastSuggestedAffordableLimit;
+
+    @Inject
+    ChatboxSuggestionPresentationService(Client client) {
+        this(productionHooks(client));
+    }
+
+    private static ChatboxSuggestionRuntimeStateService runtimeState() {
+        return PluginInjectorBridge.get(ChatboxSuggestionRuntimeStateService.class);
+    }
+
+    private static RemainingLimitSuggestionService remaining() {
+        return PluginInjectorBridge.get(RemainingLimitSuggestionService.class);
+    }
+
+    private static Hooks productionHooks(Client client) {
+        return new Hooks() {
+            @Override
+            public boolean isClientLoggedIn() {
+                return client != null && client.getGameState() == GameState.LOGGED_IN;
+            }
+
+            @Override
+            public Widget getChatboxContainer() {
+                ChatboxSuggestionRuntimeStateService service = runtimeState();
+                return service != null ? service.getChatboxContainer() : null;
+            }
+
+            @Override
+            public Integer getOfferPreviewItemId() {
+                return PluginAccess.plugin().offerPreviewItemId;
+            }
+
+            @Override
+            public FlipHubItem getOfferPreviewItem() {
+                return PluginAccess.plugin().offerPreviewItem;
+            }
+
+            @Override
+            public Widget ensurePriceSuggestionWidget(Widget container) {
+                ChatboxSuggestionRuntimeStateService service = runtimeState();
+                return service != null ? service.ensurePriceSuggestionWidget(container) : null;
+            }
+
+            @Override
+            public Widget ensureLimitSuggestionWidget(Widget container) {
+                ChatboxSuggestionRuntimeStateService service = runtimeState();
+                return service != null ? service.ensureLimitSuggestionWidget(container) : null;
+            }
+
+            @Override
+            public Widget ensureAffordableLimitSuggestionWidget(Widget container) {
+                ChatboxSuggestionRuntimeStateService service = runtimeState();
+                return service != null ? service.ensureAffordableLimitSuggestionWidget(container) : null;
+            }
+
+            @Override
+            public Widget getPriceSuggestionWidget() {
+                ChatboxSuggestionRuntimeStateService service = runtimeState();
+                return service != null ? service.getPriceSuggestionWidget() : null;
+            }
+
+            @Override
+            public void setPriceSuggestionWidget(Widget widget) {
+                ChatboxSuggestionRuntimeStateService service = runtimeState();
+                if (service != null) {
+                    service.setPriceSuggestionWidget(widget);
+                }
+            }
+
+            @Override
+            public Widget getLimitSuggestionWidget() {
+                ChatboxSuggestionRuntimeStateService service = runtimeState();
+                return service != null ? service.getLimitSuggestionWidget() : null;
+            }
+
+            @Override
+            public void setLimitSuggestionWidget(Widget widget) {
+                ChatboxSuggestionRuntimeStateService service = runtimeState();
+                if (service != null) {
+                    service.setLimitSuggestionWidget(widget);
+                }
+            }
+
+            @Override
+            public Widget getAffordableLimitSuggestionWidget() {
+                ChatboxSuggestionRuntimeStateService service = runtimeState();
+                return service != null ? service.getAffordableLimitSuggestionWidget() : null;
+            }
+
+            @Override
+            public void setAffordableLimitSuggestionWidget(Widget widget) {
+                ChatboxSuggestionRuntimeStateService service = runtimeState();
+                if (service != null) {
+                    service.setAffordableLimitSuggestionWidget(widget);
+                }
+            }
+
+            @Override
+            public boolean isSuggestionWidgetValid(Widget container) {
+                ChatboxSuggestionRuntimeStateService service = runtimeState();
+                return service != null && service.isSuggestionWidgetValid(container);
+            }
+
+            @Override
+            public boolean isLimitWidgetValid(Widget container) {
+                ChatboxSuggestionRuntimeStateService service = runtimeState();
+                return service != null && service.isLimitWidgetValid(container);
+            }
+
+            @Override
+            public boolean isAffordableLimitWidgetValid(Widget container) {
+                ChatboxSuggestionRuntimeStateService service = runtimeState();
+                return service != null && service.isAffordableLimitWidgetValid(container);
+            }
+
+            @Override
+            public String formatPrice(int price) {
+                ChatboxSuggestionRuntimeStateService service = runtimeState();
+                return service != null ? service.formatPrice(price) : String.valueOf(price);
+            }
+
+            @Override
+            public Integer getThrottledRemainingLimitSuggestion(int itemId) {
+                RemainingLimitSuggestionService service = remaining();
+                return service != null ? service.getThrottledSuggestion(itemId) : null;
+            }
+
+            @Override
+            public void cacheRemainingLimitSuggestion(int itemId, Integer remainingLimit) {
+                RemainingLimitSuggestionService service = remaining();
+                if (service != null) {
+                    service.cacheSuggestion(itemId, remainingLimit);
+                }
+            }
+
+            @Override
+            public Integer computeAffordableLimitSuggestion(Integer remainingLimit) {
+                AffordableLimitSuggestionService service =
+                    PluginInjectorBridge.get(AffordableLimitSuggestionService.class);
+                return service != null ? service.computeAffordableLimit(remainingLimit) : null;
+            }
+
+            @Override
+            public void clearRemainingLimitSuggestionCache() {
+                RemainingLimitSuggestionService service = remaining();
+                if (service != null) {
+                    service.clearCache();
+                }
+            }
+        };
+    }
 
     ChatboxSuggestionPresentationService(Hooks hooks) {
         this.hooks = hooks;

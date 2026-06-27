@@ -53,7 +53,6 @@ final class GeLifecycleSuggestionServices {
     private final int selectedSlotVarbit;
 
     private OfferTypeResolver offerTypeResolver;
-    private ChatboxSuggestionCycleFactoryService chatboxSuggestionCycleFactoryService;
     private ChatboxSuggestionCycleService chatboxSuggestionCycleService;
     private ChatboxSuggestionRuntimeStateService chatboxSuggestionRuntimeStateService;
     private ChatboxSuggestionPresentationService chatboxSuggestionPresentationService;
@@ -116,41 +115,11 @@ final class GeLifecycleSuggestionServices {
     }
 
     ChatboxSuggestionCycleService getChatboxSuggestionCycleService() {
-        ChatboxSuggestionCycleService service = chatboxSuggestionCycleService;
-        if (service != null) {
-            return service;
-        }
-        service = getChatboxSuggestionCycleFactoryService().create(
-            new ChatboxSuggestionCyclePluginHooks(
-                clientSupplier,
-                this::getChatboxSuggestionRuntimeStateService,
-                this::getChatboxSuggestionPresentationService,
-                this::getRemainingLimitSuggestionService,
-                this::getOfferTypeResolver,
-                System::currentTimeMillis
-            )
-        );
-        chatboxSuggestionCycleService = service;
-        return service;
+        return PluginInjectorBridge.get(ChatboxSuggestionCycleService.class);
     }
 
     ChatboxSuggestionPresentationService getChatboxSuggestionPresentationService() {
-        ChatboxSuggestionPresentationService service = chatboxSuggestionPresentationService;
-        if (service != null) {
-            return service;
-        }
-        service = new ChatboxSuggestionPresentationService(
-            new ChatboxSuggestionPresentationPluginHooks(
-                clientSupplier,
-                this::getChatboxSuggestionRuntimeStateService,
-                offerPreviewItemIdSupplier,
-                offerPreviewItemSupplier,
-                this::getRemainingLimitSuggestionService,
-                this::getAffordableLimitSuggestionService
-            )
-        );
-        chatboxSuggestionPresentationService = service;
-        return service;
+        return PluginInjectorBridge.get(ChatboxSuggestionPresentationService.class);
     }
 
     ChatboxSuggestionApplyService getChatboxSuggestionApplyService() {
@@ -171,16 +140,6 @@ final class GeLifecycleSuggestionServices {
 
     AffordableLimitSuggestionService getAffordableLimitSuggestionService() {
         return PluginInjectorBridge.get(AffordableLimitSuggestionService.class);
-    }
-
-    private ChatboxSuggestionCycleFactoryService getChatboxSuggestionCycleFactoryService() {
-        ChatboxSuggestionCycleFactoryService service = chatboxSuggestionCycleFactoryService;
-        if (service != null) {
-            return service;
-        }
-        service = new ChatboxSuggestionCycleFactoryService();
-        chatboxSuggestionCycleFactoryService = service;
-        return service;
     }
 
 }
