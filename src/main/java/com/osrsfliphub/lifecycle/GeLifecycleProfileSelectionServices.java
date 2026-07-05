@@ -145,13 +145,7 @@ final class GeLifecycleProfileSelectionServices {
     }
 
     ProfileCatalogService getProfileCatalogService() {
-        ProfileCatalogService service = profileCatalogService;
-        if (service != null) {
-            return service;
-        }
-        service = new ProfileCatalogService(getProfileStore(), getLegacyLocalTradesStore());
-        profileCatalogService = service;
-        return service;
+        return PluginInjectorBridge.get(ProfileCatalogService.class);
     }
 
     ProfileSelectionPersistenceService getProfileSelectionPersistenceService() {
@@ -159,20 +153,7 @@ final class GeLifecycleProfileSelectionServices {
     }
 
     ProfileSelectionResolverService getProfileSelectionResolverService() {
-        ProfileSelectionResolverService service = profileSelectionResolverService;
-        if (service != null) {
-            return service;
-        }
-        service = new ProfileSelectionResolverService(
-            accountwideKey,
-            accountwideKeyString,
-            () -> {
-                Client client = resolve(clientSupplier);
-                return client != null && client.getGameState() == GameState.LOGGED_IN;
-            }
-        );
-        profileSelectionResolverService = service;
-        return service;
+        return PluginInjectorBridge.get(ProfileSelectionResolverService.class);
     }
 
     ProfileSelectionPresentationFacadeService getProfileSelectionPresentationFacadeService() {

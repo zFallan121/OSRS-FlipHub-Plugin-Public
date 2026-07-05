@@ -24,6 +24,7 @@
  */
 package com.osrsfliphub;
 
+@javax.inject.Singleton
 final class ProfileSelectionResolverService {
     interface Hooks {
         boolean isClientLoggedIn();
@@ -32,6 +33,13 @@ final class ProfileSelectionResolverService {
     private final long accountwideKey;
     private final String accountwideKeyString;
     private final Hooks hooks;
+
+    @javax.inject.Inject
+    ProfileSelectionResolverService(net.runelite.api.Client client) {
+        this(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY,
+            GeLifecyclePluginConstants.ACCOUNTWIDE_KEY_STRING,
+            () -> client != null && client.getGameState() == net.runelite.api.GameState.LOGGED_IN);
+    }
 
     ProfileSelectionResolverService(long accountwideKey, String accountwideKeyString, Hooks hooks) {
         this.accountwideKey = accountwideKey;

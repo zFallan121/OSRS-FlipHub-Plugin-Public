@@ -27,11 +27,15 @@ package com.osrsfliphub;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class ProfileCatalogService {
     private final ProfileStore profileStore;
     private final LegacyLocalTradesStore legacyLocalTradesStore;
 
+    @Inject
     ProfileCatalogService(ProfileStore profileStore, LegacyLocalTradesStore legacyLocalTradesStore) {
         this.profileStore = profileStore;
         this.legacyLocalTradesStore = legacyLocalTradesStore;
