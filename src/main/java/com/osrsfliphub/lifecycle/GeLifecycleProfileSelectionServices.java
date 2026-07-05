@@ -202,19 +202,7 @@ final class GeLifecycleProfileSelectionServices {
     }
 
     ProfileSelectionPersistenceService getProfileSelectionPersistenceService() {
-        ProfileSelectionPersistenceService service = profileSelectionPersistenceService;
-        if (service != null) {
-            return service;
-        }
-        service = new ProfileSelectionPersistenceService(
-            new ProfileSelectionPersistencePluginHooks(configManagerSupplier),
-            configGroup,
-            legacyDevConfigGroup,
-            profileSelectedKey,
-            profileSelectionModeKey
-        );
-        profileSelectionPersistenceService = service;
-        return service;
+        return PluginInjectorBridge.get(ProfileSelectionPersistenceService.class);
     }
 
     ProfileSelectionResolverService getProfileSelectionResolverService() {

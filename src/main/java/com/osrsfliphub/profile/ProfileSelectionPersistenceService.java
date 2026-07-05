@@ -24,6 +24,11 @@
  */
 package com.osrsfliphub;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.client.config.ConfigManager;
+
+@Singleton
 final class ProfileSelectionPersistenceService {
     interface Hooks {
         String readConfiguration(String configGroup, String key);
@@ -35,6 +40,27 @@ final class ProfileSelectionPersistenceService {
     private final String legacyGroup;
     private final String selectedKeyName;
     private final String modeKeyName;
+
+    @Inject
+    ProfileSelectionPersistenceService(ConfigManager configManager) {
+        this(new Hooks() {
+            @Override
+            public String readConfiguration(String group, String key) {
+                return configManager != null ? configManager.getConfiguration(group, key) : null;
+            }
+
+            @Override
+            public void writeConfiguration(String group, String key, String value) {
+                if (configManager != null) {
+                    configManager.setConfiguration(group, key, value);
+                }
+            }
+        },
+            FliphubConfigGroups.CONFIG_GROUP,
+            FliphubConfigGroups.LEGACY_DEV_CONFIG_GROUP,
+            GeLifecyclePluginConstants.PROFILE_SELECTED_KEY,
+            GeLifecyclePluginConstants.PROFILE_SELECTION_MODE_KEY);
+    }
 
     ProfileSelectionPersistenceService(Hooks hooks,
                                        String configGroup,
