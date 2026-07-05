@@ -24,8 +24,12 @@
  */
 package com.osrsfliphub;
 
+import java.util.Collections;
 import java.util.Map;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class LocalOfferPreviewBuilder {
     interface Hooks {
         void ensureSelectedProfileLoaded();
@@ -46,6 +50,106 @@ final class LocalOfferPreviewBuilder {
 
     private static final long GE_LIMIT_WINDOW_MS = 4L * 60L * 60L * 1000L;
     private final Hooks hooks;
+
+    @Inject
+    LocalOfferPreviewBuilder() {
+        this(new Hooks() {
+            @Override
+            public void ensureSelectedProfileLoaded() {
+                PluginAccess.plugin().getProfileWorkflowService().ensureSelectedProfileLoaded();
+            }
+
+            @Override
+            public void requestGeLimit(int itemId) {
+                if (itemId <= 0) {
+                    return;
+                }
+                GeLimitService service = PluginInjectorBridge.get(GeLimitService.class);
+                if (service != null) {
+                    service.requestGeLimits(Collections.singleton(itemId));
+                }
+            }
+
+            @Override
+            public String getItemName(int itemId) {
+                ItemLookupService service = PluginInjectorBridge.get(ItemLookupService.class);
+                return service != null ? service.lookupItemNameSafe(itemId) : null;
+            }
+
+            @Override
+            public void applyGuidePrices(FlipHubItem item, int itemId) {
+                LocalItemEnrichmentService service = PluginInjectorBridge.get(LocalItemEnrichmentService.class);
+                if (service != null) {
+                    service.applyGuidePrices(item, itemId, false);
+                }
+            }
+
+            @Override
+            public long resolveSelectedProfileKey() {
+                ProfileSelectionPresentationFacadeService service =
+                    PluginAccess.plugin().getProfileSelectionServices().getProfileSelectionPresentationFacadeService();
+                return service != null ? service.resolveSelectedProfileKey() : 0L;
+            }
+
+            @Override
+            public long resolveLimitAccountKey(long fallbackAccountKey) {
+                LocalAccountSessionService service = PluginInjectorBridge.get(LocalAccountSessionService.class);
+                return service != null ? service.resolveLimitAccountKey(fallbackAccountKey) : fallbackAccountKey;
+            }
+
+            @Override
+            public Map<Integer, LocalTradeInfo> buildLocalTradeInfo(long accountKey) {
+                LocalTradeSessionFacadeService service = PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+                return service != null ? service.buildLocalTradeInfo(accountKey) : null;
+            }
+
+            @Override
+            public void applyLocalTradeInfo(FlipHubItem item, LocalTradeInfo info) {
+                LocalItemEnrichmentService service = PluginInjectorBridge.get(LocalItemEnrichmentService.class);
+                if (service != null) {
+                    service.applyLocalTradeInfo(item, info);
+                }
+            }
+
+            @Override
+            public void ensureProfileLoaded(long accountKey) {
+                PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
+            }
+
+            @Override
+            public Map<Integer, LocalLimitInfo> buildLocalLimitInfo(long accountKey, long atMs) {
+                LocalTradeSessionFacadeService service = PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+                return service != null ? service.buildLocalLimitInfo(accountKey, atMs) : null;
+            }
+
+            @Override
+            public void applyLocalLimitInfo(FlipHubItem item, int itemId, LocalLimitInfo info) {
+                LocalItemEnrichmentService service = PluginInjectorBridge.get(LocalItemEnrichmentService.class);
+                if (service != null) {
+                    service.applyLocalLimitInfo(item, itemId, info);
+                }
+            }
+
+            @Override
+            public Integer lookupGeLimit(int itemId) {
+                ItemLookupService service = PluginInjectorBridge.get(ItemLookupService.class);
+                return service != null ? service.lookupGeLimitSafe(itemId) : null;
+            }
+
+            @Override
+            public void applyMarginInfo(FlipHubItem item) {
+                LocalItemEnrichmentService service = PluginInjectorBridge.get(LocalItemEnrichmentService.class);
+                if (service != null) {
+                    service.applyMarginInfo(item);
+                }
+            }
+
+            @Override
+            public long nowMs() {
+                return System.currentTimeMillis();
+            }
+        });
+    }
 
     LocalOfferPreviewBuilder(Hooks hooks) {
         this.hooks = hooks;

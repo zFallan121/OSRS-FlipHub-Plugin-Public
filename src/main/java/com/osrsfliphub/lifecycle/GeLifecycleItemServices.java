@@ -59,12 +59,8 @@ final class GeLifecycleItemServices {
     private final Consumer<FlipHubItem> offerPreviewItemSetter;
     private final int defaultItemsPageSize;
 
-    private LocalItemsAssemblerFactoryService localItemsAssemblerFactoryService;
-    private LocalItemsAssembler localItemsAssembler;
     private LocalItemsResponseBuilderFactoryService localItemsResponseBuilderFactoryService;
     private LocalItemsResponseBuilder localItemsResponseBuilder;
-    private LocalOfferPreviewBuilderFactoryService localOfferPreviewBuilderFactoryService;
-    private LocalOfferPreviewBuilder localOfferPreviewBuilder;
 
     GeLifecycleItemServices(
         ItemManager itemManager,
@@ -145,25 +141,7 @@ final class GeLifecycleItemServices {
     }
 
     LocalOfferPreviewBuilder getLocalOfferPreviewBuilder() {
-        LocalOfferPreviewBuilder builder = localOfferPreviewBuilder;
-        if (builder != null) {
-            return builder;
-        }
-        builder = getLocalOfferPreviewBuilderFactoryService().create(
-            new LocalOfferPreviewBuilderPluginHooks(
-                ensureSelectedProfileLoaded,
-                geLimitServiceSupplier,
-                this::getItemLookupService,
-                localItemEnrichmentServiceSupplier,
-                profileSelectionPresentationFacadeServiceSupplier,
-                localAccountSessionServiceSupplier,
-                localTradeSessionFacadeServiceSupplier,
-                ensureProfileLoaded,
-                System::currentTimeMillis
-            )
-        );
-        localOfferPreviewBuilder = builder;
-        return builder;
+        return PluginInjectorBridge.get(LocalOfferPreviewBuilder.class);
     }
 
     OfferPreviewSyncService getOfferPreviewSyncService() {
@@ -172,29 +150,7 @@ final class GeLifecycleItemServices {
 
 
     private LocalItemsAssembler getLocalItemsAssembler() {
-        LocalItemsAssembler assembler = localItemsAssembler;
-        if (assembler != null) {
-            return assembler;
-        }
-        assembler = getLocalItemsAssemblerFactoryService().create(
-            new LocalItemsAssemblerPluginHooks(
-                () -> itemManager != null,
-                this::getItemLookupService,
-                localItemEnrichmentServiceSupplier
-            )
-        );
-        localItemsAssembler = assembler;
-        return assembler;
-    }
-
-    private LocalItemsAssemblerFactoryService getLocalItemsAssemblerFactoryService() {
-        LocalItemsAssemblerFactoryService service = localItemsAssemblerFactoryService;
-        if (service != null) {
-            return service;
-        }
-        service = new LocalItemsAssemblerFactoryService();
-        localItemsAssemblerFactoryService = service;
-        return service;
+        return PluginInjectorBridge.get(LocalItemsAssembler.class);
     }
 
     private LocalItemsResponseBuilderFactoryService getLocalItemsResponseBuilderFactoryService() {
@@ -206,17 +162,6 @@ final class GeLifecycleItemServices {
         localItemsResponseBuilderFactoryService = service;
         return service;
     }
-
-    private LocalOfferPreviewBuilderFactoryService getLocalOfferPreviewBuilderFactoryService() {
-        LocalOfferPreviewBuilderFactoryService service = localOfferPreviewBuilderFactoryService;
-        if (service != null) {
-            return service;
-        }
-        service = new LocalOfferPreviewBuilderFactoryService();
-        localOfferPreviewBuilderFactoryService = service;
-        return service;
-    }
-
 
     private ApiClient.ItemsResponse buildOfferStampFallback() {
         GeLifecyclePanelDataRuntimeService service = panelDataRuntimeServiceSupplier != null

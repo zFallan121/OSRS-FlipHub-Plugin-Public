@@ -51,8 +51,6 @@ final class GeLifecycleBackfillMarketDataServices {
     private final BooleanSupplier isClientFullyReadySupplier;
     private final boolean hasItemManager;
 
-    private LocalItemEnrichmentFactoryService localItemEnrichmentFactoryService;
-    private LocalItemEnrichmentService localItemEnrichmentService;
     private RecentTradeDeduper recentTradeDeduper;
 
     GeLifecycleBackfillMarketDataServices(
@@ -100,19 +98,7 @@ final class GeLifecycleBackfillMarketDataServices {
     }
 
     LocalItemEnrichmentService getLocalItemEnrichmentService() {
-        LocalItemEnrichmentService service = localItemEnrichmentService;
-        if (service != null) {
-            return service;
-        }
-        service = getLocalItemEnrichmentFactoryService().create(
-            new LocalItemEnrichmentRuntimePluginHooks(
-                this::getGeLimitService,
-                this::getWikiPriceService,
-                System::currentTimeMillis
-            )
-        );
-        localItemEnrichmentService = service;
-        return service;
+        return PluginInjectorBridge.get(LocalItemEnrichmentService.class);
     }
 
     RecentTradeDeduper getRecentTradeDeduper() {
@@ -129,16 +115,6 @@ final class GeLifecycleBackfillMarketDataServices {
         return PluginInjectorBridge.get(WikiPriceService.class);
     }
 
-
-    private LocalItemEnrichmentFactoryService getLocalItemEnrichmentFactoryService() {
-        LocalItemEnrichmentFactoryService service = localItemEnrichmentFactoryService;
-        if (service != null) {
-            return service;
-        }
-        service = new LocalItemEnrichmentFactoryService(localLimitWindowMs);
-        localItemEnrichmentFactoryService = service;
-        return service;
-    }
 
     private boolean isReadyForGeLimitLookup() {
         return isClientFullyReadySupplier != null

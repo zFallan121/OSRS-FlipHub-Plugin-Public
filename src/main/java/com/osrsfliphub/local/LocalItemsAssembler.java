@@ -30,9 +30,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
+import net.runelite.client.game.ItemManager;
 
+@Singleton
 final class LocalItemsAssembler {
     interface Hooks {
         String getCachedItemName(int itemId);
@@ -54,6 +58,60 @@ final class LocalItemsAssembler {
     }
 
     private final Hooks hooks;
+
+    @Inject
+    LocalItemsAssembler(ItemManager itemManager) {
+        this(new Hooks() {
+            @Override
+            public String getCachedItemName(int itemId) {
+                if (itemManager == null) {
+                    return null;
+                }
+                ItemLookupService service = PluginInjectorBridge.get(ItemLookupService.class);
+                return service != null ? service.getCachedItemName(itemId) : null;
+            }
+
+            @Override
+            public void cacheItemName(int itemId) {
+                ItemLookupService service = PluginInjectorBridge.get(ItemLookupService.class);
+                if (service != null) {
+                    service.cacheItemName(itemId);
+                }
+            }
+
+            @Override
+            public void applyGuidePrices(FlipHubItem item, int itemId) {
+                LocalItemEnrichmentService service = PluginInjectorBridge.get(LocalItemEnrichmentService.class);
+                if (service != null) {
+                    service.applyGuidePrices(item, itemId, true);
+                }
+            }
+
+            @Override
+            public void applyLocalTradeInfo(FlipHubItem item, LocalTradeInfo info) {
+                LocalItemEnrichmentService service = PluginInjectorBridge.get(LocalItemEnrichmentService.class);
+                if (service != null) {
+                    service.applyLocalTradeInfo(item, info);
+                }
+            }
+
+            @Override
+            public void applyLocalLimitInfo(FlipHubItem item, int itemId, LocalLimitInfo info) {
+                LocalItemEnrichmentService service = PluginInjectorBridge.get(LocalItemEnrichmentService.class);
+                if (service != null) {
+                    service.applyLocalLimitInfo(item, itemId, info);
+                }
+            }
+
+            @Override
+            public void applyMarginInfo(FlipHubItem item) {
+                LocalItemEnrichmentService service = PluginInjectorBridge.get(LocalItemEnrichmentService.class);
+                if (service != null) {
+                    service.applyMarginInfo(item);
+                }
+            }
+        });
+    }
 
     LocalItemsAssembler(Hooks hooks) {
         this.hooks = hooks;

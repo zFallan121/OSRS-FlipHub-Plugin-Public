@@ -24,6 +24,10 @@
  */
 package com.osrsfliphub;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
+@Singleton
 final class LocalItemEnrichmentService {
     interface Hooks {
         Integer getCachedGeLimit(int itemId);
@@ -33,6 +37,28 @@ final class LocalItemEnrichmentService {
 
     private final Hooks hooks;
     private final long localLimitWindowMs;
+
+    @Inject
+    LocalItemEnrichmentService() {
+        this(new Hooks() {
+            @Override
+            public Integer getCachedGeLimit(int itemId) {
+                GeLimitService service = PluginInjectorBridge.get(GeLimitService.class);
+                return service != null ? service.getCachedGeLimit(itemId) : null;
+            }
+
+            @Override
+            public WikiPriceEntry getWikiPriceEntry(int itemId, boolean allowRefresh) {
+                WikiPriceService service = PluginInjectorBridge.get(WikiPriceService.class);
+                return service != null ? service.getPriceEntry(itemId, allowRefresh) : null;
+            }
+
+            @Override
+            public long nowMs() {
+                return System.currentTimeMillis();
+            }
+        }, GeLifecyclePluginConstants.LOCAL_LIMIT_WINDOW_MS);
+    }
 
     LocalItemEnrichmentService(Hooks hooks, long localLimitWindowMs) {
         this.hooks = hooks;
