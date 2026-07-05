@@ -61,7 +61,6 @@ final class GeLifecycleProfileLinkWorkflowRuntimeServices {
     private final Supplier<Logger> loggerSupplier;
 
     private GeLifecycleProfileSelectionServices profileSelectionServices;
-    private GeLifecycleLinkServices linkServices;
     private GeLifecycleProfileWorkflowServices profileWorkflowServices;
 
     GeLifecycleProfileLinkWorkflowRuntimeServices(
@@ -141,40 +140,12 @@ final class GeLifecycleProfileLinkWorkflowRuntimeServices {
             () -> getStatsTradesServices().getLocalStatsCacheService(),
             () -> getStatsTradesServices().getLocalStatsSnapshotService(),
             () -> getStatsTradesServices().getLocalAccountSessionService(),
-            () -> getLinkServices().getLinkSessionGuardService(),
+            () -> PluginInjectorBridge.get(LinkSessionGuardService.class),
             () -> getStatsTradesServices().getLocalTradeSessionFacadeService(),
             panelSupplier,
             uploadEventDispatchFacadeServiceSupplier
         );
         profileSelectionServices = services;
-        return services;
-    }
-
-    GeLifecycleLinkServices getLinkServices() {
-        GeLifecycleLinkServices services = linkServices;
-        if (services != null) {
-            return services;
-        }
-        services = new GeLifecycleLinkServices(
-            configSupplier,
-            configManagerSupplier,
-            FliphubConfigGroups.CONFIG_GROUP,
-            () -> runtimeUtilityServices.isClientLoggedIn(clientSupplier.get()),
-            apiClientSupplier,
-            System.getProperty("user.name"),
-            "1.0.0",
-            () -> getBackfillServices().getAccountwideSummaryUploader(),
-            uploadEventDispatchFacadeServiceSupplier,
-            uploadBackfillDispatchServiceSupplier,
-            schedulerSupplier,
-            refreshPanelDataAction,
-            getProfileWorkflowService()::updateProfileHeader,
-            runtimeUtilityServices::isTimeoutException,
-            () -> debugLog("FlipHub link timed out"),
-            this::warnLinkFailure,
-            this::executeIo
-        );
-        linkServices = services;
         return services;
     }
 

@@ -64,7 +64,6 @@ final class GeLifecycleCoreFeatureRuntimeServices {
         Supplier<ExecutorService> ioExecutorSupplier,
         Supplier<GeLifecycleOfferStampStateServices> offerStampStateServicesSupplier,
         Supplier<GeLifecycleProfileSelectionServices> profileSelectionServicesSupplier,
-        Supplier<GeLifecycleLinkServices> linkServicesSupplier,
         Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
         Supplier<GeLifecyclePanelDataRuntimeService> panelDataRuntimeServiceSupplier,
         Supplier<GeLifecycleItemServices> itemServicesSupplier,
@@ -107,7 +106,6 @@ final class GeLifecycleCoreFeatureRuntimeServices {
             ioExecutorSupplier,
             offerStampStateServicesSupplier,
             profileSelectionServicesSupplier,
-            linkServicesSupplier,
             localTradesRuntimeServiceSupplier,
             panelDataRuntimeServiceSupplier,
             itemServicesSupplier,
@@ -144,7 +142,6 @@ final class GeLifecycleCoreFeatureRuntimeServices {
             this::getPanelRefreshCoordinator,
             this::getProfileWorkflowService,
             this::getOfferStampStateServices,
-            this::getLinkServices,
             this::getBackfillServices,
             this::getStatsTradesServices,
             this::getLocalTradesRuntimeService,
@@ -221,10 +218,6 @@ final class GeLifecycleCoreFeatureRuntimeServices {
 
     private GeLifecycleProfileSelectionServices getProfileSelectionServices() {
         return context.profileSelectionServicesSupplier.get();
-    }
-
-    private GeLifecycleLinkServices getLinkServices() {
-        return context.linkServicesSupplier.get();
     }
 
     private GeLifecycleLocalTradesRuntimeService getLocalTradesRuntimeService() {

@@ -99,7 +99,6 @@ final class GeLifecyclePluginRuntimeFactoryContext {
     final Supplier<GeLifecyclePanelDataRuntimeService> panelDataRuntimeServiceSupplier;
     final Supplier<OfferPreviewRuntimeFacadeService> offerPreviewRuntimeFacadeServiceSupplier;
     final Supplier<GeLifecycleOfferStampStateServices> offerStampStateServicesSupplier;
-    final Supplier<GeLifecycleLinkServices> linkServicesSupplier;
     final Supplier<GeLifecycleItemServices> itemServicesSupplier;
     final Supplier<BookmarkStateService> bookmarkStateServiceSupplier;
     final Supplier<OfferEventBuildService> offerEventBuildServiceSupplier;
@@ -186,7 +185,6 @@ final class GeLifecyclePluginRuntimeFactoryContext {
         Supplier<GeLifecyclePanelDataRuntimeService> panelDataRuntimeServiceSupplier,
         Supplier<OfferPreviewRuntimeFacadeService> offerPreviewRuntimeFacadeServiceSupplier,
         Supplier<GeLifecycleOfferStampStateServices> offerStampStateServicesSupplier,
-        Supplier<GeLifecycleLinkServices> linkServicesSupplier,
         Supplier<GeLifecycleItemServices> itemServicesSupplier,
         Supplier<BookmarkStateService> bookmarkStateServiceSupplier,
         Supplier<OfferEventBuildService> offerEventBuildServiceSupplier,
@@ -269,7 +267,6 @@ final class GeLifecyclePluginRuntimeFactoryContext {
         this.panelDataRuntimeServiceSupplier = panelDataRuntimeServiceSupplier;
         this.offerPreviewRuntimeFacadeServiceSupplier = offerPreviewRuntimeFacadeServiceSupplier;
         this.offerStampStateServicesSupplier = offerStampStateServicesSupplier;
-        this.linkServicesSupplier = linkServicesSupplier;
         this.itemServicesSupplier = itemServicesSupplier;
         this.bookmarkStateServiceSupplier = bookmarkStateServiceSupplier;
         this.offerEventBuildServiceSupplier = offerEventBuildServiceSupplier;

@@ -306,9 +306,6 @@ public class GeLifecyclePlugin extends Plugin {
         return getProfileLinkWorkflowRuntimeServices().getProfileSelectionServices();
     }
 
-    GeLifecycleLinkServices getLinkServices() {
-        return getProfileLinkWorkflowRuntimeServices().getLinkServices();
-    }
 
     GeLifecycleProfileLinkWorkflowRuntimeServices getProfileLinkWorkflowRuntimeServices() {
         GeLifecycleProfileLinkWorkflowRuntimeServices services = profileLinkWorkflowRuntimeServices;

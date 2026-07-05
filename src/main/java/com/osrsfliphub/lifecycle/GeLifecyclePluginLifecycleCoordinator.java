@@ -99,7 +99,7 @@ final class GeLifecyclePluginLifecycleCoordinator {
             GeLifecyclePluginConstants.OFFER_POLL_INTERVAL_MS,
             () -> plugin.getBackfillServices().getBackfillMarketServices().getWikiPriceService(),
             plugin::startProfileWatcher,
-            () -> plugin.getLinkServices().getLinkAttemptService(),
+            () -> PluginInjectorBridge.get(LinkAttemptService.class),
             () -> plugin.config
         );
         plugin.apiClient = runtimeState.getApiClient();

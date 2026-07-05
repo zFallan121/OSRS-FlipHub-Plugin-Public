@@ -170,7 +170,6 @@ final class GeLifecyclePluginRuntimeFactoryServices {
             context.ioExecutorSupplier,
             context.offerStampStateServicesSupplier,
             context.profileSelectionServicesSupplier,
-            context.linkServicesSupplier,
             context.localTradesRuntimeServiceSupplier,
             context.panelDataRuntimeServiceSupplier,
             context.itemServicesSupplier,
