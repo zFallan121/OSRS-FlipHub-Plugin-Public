@@ -169,18 +169,6 @@ final class GeLifecycleEventManageHistoryServices {
         );
     }
 
-    GeLifecycleEventHandlerServices getEventHandlerServices() {
-        return runtimeServices.getEventHandlerServices();
-    }
-
-    ConfigChangedHandlerService getConfigChangedHandlerService() {
-        return runtimeServices.getConfigChangedHandlerService();
-    }
-
-    GameStateChangedHandlerService getGameStateChangedHandlerService() {
-        return runtimeServices.getGameStateChangedHandlerService();
-    }
-
     GeLifecycleManageDataServices getManageDataServices() {
         return runtimeServices.getManageDataServices();
     }

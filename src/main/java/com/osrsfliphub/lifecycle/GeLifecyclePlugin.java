@@ -185,12 +185,12 @@ public class GeLifecyclePlugin extends Plugin {
 
     @Subscribe
     public void onConfigChanged(ConfigChanged event) {
-        getEventManageHistoryServices().getConfigChangedHandlerService().handle(event);
+        PluginInjectorBridge.get(ConfigChangedHandlerService.class).handle(event);
     }
 
     @Subscribe
     public void onGameStateChanged(GameStateChanged event) {
-        getEventManageHistoryServices().getGameStateChangedHandlerService().handle(event.getGameState());
+        PluginInjectorBridge.get(GameStateChangedHandlerService.class).handle(event.getGameState());
     }
 
     @Subscribe

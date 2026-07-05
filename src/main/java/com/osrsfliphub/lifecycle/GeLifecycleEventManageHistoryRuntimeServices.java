@@ -44,7 +44,6 @@ import org.slf4j.Logger;
 
 final class GeLifecycleEventManageHistoryRuntimeServices {
     private final GeLifecycleHistoryEventFactory historyEventFactory;
-    private final GeLifecycleEventHandlerFactory eventHandlerFactory;
     private final GeLifecycleManageDataFactory manageDataFactory;
 
     GeLifecycleEventManageHistoryRuntimeServices(
@@ -137,40 +136,6 @@ final class GeLifecycleEventManageHistoryRuntimeServices {
             recordLocalTradeDeltaAction,
             scheduleRefreshSoonAction
         );
-        this.eventHandlerFactory = new GeLifecycleEventHandlerFactory(
-            linkAttemptServiceSupplier,
-            configSupplier,
-            linkSessionConfigStoreSupplier,
-            accountwideSummaryUploaderSupplier,
-            uploadEventDispatchFacadeServiceSupplier,
-            panelSupplier,
-            updateProfileHeaderAction,
-            triggerStatsRefreshAction,
-            bookmarkStateServiceSupplier,
-            profileSelectionPresentationFacadeServiceSupplier,
-            sharedState.getBookmarkedItems(),
-            hiddenItemConfigStore,
-            sharedState.getHiddenItems(),
-            persistOfferUpdateTimesAction,
-            resetOfferUpdateStampsAction,
-            clearSnapshotsAction,
-            historyEventFactory::getGeHistoryAutoSyncStateService,
-            recentTradeDeduperSupplier,
-            updateProfileOptionsUiAction,
-            setLastLoginNowAction,
-            loadOfferUpdateTimesForCurrentAccountAction,
-            localTradeSessionFacadeServiceSupplier,
-            updateProfileForLoginAction,
-            primeOfferSnapshotsAction,
-            resetLocalTradesLoadStateAction,
-            scheduleLocalTradesLoadAction,
-            wikiPriceServiceSupplier,
-            isPanelVisibleSupplier,
-            setPanelVisibleConsumer,
-            triggerPanelRefreshAction,
-            schedulerSupplier,
-            requestBackfillAttemptAction
-        );
         this.manageDataFactory = new GeLifecycleManageDataFactory(
             sharedState.getLocalStatsLock(),
             sharedState.getLocalTradeDeltasByAccount(),
@@ -205,18 +170,6 @@ final class GeLifecycleEventManageHistoryRuntimeServices {
             gson,
             configManagerSupplier
         );
-    }
-
-    GeLifecycleEventHandlerServices getEventHandlerServices() {
-        return eventHandlerFactory.getEventHandlerServices();
-    }
-
-    ConfigChangedHandlerService getConfigChangedHandlerService() {
-        return getEventHandlerServices().getConfigChangedHandlerService();
-    }
-
-    GameStateChangedHandlerService getGameStateChangedHandlerService() {
-        return getEventHandlerServices().getGameStateChangedHandlerService();
     }
 
     GeLifecycleManageDataServices getManageDataServices() {
