@@ -38,29 +38,4 @@ final class GeLifecycleLocalStatsHistoryFactory {
         return new LocalAccountMergeService();
     }
 
-    static LocalTradeDeltaRecorder createLocalTradeDeltaRecorder(
-        GeLifecycleLocalStatsRuntimeContext context,
-        Supplier<LocalAccountSessionService> localAccountSessionServiceSupplier,
-        Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
-        Supplier<LocalTradeSessionFacadeService> localTradeSessionFacadeServiceSupplier,
-        Supplier<ItemLookupService> itemLookupServiceSupplier,
-        Supplier<LocalStatsCacheService> localStatsCacheServiceSupplier,
-        Runnable triggerStatsRefreshAction,
-        Runnable triggerPanelRefreshAction
-    ) {
-        return new LocalTradeDeltaRecorder(
-            context.accountwideKey,
-            new LocalTradeDeltaRecorderPluginHooks(
-                localAccountSessionServiceSupplier,
-                localTradesRuntimeServiceSupplier.get()::ensureProfileLoaded,
-                (accountKey, nowMs) -> localTradeSessionFacadeServiceSupplier.get().ensureLocalSessionStart(accountKey, nowMs),
-                itemId -> itemLookupServiceSupplier.get().cacheItemName(itemId),
-                localTradesRuntimeServiceSupplier.get()::appendTradeDeltaPair,
-                (accountKey, delta) -> localStatsCacheServiceSupplier.get().applyDelta(accountKey, delta),
-                localTradesRuntimeServiceSupplier.get()::persistLocalTrades,
-                triggerStatsRefreshAction,
-                triggerPanelRefreshAction
-            )
-        );
-    }
 }

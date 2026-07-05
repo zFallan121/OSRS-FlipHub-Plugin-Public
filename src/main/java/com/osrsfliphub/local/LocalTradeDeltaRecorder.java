@@ -24,6 +24,10 @@
  */
 package com.osrsfliphub;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
+@Singleton
 final class LocalTradeDeltaRecorder {
     interface Hooks {
         long resolveLocalAccountKey();
@@ -39,6 +43,75 @@ final class LocalTradeDeltaRecorder {
 
     private final long accountwideKey;
     private final Hooks hooks;
+
+    @Inject
+    LocalTradeDeltaRecorder() {
+        this(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY, new Hooks() {
+            @Override
+            public long resolveLocalAccountKey() {
+                LocalAccountSessionService service = PluginInjectorBridge.get(LocalAccountSessionService.class);
+                return service != null ? service.resolveLocalAccountKey() : 0L;
+            }
+
+            @Override
+            public void ensureProfileLoaded(long accountKey) {
+                PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
+            }
+
+            @Override
+            public void ensureLocalSessionStart(long accountKey, long tsClientMs) {
+                LocalTradeSessionFacadeService service =
+                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+                if (service != null) {
+                    service.ensureLocalSessionStart(accountKey, tsClientMs);
+                }
+            }
+
+            @Override
+            public void cacheItemName(int itemId) {
+                ItemLookupService service = PluginInjectorBridge.get(ItemLookupService.class);
+                if (service != null) {
+                    service.cacheItemName(itemId);
+                }
+            }
+
+            @Override
+            public void appendTradeDeltaPair(long accountKey, long accountwideKey, LocalTradeDelta delta) {
+                PluginAccess.plugin().getLocalTradesRuntimeService()
+                    .appendTradeDeltaPair(accountKey, accountwideKey, delta);
+            }
+
+            @Override
+            public void applyDeltaToStatsCache(long accountKey, LocalTradeDelta delta) {
+                LocalStatsCacheService service =
+                    PluginAccess.plugin().getStatsTradesServices().getLocalStatsCacheService();
+                if (service != null) {
+                    service.applyDelta(accountKey, delta);
+                }
+            }
+
+            @Override
+            public void persistLocalTrades(long accountKey) {
+                PluginAccess.plugin().getLocalTradesRuntimeService().persistLocalTrades(accountKey);
+            }
+
+            @Override
+            public void triggerStatsRefresh() {
+                PanelRefreshCoordinator coordinator = PluginAccess.plugin().getPanelRefreshCoordinator();
+                if (coordinator != null) {
+                    coordinator.triggerStatsRefresh(PluginAccess.plugin().scheduler);
+                }
+            }
+
+            @Override
+            public void triggerPanelRefresh() {
+                PanelRefreshCoordinator coordinator = PluginAccess.plugin().getPanelRefreshCoordinator();
+                if (coordinator != null) {
+                    coordinator.triggerPanelRefresh(PluginAccess.plugin().scheduler);
+                }
+            }
+        });
+    }
 
     LocalTradeDeltaRecorder(long accountwideKey, Hooks hooks) {
         this.accountwideKey = accountwideKey;

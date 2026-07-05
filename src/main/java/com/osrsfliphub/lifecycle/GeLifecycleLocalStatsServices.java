@@ -154,22 +154,7 @@ final class GeLifecycleLocalStatsServices {
     }
 
     LocalTradeDeltaRecorder getLocalTradeDeltaRecorder() {
-        LocalTradeDeltaRecorder recorder = localTradeDeltaRecorder;
-        if (recorder != null) {
-            return recorder;
-        }
-        recorder = GeLifecycleLocalStatsHistoryFactory.createLocalTradeDeltaRecorder(
-            context,
-            this::getLocalAccountSessionService,
-            this::getLocalTradesRuntimeService,
-            this::getLocalTradeSessionFacadeService,
-            this::getItemLookupService,
-            this::getLocalStatsCacheService,
-            this::triggerStatsRefresh,
-            this::triggerPanelRefresh
-        );
-        localTradeDeltaRecorder = recorder;
-        return recorder;
+        return PluginInjectorBridge.get(LocalTradeDeltaRecorder.class);
     }
 
     private GeLifecycleLocalTradesRuntimeService getLocalTradesRuntimeService() {
