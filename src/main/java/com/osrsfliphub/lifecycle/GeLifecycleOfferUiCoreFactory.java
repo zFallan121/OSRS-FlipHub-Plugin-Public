@@ -74,7 +74,7 @@ final class GeLifecycleOfferUiCoreFactory {
             () -> statsTradesServicesSupplier.get().getLocalAccountSessionService(),
             context.profileDisplayNames,
             localTradesRuntimeServiceSupplier,
-            () -> profileSelectionServicesSupplier.get().getProfileStorageFacadeService(),
+            () -> PluginInjectorBridge.get(ProfileStorageFacadeService.class),
             () -> statsTradesServicesSupplier.get().getLocalTradeSessionFacadeService(),
             () -> profileWorkflowServiceSupplier.get().updateProfileOptionsUI(),
             () -> profileWorkflowServiceSupplier.get().updateProfileHeader()

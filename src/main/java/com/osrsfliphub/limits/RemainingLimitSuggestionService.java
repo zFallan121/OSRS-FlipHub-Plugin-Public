@@ -77,8 +77,7 @@ final class RemainingLimitSuggestionService {
 
             @Override
             public long resolveSelectedProfileKey() {
-                ProfileSelectionPresentationFacadeService service = PluginAccess.plugin()
-                    .getProfileSelectionServices().getProfileSelectionPresentationFacadeService();
+                ProfileSelectionPresentationFacadeService service = PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
                 return service != null ? service.resolveSelectedProfileKey() : 0L;
             }
 

@@ -154,8 +154,7 @@ final class ConfigChangedHandlerService {
             @Override
             public void loadBookmarks() {
                 BookmarkStateService bookmarkStateService = PluginInjectorBridge.get(BookmarkStateService.class);
-                ProfileSelectionPresentationFacadeService profileSelectionService = PluginAccess.plugin()
-                    .getProfileSelectionServices().getProfileSelectionPresentationFacadeService();
+                ProfileSelectionPresentationFacadeService profileSelectionService = PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
                 if (bookmarkStateService == null || profileSelectionService == null) {
                     return;
                 }

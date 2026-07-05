@@ -55,7 +55,7 @@ final class GeLifecycleOfferUiDataFactory {
             context.itemNameLookupCache,
             context.itemNameCache,
             () -> backfillServicesSupplier.get().getBackfillMarketServices().getLocalItemEnrichmentService(),
-            () -> profileSelectionServicesSupplier.get().getProfileSelectionPresentationFacadeService(),
+            () -> PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class),
             () -> statsTradesServicesSupplier.get().getLocalAccountSessionService(),
             () -> statsTradesServicesSupplier.get().getLocalTradeSessionFacadeService(),
             context.clientSupplier,

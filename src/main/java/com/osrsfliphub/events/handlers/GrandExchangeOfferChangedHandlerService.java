@@ -95,8 +95,7 @@ final class GrandExchangeOfferChangedHandlerService {
 
             @Override
             public boolean hasSessionToken() {
-                ProfileSelectionPresentationFacadeService service = PluginAccess.plugin()
-                    .getProfileSelectionServices().getProfileSelectionPresentationFacadeService();
+                ProfileSelectionPresentationFacadeService service = PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
                 return service != null && service.hasSessionToken();
             }
 

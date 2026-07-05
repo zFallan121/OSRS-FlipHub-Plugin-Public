@@ -51,8 +51,7 @@ final class ProfilePresentationService {
             GeLifecyclePluginConstants.ACCOUNTWIDE_KEY_STRING,
             new Hooks() {
                 private ProfileSelectionPresentationFacadeService facade() {
-                    return PluginAccess.plugin().getProfileSelectionServices()
-                        .getProfileSelectionPresentationFacadeService();
+                    return PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
                 }
 
                 @Override

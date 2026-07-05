@@ -86,10 +86,10 @@ final class GeLifecyclePanelLocalRuntimeFactory {
             schedulerSupplier,
             clientThreadSupplier,
             () -> statsTradesServicesSupplier.get().getLocalProfileTradesLoadService(),
-            () -> profileSelectionServicesSupplier.get().getProfileStorageFacadeService(),
+            () -> PluginInjectorBridge.get(ProfileStorageFacadeService.class),
             setLocalTradesLoadedThisLoginAction,
             () -> backfillServicesSupplier.get().getAccountwideSummaryUploader(),
-            () -> profileSelectionServicesSupplier.get().getProfileSelectionPresentationFacadeService(),
+            () -> PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class),
             uploadBackfillDispatchServiceSupplier,
             () -> profileWorkflowServiceSupplier.get().updateProfileOptionsUI(),
             () -> profileWorkflowServiceSupplier.get().updateProfileHeader()

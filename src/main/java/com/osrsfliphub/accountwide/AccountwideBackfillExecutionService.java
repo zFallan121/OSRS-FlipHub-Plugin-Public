@@ -72,8 +72,7 @@ final class AccountwideBackfillExecutionService {
 
             @Override
             public boolean isLinked() {
-                ProfileSelectionPresentationFacadeService service = PluginAccess.plugin()
-                    .getProfileSelectionServices().getProfileSelectionPresentationFacadeService();
+                ProfileSelectionPresentationFacadeService service = PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
                 return service != null && service.isLinked();
             }
 

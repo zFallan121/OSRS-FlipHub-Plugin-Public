@@ -368,7 +368,7 @@ public class GeLifecyclePlugin extends Plugin {
     }
 
     long getProfileFileModifiedMs(Path file) {
-        return getProfileSelectionServices().getProfileStore().getProfileFileModifiedMs(file);
+        return PluginInjectorBridge.get(ProfileStore.class).getProfileFileModifiedMs(file);
     }
 
     void executeAsync(Runnable task) {
@@ -416,7 +416,7 @@ public class GeLifecyclePlugin extends Plugin {
     // Retained as a narrow compatibility shim for reflection-based tests.
     void markAccountwideUploadDirty() {
         getBackfillServices().getAccountwideSummaryUploader().markDirty();
-        if (getProfileSelectionServices().getProfileSelectionPresentationFacadeService().isLinked()) {
+        if (PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class).isLinked()) {
             getUploadRuntimeServices().getUploadBackfillDispatchService().requestAccountwideSync();
         }
     }
@@ -425,8 +425,8 @@ public class GeLifecyclePlugin extends Plugin {
         profileWatcherService.start(
             scheduler,
             PROFILE_WATCH_DEBOUNCE_MS,
-            () -> getProfileSelectionServices().getProfileStorageFacadeService(),
-            () -> getProfileSelectionServices().getProfileStore(),
+            () -> PluginInjectorBridge.get(ProfileStorageFacadeService.class),
+            () -> PluginInjectorBridge.get(ProfileStore.class),
             loadedProfileFileMs::get,
             getProfileWorkflowService()::reloadProfileFromDisk
         );

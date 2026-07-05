@@ -69,7 +69,7 @@ final class GeLifecycleUploadRuntimeFactory {
             schedulerSupplier,
             backfillServicesSupplier,
             profileWorkflowServiceSupplier,
-            () -> profileSelectionServicesSupplier.get().getProfileSelectionPresentationFacadeService(),
+            () -> PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class),
             executeIoConsumer
         );
     }
