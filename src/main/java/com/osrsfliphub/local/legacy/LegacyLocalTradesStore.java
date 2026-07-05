@@ -38,9 +38,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import net.runelite.client.RuneLite;
 import net.runelite.client.config.ConfigManager;
 
+@Singleton
 final class LegacyLocalTradesStore {
     private static final Type LOCAL_TRADES_LIST_TYPE = new TypeToken<List<LocalTradeDelta>>() {}.getType();
 
@@ -50,6 +53,11 @@ final class LegacyLocalTradesStore {
     private final Path runeliteDir;
     private final Object cacheLock = new Object();
     private volatile Map<String, String> entries;
+
+    @Inject
+    LegacyLocalTradesStore(ConfigManager configManager, Gson gson) {
+        this(configManager, gson, FliphubConfigGroups.CONFIG_GROUP, RuneLite.RUNELITE_DIR.toPath());
+    }
 
     LegacyLocalTradesStore(ConfigManager configManager, Gson gson, String legacyConfigGroup) {
         this(configManager, gson, legacyConfigGroup, RuneLite.RUNELITE_DIR.toPath());

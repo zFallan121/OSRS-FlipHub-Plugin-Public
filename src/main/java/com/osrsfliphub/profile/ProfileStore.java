@@ -33,14 +33,23 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import net.runelite.client.RuneLite;
 
+@Singleton
 final class ProfileStore {
     private final Gson gson;
     private final String profileDirName;
     private final String legacyProfileDirName;
     private final Path runeliteDir;
     private final AtomicBoolean legacyProfilesMigrated = new AtomicBoolean(false);
+
+    @Inject
+    ProfileStore(Gson gson) {
+        this(gson, GeLifecyclePluginConstants.PROFILE_DIR_NAME,
+            GeLifecyclePluginConstants.LEGACY_PROFILE_DIR_NAME, RuneLite.RUNELITE_DIR.toPath());
+    }
 
     ProfileStore(Gson gson, String profileDirName, String legacyProfileDirName) {
         this(gson, profileDirName, legacyProfileDirName, RuneLite.RUNELITE_DIR.toPath());

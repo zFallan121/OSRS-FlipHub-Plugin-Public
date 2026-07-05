@@ -125,23 +125,11 @@ final class GeLifecycleProfileSelectionServices {
     }
 
     ProfileStore getProfileStore() {
-        ProfileStore store = profileStore;
-        if (store != null) {
-            return store;
-        }
-        store = new ProfileStore(resolve(gsonSupplier), profileDirName, legacyProfileDirName);
-        profileStore = store;
-        return store;
+        return PluginInjectorBridge.get(ProfileStore.class);
     }
 
     LegacyLocalTradesStore getLegacyLocalTradesStore() {
-        LegacyLocalTradesStore store = legacyLocalTradesStore;
-        if (store != null) {
-            return store;
-        }
-        store = new LegacyLocalTradesStore(resolve(configManagerSupplier), resolve(gsonSupplier), configGroup);
-        legacyLocalTradesStore = store;
-        return store;
+        return PluginInjectorBridge.get(LegacyLocalTradesStore.class);
     }
 
     ProfileStorageFacadeService getProfileStorageFacadeService() {
@@ -207,29 +195,7 @@ final class GeLifecycleProfileSelectionServices {
     }
 
     ProfileSelectionPresentationFacadeService getProfileSelectionPresentationFacadeService() {
-        ProfileSelectionPresentationFacadeService service = profileSelectionPresentationFacadeService;
-        if (service != null) {
-            return service;
-        }
-        service = new ProfileSelectionPresentationFacadeService(
-            profileSelection,
-            profileDisplayNames,
-            legacyNameKeysByHash,
-            new ProfileSelectionPresentationFacadePluginHooks(
-                this::getProfileSelectionResolverService,
-                this::getProfilePresentationService,
-                this::getProfileCatalogService,
-                this::getLegacyLocalTradesStore,
-                localAccountSessionServiceSupplier,
-                linkSessionGuardServiceSupplier,
-                () -> {
-                    LocalTradeSessionFacadeService facade = resolve(localTradeSessionFacadeServiceSupplier);
-                    return facade != null ? facade.resolveAccountHash() : -1L;
-                }
-            )
-        );
-        profileSelectionPresentationFacadeService = service;
-        return service;
+        return PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
     }
 
     ProfileUiCoordinator getProfileUiCoordinator() {

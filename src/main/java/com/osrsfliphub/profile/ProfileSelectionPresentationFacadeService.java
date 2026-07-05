@@ -26,7 +26,10 @@ package com.osrsfliphub;
 
 import java.util.List;
 import java.util.Map;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class ProfileSelectionPresentationFacadeService {
     interface Hooks {
         ProfileSelectionResolverService getProfileSelectionResolverService();
@@ -42,6 +45,55 @@ final class ProfileSelectionPresentationFacadeService {
     private final Map<Long, String> profileDisplayNames;
     private final Map<Long, String> legacyNameKeysByHash;
     private final Hooks hooks;
+
+    @Inject
+    ProfileSelectionPresentationFacadeService(PluginState pluginState) {
+        this(pluginState.getProfileSelection(),
+            pluginState.getProfileDisplayNames(),
+            pluginState.getLegacyNameKeysByHash(),
+            new Hooks() {
+                private GeLifecycleProfileSelectionServices profileServices() {
+                    return PluginAccess.plugin().getProfileSelectionServices();
+                }
+
+                @Override
+                public ProfileSelectionResolverService getProfileSelectionResolverService() {
+                    return profileServices().getProfileSelectionResolverService();
+                }
+
+                @Override
+                public ProfilePresentationService getProfilePresentationService() {
+                    return PluginInjectorBridge.get(ProfilePresentationService.class);
+                }
+
+                @Override
+                public ProfileCatalogService getProfileCatalogService() {
+                    return profileServices().getProfileCatalogService();
+                }
+
+                @Override
+                public LegacyLocalTradesStore getLegacyLocalTradesStore() {
+                    return PluginInjectorBridge.get(LegacyLocalTradesStore.class);
+                }
+
+                @Override
+                public LocalAccountSessionService getLocalAccountSessionService() {
+                    return PluginInjectorBridge.get(LocalAccountSessionService.class);
+                }
+
+                @Override
+                public LinkSessionGuardService getLinkSessionGuardService() {
+                    return PluginInjectorBridge.get(LinkSessionGuardService.class);
+                }
+
+                @Override
+                public long resolveAccountHash() {
+                    LocalTradeSessionFacadeService facade =
+                        PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+                    return facade != null ? facade.resolveAccountHash() : -1L;
+                }
+            });
+    }
 
     ProfileSelectionPresentationFacadeService(ProfileSelectionState profileSelection,
                                               Map<Long, String> profileDisplayNames,
