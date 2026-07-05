@@ -133,26 +133,7 @@ final class GeLifecycleProfileSelectionServices {
     }
 
     ProfileStorageFacadeService getProfileStorageFacadeService() {
-        ProfileStorageFacadeService service = profileStorageFacadeService;
-        if (service != null) {
-            return service;
-        }
-        service = new ProfileStorageFacadeService(
-            accountwideKey,
-            maxLocalTrades,
-            new ProfileStorageFacadePluginHooks(
-                this::getProfileStore,
-                this::getLegacyLocalTradesStore,
-                resolve(configManagerSupplier),
-                resolve(gsonSupplier),
-                geHistoryWipeStateStoreSupplier,
-                legacyNameKeysByHash,
-                profileDisplayNames,
-                loadedProfileFileMs
-            )
-        );
-        profileStorageFacadeService = service;
-        return service;
+        return PluginInjectorBridge.get(ProfileStorageFacadeService.class);
     }
 
     AccountwideStatsAggregator getAccountwideStatsAggregator() {

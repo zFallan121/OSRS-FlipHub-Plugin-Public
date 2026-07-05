@@ -24,10 +24,13 @@
  */
 package com.osrsfliphub;
 
+import com.google.gson.Gson;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import net.runelite.client.config.ConfigManager;
 
+@javax.inject.Singleton
 final class ProfileStorageFacadeService {
     interface Hooks {
         ProfileStore getProfileStore();
@@ -42,6 +45,49 @@ final class ProfileStorageFacadeService {
     private final long accountwideKey;
     private final int maxLocalTrades;
     private final Hooks hooks;
+
+    @javax.inject.Inject
+    ProfileStorageFacadeService(ConfigManager configManager, Gson gson, PluginState pluginState) {
+        this(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY,
+            GeLifecyclePluginConstants.MAX_LOCAL_TRADES,
+            new Hooks() {
+                @Override
+                public ProfileStore getProfileStore() {
+                    return PluginInjectorBridge.get(ProfileStore.class);
+                }
+
+                @Override
+                public LegacyLocalTradesStore getLegacyLocalTradesStore() {
+                    return PluginInjectorBridge.get(LegacyLocalTradesStore.class);
+                }
+
+                @Override
+                public boolean isLegacyReadEnabled() {
+                    return configManager != null && gson != null;
+                }
+
+                @Override
+                public boolean isWipeBarrierArmed(long accountHash) {
+                    GeHistoryWipeStateStore store = PluginInjectorBridge.get(GeHistoryWipeStateStore.class);
+                    return store != null && store.isWipeBarrierArmed(accountHash);
+                }
+
+                @Override
+                public String getLegacyNameKey(long accountHash) {
+                    return pluginState.getLegacyNameKeysByHash().get(accountHash);
+                }
+
+                @Override
+                public String getProfileDisplayName(long accountHash) {
+                    return pluginState.getProfileDisplayNames().get(accountHash);
+                }
+
+                @Override
+                public void putLoadedProfileFileMs(long accountHash, long fileMs) {
+                    pluginState.getLoadedProfileFileMs().put(accountHash, fileMs);
+                }
+            });
+    }
 
     ProfileStorageFacadeService(long accountwideKey, int maxLocalTrades, Hooks hooks) {
         this.accountwideKey = accountwideKey;
