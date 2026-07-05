@@ -25,10 +25,15 @@
 package com.osrsfliphub;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class LocalStatsSnapshotService {
     interface Hooks {
         long accountwideKey();
@@ -41,6 +46,70 @@ final class LocalStatsSnapshotService {
     }
 
     private final Hooks hooks;
+
+    @Inject
+    LocalStatsSnapshotService(PluginState pluginState) {
+        this(new Hooks() {
+            @Override
+            public long accountwideKey() {
+                return GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
+            }
+
+            @Override
+            public void ensureProfileLoaded(long accountKey) {
+                PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
+            }
+
+            @Override
+            public LocalStatsCache getOrBuildStatsCache(long accountKey) {
+                LocalStatsCacheService service =
+                    PluginAccess.plugin().getStatsTradesServices().getLocalStatsCacheService();
+                return service != null ? service.getOrBuild(accountKey) : null;
+            }
+
+            @Override
+            public String getCachedItemName(int itemId) {
+                ItemLookupService service = PluginInjectorBridge.get(ItemLookupService.class);
+                return service != null ? service.getCachedItemName(itemId) : null;
+            }
+
+            @Override
+            public void cacheItemName(int itemId) {
+                ItemLookupService service = PluginInjectorBridge.get(ItemLookupService.class);
+                if (service != null) {
+                    service.cacheItemName(itemId);
+                }
+            }
+
+            @Override
+            public Set<Long> collectAccountwideProfileKeys() {
+                AccountwideProfileKeyCollector collector =
+                    PluginAccess.plugin().getStatsTradesServices().getAccountwideProfileKeyCollector();
+                ProfileStorageFacadeService storage = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
+                if (collector == null || storage == null) {
+                    return Collections.emptySet();
+                }
+                return collector.collect(
+                    storage.getProfilesDir(),
+                    storage.getLegacyProfilesDir(),
+                    pluginState.getLocalTradeDeltasByAccount(),
+                    pluginState.getLocalStatsLock(),
+                    this::loadProfilesFromDisk);
+            }
+
+            @Override
+            public LocalStatsSnapshot buildAccountwideFromProfiles(Set<Long> profileKeys, Long sinceMs, StatsItemSort sort) {
+                AccountwideStatsAggregator aggregator = PluginInjectorBridge.get(AccountwideStatsAggregator.class);
+                return aggregator != null ? aggregator.buildFromProfiles(profileKeys, sinceMs, sort) : null;
+            }
+
+            private Map<Long, String> loadProfilesFromDisk() {
+                ProfileSelectionPresentationFacadeService service =
+                    PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
+                return service != null ? service.loadProfilesFromDisk() : Collections.emptyMap();
+            }
+        });
+    }
 
     LocalStatsSnapshotService(Hooks hooks) {
         this.hooks = hooks;

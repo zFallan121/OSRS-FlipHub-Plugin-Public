@@ -38,30 +38,4 @@ final class GeLifecycleLocalStatsCoreFactory {
         );
     }
 
-    static LocalStatsSnapshotService createLocalStatsSnapshotService(
-        GeLifecycleLocalStatsRuntimeContext context,
-        Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
-        Supplier<LocalStatsCacheService> localStatsCacheServiceSupplier,
-        Supplier<ItemLookupService> itemLookupServiceSupplier,
-        Supplier<AccountwideProfileKeyCollector> accountwideProfileKeyCollectorSupplier,
-        Supplier<ProfileStorageFacadeService> profileStorageFacadeServiceSupplier,
-        Supplier<ProfileSelectionPresentationFacadeService> profileSelectionPresentationFacadeServiceSupplier,
-        Supplier<AccountwideStatsAggregator> accountwideStatsAggregatorSupplier
-    ) {
-        return new LocalStatsSnapshotService(
-            new LocalStatsSnapshotPluginHooks(
-                context.accountwideKey,
-                localTradesRuntimeServiceSupplier.get()::ensureProfileLoaded,
-                localStatsCacheServiceSupplier,
-                itemLookupServiceSupplier,
-                accountwideProfileKeyCollectorSupplier,
-                profileStorageFacadeServiceSupplier,
-                context.localTradeDeltasByAccount,
-                context.localStatsLock,
-                profileSelectionPresentationFacadeServiceSupplier,
-                accountwideStatsAggregatorSupplier
-            )
-        );
-    }
-
 }

@@ -106,22 +106,7 @@ final class GeLifecycleLocalStatsServices {
     }
 
     LocalStatsSnapshotService getLocalStatsSnapshotService() {
-        LocalStatsSnapshotService service = localStatsSnapshotService;
-        if (service != null) {
-            return service;
-        }
-        service = GeLifecycleLocalStatsCoreFactory.createLocalStatsSnapshotService(
-            context,
-            this::getLocalTradesRuntimeService,
-            this::getLocalStatsCacheService,
-            this::getItemLookupService,
-            this::getAccountwideProfileKeyCollector,
-            this::getProfileStorageFacadeService,
-            this::getProfileSelectionPresentationFacadeService,
-            this::getAccountwideStatsAggregator
-        );
-        localStatsSnapshotService = service;
-        return service;
+        return PluginInjectorBridge.get(LocalStatsSnapshotService.class);
     }
 
     LocalAccountSessionService getLocalAccountSessionService() {
