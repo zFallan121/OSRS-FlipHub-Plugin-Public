@@ -134,19 +134,8 @@ final class GeLifecyclePanelBootstrapService {
                 triggerStatsRefresh,
                 showManageDataDialog
             ),
-            new FlipHubPanelBookmarkStorePluginHooks(
-                bookmarkedItems,
-                bookmarkStateServiceSupplier,
-                profileSelectionPresentationFacadeServiceSupplier,
-                () -> panelRef[0]
-            ),
-            new FlipHubPanelHiddenItemStorePluginHooks(
-                hiddenItems,
-                hiddenItemConfigStore,
-                () -> configManager,
-                () -> panelRef[0],
-                FliphubConfigGroups.CONFIG_GROUP
-            ),
+            PluginInjectorBridge.get(FlipHubPanelBookmarkStoreImpl.class),
+            PluginInjectorBridge.get(FlipHubPanelHiddenItemStoreImpl.class),
             config
         );
         panelRef[0] = panel;

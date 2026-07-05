@@ -25,24 +25,16 @@
 package com.osrsfliphub;
 
 import java.util.Set;
-import java.util.function.Supplier;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
-final class FlipHubPanelBookmarkStorePluginHooks implements FlipHubPanelBookmarkStore {
+@Singleton
+final class FlipHubPanelBookmarkStoreImpl implements FlipHubPanelBookmarkStore {
     private final Set<Integer> bookmarkedItems;
-    private final Supplier<BookmarkStateService> bookmarkStateServiceSupplier;
-    private final Supplier<ProfileSelectionPresentationFacadeService> profileSelectionFacadeServiceSupplier;
-    private final Supplier<FlipHubPanel> panelSupplier;
 
-    FlipHubPanelBookmarkStorePluginHooks(
-        Set<Integer> bookmarkedItems,
-        Supplier<BookmarkStateService> bookmarkStateServiceSupplier,
-        Supplier<ProfileSelectionPresentationFacadeService> profileSelectionFacadeServiceSupplier,
-        Supplier<FlipHubPanel> panelSupplier
-    ) {
-        this.bookmarkedItems = bookmarkedItems;
-        this.bookmarkStateServiceSupplier = bookmarkStateServiceSupplier;
-        this.profileSelectionFacadeServiceSupplier = profileSelectionFacadeServiceSupplier;
-        this.panelSupplier = panelSupplier;
+    @Inject
+    FlipHubPanelBookmarkStoreImpl(PluginState pluginState) {
+        this.bookmarkedItems = pluginState.getBookmarkedItems();
     }
 
     @Override
@@ -52,28 +44,18 @@ final class FlipHubPanelBookmarkStorePluginHooks implements FlipHubPanelBookmark
 
     @Override
     public void toggleBookmark(int itemId) {
-        BookmarkStateService bookmarkStateService = resolveBookmarkStateService();
-        ProfileSelectionPresentationFacadeService profileSelectionService = resolveProfileSelectionService();
+        BookmarkStateService bookmarkStateService = PluginInjectorBridge.get(BookmarkStateService.class);
+        ProfileSelectionPresentationFacadeService profileSelectionService =
+            PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
         if (bookmarkStateService == null || profileSelectionService == null || bookmarkedItems == null) {
             return;
         }
         long selectedProfileKey = profileSelectionService.resolveSelectedProfileKey();
         bookmarkStateService.toggleForSelected(selectedProfileKey, itemId);
         bookmarkStateService.loadSelectedBookmarks(selectedProfileKey, bookmarkedItems);
-        FlipHubPanel panel = panelSupplier != null ? panelSupplier.get() : null;
+        FlipHubPanel panel = PluginAccess.plugin().panel;
         if (panel != null) {
             panel.refreshBookmarks();
         }
     }
-
-    private BookmarkStateService resolveBookmarkStateService() {
-        return bookmarkStateServiceSupplier != null ? bookmarkStateServiceSupplier.get() : null;
-    }
-
-    private ProfileSelectionPresentationFacadeService resolveProfileSelectionService() {
-        return profileSelectionFacadeServiceSupplier != null
-            ? profileSelectionFacadeServiceSupplier.get()
-            : null;
-    }
 }
-

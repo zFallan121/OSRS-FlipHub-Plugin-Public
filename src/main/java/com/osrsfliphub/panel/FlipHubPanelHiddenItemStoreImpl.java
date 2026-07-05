@@ -25,28 +25,21 @@
 package com.osrsfliphub;
 
 import java.util.Set;
-import java.util.function.Supplier;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import net.runelite.client.config.ConfigManager;
 
-final class FlipHubPanelHiddenItemStorePluginHooks implements FlipHubPanelHiddenItemStore {
+@Singleton
+final class FlipHubPanelHiddenItemStoreImpl implements FlipHubPanelHiddenItemStore {
     private final Set<Integer> hiddenItems;
     private final HiddenItemConfigStore hiddenItemConfigStore;
-    private final Supplier<ConfigManager> configManagerSupplier;
-    private final Supplier<FlipHubPanel> panelSupplier;
-    private final String configGroup;
+    private final ConfigManager configManager;
 
-    FlipHubPanelHiddenItemStorePluginHooks(
-        Set<Integer> hiddenItems,
-        HiddenItemConfigStore hiddenItemConfigStore,
-        Supplier<ConfigManager> configManagerSupplier,
-        Supplier<FlipHubPanel> panelSupplier,
-        String configGroup
-    ) {
-        this.hiddenItems = hiddenItems;
-        this.hiddenItemConfigStore = hiddenItemConfigStore;
-        this.configManagerSupplier = configManagerSupplier;
-        this.panelSupplier = panelSupplier;
-        this.configGroup = configGroup;
+    @Inject
+    FlipHubPanelHiddenItemStoreImpl(PluginState pluginState, ConfigManager configManager) {
+        this.hiddenItems = pluginState.getHiddenItems();
+        this.hiddenItemConfigStore = pluginState.getHiddenItemConfigStore();
+        this.configManager = configManager;
     }
 
     @Override
@@ -62,15 +55,14 @@ final class FlipHubPanelHiddenItemStorePluginHooks implements FlipHubPanelHidden
         if (!hiddenItems.add(itemId)) {
             return;
         }
-        ConfigManager configManager = configManagerSupplier != null ? configManagerSupplier.get() : null;
         if (configManager != null) {
             String value = hiddenItemConfigStore.serializeItemIds(hiddenItems);
-            configManager.setConfiguration(configGroup, hiddenItemConfigStore.configKey(), value);
+            configManager.setConfiguration(
+                FliphubConfigGroups.CONFIG_GROUP, hiddenItemConfigStore.configKey(), value);
         }
-        FlipHubPanel panel = panelSupplier != null ? panelSupplier.get() : null;
+        FlipHubPanel panel = PluginAccess.plugin().panel;
         if (panel != null) {
             panel.refreshBookmarks();
         }
     }
 }
-
