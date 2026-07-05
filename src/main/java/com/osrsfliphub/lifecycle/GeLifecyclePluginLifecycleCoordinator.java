@@ -36,14 +36,14 @@ final class GeLifecyclePluginLifecycleCoordinator {
         plugin.getProfileWorkflowService().loadProfileSelectionState();
         plugin.getOfferUiRuntimeServices().getBookmarkStateService().clearCache();
         plugin.getOfferUiRuntimeServices().getBookmarkStateService().loadSelectedBookmarks(
-            plugin.getProfileSelectionServices().getProfileSelectionPresentationFacadeService().resolveSelectedProfileKey(),
+            PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class).resolveSelectedProfileKey(),
             plugin.bookmarkedItems
         );
         plugin.hiddenItems.clear();
         plugin.hiddenItems.addAll(plugin.hiddenItemConfigStore.parseItemIds(plugin.config.hiddenItems()));
         plugin.getOfferStampStateServices().resetForStartup();
-        plugin.getProfileSelectionServices().getProfileStore();
-        plugin.getProfileSelectionServices().getLegacyLocalTradesStore();
+        PluginInjectorBridge.get(ProfileStore.class);
+        PluginInjectorBridge.get(LegacyLocalTradesStore.class);
         plugin.getLocalTradesRuntimeService().ensureProfileLoaded(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY);
         if (plugin.client != null && plugin.client.getGameState() == GameState.LOGGED_IN) {
             plugin.getOfferStampStateServices().setLastLoginNow();
@@ -70,7 +70,7 @@ final class GeLifecyclePluginLifecycleCoordinator {
             plugin::refreshPanelData,
             plugin::refreshStatsData,
             plugin.getProfileWorkflowService()::persistProfileSelectionState,
-            () -> plugin.getProfileSelectionServices().getProfileSelectionPresentationFacadeService(),
+            () -> PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class),
             () -> plugin.getOfferUiRuntimeServices().getBookmarkStateService(),
             plugin.getLocalTradesRuntimeService()::ensureProfileLoaded,
             plugin.getProfileWorkflowService()::updateProfileOptionsUI,
@@ -94,7 +94,7 @@ final class GeLifecyclePluginLifecycleCoordinator {
             () -> plugin.clientThread,
             () -> plugin.getOfferUiRuntimeServices().getOfferPreviewItemResolver(),
             () -> plugin.getOfferUiRuntimeServices().getItemServices(),
-            () -> plugin.getProfileSelectionServices().getProfileSelectionPresentationFacadeService(),
+            () -> PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class),
             GeLifecyclePluginConstants.ACCOUNTWIDE_UPLOAD_INTERVAL_SECONDS,
             GeLifecyclePluginConstants.OFFER_POLL_INTERVAL_MS,
             () -> plugin.getBackfillServices().getBackfillMarketServices().getWikiPriceService(),

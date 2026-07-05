@@ -55,11 +55,11 @@ final class AccountwideFlipHistoryService {
     }
 
     private static ProfileSelectionPresentationFacadeService profileSelectionFacade() {
-        return PluginAccess.plugin().getProfileSelectionServices().getProfileSelectionPresentationFacadeService();
+        return PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
     }
 
     private static ProfileStorageFacadeService profileStorage() {
-        return PluginAccess.plugin().getProfileSelectionServices().getProfileStorageFacadeService();
+        return PluginInjectorBridge.get(ProfileStorageFacadeService.class);
     }
 
     private static Hooks productionHooks(PluginState state) {

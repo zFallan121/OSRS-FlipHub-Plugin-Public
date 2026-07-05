@@ -69,7 +69,7 @@ final class LocalStatsViewService {
     }
 
     private static ProfileSelectionPresentationFacadeService profileSelectionFacade() {
-        return PluginAccess.plugin().getProfileSelectionServices().getProfileSelectionPresentationFacadeService();
+        return PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
     }
 
     private static LocalTradeSessionFacadeService localTradeSessionFacade() {

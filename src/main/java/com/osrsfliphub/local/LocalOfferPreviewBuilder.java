@@ -87,7 +87,7 @@ final class LocalOfferPreviewBuilder {
             @Override
             public long resolveSelectedProfileKey() {
                 ProfileSelectionPresentationFacadeService service =
-                    PluginAccess.plugin().getProfileSelectionServices().getProfileSelectionPresentationFacadeService();
+                    PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
                 return service != null ? service.resolveSelectedProfileKey() : 0L;
             }
 

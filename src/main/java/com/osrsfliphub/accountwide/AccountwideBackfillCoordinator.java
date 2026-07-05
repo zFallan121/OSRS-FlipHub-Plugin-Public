@@ -90,7 +90,7 @@ final class AccountwideBackfillCoordinator {
                 AccountwideProfileKeyCollector collector =
                     PluginInjectorBridge.get(AccountwideProfileKeyCollector.class);
                 ProfileStorageFacadeService storage =
-                    PluginAccess.plugin().getProfileSelectionServices().getProfileStorageFacadeService();
+                    PluginInjectorBridge.get(ProfileStorageFacadeService.class);
                 ProfileSelectionPresentationFacadeService profileSelection = PluginAccess.plugin()
                     .getProfileSelectionServices().getProfileSelectionPresentationFacadeService();
                 if (collector == null || storage == null || profileSelection == null) {

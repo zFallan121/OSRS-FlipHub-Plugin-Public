@@ -80,7 +80,7 @@ final class GameStateChangedHandlerService {
     }
 
     private static ProfileSelectionPresentationFacadeService profileSelectionFacade() {
-        return PluginAccess.plugin().getProfileSelectionServices().getProfileSelectionPresentationFacadeService();
+        return PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
     }
 
     private static Hooks productionHooks(PluginConfig config) {

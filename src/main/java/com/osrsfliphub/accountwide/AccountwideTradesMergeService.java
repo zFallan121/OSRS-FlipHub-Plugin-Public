@@ -63,7 +63,7 @@ final class AccountwideTradesMergeService {
     }
 
     private static ProfileStorageFacadeService profileStorage() {
-        return PluginAccess.plugin().getProfileSelectionServices().getProfileStorageFacadeService();
+        return PluginInjectorBridge.get(ProfileStorageFacadeService.class);
     }
 
     private static Hooks productionHooks() {
@@ -90,7 +90,7 @@ final class AccountwideTradesMergeService {
             public Map<String, String> getLegacyLocalTradesCache() {
                 LegacyLocalTradesFilterService filterService = PluginAccess.plugin().getLegacyLocalTradesFilterService();
                 LegacyLocalTradesStore store =
-                    PluginAccess.plugin().getProfileSelectionServices().getLegacyLocalTradesStore();
+                    PluginInjectorBridge.get(LegacyLocalTradesStore.class);
                 if (filterService == null || store == null) {
                     return null;
                 }

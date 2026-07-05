@@ -61,7 +61,7 @@ final class ManageDataDialogService {
     }
 
     private static ProfileSelectionPresentationFacadeService profileSelectionFacade() {
-        return PluginAccess.plugin().getProfileSelectionServices().getProfileSelectionPresentationFacadeService();
+        return PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
     }
 
     private static GeLifecycleManageDataServices manageDataServices() {
