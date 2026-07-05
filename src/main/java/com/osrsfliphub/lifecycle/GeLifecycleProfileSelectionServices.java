@@ -172,23 +172,7 @@ final class GeLifecycleProfileSelectionServices {
     }
 
     ProfilePresentationService getProfilePresentationService() {
-        ProfilePresentationService service = profilePresentationService;
-        if (service != null) {
-            return service;
-        }
-        service = new ProfilePresentationService(
-            accountwideKey,
-            accountwideKeyString,
-            new ProfilePresentationPluginHooks(
-                this::getProfileSelectionPresentationFacadeService,
-                displayName -> {
-                    GeLifecycleLocalTradesRuntimeService localTradesRuntime = resolve(localTradesRuntimeServiceSupplier);
-                    return localTradesRuntime != null && localTradesRuntime.isPlaceholderDisplayName(displayName);
-                }
-            )
-        );
-        profilePresentationService = service;
-        return service;
+        return PluginInjectorBridge.get(ProfilePresentationService.class);
     }
 
     ProfileCatalogService getProfileCatalogService() {

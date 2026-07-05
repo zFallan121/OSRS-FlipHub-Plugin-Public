@@ -29,7 +29,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class ProfilePresentationService {
     interface Hooks {
         String resolveLegacyDisplayNameForHash(long hash);
@@ -41,6 +44,43 @@ final class ProfilePresentationService {
     private final long accountwideKey;
     private final String accountwideKeyString;
     private final Hooks hooks;
+
+    @Inject
+    ProfilePresentationService() {
+        this(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY,
+            GeLifecyclePluginConstants.ACCOUNTWIDE_KEY_STRING,
+            new Hooks() {
+                private ProfileSelectionPresentationFacadeService facade() {
+                    return PluginAccess.plugin().getProfileSelectionServices()
+                        .getProfileSelectionPresentationFacadeService();
+                }
+
+                @Override
+                public String resolveLegacyDisplayNameForHash(long hash) {
+                    ProfileSelectionPresentationFacadeService service = facade();
+                    return service != null ? service.resolveLegacyDisplayNameForHash(hash) : null;
+                }
+
+                @Override
+                public String displayNameFromLegacyKey(String legacyKey) {
+                    ProfileSelectionPresentationFacadeService service = facade();
+                    return service != null ? service.displayNameFromLegacyKey(legacyKey) : null;
+                }
+
+                @Override
+                public String buildProfileKey(long accountHash) {
+                    ProfileSelectionPresentationFacadeService service = facade();
+                    return service != null ? service.buildProfileKey(accountHash) : String.valueOf(accountHash);
+                }
+
+                @Override
+                public boolean isPlaceholderDisplayName(String displayName) {
+                    GeLifecycleLocalTradesRuntimeService localTradesRuntime =
+                        PluginAccess.plugin().getLocalTradesRuntimeService();
+                    return localTradesRuntime != null && localTradesRuntime.isPlaceholderDisplayName(displayName);
+                }
+            });
+    }
 
     ProfilePresentationService(long accountwideKey, String accountwideKeyString, Hooks hooks) {
         this.accountwideKey = accountwideKey;
