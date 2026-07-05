@@ -38,7 +38,6 @@ import okhttp3.OkHttpClient;
 import org.slf4j.Logger;
 
 final class GeLifecycleBackfillMarketServices {
-    private final GeLifecycleBackfillExecutionServices executionServices;
     private final GeLifecycleBackfillMarketDataServices marketDataServices;
 
     GeLifecycleBackfillMarketServices(
@@ -84,35 +83,6 @@ final class GeLifecycleBackfillMarketServices {
         BooleanSupplier isClientFullyReadySupplier,
         boolean hasItemManager
     ) {
-        this.executionServices = new GeLifecycleBackfillExecutionServices(
-            maxBackfillProfileCount,
-            backfillMatchScoreThreshold,
-            maxBatchSize,
-            maxLocalTrades,
-            localEventBucketMs,
-            duplicateTradeWindowMs,
-            apiClientSupplier,
-            configSupplier,
-            configManagerSupplier,
-            accountwideSummaryUploaderSupplier,
-            uploadBackfillDispatchServiceSupplier,
-            uploadEventDispatchFacadeServiceSupplier,
-            accountwideProfileKeyCollectorSupplier,
-            profileStorageFacadeServiceSupplier,
-            localTradeDeltasByAccount,
-            localStatsLock,
-            profileSelectionPresentationFacadeServiceSupplier,
-            backfilledProfilesStoreSupplier,
-            ensureProfileLoaded,
-            localStatsSnapshotServiceSupplier,
-            fetchRemoteStatsSummary,
-            triggerStatsRefresh,
-            triggerPanelRefresh,
-            localTradeSessionFacadeServiceSupplier,
-            clientSupplier,
-            loggerSupplier,
-            debugEnabledSupplier
-        );
         this.marketDataServices = new GeLifecycleBackfillMarketDataServices(
             maxGeLimitLookupsPerRequest,
             localLimitWindowMs,
@@ -136,23 +106,23 @@ final class GeLifecycleBackfillMarketServices {
     }
 
     SessionRefreshService getSessionRefreshService() {
-        return executionServices.getSessionRefreshService();
+        return PluginInjectorBridge.get(SessionRefreshService.class);
     }
 
     AccountwideBackfillCoordinator getAccountwideBackfillCoordinator() {
-        return executionServices.getAccountwideBackfillCoordinator();
+        return PluginInjectorBridge.get(AccountwideBackfillCoordinator.class);
     }
 
     BackfillUploader getBackfillUploader() {
-        return executionServices.getBackfillUploader();
+        return PluginInjectorBridge.get(BackfillUploader.class);
     }
 
     AccountwideProfileBackfillService getAccountwideProfileBackfillService() {
-        return executionServices.getAccountwideProfileBackfillService();
+        return PluginInjectorBridge.get(AccountwideProfileBackfillService.class);
     }
 
     BackfillSyncMatcher getBackfillSyncMatcher() {
-        return executionServices.getBackfillSyncMatcher();
+        return PluginInjectorBridge.get(BackfillSyncMatcher.class);
     }
 
     GeLimitService getGeLimitService() {
