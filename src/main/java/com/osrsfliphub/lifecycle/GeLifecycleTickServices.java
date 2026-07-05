@@ -31,7 +31,6 @@ import net.runelite.api.Client;
 import net.runelite.api.GameState;
 
 final class GeLifecycleTickServices {
-    private final Supplier<GeLifecycleSuggestionServices> suggestionServicesSupplier;
     private final Runnable attemptGeHistoryAutoSyncAction;
     private final BooleanSupplier panelVisibleSupplier;
     private final Runnable triggerPanelRefreshAction;
@@ -46,7 +45,6 @@ final class GeLifecycleTickServices {
     private final Runnable updateProfileHeaderAction;
 
     GeLifecycleTickServices(
-        Supplier<GeLifecycleSuggestionServices> suggestionServicesSupplier,
         Runnable attemptGeHistoryAutoSyncAction,
         BooleanSupplier panelVisibleSupplier,
         Runnable triggerPanelRefreshAction,
@@ -60,7 +58,6 @@ final class GeLifecycleTickServices {
         Runnable updateProfileOptionsUiAction,
         Runnable updateProfileHeaderAction
     ) {
-        this.suggestionServicesSupplier = suggestionServicesSupplier;
         this.attemptGeHistoryAutoSyncAction = attemptGeHistoryAutoSyncAction;
         this.panelVisibleSupplier = panelVisibleSupplier;
         this.triggerPanelRefreshAction = triggerPanelRefreshAction;
@@ -76,9 +73,10 @@ final class GeLifecycleTickServices {
     }
 
     boolean handlePostClientTick(boolean panelVisible) {
-        GeLifecycleSuggestionServices suggestionServices = resolve(suggestionServicesSupplier);
-        if (suggestionServices != null) {
-            suggestionServices.getChatboxSuggestionCycleService().update();
+        ChatboxSuggestionCycleService suggestionCycleService =
+            PluginInjectorBridge.get(ChatboxSuggestionCycleService.class);
+        if (suggestionCycleService != null) {
+            suggestionCycleService.update();
         }
         if (attemptGeHistoryAutoSyncAction != null) {
             attemptGeHistoryAutoSyncAction.run();

@@ -122,7 +122,6 @@ final class GeLifecyclePluginLifecycleCoordinator {
             plugin.scheduler,
             plugin.ioExecutor,
             () -> plugin.clientThread,
-            () -> plugin.getOfferUiRuntimeServices().getSuggestionServices(),
             () -> plugin.getBackfillServices().getBackfillMarketServices().getWikiPriceService(),
             plugin::stopProfileWatcher,
             () -> plugin.getUploadRuntimeServices().getUploadBackfillDispatchService(),

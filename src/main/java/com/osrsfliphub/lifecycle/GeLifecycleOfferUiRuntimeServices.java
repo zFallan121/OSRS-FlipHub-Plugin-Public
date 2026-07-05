@@ -41,7 +41,6 @@ final class GeLifecycleOfferUiRuntimeServices {
     private GeLifecycleOfferStampStateServices offerStampStateServices;
     private OfferPreviewRuntimeFacadeService offerPreviewRuntimeFacadeService;
     private OfferPreviewItemResolver offerPreviewItemResolver;
-    private GeLifecycleSuggestionServices suggestionServices;
     private GeLifecycleTickServices tickServices;
     private GeLifecycleItemServices itemServices;
     private BookmarkStateService bookmarkStateService;
@@ -135,24 +134,6 @@ final class GeLifecycleOfferUiRuntimeServices {
         return PluginInjectorBridge.get(OfferPreviewItemResolver.class);
     }
 
-    GeLifecycleSuggestionServices getSuggestionServices() {
-        GeLifecycleSuggestionServices services = suggestionServices;
-        if (services != null) {
-            return services;
-        }
-        services = GeLifecycleOfferUiCoreFactory.createSuggestionServices(
-            context,
-            this::getOfferPreviewRuntimeFacadeService,
-            this::getStatsTradesServices,
-            this::getProfileSelectionServices,
-            this::getLocalTradesRuntimeService,
-            this::getBackfillServices,
-            this::getItemServices
-        );
-        suggestionServices = services;
-        return services;
-    }
-
     GeLifecycleTickServices getTickServices() {
         GeLifecycleTickServices services = tickServices;
         if (services != null) {
@@ -160,7 +141,6 @@ final class GeLifecycleOfferUiRuntimeServices {
         }
         services = GeLifecycleOfferUiCoreFactory.createTickServices(
             context,
-            this::getSuggestionServices,
             this::getEventManageHistoryServices,
             this::getPanelRefreshCoordinator,
             this::getStatsTradesServices,
@@ -184,8 +164,7 @@ final class GeLifecycleOfferUiRuntimeServices {
             this::getProfileSelectionServices,
             this::getProfileWorkflowService,
             this::getStatsTradesServices,
-            this::getLocalTradesRuntimeService,
-            this::getSuggestionServices
+            this::getLocalTradesRuntimeService
         );
         itemServices = services;
         return services;

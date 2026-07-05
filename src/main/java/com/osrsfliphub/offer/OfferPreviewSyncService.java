@@ -91,8 +91,8 @@ final class OfferPreviewSyncService {
 
             @Override
             public void markSuggestionDirty() {
-                ChatboxSuggestionRuntimeStateService service = PluginAccess.plugin().getOfferUiRuntimeServices()
-                    .getSuggestionServices().getChatboxSuggestionRuntimeStateService();
+                ChatboxSuggestionRuntimeStateService service =
+                    PluginInjectorBridge.get(ChatboxSuggestionRuntimeStateService.class);
                 if (service != null) {
                     service.markSuggestionDirty();
                 }

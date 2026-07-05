@@ -39,8 +39,7 @@ final class GeLifecycleOfferUiDataFactory {
         Supplier<GeLifecycleProfileSelectionServices> profileSelectionServicesSupplier,
         Supplier<GeLifecycleProfileWorkflowService> profileWorkflowServiceSupplier,
         Supplier<GeLifecycleStatsTradesServices> statsTradesServicesSupplier,
-        Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
-        Supplier<GeLifecycleSuggestionServices> suggestionServicesSupplier
+        Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier
     ) {
         return new GeLifecycleItemServices(
             context.itemManagerSupplier.get(),
@@ -65,7 +64,7 @@ final class GeLifecycleOfferUiDataFactory {
             context.panelDataRuntimeServiceSupplier,
             () -> profileWorkflowServiceSupplier.get().ensureSelectedProfileLoaded(),
             accountKey -> localTradesRuntimeServiceSupplier.get().ensureProfileLoaded(accountKey),
-            () -> suggestionServicesSupplier.get().getChatboxSuggestionRuntimeStateService(),
+            () -> PluginInjectorBridge.get(ChatboxSuggestionRuntimeStateService.class),
             context.panelSupplier,
             context.offerPreviewItemIdSupplier,
             context.offerPreviewItemSupplier,

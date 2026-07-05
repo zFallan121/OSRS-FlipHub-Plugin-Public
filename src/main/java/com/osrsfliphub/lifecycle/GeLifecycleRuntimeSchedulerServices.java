@@ -177,7 +177,6 @@ final class GeLifecycleRuntimeSchedulerServices {
         ScheduledExecutorService scheduler,
         ExecutorService ioExecutor,
         Supplier<ClientThread> clientThreadSupplier,
-        Supplier<GeLifecycleSuggestionServices> suggestionServicesSupplier,
         Supplier<WikiPriceService> wikiPriceServiceSupplier,
         Runnable stopProfileWatcher,
         Supplier<UploadBackfillDispatchService> uploadBackfillDispatchServiceSupplier,
@@ -192,7 +191,7 @@ final class GeLifecycleRuntimeSchedulerServices {
     ) {
         ClientThread clientThread = resolve(clientThreadSupplier);
         if (clientThread != null) {
-            clientThread.invokeLater(() -> clearSuggestions(suggestionServicesSupplier));
+            clientThread.invokeLater(this::clearSuggestions);
         }
 
         WikiPriceService wikiPriceService = resolve(wikiPriceServiceSupplier);
@@ -241,17 +240,17 @@ final class GeLifecycleRuntimeSchedulerServices {
         }
     }
 
-    private void clearSuggestions(Supplier<GeLifecycleSuggestionServices> suggestionServicesSupplier) {
-        GeLifecycleSuggestionServices services = resolve(suggestionServicesSupplier);
-        if (services == null) {
-            return;
-        }
-        services.getChatboxSuggestionPresentationService().clearPriceSuggestion();
-        services.getChatboxSuggestionPresentationService().clearLimitSuggestion();
-        services.getChatboxSuggestionPresentationService().clearAffordableLimitSuggestion();
-        services.getRemainingLimitSuggestionService().clearCache();
-        services.getChatboxSuggestionRuntimeStateService().clearPromptWidgetCache();
-        services.getChatboxSuggestionRuntimeStateService().setSuggestionDirty(false);
+    private void clearSuggestions() {
+        ChatboxSuggestionPresentationService presentation =
+            PluginInjectorBridge.get(ChatboxSuggestionPresentationService.class);
+        presentation.clearPriceSuggestion();
+        presentation.clearLimitSuggestion();
+        presentation.clearAffordableLimitSuggestion();
+        PluginInjectorBridge.get(RemainingLimitSuggestionService.class).clearCache();
+        ChatboxSuggestionRuntimeStateService runtimeState =
+            PluginInjectorBridge.get(ChatboxSuggestionRuntimeStateService.class);
+        runtimeState.clearPromptWidgetCache();
+        runtimeState.setSuggestionDirty(false);
     }
 
     private <T> T resolve(Supplier<T> supplier) {

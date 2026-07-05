@@ -210,7 +210,7 @@ public class GeLifecyclePlugin extends Plugin {
         if (scriptId == ScriptID.CHAT_TEXT_INPUT_REBUILD ||
             scriptId == ScriptID.CHAT_PROMPT_INIT ||
             scriptId == ScriptID.MESSAGE_LAYER_OPEN) {
-            getOfferUiRuntimeServices().getSuggestionServices().getChatboxSuggestionRuntimeStateService().markSuggestionDirty();
+            PluginInjectorBridge.get(ChatboxSuggestionRuntimeStateService.class).markSuggestionDirty();
         }
     }
 
@@ -220,7 +220,7 @@ public class GeLifecyclePlugin extends Plugin {
             return;
         }
         // Fallback trigger for GE chatbox prompts when specific chat scripts do not fire on some client builds.
-        getOfferUiRuntimeServices().getSuggestionServices().getChatboxSuggestionRuntimeStateService().markSuggestionDirty();
+        PluginInjectorBridge.get(ChatboxSuggestionRuntimeStateService.class).markSuggestionDirty();
     }
 
     long getOfferLastUpdateMs(int slot, GrandExchangeOffer offer) {

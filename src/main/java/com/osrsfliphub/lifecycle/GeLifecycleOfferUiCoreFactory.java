@@ -50,43 +50,8 @@ final class GeLifecycleOfferUiCoreFactory {
         );
     }
 
-    static GeLifecycleSuggestionServices createSuggestionServices(
-        GeLifecycleOfferUiRuntimeContext context,
-        Supplier<OfferPreviewRuntimeFacadeService> offerPreviewRuntimeFacadeServiceSupplier,
-        Supplier<GeLifecycleStatsTradesServices> statsTradesServicesSupplier,
-        Supplier<GeLifecycleProfileSelectionServices> profileSelectionServicesSupplier,
-        Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
-        Supplier<GeLifecycleBackfillServices> backfillServicesSupplier,
-        Supplier<GeLifecycleItemServices> itemServicesSupplier
-    ) {
-        return new GeLifecycleSuggestionServices(
-            context.clientSupplier,
-            offerPreviewRuntimeFacadeServiceSupplier,
-            context.offerPreviewItemIdSupplier,
-            context.offerPreviewItemSupplier,
-            () -> statsTradesServicesSupplier.get().getLocalAccountSessionService(),
-            () -> profileSelectionServicesSupplier.get().getProfileSelectionPresentationFacadeService(),
-            accountKey -> localTradesRuntimeServiceSupplier.get().ensureProfileLoaded(accountKey),
-            () -> backfillServicesSupplier.get().getBackfillMarketServices().getGeLimitService(),
-            () -> itemServicesSupplier.get().getItemLookupService(),
-            () -> statsTradesServicesSupplier.get().getLocalTradeSessionFacadeService(),
-            SUGGESTION_TEXT_COLOR,
-            SUGGESTION_HOVER_TEXT_COLOR,
-            SUGGESTION_TOP_Y,
-            SUGGESTION_RIGHT_X,
-            SUGGESTION_RIGHT_WIDTH_PADDING,
-            PRICE_SUGGESTION_WIDGET_NAME,
-            LIMIT_SUGGESTION_WIDGET_NAME,
-            AFFORDABLE_LIMIT_SUGGESTION_WIDGET_NAME,
-            GE_OFFER_PRICE_VARBIT,
-            COINS_ITEM_ID,
-            VarbitID.GE_SELECTEDSLOT
-        );
-    }
-
     static GeLifecycleTickServices createTickServices(
         GeLifecycleOfferUiRuntimeContext context,
-        Supplier<GeLifecycleSuggestionServices> suggestionServicesSupplier,
         Supplier<GeLifecycleEventManageHistoryServices> eventManageHistoryServicesSupplier,
         Supplier<PanelRefreshCoordinator> panelRefreshCoordinatorSupplier,
         Supplier<GeLifecycleStatsTradesServices> statsTradesServicesSupplier,
@@ -95,7 +60,6 @@ final class GeLifecycleOfferUiCoreFactory {
         Supplier<GeLifecycleProfileWorkflowService> profileWorkflowServiceSupplier
     ) {
         return new GeLifecycleTickServices(
-            suggestionServicesSupplier,
             () -> eventManageHistoryServicesSupplier.get().getGeHistoryAutoSyncCoordinatorService().attemptAutoSync(),
             () -> context.runtimeUtilityServices.isPanelVisible(context.panelSupplier.get()),
             () -> context.runtimeUtilityServices.triggerPanelRefresh(
