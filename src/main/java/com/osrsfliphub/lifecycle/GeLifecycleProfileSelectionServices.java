@@ -68,7 +68,6 @@ final class GeLifecycleProfileSelectionServices {
     private ProfileSelectionResolverService profileSelectionResolverService;
     private ProfileSelectionPresentationFacadeService profileSelectionPresentationFacadeService;
     private ProfileUiCoordinator profileUiCoordinator;
-    private ProfileUiCoordinatorFactoryService profileUiCoordinatorFactoryService;
 
     GeLifecycleProfileSelectionServices(
         long accountwideKey,
@@ -161,29 +160,7 @@ final class GeLifecycleProfileSelectionServices {
     }
 
     ProfileUiCoordinator getProfileUiCoordinator() {
-        ProfileUiCoordinator coordinator = profileUiCoordinator;
-        if (coordinator != null) {
-            return coordinator;
-        }
-        coordinator = getProfileUiCoordinatorFactoryService().create(
-            new ProfileUiCoordinatorPluginHooks(
-                panelSupplier,
-                this::getProfileSelectionPresentationFacadeService,
-                uploadEventDispatchFacadeServiceSupplier
-            )
-        );
-        profileUiCoordinator = coordinator;
-        return coordinator;
-    }
-
-    ProfileUiCoordinatorFactoryService getProfileUiCoordinatorFactoryService() {
-        ProfileUiCoordinatorFactoryService service = profileUiCoordinatorFactoryService;
-        if (service != null) {
-            return service;
-        }
-        service = new ProfileUiCoordinatorFactoryService();
-        profileUiCoordinatorFactoryService = service;
-        return service;
+        return PluginInjectorBridge.get(ProfileUiCoordinator.class);
     }
 
     private <T> T resolve(Supplier<T> supplier) {
