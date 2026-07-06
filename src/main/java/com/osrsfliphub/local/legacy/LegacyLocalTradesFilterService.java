@@ -28,7 +28,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class LegacyLocalTradesFilterService {
     @FunctionalInterface
     interface WipeBarrierState {
@@ -36,6 +39,14 @@ final class LegacyLocalTradesFilterService {
     }
 
     private final WipeBarrierState wipeBarrierState;
+
+    @Inject
+    LegacyLocalTradesFilterService() {
+        this(accountKey -> {
+            GeHistoryWipeStateStore store = PluginInjectorBridge.get(GeHistoryWipeStateStore.class);
+            return store != null && store.isWipeBarrierArmed(accountKey);
+        });
+    }
 
     LegacyLocalTradesFilterService(WipeBarrierState wipeBarrierState) {
         this.wipeBarrierState = wipeBarrierState;

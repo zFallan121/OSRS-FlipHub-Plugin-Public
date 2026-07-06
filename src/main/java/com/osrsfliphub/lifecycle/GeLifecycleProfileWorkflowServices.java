@@ -146,12 +146,6 @@ final class GeLifecycleProfileWorkflowServices {
     }
 
     LegacyLocalTradesFilterService getLegacyLocalTradesFilterService() {
-        LegacyLocalTradesFilterService service = legacyLocalTradesFilterService;
-        if (service != null) {
-            return service;
-        }
-        service = new LegacyLocalTradesFilterService(accountKey -> isWipeBarrierArmed != null && isWipeBarrierArmed.test(accountKey));
-        legacyLocalTradesFilterService = service;
-        return service;
+        return PluginInjectorBridge.get(LegacyLocalTradesFilterService.class);
     }
 }
