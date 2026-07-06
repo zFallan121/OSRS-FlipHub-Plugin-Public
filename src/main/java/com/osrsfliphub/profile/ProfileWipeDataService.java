@@ -33,7 +33,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.client.config.ConfigManager;
 
+@Singleton
 final class ProfileWipeDataService {
     interface Hooks {
         void writeProfileData(long accountKey, List<LocalTradeDelta> deltas);
@@ -53,6 +57,60 @@ final class ProfileWipeDataService {
     private final Set<Long> loadedProfiles;
     private final Map<Long, Long> loadedProfileFileMs;
     private final Hooks hooks;
+
+    @Inject
+    ProfileWipeDataService(PluginState pluginState, Gson gson, ConfigManager configManager) {
+        this(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY,
+            pluginState.getLocalStatsLock(),
+            pluginState.getLocalTradeDeltasByAccount(),
+            pluginState.getLocalSessionStartByAccount(),
+            pluginState.getStatsCacheByAccount(),
+            pluginState.getLoadedProfiles(),
+            pluginState.getLoadedProfileFileMs(),
+            new Hooks() {
+                @Override
+                public void writeProfileData(long accountKey, List<LocalTradeDelta> deltas) {
+                    PluginInjectorBridge.get(ProfileStorageFacadeService.class).writeProfileData(accountKey, deltas);
+                }
+
+                @Override
+                public Path getLegacyProfilesDir() {
+                    return PluginInjectorBridge.get(ProfileStorageFacadeService.class).getLegacyProfilesDir();
+                }
+
+                @Override
+                public Gson getGson() {
+                    return gson;
+                }
+
+                @Override
+                public boolean hasConfigManager() {
+                    return configManager != null;
+                }
+
+                @Override
+                public void clearLegacyLocalTradesConfigEntry(String suffix) {
+                    if (configManager == null || suffix == null || suffix.trim().isEmpty()) {
+                        return;
+                    }
+                    configManager.setConfiguration(
+                        FliphubConfigGroups.CONFIG_GROUP,
+                        "localTrades." + suffix.trim(),
+                        ""
+                    );
+                }
+
+                @Override
+                public String getLegacyNameKey(long accountKey) {
+                    return pluginState.getLegacyNameKeysByHash().get(accountKey);
+                }
+
+                @Override
+                public Map<String, String> getLegacyLocalTradesEntries() {
+                    return PluginInjectorBridge.get(LegacyLocalTradesStore.class).getEntries();
+                }
+            });
+    }
 
     ProfileWipeDataService(long accountwideKey,
                            Object localStatsLock,

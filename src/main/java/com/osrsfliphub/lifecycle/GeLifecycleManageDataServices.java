@@ -127,28 +127,7 @@ final class GeLifecycleManageDataServices {
     }
 
     ProfileWipeDataService getProfileWipeDataService() {
-        ProfileWipeDataService service = profileWipeDataService;
-        if (service != null) {
-            return service;
-        }
-        service = new ProfileWipeDataService(
-            context.accountwideKey,
-            context.localStatsLock,
-            context.localTradeDeltasByAccount,
-            context.localSessionStartByAccount,
-            context.statsCacheByAccount,
-            context.loadedProfiles,
-            context.loadedProfileFileMs,
-            new ProfileWipeDataPluginHooks(
-                context.profileStorageFacadeServiceSupplier,
-                context.gson,
-                context.configManager,
-                context.legacyNameKeysByHash,
-                context.legacyLocalTradesStoreSupplier
-            )
-        );
-        profileWipeDataService = service;
-        return service;
+        return PluginInjectorBridge.get(ProfileWipeDataService.class);
     }
 
     LocalProfileWipeService getLocalProfileWipeService() {
