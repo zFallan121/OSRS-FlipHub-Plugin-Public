@@ -43,7 +43,6 @@ import net.runelite.client.config.ConfigManager;
 import org.slf4j.Logger;
 
 final class GeLifecycleEventManageHistoryRuntimeServices {
-    private final GeLifecycleHistoryEventFactory historyEventFactory;
     private final GeLifecycleManageDataFactory manageDataFactory;
 
     GeLifecycleEventManageHistoryRuntimeServices(
@@ -107,35 +106,6 @@ final class GeLifecycleEventManageHistoryRuntimeServices {
         LongSupplier resolveAccountHashSupplier,
         LongConsumer ensureLocalTradesLoadedAction
     ) {
-        this.historyEventFactory = new GeLifecycleHistoryEventFactory(
-            configManagerSupplier,
-            geHistoryAutoSyncServiceSupplier,
-            clientSupplier,
-            localAccountSessionServiceSupplier,
-            pushGameMessageConsumer,
-            loggerSupplier,
-            sharedState.getProfileDisplayNames(),
-            executeAsyncConsumer,
-            loadLocalTradesAsyncAction,
-            persistProfileSelectionStateAction,
-            updateProfileOptionsUiAction,
-            updateProfileHeaderAction,
-            loadOfferUpdateTimesForCurrentAccountAction,
-            sharedState.getSnapshots(),
-            trackOfferUpdateAction,
-            profileSelectionPresentationFacadeServiceSupplier,
-            resolveAccountHashSupplier,
-            ensureLocalTradesLoadedAction,
-            offerEventBuildServiceSupplier,
-            sharedState.getOfferUpdateStamps(),
-            localTradesLoadedThisLoginSupplier,
-            lastLoginMsSupplier,
-            normalizeOrSuppressDuplicateTradeEvent,
-            clearRecentTradeEventAction,
-            uploadEventDispatchFacadeServiceSupplier,
-            recordLocalTradeDeltaAction,
-            scheduleRefreshSoonAction
-        );
         this.manageDataFactory = new GeLifecycleManageDataFactory(
             sharedState.getLocalStatsLock(),
             sharedState.getLocalTradeDeltasByAccount(),
@@ -151,7 +121,7 @@ final class GeLifecycleEventManageHistoryRuntimeServices {
             clientSupplier,
             () -> PluginInjectorBridge.get(GeHistoryWidgetReadService.class),
             () -> PluginInjectorBridge.get(GeHistoryCursorService.class),
-            historyEventFactory::getGeHistoryWipeStateStore,
+            () -> PluginInjectorBridge.get(GeHistoryWipeStateStore.class),
             profileStorageFacadeServiceSupplier,
             legacyLocalTradesStoreSupplier,
             localStatsCacheServiceSupplier,
@@ -181,22 +151,22 @@ final class GeLifecycleEventManageHistoryRuntimeServices {
     }
 
     GeHistoryWipeStateStore getGeHistoryWipeStateStore() {
-        return historyEventFactory.getGeHistoryWipeStateStore();
+        return PluginInjectorBridge.get(GeHistoryWipeStateStore.class);
     }
 
     GeHistoryAutoSyncStateService getGeHistoryAutoSyncStateService() {
-        return historyEventFactory.getGeHistoryAutoSyncStateService();
+        return PluginInjectorBridge.get(GeHistoryAutoSyncStateService.class);
     }
 
     GeHistoryAutoSyncCoordinatorService getGeHistoryAutoSyncCoordinatorService() {
-        return historyEventFactory.getGeHistoryAutoSyncCoordinatorService();
+        return PluginInjectorBridge.get(GeHistoryAutoSyncCoordinatorService.class);
     }
 
     ProfileLoginService getProfileLoginService() {
-        return historyEventFactory.getProfileLoginService();
+        return PluginInjectorBridge.get(ProfileLoginService.class);
     }
 
     GrandExchangeOfferChangedHandlerService getGrandExchangeOfferChangedHandlerService() {
-        return historyEventFactory.getGrandExchangeOfferChangedHandlerService();
+        return PluginInjectorBridge.get(GrandExchangeOfferChangedHandlerService.class);
     }
 }
