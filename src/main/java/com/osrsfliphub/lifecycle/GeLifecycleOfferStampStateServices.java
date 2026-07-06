@@ -27,9 +27,12 @@ package com.osrsfliphub;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.client.config.ConfigManager;
 
+@Singleton
 final class GeLifecycleOfferStampStateServices {
     private final String configGroup;
     private final String legacyDevConfigGroup;
@@ -43,6 +46,18 @@ final class GeLifecycleOfferStampStateServices {
     private volatile long offerUpdateStampsAccountKey = -1L;
     private volatile boolean offerUpdateStampsLoaded = false;
     private volatile long lastLoginMs;
+
+    @Inject
+    GeLifecycleOfferStampStateServices(PluginState pluginState, ConfigManager configManager) {
+        this(FliphubConfigGroups.CONFIG_GROUP,
+            FliphubConfigGroups.LEGACY_DEV_CONFIG_GROUP,
+            GeLifecyclePluginConstants.LOGIN_GRACE_MS,
+            pluginState.getOfferUpdateStamps(),
+            () -> configManager,
+            () -> PluginAccess.plugin().config,
+            () -> PluginInjectorBridge.get(OfferUpdateStampPersistenceService.class),
+            () -> PluginInjectorBridge.get(OfferUpdateStampService.class));
+    }
 
     GeLifecycleOfferStampStateServices(
         String configGroup,

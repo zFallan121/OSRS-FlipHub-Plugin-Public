@@ -206,7 +206,7 @@ final class GeLifecycleCoreFeatureRuntimeServices {
     }
 
     private GeLifecycleOfferStampStateServices getOfferStampStateServices() {
-        return context.offerStampStateServicesSupplier.get();
+        return PluginInjectorBridge.get(GeLifecycleOfferStampStateServices.class);
     }
 
     private GeLifecycleLocalTradesRuntimeService getLocalTradesRuntimeService() {

@@ -111,17 +111,7 @@ final class GeLifecycleOfferUiRuntimeServices {
     }
 
     GeLifecycleOfferStampStateServices getOfferStampStateServices() {
-        GeLifecycleOfferStampStateServices services = offerStampStateServices;
-        if (services != null) {
-            return services;
-        }
-        services = GeLifecycleOfferUiCoreFactory.createOfferStampStateServices(
-            context,
-            this::getOfferUpdateStampPersistenceService,
-            this::getOfferUpdateStampService
-        );
-        offerStampStateServices = services;
-        return services;
+        return PluginInjectorBridge.get(GeLifecycleOfferStampStateServices.class);
     }
 
     OfferPreviewRuntimeFacadeService getOfferPreviewRuntimeFacadeService() {

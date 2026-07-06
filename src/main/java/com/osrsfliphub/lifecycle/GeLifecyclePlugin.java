@@ -228,7 +228,7 @@ public class GeLifecyclePlugin extends Plugin {
     }
 
     GeLifecycleOfferStampStateServices getOfferStampStateServices() {
-        return getOfferUiRuntimeServices().getOfferStampStateServices();
+        return PluginInjectorBridge.get(GeLifecycleOfferStampStateServices.class);
     }
 
     boolean isOfferStatusOpen() {

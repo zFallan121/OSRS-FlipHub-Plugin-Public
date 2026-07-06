@@ -33,22 +33,6 @@ final class GeLifecycleOfferUiCoreFactory {
     private GeLifecycleOfferUiCoreFactory() {
     }
 
-    static GeLifecycleOfferStampStateServices createOfferStampStateServices(
-        GeLifecycleOfferUiRuntimeContext context,
-        Supplier<OfferUpdateStampPersistenceService> offerUpdateStampPersistenceServiceSupplier,
-        Supplier<OfferUpdateStampService> offerUpdateStampServiceSupplier
-    ) {
-        return new GeLifecycleOfferStampStateServices(
-            FliphubConfigGroups.CONFIG_GROUP,
-            LEGACY_DEV_CONFIG_GROUP,
-            LOGIN_GRACE_MS,
-            context.offerUpdateStamps,
-            context.configManagerSupplier,
-            context.configSupplier,
-            offerUpdateStampPersistenceServiceSupplier,
-            offerUpdateStampServiceSupplier
-        );
-    }
 
     static GeLifecycleTickServices createTickServices(
         GeLifecycleOfferUiRuntimeContext context,
