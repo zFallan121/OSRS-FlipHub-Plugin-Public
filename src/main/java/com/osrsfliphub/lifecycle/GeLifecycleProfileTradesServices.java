@@ -114,33 +114,7 @@ final class GeLifecycleProfileTradesServices {
     }
 
     LocalProfileTradesLoadService getLocalProfileTradesLoadService() {
-        LocalProfileTradesLoadService service = localProfileTradesLoadService;
-        if (service != null) {
-            return service;
-        }
-        service = new LocalProfileTradesLoadService(
-            accountwideKey,
-            new LocalProfileTradesLoadPluginHooks(
-                () -> gson,
-                this::getProfileTradesLoader,
-                legacyNameKeysByHash,
-                maxLocalTrades,
-                localEventBucketMs,
-                duplicateTradeWindowMs,
-                loadedProfileFileMs,
-                localTradeDeltasByAccount,
-                localStatsLock,
-                localStatsCacheServiceSupplier,
-                profileDisplayNames,
-                this::getItemLookupService,
-                accountKey -> getLocalTradesRuntimeService().persistLocalTrades(accountKey),
-                this::markAccountwideUploadDirty,
-                this::scheduleRefreshSoon,
-                this::triggerStatsRefresh
-            )
-        );
-        localProfileTradesLoadService = service;
-        return service;
+        return PluginInjectorBridge.get(LocalProfileTradesLoadService.class);
     }
 
     ProfileTradesLoader getProfileTradesLoader() {
