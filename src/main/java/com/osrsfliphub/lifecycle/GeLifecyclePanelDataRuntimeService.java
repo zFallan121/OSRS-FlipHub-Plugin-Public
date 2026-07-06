@@ -32,10 +32,13 @@ import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import net.runelite.api.Client;
 import net.runelite.api.widgets.ComponentID;
 import net.runelite.api.widgets.Widget;
 
+@Singleton
 final class GeLifecyclePanelDataRuntimeService {
     private final Supplier<LocalOfferPreviewBuilder> localOfferPreviewBuilderSupplier;
     private final Supplier<LocalItemsResponseBuilder> localItemsResponseBuilderSupplier;
@@ -50,6 +53,24 @@ final class GeLifecyclePanelDataRuntimeService {
     private final Supplier<Map<Integer, OfferUpdateStamp>> offerUpdateStampsSupplier;
     private final Supplier<OfferStampFallbackBuilder> offerStampFallbackBuilderSupplier;
     private final LongSupplier nowSupplier;
+
+    @Inject
+    GeLifecyclePanelDataRuntimeService() {
+        this(
+            () -> PluginInjectorBridge.get(LocalOfferPreviewBuilder.class),
+            () -> PluginAccess.plugin().getOfferUiRuntimeServices().getItemServices().getLocalItemsResponseBuilder(),
+            () -> PluginAccess.plugin().currentQuery,
+            () -> PluginAccess.plugin().bookmarkFilterEnabled,
+            () -> PluginAccess.plugin().bookmarkedItems,
+            () -> PluginAccess.plugin().currentPage,
+            () -> PluginAccess.plugin().panel,
+            () -> PluginInjectorBridge.get(LocalStatsViewService.class),
+            () -> PluginInjectorBridge.get(OfferPreviewRuntimeFacadeService.class),
+            () -> PluginAccess.plugin().client,
+            () -> PluginAccess.plugin().offerUpdateStamps,
+            () -> PluginInjectorBridge.get(OfferStampFallbackBuilder.class),
+            System::currentTimeMillis);
+    }
 
     GeLifecyclePanelDataRuntimeService(
         Supplier<LocalOfferPreviewBuilder> localOfferPreviewBuilderSupplier,

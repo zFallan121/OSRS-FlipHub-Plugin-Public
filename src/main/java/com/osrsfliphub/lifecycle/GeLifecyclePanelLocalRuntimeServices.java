@@ -142,27 +142,7 @@ final class GeLifecyclePanelLocalRuntimeServices {
     }
 
     GeLifecyclePanelDataRuntimeService getPanelDataRuntimeService() {
-        GeLifecyclePanelDataRuntimeService service = panelDataRuntimeService;
-        if (service != null) {
-            return service;
-        }
-        service = new GeLifecyclePanelDataRuntimeService(
-            localOfferPreviewBuilderSupplier,
-            localItemsResponseBuilderSupplier,
-            currentQuerySupplier,
-            bookmarkFilterEnabledSupplier,
-            bookmarkedItemsSupplier,
-            currentPageSupplier,
-            panelSupplier,
-            localStatsViewServiceSupplier,
-            offerPreviewRuntimeFacadeServiceSupplier,
-            clientSupplier,
-            offerUpdateStampsSupplier,
-            offerStampFallbackBuilderSupplier,
-            nowSupplier
-        );
-        panelDataRuntimeService = service;
-        return service;
+        return PluginInjectorBridge.get(GeLifecyclePanelDataRuntimeService.class);
     }
 
     GeLifecycleLocalTradesRuntimeService getLocalTradesRuntimeService() {
