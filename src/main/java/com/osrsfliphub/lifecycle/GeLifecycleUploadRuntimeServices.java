@@ -102,33 +102,7 @@ final class GeLifecycleUploadRuntimeServices {
     }
 
     UploadBackfillDispatchService getUploadBackfillDispatchService() {
-        UploadBackfillDispatchService service = uploadBackfillDispatchService;
-        if (service != null) {
-            return service;
-        }
-        service = new UploadBackfillDispatchService(
-            getBackfillRetryScheduler(),
-            new UploadBackfillDispatchPluginHooks(
-                this::executeIo,
-                () -> getUploadEventDispatchFacadeService().flushEvents(
-                    apiClientSupplier.get(),
-                    configSupplier.get(),
-                    loggerSupplier.get()
-                ),
-                () -> backfillServicesSupplier.get().getAccountwideSummaryUploader(),
-                apiClientSupplier,
-                configSupplier,
-                new AccountwideSummaryUploaderPluginHooks(
-                    () -> runtimeUtilityServices.isClientFullyReady(clientSupplier.get()),
-                    () -> profileWorkflowServiceSupplier.get().buildReconciledAccountwideSnapshot(),
-                    this::attemptRefresh,
-                    this::clearSession
-                ),
-                () -> getAccountwideBackfillExecutionService().attemptIfNeeded()
-            )
-        );
-        uploadBackfillDispatchService = service;
-        return service;
+        return PluginInjectorBridge.get(UploadBackfillDispatchService.class);
     }
 
     AccountwideBackfillExecutionService getAccountwideBackfillExecutionService() {

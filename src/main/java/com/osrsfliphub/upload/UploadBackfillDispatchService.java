@@ -26,7 +26,10 @@ package com.osrsfliphub;
 
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class UploadBackfillDispatchService {
     interface Hooks {
         void executeIo(Runnable task);
@@ -39,6 +42,66 @@ final class UploadBackfillDispatchService {
     private final Hooks hooks;
     private final AtomicBoolean flushInFlight = new AtomicBoolean(false);
     private final AtomicBoolean accountwideSyncInFlight = new AtomicBoolean(false);
+
+    @Inject
+    UploadBackfillDispatchService(BackfillRetryScheduler backfillRetryScheduler) {
+        this(backfillRetryScheduler, new Hooks() {
+            @Override
+            public void executeIo(Runnable task) {
+                PluginAccess.plugin().executeIo(task);
+            }
+
+            @Override
+            public void flushEvents() {
+                PluginInjectorBridge.get(UploadEventDispatchFacadeService.class).flushEvents(
+                    PluginAccess.plugin().apiClient,
+                    PluginAccess.plugin().config,
+                    GeLifecyclePlugin.log);
+            }
+
+            @Override
+            public void syncAccountwideSummaryIfNeeded() {
+                AccountwideSummaryUploader uploader = PluginInjectorBridge.get(AccountwideSummaryUploader.class);
+                ApiClient apiClient = PluginAccess.plugin().apiClient;
+                PluginConfig config = PluginAccess.plugin().config;
+                if (uploader == null || apiClient == null || config == null) {
+                    return;
+                }
+                uploader.syncIfNeeded(apiClient, config, new AccountwideSummaryUploader.Hooks() {
+                    @Override
+                    public boolean isClientFullyReady() {
+                        return PluginAccess.plugin().runtimeUtilityServices
+                            .isClientFullyReady(PluginAccess.plugin().client);
+                    }
+
+                    @Override
+                    public LocalStatsSnapshot buildAccountwideSnapshot() {
+                        return PluginAccess.plugin().getProfileWorkflowService()
+                            .buildReconciledAccountwideSnapshot();
+                    }
+
+                    @Override
+                    public boolean attemptRefresh(String currentToken) {
+                        SessionRefreshService service = PluginInjectorBridge.get(SessionRefreshService.class);
+                        return service != null && service.attemptRefresh(currentToken);
+                    }
+
+                    @Override
+                    public void clearSession() {
+                        SessionRefreshService service = PluginInjectorBridge.get(SessionRefreshService.class);
+                        if (service != null) {
+                            service.clearSession();
+                        }
+                    }
+                });
+            }
+
+            @Override
+            public void attemptAccountwideBackfillIfNeeded() {
+                PluginInjectorBridge.get(AccountwideBackfillExecutionService.class).attemptIfNeeded();
+            }
+        });
+    }
 
     UploadBackfillDispatchService(BackfillRetryScheduler backfillRetryScheduler, Hooks hooks) {
         this.backfillRetryScheduler = backfillRetryScheduler;
