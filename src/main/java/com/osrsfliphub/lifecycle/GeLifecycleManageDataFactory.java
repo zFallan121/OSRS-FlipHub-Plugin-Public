@@ -60,7 +60,6 @@ final class GeLifecycleManageDataFactory {
     private final Supplier<UploadBackfillDispatchService> uploadBackfillDispatchServiceSupplier;
     private final Supplier<ExecutorService> ioExecutorSupplier;
     private final Consumer<Runnable> invokeOnClientThreadConsumer;
-    private final WebsiteStatsWipePluginHooks.WipeStatsInvoker wipeStatsInvoker;
     private final Consumer<String> pushGameMessageConsumer;
     private final Consumer<String> showManageDataErrorConsumer;
     private final Runnable updateProfileOptionsUiAction;
@@ -96,7 +95,6 @@ final class GeLifecycleManageDataFactory {
         Supplier<UploadBackfillDispatchService> uploadBackfillDispatchServiceSupplier,
         Supplier<ExecutorService> ioExecutorSupplier,
         Consumer<Runnable> invokeOnClientThreadConsumer,
-        WebsiteStatsWipePluginHooks.WipeStatsInvoker wipeStatsInvoker,
         Consumer<String> pushGameMessageConsumer,
         Consumer<String> showManageDataErrorConsumer,
         Runnable updateProfileOptionsUiAction,
@@ -129,7 +127,6 @@ final class GeLifecycleManageDataFactory {
         this.uploadBackfillDispatchServiceSupplier = uploadBackfillDispatchServiceSupplier;
         this.ioExecutorSupplier = ioExecutorSupplier;
         this.invokeOnClientThreadConsumer = invokeOnClientThreadConsumer;
-        this.wipeStatsInvoker = wipeStatsInvoker;
         this.pushGameMessageConsumer = pushGameMessageConsumer;
         this.showManageDataErrorConsumer = showManageDataErrorConsumer;
         this.updateProfileOptionsUiAction = updateProfileOptionsUiAction;
@@ -172,7 +169,6 @@ final class GeLifecycleManageDataFactory {
             uploadBackfillDispatchServiceSupplier,
             ioExecutorSupplier,
             invokeOnClientThreadConsumer,
-            wipeStatsInvoker,
             pushGameMessageConsumer,
             showManageDataErrorConsumer,
             updateProfileOptionsUiAction,

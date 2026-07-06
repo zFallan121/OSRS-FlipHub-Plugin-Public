@@ -127,7 +127,6 @@ final class GeLifecyclePluginRuntimeFactoryContext {
     final LongConsumerWithScheduler executeOnSchedulerConsumer;
     final Consumer<Runnable> executeAsyncConsumer;
     final Consumer<Runnable> executeIoConsumer;
-    final WebsiteStatsWipePluginHooks.WipeStatsInvoker wipeStatsInvoker;
     final ToLongFunction<Path> profileFileModifiedMsFn;
     final Consumer<String> showManageDataErrorConsumer;
     final Runnable refreshPanelDataAction;
@@ -209,7 +208,6 @@ final class GeLifecyclePluginRuntimeFactoryContext {
         LongConsumerWithScheduler executeOnSchedulerConsumer,
         Consumer<Runnable> executeAsyncConsumer,
         Consumer<Runnable> executeIoConsumer,
-        WebsiteStatsWipePluginHooks.WipeStatsInvoker wipeStatsInvoker,
         ToLongFunction<Path> profileFileModifiedMsFn,
         Consumer<String> showManageDataErrorConsumer,
         Runnable refreshPanelDataAction
@@ -290,7 +288,6 @@ final class GeLifecyclePluginRuntimeFactoryContext {
         this.executeOnSchedulerConsumer = executeOnSchedulerConsumer;
         this.executeAsyncConsumer = executeAsyncConsumer;
         this.executeIoConsumer = executeIoConsumer;
-        this.wipeStatsInvoker = wipeStatsInvoker;
         this.profileFileModifiedMsFn = profileFileModifiedMsFn;
         this.showManageDataErrorConsumer = showManageDataErrorConsumer;
         this.refreshPanelDataAction = refreshPanelDataAction;

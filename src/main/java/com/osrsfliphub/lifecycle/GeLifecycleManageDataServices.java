@@ -71,7 +71,6 @@ final class GeLifecycleManageDataServices {
         Supplier<UploadBackfillDispatchService> uploadBackfillDispatchServiceSupplier,
         Supplier<ExecutorService> ioExecutorSupplier,
         Consumer<Runnable> invokeOnClientThreadConsumer,
-        WebsiteStatsWipePluginHooks.WipeStatsInvoker wipeStatsInvoker,
         Consumer<String> pushGameMessageConsumer,
         Consumer<String> showManageDataErrorConsumer,
         Runnable updateProfileOptionsUiAction,
@@ -108,7 +107,6 @@ final class GeLifecycleManageDataServices {
             uploadBackfillDispatchServiceSupplier,
             ioExecutorSupplier,
             invokeOnClientThreadConsumer,
-            wipeStatsInvoker,
             pushGameMessageConsumer,
             showManageDataErrorConsumer,
             updateProfileOptionsUiAction,
@@ -183,23 +181,7 @@ final class GeLifecycleManageDataServices {
     }
 
     WebsiteStatsWipeService getWebsiteStatsWipeService() {
-        WebsiteStatsWipeService service = websiteStatsWipeService;
-        if (service != null) {
-            return service;
-        }
-        service = new WebsiteStatsWipeService(
-            new WebsiteStatsWipePluginHooks(
-                context.profileSelectionPresentationFacadeServiceSupplier,
-                context.ioExecutorSupplier,
-                this::invokeOnClientThread,
-                context.wipeStatsInvoker,
-                this::showManageDataError,
-                this::pushGameMessage,
-                this::triggerStatsRefresh
-            )
-        );
-        websiteStatsWipeService = service;
-        return service;
+        return PluginInjectorBridge.get(WebsiteStatsWipeService.class);
     }
 
     private void refreshUiAfterLocalWipe() {

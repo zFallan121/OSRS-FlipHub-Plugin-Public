@@ -53,7 +53,6 @@ final class GeLifecycleCoreFeatureFactory {
             context.schedulerSupplier,
             context.ioExecutorSupplier,
             context.invokeOnClientThreadConsumer,
-            context.wipeStatsInvoker,
             message -> context.runtimeUtilityServices.pushGameMessage(context.clientSupplier.get(), message),
             context.showManageDataErrorConsumer,
             () -> context.runtimeUtilityServices.triggerStatsRefresh(

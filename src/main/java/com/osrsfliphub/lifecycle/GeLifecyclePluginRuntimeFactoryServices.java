@@ -185,7 +185,6 @@ final class GeLifecyclePluginRuntimeFactoryServices {
             context.invokeOnClientThreadConsumer,
             context.executeOnSchedulerConsumer,
             context.executeAsyncConsumer,
-            context.wipeStatsInvoker,
             context.profileFileModifiedMsFn,
             context.showManageDataErrorConsumer,
             context.loggerSupplier

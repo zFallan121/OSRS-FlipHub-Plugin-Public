@@ -24,6 +24,11 @@
  */
 package com.osrsfliphub;
 
+import java.util.concurrent.ExecutorService;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
+@Singleton
 final class WebsiteStatsWipeService {
     interface Hooks {
         boolean isLinked();
@@ -38,6 +43,70 @@ final class WebsiteStatsWipeService {
     }
 
     private final Hooks hooks;
+
+    @Inject
+    WebsiteStatsWipeService() {
+        this(new Hooks() {
+            private ProfileSelectionPresentationFacadeService facade() {
+                return PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
+            }
+
+            @Override
+            public boolean isLinked() {
+                ProfileSelectionPresentationFacadeService service = facade();
+                return service != null && service.isLinked();
+            }
+
+            @Override
+            public LinkSessionGuardService.Credentials resolveLinkedCredentials() {
+                ProfileSelectionPresentationFacadeService service = facade();
+                return service != null ? service.resolveLinkedCredentials() : null;
+            }
+
+            @Override
+            public boolean hasIoExecutor() {
+                return PluginAccess.plugin().ioExecutor != null;
+            }
+
+            @Override
+            public void executeIo(Runnable task) {
+                ExecutorService executor = PluginAccess.plugin().ioExecutor;
+                if (executor != null && task != null) {
+                    executor.execute(task);
+                }
+            }
+
+            @Override
+            public void runOnClientThread(Runnable task) {
+                if (task != null) {
+                    PluginAccess.plugin().invokeOnClientThread(task);
+                }
+            }
+
+            @Override
+            public ApiClient.WipeStatsResponse wipeWebsiteStats(String sessionToken, String signingSecret) throws Exception {
+                return PluginAccess.plugin().wipeWebsiteStats(sessionToken, signingSecret);
+            }
+
+            @Override
+            public void showError(String message) {
+                PluginAccess.plugin().getProfileWorkflowService().showManageDataError(message);
+            }
+
+            @Override
+            public void pushGameMessage(String message) {
+                PluginAccess.plugin().runtimeUtilityServices.pushGameMessage(PluginAccess.plugin().client, message);
+            }
+
+            @Override
+            public void triggerStatsRefresh() {
+                PanelRefreshCoordinator coordinator = PluginAccess.plugin().getPanelRefreshCoordinator();
+                if (coordinator != null) {
+                    coordinator.triggerStatsRefresh(PluginAccess.plugin().scheduler);
+                }
+            }
+        });
+    }
 
     WebsiteStatsWipeService(Hooks hooks) {
         this.hooks = hooks;

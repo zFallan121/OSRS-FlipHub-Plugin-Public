@@ -115,7 +115,6 @@ final class GeLifecyclePluginRuntimeFactoryContextFactory {
             plugin::executeOnScheduler,
             plugin::executeAsync,
             plugin::executeIo,
-            plugin::wipeWebsiteStats,
             plugin::getProfileFileModifiedMs,
             message -> plugin.getProfileWorkflowService().showManageDataError(message),
             plugin::refreshPanelData

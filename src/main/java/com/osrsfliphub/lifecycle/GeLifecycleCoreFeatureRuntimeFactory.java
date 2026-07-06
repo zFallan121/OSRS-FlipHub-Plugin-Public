@@ -76,7 +76,6 @@ final class GeLifecycleCoreFeatureRuntimeFactory {
         Consumer<Runnable> invokeOnClientThreadConsumer,
         LongConsumerWithScheduler executeOnSchedulerConsumer,
         Consumer<Runnable> executeAsyncConsumer,
-        WebsiteStatsWipePluginHooks.WipeStatsInvoker wipeStatsInvoker,
         ToLongFunction<Path> profileFileModifiedMsFn,
         Consumer<String> showManageDataErrorConsumer,
         Supplier<Logger> loggerSupplier
@@ -117,7 +116,6 @@ final class GeLifecycleCoreFeatureRuntimeFactory {
             invokeOnClientThreadConsumer,
             executeOnSchedulerConsumer,
             executeAsyncConsumer,
-            wipeStatsInvoker,
             profileFileModifiedMsFn,
             showManageDataErrorConsumer,
             loggerSupplier

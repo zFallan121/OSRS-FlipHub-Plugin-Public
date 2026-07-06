@@ -78,7 +78,6 @@ final class GeLifecycleCoreFeatureRuntimeContext {
     final Consumer<Runnable> invokeOnClientThreadConsumer;
     final LongConsumerWithScheduler executeOnSchedulerConsumer;
     final Consumer<Runnable> executeAsyncConsumer;
-    final WebsiteStatsWipePluginHooks.WipeStatsInvoker wipeStatsInvoker;
     final ToLongFunction<Path> profileFileModifiedMsFn;
     final Supplier<Logger> loggerSupplier;
     final Consumer<String> showManageDataErrorConsumer;
@@ -119,7 +118,6 @@ final class GeLifecycleCoreFeatureRuntimeContext {
         Consumer<Runnable> invokeOnClientThreadConsumer,
         LongConsumerWithScheduler executeOnSchedulerConsumer,
         Consumer<Runnable> executeAsyncConsumer,
-        WebsiteStatsWipePluginHooks.WipeStatsInvoker wipeStatsInvoker,
         ToLongFunction<Path> profileFileModifiedMsFn,
         Consumer<String> showManageDataErrorConsumer,
         Supplier<Logger> loggerSupplier
@@ -159,7 +157,6 @@ final class GeLifecycleCoreFeatureRuntimeContext {
         this.invokeOnClientThreadConsumer = invokeOnClientThreadConsumer;
         this.executeOnSchedulerConsumer = executeOnSchedulerConsumer;
         this.executeAsyncConsumer = executeAsyncConsumer;
-        this.wipeStatsInvoker = wipeStatsInvoker;
         this.profileFileModifiedMsFn = profileFileModifiedMsFn;
         this.showManageDataErrorConsumer = showManageDataErrorConsumer;
         this.loggerSupplier = loggerSupplier;
