@@ -68,7 +68,6 @@ final class GeLifecycleHistoryEventFactory {
     private final BiConsumer<GeEvent, Boolean> recordLocalTradeDeltaAction;
     private final Runnable scheduleRefreshSoonAction;
 
-    private GeLifecycleHistoryEventServices historyEventServices;
 
     GeLifecycleHistoryEventFactory(
         Supplier<ConfigManager> configManagerSupplier,
@@ -128,70 +127,23 @@ final class GeLifecycleHistoryEventFactory {
         this.scheduleRefreshSoonAction = scheduleRefreshSoonAction;
     }
 
-    GeLifecycleHistoryEventServices getHistoryEventServices() {
-        GeLifecycleHistoryEventServices services = historyEventServices;
-        if (services != null) {
-            return services;
-        }
-        services = new GeLifecycleHistoryEventServices(
-            configManagerSupplier,
-            FliphubConfigGroups.CONFIG_GROUP,
-            WIPE_BARRIER_KEY_PREFIX,
-            GE_HISTORY_CURSOR_KEY_PREFIX,
-            GE_HISTORY_CURSOR_MAX_TRADES,
-            GE_HISTORY_SYNC_WIDGET_SETTLE_MS,
-            GE_HISTORY_CURSOR_MIN_MATCH,
-            GE_HISTORY_CURSOR_ROLLOVER_MIN_LEN,
-            geHistoryAutoSyncServiceSupplier,
-            clientSupplier,
-            GE_HISTORY_GROUP_ID,
-            GE_HISTORY_CONTAINER_CHILD_ID,
-            localAccountSessionServiceSupplier,
-            pushGameMessageConsumer,
-            loggerSupplier,
-            profileDisplayNames,
-            executeAsyncConsumer,
-            loadLocalTradesAsyncAction,
-            persistProfileSelectionStateAction,
-            updateProfileOptionsUiAction,
-            updateProfileHeaderAction,
-            loadOfferUpdateTimesForCurrentAccountAction,
-            snapshots,
-            trackOfferUpdateAction,
-            profileSelectionPresentationFacadeServiceSupplier,
-            resolveAccountHashSupplier,
-            ensureLocalTradesLoadedAction,
-            offerEventBuildServiceSupplier,
-            offerUpdateStamps,
-            localTradesLoadedThisLoginSupplier,
-            lastLoginMsSupplier,
-            normalizeOrSuppressDuplicateTradeEvent,
-            clearRecentTradeEventAction,
-            uploadEventDispatchFacadeServiceSupplier,
-            recordLocalTradeDeltaAction,
-            scheduleRefreshSoonAction
-        );
-        historyEventServices = services;
-        return services;
-    }
-
     GeHistoryWipeStateStore getGeHistoryWipeStateStore() {
-        return getHistoryEventServices().getGeHistoryWipeStateStore();
+        return PluginInjectorBridge.get(GeHistoryWipeStateStore.class);
     }
 
     GeHistoryAutoSyncStateService getGeHistoryAutoSyncStateService() {
-        return getHistoryEventServices().getGeHistoryAutoSyncStateService();
+        return PluginInjectorBridge.get(GeHistoryAutoSyncStateService.class);
     }
 
     GeHistoryAutoSyncCoordinatorService getGeHistoryAutoSyncCoordinatorService() {
-        return getHistoryEventServices().getGeHistoryAutoSyncCoordinatorService();
+        return PluginInjectorBridge.get(GeHistoryAutoSyncCoordinatorService.class);
     }
 
     ProfileLoginService getProfileLoginService() {
-        return getHistoryEventServices().getProfileLoginService();
+        return PluginInjectorBridge.get(ProfileLoginService.class);
     }
 
     GrandExchangeOfferChangedHandlerService getGrandExchangeOfferChangedHandlerService() {
-        return getHistoryEventServices().getGrandExchangeOfferChangedHandlerService();
+        return PluginInjectorBridge.get(GrandExchangeOfferChangedHandlerService.class);
     }
 }

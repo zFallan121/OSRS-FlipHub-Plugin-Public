@@ -149,8 +149,8 @@ final class GeLifecycleEventManageHistoryRuntimeServices {
             profileSelectionPresentationFacadeServiceSupplier,
             localAccountSessionServiceSupplier,
             clientSupplier,
-            () -> historyEventFactory.getHistoryEventServices().getGeHistoryWidgetReadService(),
-            () -> historyEventFactory.getHistoryEventServices().getGeHistoryCursorService(),
+            () -> PluginInjectorBridge.get(GeHistoryWidgetReadService.class),
+            () -> PluginInjectorBridge.get(GeHistoryCursorService.class),
             historyEventFactory::getGeHistoryWipeStateStore,
             profileStorageFacadeServiceSupplier,
             legacyLocalTradesStoreSupplier,
@@ -178,10 +178,6 @@ final class GeLifecycleEventManageHistoryRuntimeServices {
 
     ManageDataDialogService getManageDataDialogService() {
         return getManageDataServices().getManageDataDialogService();
-    }
-
-    GeLifecycleHistoryEventServices getHistoryEventServices() {
-        return historyEventFactory.getHistoryEventServices();
     }
 
     GeHistoryWipeStateStore getGeHistoryWipeStateStore() {

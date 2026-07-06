@@ -177,10 +177,6 @@ final class GeLifecycleEventManageHistoryServices {
         return runtimeServices.getManageDataDialogService();
     }
 
-    GeLifecycleHistoryEventServices getHistoryEventServices() {
-        return runtimeServices.getHistoryEventServices();
-    }
-
     GeHistoryWipeStateStore getGeHistoryWipeStateStore() {
         return runtimeServices.getGeHistoryWipeStateStore();
     }

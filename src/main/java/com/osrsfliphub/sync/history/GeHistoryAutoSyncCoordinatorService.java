@@ -81,10 +81,6 @@ final class GeHistoryAutoSyncCoordinatorService {
             productionHooks(client));
     }
 
-    private static GeLifecycleHistoryEventServices historyEvents() {
-        return PluginAccess.plugin().getEventManageHistoryServices().getHistoryEventServices();
-    }
-
     private static Hooks productionHooks(Client client) {
         return new Hooks() {
             @Override
@@ -118,25 +114,25 @@ final class GeHistoryAutoSyncCoordinatorService {
 
             @Override
             public boolean hasCompleteWidgetGroups(Widget[] historyWidgets) {
-                GeHistoryWidgetReadService service = historyEvents().getGeHistoryWidgetReadService();
+                GeHistoryWidgetReadService service = PluginInjectorBridge.get(GeHistoryWidgetReadService.class);
                 return service != null && service.hasCompleteWidgetGroups(historyWidgets);
             }
 
             @Override
             public List<GeHistoryTrade> parseHistoryTrades(Widget[] historyWidgets) {
-                GeHistoryWidgetReadService service = historyEvents().getGeHistoryWidgetReadService();
+                GeHistoryWidgetReadService service = PluginInjectorBridge.get(GeHistoryWidgetReadService.class);
                 return service != null ? service.parseTrades(historyWidgets) : new ArrayList<>();
             }
 
             @Override
             public List<String> buildCursorSignatures(List<GeHistoryTrade> trades) {
-                GeHistoryCursorService service = historyEvents().getGeHistoryCursorService();
+                GeHistoryCursorService service = PluginInjectorBridge.get(GeHistoryCursorService.class);
                 return service != null ? service.buildCursorSignatures(trades) : new ArrayList<>();
             }
 
             @Override
             public int computeCursorOverlap(List<String> currentCursor, List<String> storedCursor) {
-                GeHistoryCursorService service = historyEvents().getGeHistoryCursorService();
+                GeHistoryCursorService service = PluginInjectorBridge.get(GeHistoryCursorService.class);
                 return service != null ? service.computeOverlap(currentCursor, storedCursor) : 0;
             }
 
@@ -145,7 +141,7 @@ final class GeHistoryAutoSyncCoordinatorService {
                                                                                     List<String> storedCursor,
                                                                                     int parsedTradesCount,
                                                                                     int overlap) {
-                GeHistoryWipeBaselineDecisionService service = historyEvents().getGeHistoryWipeBaselineDecisionService();
+                GeHistoryWipeBaselineDecisionService service = PluginInjectorBridge.get(GeHistoryWipeBaselineDecisionService.class);
                 return service != null
                     ? service.decide(currentCursor, storedCursor, parsedTradesCount, overlap)
                     : GeHistoryWipeBaselineDecisionService.Decision.proceed(parsedTradesCount);
@@ -153,19 +149,19 @@ final class GeHistoryAutoSyncCoordinatorService {
 
             @Override
             public String baselineSetMessage(int cursorSize) {
-                GeHistoryAutoSyncMessageService service = historyEvents().getGeHistoryAutoSyncMessageService();
+                GeHistoryAutoSyncMessageService service = PluginInjectorBridge.get(GeHistoryAutoSyncMessageService.class);
                 return service != null ? service.baselineSetMessage(cursorSize) : "";
             }
 
             @Override
             public String baselineMismatchMessage() {
-                GeHistoryAutoSyncMessageService service = historyEvents().getGeHistoryAutoSyncMessageService();
+                GeHistoryAutoSyncMessageService service = PluginInjectorBridge.get(GeHistoryAutoSyncMessageService.class);
                 return service != null ? service.baselineMismatchMessage() : "";
             }
 
             @Override
             public String syncResultMessage(int addedTrades) {
-                GeHistoryAutoSyncMessageService service = historyEvents().getGeHistoryAutoSyncMessageService();
+                GeHistoryAutoSyncMessageService service = PluginInjectorBridge.get(GeHistoryAutoSyncMessageService.class);
                 return service != null ? service.syncResultMessage(addedTrades) : "";
             }
 
