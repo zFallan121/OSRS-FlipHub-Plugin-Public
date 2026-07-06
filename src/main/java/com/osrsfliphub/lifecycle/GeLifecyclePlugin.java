@@ -423,7 +423,7 @@ public class GeLifecyclePlugin extends Plugin {
     }
 
     GeLifecycleProfileWorkflowService getProfileWorkflowService() {
-        return getProfileLinkWorkflowRuntimeServices().getProfileWorkflowService();
+        return PluginInjectorBridge.get(GeLifecycleProfileWorkflowService.class);
     }
 
     LegacyLocalTradesFilterService getLegacyLocalTradesFilterService() {

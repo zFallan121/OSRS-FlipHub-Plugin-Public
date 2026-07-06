@@ -36,6 +36,7 @@ import net.runelite.api.Client;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
 
+@javax.inject.Singleton
 final class GeLifecycleProfileWorkflowService {
     private final long accountwideKey;
     private final int maxLocalTrades;
@@ -62,6 +63,35 @@ final class GeLifecycleProfileWorkflowService {
     private final Supplier<LocalAccountMergeService> localAccountMergeServiceSupplier;
     private final Supplier<LocalStatsCacheService> localStatsCacheServiceSupplier;
     private final Supplier<Client> clientSupplier;
+
+    @javax.inject.Inject
+    GeLifecycleProfileWorkflowService(PluginState pluginState) {
+        this(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY,
+            GeLifecyclePluginConstants.MAX_LOCAL_TRADES,
+            pluginState.getLocalStatsLock(),
+            pluginState.getLoadedProfiles(),
+            pluginState.getLocalTradeDeltasByAccount(),
+            pluginState.getLocalSessionStartByAccount(),
+            pluginState.getStatsCacheByAccount(),
+            pluginState.getBookmarkedItems(),
+            pluginState.getSnapshots(),
+            () -> PluginInjectorBridge.get(GeLifecycleLocalTradesRuntimeService.class),
+            () -> PluginInjectorBridge.get(AccountwideSummaryUploader.class),
+            () -> PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class),
+            () -> PluginInjectorBridge.get(UploadBackfillDispatchService.class),
+            () -> PluginAccess.plugin().scheduler,
+            () -> PluginInjectorBridge.get(LocalStatsSnapshotService.class),
+            () -> PluginInjectorBridge.get(LocalTradeSessionFacadeService.class),
+            () -> PluginInjectorBridge.get(ProfileSelectionPersistenceService.class),
+            pluginState.getProfileSelection(),
+            () -> PluginInjectorBridge.get(ProfileLoginService.class),
+            () -> PluginInjectorBridge.get(BookmarkStateService.class),
+            () -> PluginInjectorBridge.get(ProfileUiCoordinator.class),
+            () -> PluginAccess.plugin().panel,
+            () -> PluginInjectorBridge.get(LocalAccountMergeService.class),
+            () -> PluginInjectorBridge.get(LocalStatsCacheService.class),
+            () -> PluginAccess.plugin().client);
+    }
 
     GeLifecycleProfileWorkflowService(
         long accountwideKey,

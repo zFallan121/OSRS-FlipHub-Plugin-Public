@@ -110,39 +110,7 @@ final class GeLifecycleProfileWorkflowServices {
     }
 
     GeLifecycleProfileWorkflowService getProfileWorkflowService() {
-        GeLifecycleProfileWorkflowService service = profileWorkflowService;
-        if (service != null) {
-            return service;
-        }
-        service = new GeLifecycleProfileWorkflowService(
-            ACCOUNTWIDE_KEY,
-            MAX_LOCAL_TRADES,
-            localStatsLock,
-            loadedProfiles,
-            localTradeDeltasByAccount,
-            localSessionStartByAccount,
-            statsCacheByAccount,
-            bookmarkedItems,
-            snapshots,
-            localTradesRuntimeServiceSupplier,
-            accountwideSummaryUploaderSupplier,
-            profileSelectionPresentationFacadeServiceSupplier,
-            uploadBackfillDispatchServiceSupplier,
-            schedulerSupplier,
-            localStatsSnapshotServiceSupplier,
-            localTradeSessionFacadeServiceSupplier,
-            profileSelectionPersistenceServiceSupplier,
-            profileSelection,
-            profileLoginServiceSupplier,
-            bookmarkStateServiceSupplier,
-            profileUiCoordinatorSupplier,
-            panelSupplier,
-            localAccountMergeServiceSupplier,
-            localStatsCacheServiceSupplier,
-            clientSupplier
-        );
-        profileWorkflowService = service;
-        return service;
+        return PluginInjectorBridge.get(GeLifecycleProfileWorkflowService.class);
     }
 
     LegacyLocalTradesFilterService getLegacyLocalTradesFilterService() {

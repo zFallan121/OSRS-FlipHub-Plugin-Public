@@ -214,7 +214,7 @@ final class GeLifecycleCoreFeatureRuntimeServices {
     }
 
     private GeLifecycleProfileWorkflowService getProfileWorkflowService() {
-        return context.profileWorkflowServiceSupplier.get();
+        return PluginInjectorBridge.get(GeLifecycleProfileWorkflowService.class);
     }
 
     private UploadBackfillDispatchService getUploadBackfillDispatchService() {

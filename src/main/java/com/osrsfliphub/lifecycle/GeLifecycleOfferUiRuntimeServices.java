@@ -189,7 +189,7 @@ final class GeLifecycleOfferUiRuntimeServices {
     }
 
     private GeLifecycleProfileWorkflowService getProfileWorkflowService() {
-        return context.profileWorkflowServiceSupplier.get();
+        return PluginInjectorBridge.get(GeLifecycleProfileWorkflowService.class);
     }
 
     private GeLifecycleEventManageHistoryServices getEventManageHistoryServices() {

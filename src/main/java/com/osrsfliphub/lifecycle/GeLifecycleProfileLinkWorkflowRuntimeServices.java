@@ -142,7 +142,7 @@ final class GeLifecycleProfileLinkWorkflowRuntimeServices {
     }
 
     GeLifecycleProfileWorkflowService getProfileWorkflowService() {
-        return getProfileWorkflowServices().getProfileWorkflowService();
+        return PluginInjectorBridge.get(GeLifecycleProfileWorkflowService.class);
     }
 
     LegacyLocalTradesFilterService getLegacyLocalTradesFilterService() {
