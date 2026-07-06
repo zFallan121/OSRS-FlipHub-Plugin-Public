@@ -65,8 +65,7 @@ final class LocalTradeSessionFacadeService {
 
                 @Override
                 public LocalFlipHistoryService getLocalFlipHistoryService() {
-                    return PluginAccess.plugin().getStatsTradesServices().getLocalStatsServices()
-                        .getLocalFlipHistoryService();
+                    return PluginInjectorBridge.get(LocalFlipHistoryService.class);
                 }
 
                 @Override

@@ -31,7 +31,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+@javax.inject.Singleton
 final class LocalAccountMergeService {
+    @javax.inject.Inject
+    LocalAccountMergeService() {
+    }
+
     static final class Result {
         final List<LocalTradeDelta> mergedSnapshot;
         final boolean changed;

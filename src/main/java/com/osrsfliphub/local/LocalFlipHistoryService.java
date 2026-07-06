@@ -30,8 +30,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@javax.inject.Singleton
 final class LocalFlipHistoryService {
     private static final long LOCAL_EVENT_BUCKET_MS = 600L;
+
+    @javax.inject.Inject
+    LocalFlipHistoryService() {
+    }
 
     Map<Integer, List<StatsFlipInstance>> buildHistory(List<LocalTradeDelta> deltas, Long sinceMs) {
         Map<Integer, List<StatsFlipInstance>> byItem = new HashMap<>();

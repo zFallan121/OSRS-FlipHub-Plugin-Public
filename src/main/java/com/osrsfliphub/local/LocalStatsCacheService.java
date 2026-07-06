@@ -27,11 +27,21 @@ package com.osrsfliphub;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class LocalStatsCacheService {
     private final Map<Long, LocalStatsCache> statsCacheByAccount;
     private final Map<Long, List<LocalTradeDelta>> localTradeDeltasByAccount;
     private final Object localStatsLock;
+
+    @Inject
+    LocalStatsCacheService(PluginState pluginState) {
+        this(pluginState.getStatsCacheByAccount(),
+            pluginState.getLocalTradeDeltasByAccount(),
+            pluginState.getLocalStatsLock());
+    }
 
     LocalStatsCacheService(Map<Long, LocalStatsCache> statsCacheByAccount,
                            Map<Long, List<LocalTradeDelta>> localTradeDeltasByAccount,

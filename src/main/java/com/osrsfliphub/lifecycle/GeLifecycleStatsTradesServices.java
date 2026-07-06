@@ -39,7 +39,6 @@ final class GeLifecycleStatsTradesServices {
     private final GeLifecycleStatsTradesRuntimeContext context;
     private final GeLifecycleStatsTradesOps ops;
 
-    private GeLifecycleLocalStatsServices localStatsServices;
     private GeHistoryAutoSyncService geHistoryAutoSyncService;
     private GeLifecycleProfileTradesServices profileTradesServices;
     private BackfilledProfilesStore backfilledProfilesStore;
@@ -109,70 +108,36 @@ final class GeLifecycleStatsTradesServices {
         );
     }
 
-    GeLifecycleLocalStatsServices getLocalStatsServices() {
-        GeLifecycleLocalStatsServices services = localStatsServices;
-        if (services != null) {
-            return services;
-        }
-        services = new GeLifecycleLocalStatsServices(
-            ACCOUNTWIDE_KEY,
-            LOCAL_LIMIT_WINDOW_MS,
-            LOCAL_LIMIT_FUTURE_TOLERANCE_MS,
-            LOCAL_EVENT_BUCKET_MS,
-            LOCAL_TRADES_LOAD_RETRY_MS,
-            context.statsCacheByAccount,
-            context.localTradeDeltasByAccount,
-            context.localSessionStartByAccount,
-            context.localStatsLock,
-            context.localTradesRuntimeServiceSupplier,
-            context.itemServicesSupplier,
-            this::getAccountwideProfileKeyCollector,
-            context.profileStorageFacadeServiceSupplier,
-            context.profileSelectionPresentationFacadeServiceSupplier,
-            context.accountwideStatsAggregatorSupplier,
-            context.profileWorkflowServiceSupplier,
-            context.clientSupplier,
-            context.currentStatsRangeSupplier,
-            context.currentStatsSortSupplier,
-            context.invokeOnClientThreadAction,
-            context.executeOnSchedulerAction,
-            context.triggerStatsRefreshAction,
-            context.triggerPanelRefreshAction
-        );
-        localStatsServices = services;
-        return services;
-    }
-
     LocalStatsCacheService getLocalStatsCacheService() {
-        return getLocalStatsServices().getLocalStatsCacheService();
+        return PluginInjectorBridge.get(LocalStatsCacheService.class);
     }
 
     LocalStatsSnapshotService getLocalStatsSnapshotService() {
-        return getLocalStatsServices().getLocalStatsSnapshotService();
+        return PluginInjectorBridge.get(LocalStatsSnapshotService.class);
     }
 
     LocalAccountSessionService getLocalAccountSessionService() {
-        return getLocalStatsServices().getLocalAccountSessionService();
+        return PluginInjectorBridge.get(LocalAccountSessionService.class);
     }
 
     LocalTradeSessionFacadeService getLocalTradeSessionFacadeService() {
-        return getLocalStatsServices().getLocalTradeSessionFacadeService();
+        return PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
     }
 
     LocalStatsViewService getLocalStatsViewService() {
-        return getLocalStatsServices().getLocalStatsViewService();
+        return PluginInjectorBridge.get(LocalStatsViewService.class);
     }
 
     LocalTradesLoadCoordinator getLocalTradesLoadCoordinator() {
-        return getLocalStatsServices().getLocalTradesLoadCoordinator();
+        return PluginInjectorBridge.get(LocalTradesLoadCoordinator.class);
     }
 
     LocalAccountMergeService getLocalAccountMergeService() {
-        return getLocalStatsServices().getLocalAccountMergeService();
+        return PluginInjectorBridge.get(LocalAccountMergeService.class);
     }
 
     LocalTradeDeltaRecorder getLocalTradeDeltaRecorder() {
-        return getLocalStatsServices().getLocalTradeDeltaRecorder();
+        return PluginInjectorBridge.get(LocalTradeDeltaRecorder.class);
     }
 
     GeHistoryAutoSyncService getGeHistoryAutoSyncService() {

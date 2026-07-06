@@ -82,8 +82,7 @@ final class AccountwideFlipHistoryService {
 
             @Override
             public Map<Integer, List<StatsFlipInstance>> buildLocalHistory(List<LocalTradeDelta> deltas, Long sinceMs) {
-                return PluginAccess.plugin().getStatsTradesServices().getLocalStatsServices()
-                    .getLocalFlipHistoryService().buildHistory(deltas, sinceMs);
+                return PluginInjectorBridge.get(LocalFlipHistoryService.class).buildHistory(deltas, sinceMs);
             }
 
             @Override
