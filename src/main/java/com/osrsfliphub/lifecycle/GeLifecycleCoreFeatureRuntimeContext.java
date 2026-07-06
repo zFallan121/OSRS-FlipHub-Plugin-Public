@@ -57,7 +57,6 @@ final class GeLifecycleCoreFeatureRuntimeContext {
     final Supplier<ExecutorService> ioExecutorSupplier;
 
     final Supplier<GeLifecycleOfferStampStateServices> offerStampStateServicesSupplier;
-    final Supplier<GeLifecycleProfileSelectionServices> profileSelectionServicesSupplier;
     final Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier;
     final Supplier<GeLifecyclePanelDataRuntimeService> panelDataRuntimeServiceSupplier;
     final Supplier<GeLifecycleItemServices> itemServicesSupplier;
@@ -101,7 +100,6 @@ final class GeLifecycleCoreFeatureRuntimeContext {
         Supplier<ScheduledExecutorService> schedulerSupplier,
         Supplier<ExecutorService> ioExecutorSupplier,
         Supplier<GeLifecycleOfferStampStateServices> offerStampStateServicesSupplier,
-        Supplier<GeLifecycleProfileSelectionServices> profileSelectionServicesSupplier,
         Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
         Supplier<GeLifecyclePanelDataRuntimeService> panelDataRuntimeServiceSupplier,
         Supplier<GeLifecycleItemServices> itemServicesSupplier,
@@ -142,7 +140,6 @@ final class GeLifecycleCoreFeatureRuntimeContext {
         this.schedulerSupplier = schedulerSupplier;
         this.ioExecutorSupplier = ioExecutorSupplier;
         this.offerStampStateServicesSupplier = offerStampStateServicesSupplier;
-        this.profileSelectionServicesSupplier = profileSelectionServicesSupplier;
         this.localTradesRuntimeServiceSupplier = localTradesRuntimeServiceSupplier;
         this.panelDataRuntimeServiceSupplier = panelDataRuntimeServiceSupplier;
         this.itemServicesSupplier = itemServicesSupplier;

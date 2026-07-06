@@ -60,7 +60,6 @@ final class GeLifecycleProfileLinkWorkflowRuntimeServices {
     private final GeLifecycleRuntimeUtilityServices runtimeUtilityServices;
     private final Supplier<Logger> loggerSupplier;
 
-    private GeLifecycleProfileSelectionServices profileSelectionServices;
     private GeLifecycleProfileWorkflowServices profileWorkflowServices;
 
     GeLifecycleProfileLinkWorkflowRuntimeServices(
@@ -111,42 +110,6 @@ final class GeLifecycleProfileLinkWorkflowRuntimeServices {
         this.executeIoConsumer = executeIoConsumer;
         this.runtimeUtilityServices = runtimeUtilityServices;
         this.loggerSupplier = loggerSupplier;
-    }
-
-    GeLifecycleProfileSelectionServices getProfileSelectionServices() {
-        GeLifecycleProfileSelectionServices services = profileSelectionServices;
-        if (services != null) {
-            return services;
-        }
-        services = new GeLifecycleProfileSelectionServices(
-            ACCOUNTWIDE_KEY,
-            ACCOUNTWIDE_KEY_STRING,
-            MAX_LOCAL_TRADES,
-            FliphubConfigGroups.CONFIG_GROUP,
-            LEGACY_DEV_CONFIG_GROUP,
-            PROFILE_SELECTED_KEY,
-            PROFILE_SELECTION_MODE_KEY,
-            PROFILE_DIR_NAME,
-            LEGACY_PROFILE_DIR_NAME,
-            profileSelection,
-            profileDisplayNames,
-            legacyNameKeysByHash,
-            loadedProfileFileMs,
-            gsonSupplier,
-            configManagerSupplier,
-            clientSupplier,
-            () -> getEventManageHistoryServices().getGeHistoryWipeStateStore(),
-            localTradesRuntimeServiceSupplier,
-            () -> getStatsTradesServices().getLocalStatsCacheService(),
-            () -> getStatsTradesServices().getLocalStatsSnapshotService(),
-            () -> getStatsTradesServices().getLocalAccountSessionService(),
-            () -> PluginInjectorBridge.get(LinkSessionGuardService.class),
-            () -> getStatsTradesServices().getLocalTradeSessionFacadeService(),
-            panelSupplier,
-            uploadEventDispatchFacadeServiceSupplier
-        );
-        profileSelectionServices = services;
-        return services;
     }
 
     GeLifecycleProfileWorkflowServices getProfileWorkflowServices() {

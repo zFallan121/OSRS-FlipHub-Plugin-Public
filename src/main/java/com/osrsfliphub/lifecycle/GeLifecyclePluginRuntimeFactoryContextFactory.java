@@ -79,7 +79,6 @@ final class GeLifecyclePluginRuntimeFactoryContextFactory {
             () -> GeLifecyclePlugin.log,
             plugin::getPanelRefreshCoordinator,
             plugin::getStatsTradesServices,
-            plugin::getProfileSelectionServices,
             plugin::getLocalTradesRuntimeService,
             plugin::getBackfillServices,
             plugin::getProfileWorkflowService,

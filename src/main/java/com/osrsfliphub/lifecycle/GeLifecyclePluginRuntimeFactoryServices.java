@@ -49,7 +49,6 @@ final class GeLifecyclePluginRuntimeFactoryServices {
             context.schedulerSupplier,
             context.panelRefreshCoordinatorSupplier,
             context.statsTradesServicesSupplier,
-            context.profileSelectionServicesSupplier,
             context.localTradesRuntimeServiceSupplier,
             context.backfillServicesSupplier,
             context.profileWorkflowServiceSupplier,
@@ -88,7 +87,6 @@ final class GeLifecyclePluginRuntimeFactoryServices {
             context.schedulerSupplier,
             context.backfillServicesSupplier,
             context.profileWorkflowServiceSupplier,
-            context.profileSelectionServicesSupplier,
             context.executeIoConsumer
         );
     }
@@ -115,7 +113,6 @@ final class GeLifecyclePluginRuntimeFactoryServices {
             context.offerUpdateStamps,
             context.schedulerSupplier,
             context.clientThreadSupplier,
-            context.profileSelectionServicesSupplier,
             context.setLocalTradesLoadedThisLoginAction,
             context.backfillServicesSupplier,
             context.uploadBackfillDispatchServiceSupplier,
@@ -169,7 +166,6 @@ final class GeLifecyclePluginRuntimeFactoryServices {
             context.schedulerSupplier,
             context.ioExecutorSupplier,
             context.offerStampStateServicesSupplier,
-            context.profileSelectionServicesSupplier,
             context.localTradesRuntimeServiceSupplier,
             context.panelDataRuntimeServiceSupplier,
             context.itemServicesSupplier,

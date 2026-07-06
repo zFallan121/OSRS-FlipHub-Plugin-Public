@@ -52,13 +52,9 @@ final class ProfileSelectionPresentationFacadeService {
             pluginState.getProfileDisplayNames(),
             pluginState.getLegacyNameKeysByHash(),
             new Hooks() {
-                private GeLifecycleProfileSelectionServices profileServices() {
-                    return PluginAccess.plugin().getProfileSelectionServices();
-                }
-
                 @Override
                 public ProfileSelectionResolverService getProfileSelectionResolverService() {
-                    return profileServices().getProfileSelectionResolverService();
+                    return PluginInjectorBridge.get(ProfileSelectionResolverService.class);
                 }
 
                 @Override
@@ -68,7 +64,7 @@ final class ProfileSelectionPresentationFacadeService {
 
                 @Override
                 public ProfileCatalogService getProfileCatalogService() {
-                    return profileServices().getProfileCatalogService();
+                    return PluginInjectorBridge.get(ProfileCatalogService.class);
                 }
 
                 @Override

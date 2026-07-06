@@ -56,7 +56,6 @@ final class GeLifecycleOfferUiCoreFactory {
         Supplier<PanelRefreshCoordinator> panelRefreshCoordinatorSupplier,
         Supplier<GeLifecycleStatsTradesServices> statsTradesServicesSupplier,
         Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
-        Supplier<GeLifecycleProfileSelectionServices> profileSelectionServicesSupplier,
         Supplier<GeLifecycleProfileWorkflowService> profileWorkflowServiceSupplier
     ) {
         return new GeLifecycleTickServices(

@@ -60,7 +60,6 @@ final class GeLifecycleOfferUiRuntimeServices {
         Supplier<ScheduledExecutorService> schedulerSupplier,
         Supplier<PanelRefreshCoordinator> panelRefreshCoordinatorSupplier,
         Supplier<GeLifecycleStatsTradesServices> statsTradesServicesSupplier,
-        Supplier<GeLifecycleProfileSelectionServices> profileSelectionServicesSupplier,
         Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
         Supplier<GeLifecycleBackfillServices> backfillServicesSupplier,
         Supplier<GeLifecycleProfileWorkflowService> profileWorkflowServiceSupplier,
@@ -91,7 +90,6 @@ final class GeLifecycleOfferUiRuntimeServices {
             schedulerSupplier,
             panelRefreshCoordinatorSupplier,
             statsTradesServicesSupplier,
-            profileSelectionServicesSupplier,
             localTradesRuntimeServiceSupplier,
             backfillServicesSupplier,
             profileWorkflowServiceSupplier,
@@ -145,7 +143,6 @@ final class GeLifecycleOfferUiRuntimeServices {
             this::getPanelRefreshCoordinator,
             this::getStatsTradesServices,
             this::getLocalTradesRuntimeService,
-            this::getProfileSelectionServices,
             this::getProfileWorkflowService
         );
         tickServices = services;
@@ -161,7 +158,6 @@ final class GeLifecycleOfferUiRuntimeServices {
             context,
             this::getPanelRefreshCoordinator,
             this::getBackfillServices,
-            this::getProfileSelectionServices,
             this::getProfileWorkflowService,
             this::getStatsTradesServices,
             this::getLocalTradesRuntimeService
@@ -192,10 +188,6 @@ final class GeLifecycleOfferUiRuntimeServices {
 
     private GeLifecycleStatsTradesServices getStatsTradesServices() {
         return context.statsTradesServicesSupplier.get();
-    }
-
-    private GeLifecycleProfileSelectionServices getProfileSelectionServices() {
-        return context.profileSelectionServicesSupplier.get();
     }
 
     private GeLifecycleLocalTradesRuntimeService getLocalTradesRuntimeService() {

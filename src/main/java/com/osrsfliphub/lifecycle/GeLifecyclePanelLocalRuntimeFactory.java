@@ -54,7 +54,6 @@ final class GeLifecyclePanelLocalRuntimeFactory {
         Map<Integer, OfferUpdateStamp> offerUpdateStamps,
         Supplier<java.util.concurrent.ScheduledExecutorService> schedulerSupplier,
         Supplier<ClientThread> clientThreadSupplier,
-        Supplier<GeLifecycleProfileSelectionServices> profileSelectionServicesSupplier,
         Runnable setLocalTradesLoadedThisLoginAction,
         Supplier<GeLifecycleBackfillServices> backfillServicesSupplier,
         Supplier<UploadBackfillDispatchService> uploadBackfillDispatchServiceSupplier,

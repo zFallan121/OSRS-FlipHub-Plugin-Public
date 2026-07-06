@@ -63,7 +63,6 @@ final class GeLifecycleCoreFeatureRuntimeServices {
         Supplier<ScheduledExecutorService> schedulerSupplier,
         Supplier<ExecutorService> ioExecutorSupplier,
         Supplier<GeLifecycleOfferStampStateServices> offerStampStateServicesSupplier,
-        Supplier<GeLifecycleProfileSelectionServices> profileSelectionServicesSupplier,
         Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
         Supplier<GeLifecyclePanelDataRuntimeService> panelDataRuntimeServiceSupplier,
         Supplier<GeLifecycleItemServices> itemServicesSupplier,
@@ -105,7 +104,6 @@ final class GeLifecycleCoreFeatureRuntimeServices {
             schedulerSupplier,
             ioExecutorSupplier,
             offerStampStateServicesSupplier,
-            profileSelectionServicesSupplier,
             localTradesRuntimeServiceSupplier,
             panelDataRuntimeServiceSupplier,
             itemServicesSupplier,
@@ -145,7 +143,6 @@ final class GeLifecycleCoreFeatureRuntimeServices {
             this::getBackfillServices,
             this::getStatsTradesServices,
             this::getLocalTradesRuntimeService,
-            this::getProfileSelectionServices,
             this::getUploadBackfillDispatchService
         );
         eventManageHistoryServices = services;
@@ -162,7 +159,6 @@ final class GeLifecycleCoreFeatureRuntimeServices {
             this::getBackfillServices,
             this::getPanelRefreshCoordinator,
             this::getLocalTradesRuntimeService,
-            this::getProfileSelectionServices,
             this::getProfileWorkflowService
         );
         statsTradesServices = services;
@@ -190,7 +186,6 @@ final class GeLifecycleCoreFeatureRuntimeServices {
         services = GeLifecycleCoreFeatureFactory.createBackfillServices(
             context,
             this::getStatsTradesServices,
-            this::getProfileSelectionServices,
             this::getLocalTradesRuntimeService,
             this::getPanelRefreshCoordinator,
             token -> fetchRemoteStatsSummary(token, null, true)
@@ -214,10 +209,6 @@ final class GeLifecycleCoreFeatureRuntimeServices {
 
     private GeLifecycleOfferStampStateServices getOfferStampStateServices() {
         return context.offerStampStateServicesSupplier.get();
-    }
-
-    private GeLifecycleProfileSelectionServices getProfileSelectionServices() {
-        return context.profileSelectionServicesSupplier.get();
     }
 
     private GeLifecycleLocalTradesRuntimeService getLocalTradesRuntimeService() {

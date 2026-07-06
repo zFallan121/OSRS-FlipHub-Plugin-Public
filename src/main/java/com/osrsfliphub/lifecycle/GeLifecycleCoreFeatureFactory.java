@@ -40,7 +40,6 @@ final class GeLifecycleCoreFeatureFactory {
         Supplier<GeLifecycleBackfillServices> backfillServicesSupplier,
         Supplier<GeLifecycleStatsTradesServices> statsTradesServicesSupplier,
         Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
-        Supplier<GeLifecycleProfileSelectionServices> profileSelectionServicesSupplier,
         Supplier<UploadBackfillDispatchService> uploadBackfillDispatchServiceSupplier
     ) {
         return new GeLifecycleEventManageHistoryServices(
@@ -127,7 +126,6 @@ final class GeLifecycleCoreFeatureFactory {
         Supplier<GeLifecycleBackfillServices> backfillServicesSupplier,
         Supplier<PanelRefreshCoordinator> panelRefreshCoordinatorSupplier,
         Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
-        Supplier<GeLifecycleProfileSelectionServices> profileSelectionServicesSupplier,
         Supplier<GeLifecycleProfileWorkflowService> profileWorkflowServiceSupplier
     ) {
         return new GeLifecycleStatsTradesServices(
@@ -190,7 +188,6 @@ final class GeLifecycleCoreFeatureFactory {
     static GeLifecycleBackfillServices createBackfillServices(
         GeLifecycleCoreFeatureRuntimeContext context,
         Supplier<GeLifecycleStatsTradesServices> statsTradesServicesSupplier,
-        Supplier<GeLifecycleProfileSelectionServices> profileSelectionServicesSupplier,
         Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
         Supplier<PanelRefreshCoordinator> panelRefreshCoordinatorSupplier,
         Function<String, ApiClient.StatsSummaryResponse> fetchRemoteStatsSummaryByToken

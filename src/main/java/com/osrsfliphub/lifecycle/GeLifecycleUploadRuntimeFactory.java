@@ -49,7 +49,6 @@ final class GeLifecycleUploadRuntimeFactory {
         Supplier<ScheduledExecutorService> schedulerSupplier,
         Supplier<GeLifecycleBackfillServices> backfillServicesSupplier,
         Supplier<GeLifecycleProfileWorkflowService> profileWorkflowServiceSupplier,
-        Supplier<GeLifecycleProfileSelectionServices> profileSelectionServicesSupplier,
         Consumer<Runnable> executeIoConsumer
     ) {
         return new GeLifecycleUploadRuntimeServices(

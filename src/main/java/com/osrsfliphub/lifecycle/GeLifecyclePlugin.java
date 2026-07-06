@@ -302,10 +302,6 @@ public class GeLifecyclePlugin extends Plugin {
         getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
     }
 
-    GeLifecycleProfileSelectionServices getProfileSelectionServices() {
-        return getProfileLinkWorkflowRuntimeServices().getProfileSelectionServices();
-    }
-
 
     GeLifecycleProfileLinkWorkflowRuntimeServices getProfileLinkWorkflowRuntimeServices() {
         GeLifecycleProfileLinkWorkflowRuntimeServices services = profileLinkWorkflowRuntimeServices;
