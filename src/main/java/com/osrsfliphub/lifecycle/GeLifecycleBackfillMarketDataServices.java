@@ -102,13 +102,7 @@ final class GeLifecycleBackfillMarketDataServices {
     }
 
     RecentTradeDeduper getRecentTradeDeduper() {
-        RecentTradeDeduper deduper = recentTradeDeduper;
-        if (deduper != null) {
-            return deduper;
-        }
-        deduper = new RecentTradeDeduper(localEventBucketMs, duplicateTradeWindowMs);
-        recentTradeDeduper = deduper;
-        return deduper;
+        return PluginInjectorBridge.get(RecentTradeDeduper.class);
     }
 
     WikiPriceService getWikiPriceService() {

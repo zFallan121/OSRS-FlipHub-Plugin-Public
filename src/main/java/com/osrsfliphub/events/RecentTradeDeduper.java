@@ -26,11 +26,20 @@ package com.osrsfliphub;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class RecentTradeDeduper {
     private final long localEventBucketMs;
     private final long duplicateTradeWindowMs;
     private final Map<Integer, RecentTradeEvent> recentTradeEventsBySlot = new ConcurrentHashMap<>();
+
+    @Inject
+    RecentTradeDeduper() {
+        this(GeLifecyclePluginConstants.LOCAL_EVENT_BUCKET_MS,
+            GeLifecyclePluginConstants.DUPLICATE_TRADE_WINDOW_MS);
+    }
 
     RecentTradeDeduper(long localEventBucketMs, long duplicateTradeWindowMs) {
         this.localEventBucketMs = Math.max(1L, localEventBucketMs);
