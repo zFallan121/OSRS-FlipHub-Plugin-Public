@@ -24,7 +24,12 @@
  */
 package com.osrsfliphub;
 
+@javax.inject.Singleton
 final class GeHistoryAutoSyncMessageService {
+    @javax.inject.Inject
+    GeHistoryAutoSyncMessageService() {
+    }
+
     String baselineSetMessage(int cursorSize) {
         int safeCursorSize = Math.max(0, cursorSize);
         return "FlipHub GE history sync: wipe baseline set (" + safeCursorSize + " trades).";

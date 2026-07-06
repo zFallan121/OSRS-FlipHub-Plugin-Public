@@ -28,8 +28,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+@javax.inject.Singleton
 final class GeHistoryCursorService {
     private final int maxCursorTrades;
+
+    @javax.inject.Inject
+    GeHistoryCursorService() {
+        this(GeLifecyclePluginConstants.GE_HISTORY_CURSOR_MAX_TRADES);
+    }
 
     GeHistoryCursorService(int maxCursorTrades) {
         this.maxCursorTrades = Math.max(1, maxCursorTrades);

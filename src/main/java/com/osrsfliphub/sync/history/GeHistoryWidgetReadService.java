@@ -27,8 +27,13 @@ package com.osrsfliphub;
 import java.util.List;
 import net.runelite.api.widgets.Widget;
 
+@javax.inject.Singleton
 final class GeHistoryWidgetReadService {
     private static final int WIDGET_GROUP_SIZE = 6;
+
+    @javax.inject.Inject
+    GeHistoryWidgetReadService() {
+    }
 
     boolean hasCompleteWidgetGroups(Widget[] historyWidgets) {
         int widgetCount = historyWidgets != null ? historyWidgets.length : 0;

@@ -166,56 +166,23 @@ final class GeLifecycleHistoryEventServices {
     }
 
     GeHistoryCursorService getGeHistoryCursorService() {
-        GeHistoryCursorService service = geHistoryCursorService;
-        if (service != null) {
-            return service;
-        }
-        service = new GeHistoryCursorService(geHistoryCursorMaxTrades);
-        geHistoryCursorService = service;
-        return service;
+        return PluginInjectorBridge.get(GeHistoryCursorService.class);
     }
 
     GeHistoryWidgetReadService getGeHistoryWidgetReadService() {
-        GeHistoryWidgetReadService service = geHistoryWidgetReadService;
-        if (service != null) {
-            return service;
-        }
-        service = new GeHistoryWidgetReadService();
-        geHistoryWidgetReadService = service;
-        return service;
+        return PluginInjectorBridge.get(GeHistoryWidgetReadService.class);
     }
 
     GeHistoryAutoSyncStateService getGeHistoryAutoSyncStateService() {
-        GeHistoryAutoSyncStateService service = geHistoryAutoSyncStateService;
-        if (service != null) {
-            return service;
-        }
-        service = new GeHistoryAutoSyncStateService(geHistorySyncWidgetSettleMs);
-        geHistoryAutoSyncStateService = service;
-        return service;
+        return PluginInjectorBridge.get(GeHistoryAutoSyncStateService.class);
     }
 
     GeHistoryAutoSyncMessageService getGeHistoryAutoSyncMessageService() {
-        GeHistoryAutoSyncMessageService service = geHistoryAutoSyncMessageService;
-        if (service != null) {
-            return service;
-        }
-        service = new GeHistoryAutoSyncMessageService();
-        geHistoryAutoSyncMessageService = service;
-        return service;
+        return PluginInjectorBridge.get(GeHistoryAutoSyncMessageService.class);
     }
 
     GeHistoryWipeBaselineDecisionService getGeHistoryWipeBaselineDecisionService() {
-        GeHistoryWipeBaselineDecisionService service = geHistoryWipeBaselineDecisionService;
-        if (service != null) {
-            return service;
-        }
-        service = new GeHistoryWipeBaselineDecisionService(
-            geHistoryCursorMinMatch,
-            geHistoryCursorRolloverMinLen
-        );
-        geHistoryWipeBaselineDecisionService = service;
-        return service;
+        return PluginInjectorBridge.get(GeHistoryWipeBaselineDecisionService.class);
     }
 
     GeHistoryAutoSyncCoordinatorService getGeHistoryAutoSyncCoordinatorService() {
@@ -223,22 +190,7 @@ final class GeLifecycleHistoryEventServices {
     }
 
     ProfileLoginService getProfileLoginService() {
-        ProfileLoginService service = profileLoginService;
-        if (service != null) {
-            return service;
-        }
-        service = new ProfileLoginService(
-            new ProfileLoginPluginHooks(
-                profileDisplayNames,
-                executeAsync,
-                loadLocalTradesAsync,
-                persistProfileSelectionState,
-                updateProfileOptionsUi,
-                updateProfileHeader
-            )
-        );
-        profileLoginService = service;
-        return service;
+        return PluginInjectorBridge.get(ProfileLoginService.class);
     }
 
     GrandExchangeOfferChangedHandlerService getGrandExchangeOfferChangedHandlerService() {

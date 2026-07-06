@@ -24,10 +24,16 @@
  */
 package com.osrsfliphub;
 
+@javax.inject.Singleton
 final class GeHistoryAutoSyncStateService {
     private final long widgetSettleMs;
     private volatile boolean pending;
     private volatile long historyVisibleSinceMs;
+
+    @javax.inject.Inject
+    GeHistoryAutoSyncStateService() {
+        this(GeLifecyclePluginConstants.GE_HISTORY_SYNC_WIDGET_SETTLE_MS);
+    }
 
     GeHistoryAutoSyncStateService(long widgetSettleMs) {
         this.widgetSettleMs = Math.max(0L, widgetSettleMs);

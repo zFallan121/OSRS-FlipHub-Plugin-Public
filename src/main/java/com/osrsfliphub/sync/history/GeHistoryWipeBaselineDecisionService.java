@@ -26,6 +26,7 @@ package com.osrsfliphub;
 
 import java.util.List;
 
+@javax.inject.Singleton
 final class GeHistoryWipeBaselineDecisionService {
     enum Outcome {
         SET_BASELINE,
@@ -57,6 +58,12 @@ final class GeHistoryWipeBaselineDecisionService {
 
     private final int minMatchThreshold;
     private final int rolloverMinCursorLength;
+
+    @javax.inject.Inject
+    GeHistoryWipeBaselineDecisionService() {
+        this(GeLifecyclePluginConstants.GE_HISTORY_CURSOR_MIN_MATCH,
+            GeLifecyclePluginConstants.GE_HISTORY_CURSOR_ROLLOVER_MIN_LEN);
+    }
 
     GeHistoryWipeBaselineDecisionService(int minMatchThreshold, int rolloverMinCursorLength) {
         this.minMatchThreshold = Math.max(0, minMatchThreshold);

@@ -24,6 +24,10 @@
  */
 package com.osrsfliphub;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
+@Singleton
 final class ProfileLoginService {
     interface Hooks {
         void putProfileDisplayName(long accountHash, String displayName);
@@ -35,6 +39,44 @@ final class ProfileLoginService {
     }
 
     private final Hooks hooks;
+
+    @Inject
+    ProfileLoginService(PluginState pluginState) {
+        this(new Hooks() {
+            @Override
+            public void putProfileDisplayName(long accountHash, String displayName) {
+                if (accountHash <= 0 || displayName == null || displayName.trim().isEmpty()) {
+                    return;
+                }
+                pluginState.getProfileDisplayNames().put(accountHash, displayName.trim());
+            }
+
+            @Override
+            public void executeAsync(Runnable task) {
+                PluginAccess.plugin().executeAsync(task);
+            }
+
+            @Override
+            public void loadLocalTradesAsync(long accountHash) {
+                PluginAccess.plugin().getLocalTradesRuntimeService().loadLocalTradesAsync(accountHash);
+            }
+
+            @Override
+            public void persistProfileSelectionState() {
+                PluginAccess.plugin().getProfileWorkflowService().persistProfileSelectionState();
+            }
+
+            @Override
+            public void updateProfileOptionsUi() {
+                PluginAccess.plugin().getProfileWorkflowService().updateProfileOptionsUI();
+            }
+
+            @Override
+            public void updateProfileHeader() {
+                PluginAccess.plugin().getProfileWorkflowService().updateProfileHeader();
+            }
+        });
+    }
 
     ProfileLoginService(Hooks hooks) {
         this.hooks = hooks;
