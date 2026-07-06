@@ -31,7 +31,10 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class GeLifecycleLocalTradesRuntimeService {
     private final long accountwideKey;
     private final int maxLocalTrades;
@@ -52,6 +55,29 @@ final class GeLifecycleLocalTradesRuntimeService {
     private final Supplier<UploadBackfillDispatchService> uploadBackfillDispatchServiceSupplier;
     private final Runnable onProfileOptionsChanged;
     private final Runnable onProfileHeaderChanged;
+
+    @Inject
+    GeLifecycleLocalTradesRuntimeService(PluginState pluginState) {
+        this(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY,
+            GeLifecyclePluginConstants.MAX_LOCAL_TRADES,
+            GeLifecyclePluginConstants.LOCAL_EVENT_BUCKET_MS,
+            GeLifecyclePluginConstants.DUPLICATE_TRADE_WINDOW_MS,
+            pluginState.getLocalStatsLock(),
+            pluginState.getLocalTradeDeltasByAccount(),
+            pluginState.getLoadedProfiles(),
+            pluginState.getLocalTradesLoadState(),
+            () -> PluginInjectorBridge.get(LocalTradesLoadCoordinator.class),
+            () -> PluginAccess.plugin().scheduler,
+            () -> PluginAccess.plugin().clientThread != null,
+            () -> PluginInjectorBridge.get(LocalProfileTradesLoadService.class),
+            () -> PluginInjectorBridge.get(ProfileStorageFacadeService.class),
+            () -> PluginAccess.plugin().localTradesLoadedThisLogin = true,
+            () -> PluginInjectorBridge.get(AccountwideSummaryUploader.class),
+            () -> PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class),
+            () -> PluginInjectorBridge.get(UploadBackfillDispatchService.class),
+            () -> PluginAccess.plugin().getProfileWorkflowService().updateProfileOptionsUI(),
+            () -> PluginAccess.plugin().getProfileWorkflowService().updateProfileHeader());
+    }
 
     GeLifecycleLocalTradesRuntimeService(
         long accountwideKey,

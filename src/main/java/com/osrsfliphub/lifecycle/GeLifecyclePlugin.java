@@ -286,7 +286,7 @@ public class GeLifecyclePlugin extends Plugin {
     }
 
     GeLifecycleLocalTradesRuntimeService getLocalTradesRuntimeService() {
-        return getPanelLocalRuntimeServices().getLocalTradesRuntimeService();
+        return PluginInjectorBridge.get(GeLifecycleLocalTradesRuntimeService.class);
     }
 
     void refreshPanelData() {

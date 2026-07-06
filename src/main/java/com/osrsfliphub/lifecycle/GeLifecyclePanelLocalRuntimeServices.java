@@ -166,32 +166,6 @@ final class GeLifecyclePanelLocalRuntimeServices {
     }
 
     GeLifecycleLocalTradesRuntimeService getLocalTradesRuntimeService() {
-        GeLifecycleLocalTradesRuntimeService service = localTradesRuntimeService;
-        if (service != null) {
-            return service;
-        }
-        service = new GeLifecycleLocalTradesRuntimeService(
-            accountwideKey,
-            maxLocalTrades,
-            localEventBucketMs,
-            duplicateTradeWindowMs,
-            localStatsLock,
-            localTradeDeltasByAccount,
-            loadedProfiles,
-            localTradesLoadState,
-            localTradesLoadCoordinatorSupplier,
-            schedulerSupplier,
-            () -> clientThreadSupplier.get() != null,
-            localProfileTradesLoadServiceSupplier,
-            profileStorageFacadeServiceSupplier,
-            markLocalTradesLoadedThisLogin,
-            accountwideSummaryUploaderSupplier,
-            profileSelectionPresentationFacadeServiceSupplier,
-            uploadBackfillDispatchServiceSupplier,
-            updateProfileOptionsUi,
-            updateProfileHeader
-        );
-        localTradesRuntimeService = service;
-        return service;
+        return PluginInjectorBridge.get(GeLifecycleLocalTradesRuntimeService.class);
     }
 }
