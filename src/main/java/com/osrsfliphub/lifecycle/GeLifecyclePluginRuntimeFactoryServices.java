@@ -27,7 +27,6 @@ package com.osrsfliphub;
 final class GeLifecyclePluginRuntimeFactoryServices {
     private final GeLifecycleOfferUiRuntimeFactory offerUiRuntimeFactory = new GeLifecycleOfferUiRuntimeFactory();
     private final GeLifecycleUploadRuntimeFactory uploadRuntimeFactory = new GeLifecycleUploadRuntimeFactory();
-    private final GeLifecyclePanelLocalRuntimeFactory panelLocalRuntimeFactory = new GeLifecyclePanelLocalRuntimeFactory();
     private final GeLifecycleProfileLinkWorkflowRuntimeFactory profileLinkWorkflowRuntimeFactory = new GeLifecycleProfileLinkWorkflowRuntimeFactory();
     private final GeLifecycleCoreFeatureRuntimeFactory coreFeatureRuntimeFactory = new GeLifecycleCoreFeatureRuntimeFactory();
     private final GeLifecyclePluginRuntimeFactoryContext context;
@@ -91,34 +90,6 @@ final class GeLifecyclePluginRuntimeFactoryServices {
         );
     }
 
-    GeLifecyclePanelLocalRuntimeServices createPanelLocalRuntimeServices() {
-        return panelLocalRuntimeFactory.create(
-            context.accountwideKey,
-            context.maxLocalTrades,
-            context.localEventBucketMs,
-            context.duplicateTradeWindowMs,
-            context.localStatsLock,
-            context.localTradeDeltasByAccount,
-            context.loadedProfiles,
-            context.localTradesLoadState,
-            context.itemServicesSupplier,
-            context.currentQuerySupplier,
-            context.bookmarkFilterEnabledSupplier,
-            context.bookmarkedItemsSupplier,
-            context.currentPageSupplier,
-            context.panelSupplier,
-            context.statsTradesServicesSupplier,
-            context.offerPreviewRuntimeFacadeServiceSupplier,
-            context.clientSupplier,
-            context.offerUpdateStamps,
-            context.schedulerSupplier,
-            context.clientThreadSupplier,
-            context.setLocalTradesLoadedThisLoginAction,
-            context.backfillServicesSupplier,
-            context.uploadBackfillDispatchServiceSupplier,
-            context.profileWorkflowServiceSupplier
-        );
-    }
 
     GeLifecycleProfileLinkWorkflowRuntimeServices createProfileLinkWorkflowRuntimeServices() {
         return profileLinkWorkflowRuntimeFactory.create(

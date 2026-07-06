@@ -77,8 +77,8 @@ final class OfferPreviewSyncService {
 
             @Override
             public FlipHubItem buildLocalOfferPreview(int itemId) {
-                return PluginAccess.plugin().getPanelLocalRuntimeServices()
-                    .getPanelDataRuntimeService().buildLocalOfferPreview(itemId);
+                return PluginInjectorBridge.get(GeLifecyclePanelDataRuntimeService.class)
+                    .buildLocalOfferPreview(itemId);
             }
 
             @Override

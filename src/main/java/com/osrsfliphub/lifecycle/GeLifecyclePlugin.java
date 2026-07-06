@@ -108,7 +108,6 @@ public class GeLifecyclePlugin extends Plugin {
     final PanelRefreshCoordinatorFactoryService panelRefreshCoordinatorFactoryService = new PanelRefreshCoordinatorFactoryService();
     GeLifecycleCoreFeatureRuntimeServices coreFeatureRuntimeServices;
     GeLifecycleOfferUiRuntimeServices offerUiRuntimeServices;
-    GeLifecyclePanelLocalRuntimeServices panelLocalRuntimeServices;
     final GeLifecyclePanelBootstrapService panelBootstrapService = new GeLifecyclePanelBootstrapService();
     final GeLifecycleRuntimeSchedulerServices runtimeSchedulerServices = new GeLifecycleRuntimeSchedulerServices();
     final GeLifecycleRuntimeUtilityServices runtimeUtilityServices = new GeLifecycleRuntimeUtilityServices();
@@ -275,15 +274,6 @@ public class GeLifecyclePlugin extends Plugin {
         return services;
     }
 
-    GeLifecyclePanelLocalRuntimeServices getPanelLocalRuntimeServices() {
-        GeLifecyclePanelLocalRuntimeServices service = panelLocalRuntimeServices;
-        if (service != null) {
-            return service;
-        }
-        service = getRuntimeFactoryServices().createPanelLocalRuntimeServices();
-        panelLocalRuntimeServices = service;
-        return service;
-    }
 
     GeLifecycleLocalTradesRuntimeService getLocalTradesRuntimeService() {
         return PluginInjectorBridge.get(GeLifecycleLocalTradesRuntimeService.class);
