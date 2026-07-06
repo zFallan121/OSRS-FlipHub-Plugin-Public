@@ -98,31 +98,7 @@ final class GeLifecycleUploadRuntimeServices {
     }
 
     UploadEventDispatchFacadeService getUploadEventDispatchFacadeService() {
-        UploadEventDispatchFacadeService service = uploadEventDispatchFacadeService;
-        if (service != null) {
-            return service;
-        }
-        service = new UploadEventDispatchFacadeService(
-            uploadState,
-            maxPendingUploadEvents,
-            maxBatchSize,
-            new UploadEventDispatchPluginHooks(
-                () -> runtimeUtilityServices.isClientLoggedIn(clientSupplier.get()),
-                this::requeue,
-                this::attemptRefresh,
-                this::clearSession,
-                () -> runtimeUtilityServices.isPanelVisible(panelSupplier.get()),
-                () -> profileWorkflowServiceSupplier.get().updateProfileHeader(),
-                () -> {
-                    FlipHubPanel panel = panelSupplier.get();
-                    if (panel != null) {
-                        panel.setUploadDiagnosticsTooltip(null);
-                    }
-                }
-            )
-        );
-        uploadEventDispatchFacadeService = service;
-        return service;
+        return PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
     }
 
     UploadBackfillDispatchService getUploadBackfillDispatchService() {
@@ -203,16 +179,7 @@ final class GeLifecycleUploadRuntimeServices {
     }
 
     BackfillRetryScheduler getBackfillRetryScheduler() {
-        BackfillRetryScheduler service = backfillRetryScheduler;
-        if (service != null) {
-            return service;
-        }
-        service = new BackfillRetryScheduler(
-            backfillRetryIntervalSeconds,
-            backfillRetryMaxIntervalSeconds
-        );
-        backfillRetryScheduler = service;
-        return service;
+        return PluginInjectorBridge.get(BackfillRetryScheduler.class);
     }
 
     private SessionRefreshService getSessionRefreshService() {

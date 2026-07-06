@@ -26,8 +26,11 @@ package com.osrsfliphub;
 
 import java.util.List;
 import java.util.function.Predicate;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import org.slf4j.Logger;
 
+@Singleton
 final class UploadEventDispatchFacadeService {
     interface Hooks {
         boolean isClientLoggedIn();
@@ -43,6 +46,59 @@ final class UploadEventDispatchFacadeService {
     private final int maxPendingUploadEvents;
     private final int maxBatchSize;
     private final Hooks hooks;
+
+    @Inject
+    UploadEventDispatchFacadeService(PluginState pluginState) {
+        this(pluginState.getUploadState(),
+            GeLifecyclePluginConstants.MAX_PENDING_UPLOAD_EVENTS,
+            GeLifecyclePluginConstants.MAX_BATCH_SIZE,
+            new Hooks() {
+                @Override
+                public boolean isClientLoggedIn() {
+                    return PluginAccess.plugin().runtimeUtilityServices
+                        .isClientLoggedIn(PluginAccess.plugin().client);
+                }
+
+                @Override
+                public void requeue(List<GeEvent> batch) {
+                    PluginAccess.plugin().runtimeUtilityServices.requeue(
+                        PluginInjectorBridge.get(UploadEventDispatchFacadeService.class), batch);
+                }
+
+                @Override
+                public boolean attemptRefresh(String currentToken) {
+                    SessionRefreshService service = PluginInjectorBridge.get(SessionRefreshService.class);
+                    return service != null && service.attemptRefresh(currentToken);
+                }
+
+                @Override
+                public void clearSession() {
+                    SessionRefreshService service = PluginInjectorBridge.get(SessionRefreshService.class);
+                    if (service != null) {
+                        service.clearSession();
+                    }
+                }
+
+                @Override
+                public boolean isPanelVisible() {
+                    return PluginAccess.plugin().runtimeUtilityServices
+                        .isPanelVisible(PluginAccess.plugin().panel);
+                }
+
+                @Override
+                public void updateProfileHeader() {
+                    PluginAccess.plugin().getProfileWorkflowService().updateProfileHeader();
+                }
+
+                @Override
+                public void clearUploadDiagnosticsTooltip() {
+                    FlipHubPanel panel = PluginAccess.plugin().panel;
+                    if (panel != null) {
+                        panel.setUploadDiagnosticsTooltip(null);
+                    }
+                }
+            });
+    }
 
     UploadEventDispatchFacadeService(UploadDiagnosticsState uploadState,
                                      int maxPendingUploadEvents,

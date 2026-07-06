@@ -28,13 +28,22 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class BackfillRetryScheduler {
     private final long baseRetryIntervalSeconds;
     private final long maxRetryIntervalSeconds;
     private final Object scheduleLock = new Object();
     private final AtomicLong retryDelaySeconds;
     private volatile ScheduledFuture<?> retryFuture;
+
+    @Inject
+    BackfillRetryScheduler() {
+        this(GeLifecyclePluginConstants.BACKFILL_RETRY_INTERVAL_SECONDS,
+            GeLifecyclePluginConstants.BACKFILL_RETRY_MAX_INTERVAL_SECONDS);
+    }
 
     BackfillRetryScheduler(long baseRetryIntervalSeconds, long maxRetryIntervalSeconds) {
         this.baseRetryIntervalSeconds = Math.max(1L, baseRetryIntervalSeconds);
