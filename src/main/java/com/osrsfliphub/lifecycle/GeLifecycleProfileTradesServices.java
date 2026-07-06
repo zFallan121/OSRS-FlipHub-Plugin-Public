@@ -144,22 +144,7 @@ final class GeLifecycleProfileTradesServices {
     }
 
     ProfileTradesLoader getProfileTradesLoader() {
-        ProfileTradesLoader loader = profileTradesLoader;
-        if (loader != null) {
-            return loader;
-        }
-        loader = new ProfileTradesLoader(
-            accountwideKey,
-            new ProfileTradesLoaderPluginHooks(
-                profileStorageFacadeServiceSupplier,
-                profileFileModifiedMsFn,
-                this::getAccountwideTradesMergeService,
-                displayName -> getLocalTradesRuntimeService().isPlaceholderDisplayName(displayName),
-                profileSelectionPresentationFacadeServiceSupplier
-            )
-        );
-        profileTradesLoader = loader;
-        return loader;
+        return PluginInjectorBridge.get(ProfileTradesLoader.class);
     }
 
     private GeLifecycleLocalTradesRuntimeService getLocalTradesRuntimeService() {

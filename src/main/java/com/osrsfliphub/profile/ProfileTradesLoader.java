@@ -28,7 +28,10 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+@Singleton
 final class ProfileTradesLoader {
     interface Hooks {
         Path getProfileFile(long accountHash);
@@ -55,6 +58,60 @@ final class ProfileTradesLoader {
 
     private final long accountwideKey;
     private final Hooks hooks;
+
+    @Inject
+    ProfileTradesLoader() {
+        this(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY, new Hooks() {
+            @Override
+            public Path getProfileFile(long accountHash) {
+                ProfileStorageFacadeService service = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
+                return service != null ? service.getProfileFile(accountHash) : null;
+            }
+
+            @Override
+            public long getProfileFileModifiedMs(Path file) {
+                return PluginAccess.plugin().getProfileFileModifiedMs(file);
+            }
+
+            @Override
+            public ProfileData readProfileData(long accountHash) {
+                ProfileStorageFacadeService service = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
+                return service != null ? service.readProfileData(accountHash) : null;
+            }
+
+            @Override
+            public List<LocalTradeDelta> buildAccountwideFromDisk() {
+                AccountwideTradesMergeService service = PluginInjectorBridge.get(AccountwideTradesMergeService.class);
+                return service != null ? service.buildAccountwideFromDisk() : null;
+            }
+
+            @Override
+            public List<LocalTradeDelta> readLegacyLocalTrades(long accountHash) {
+                ProfileStorageFacadeService service = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
+                return service != null ? service.readLegacyLocalTrades(accountHash) : null;
+            }
+
+            @Override
+            public boolean isPlaceholderDisplayName(String displayName) {
+                GeLifecycleLocalTradesRuntimeService runtime = PluginAccess.plugin().getLocalTradesRuntimeService();
+                return runtime != null && runtime.isPlaceholderDisplayName(displayName);
+            }
+
+            @Override
+            public String displayNameFromLegacyKey(String legacyKey) {
+                ProfileSelectionPresentationFacadeService service =
+                    PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
+                return service != null ? service.displayNameFromLegacyKey(legacyKey) : null;
+            }
+
+            @Override
+            public String resolveLegacyDisplayNameForHash(long accountHash) {
+                ProfileSelectionPresentationFacadeService service =
+                    PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
+                return service != null ? service.resolveLegacyDisplayNameForHash(accountHash) : null;
+            }
+        });
+    }
 
     ProfileTradesLoader(long accountwideKey, Hooks hooks) {
         this.accountwideKey = accountwideKey;
