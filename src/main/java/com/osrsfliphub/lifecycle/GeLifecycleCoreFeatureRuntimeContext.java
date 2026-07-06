@@ -44,7 +44,6 @@ final class GeLifecycleCoreFeatureRuntimeContext {
     final Gson gson;
     final OkHttpClient httpClient;
     final GeLifecycleRuntimeUtilityServices runtimeUtilityServices;
-    final PanelRefreshCoordinatorFactoryService panelRefreshCoordinatorFactoryService;
     final boolean hasItemManager;
 
     final Supplier<PluginConfig> configSupplier;
@@ -88,7 +87,6 @@ final class GeLifecycleCoreFeatureRuntimeContext {
         Gson gson,
         OkHttpClient httpClient,
         GeLifecycleRuntimeUtilityServices runtimeUtilityServices,
-        PanelRefreshCoordinatorFactoryService panelRefreshCoordinatorFactoryService,
         boolean hasItemManager,
         Supplier<PluginConfig> configSupplier,
         Supplier<ConfigManager> configManagerSupplier,
@@ -127,7 +125,6 @@ final class GeLifecycleCoreFeatureRuntimeContext {
         this.gson = gson;
         this.httpClient = httpClient;
         this.runtimeUtilityServices = runtimeUtilityServices;
-        this.panelRefreshCoordinatorFactoryService = panelRefreshCoordinatorFactoryService;
         this.hasItemManager = hasItemManager;
         this.configSupplier = configSupplier;
         this.configManagerSupplier = configManagerSupplier;

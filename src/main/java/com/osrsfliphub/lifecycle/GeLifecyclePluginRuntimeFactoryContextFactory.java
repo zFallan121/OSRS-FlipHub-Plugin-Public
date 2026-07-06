@@ -42,7 +42,6 @@ final class GeLifecyclePluginRuntimeFactoryContextFactory {
             plugin.offerUpdateStampConfigStore,
             plugin.offerUpdateStampLegacyMatcher,
             plugin.uploadState,
-            plugin.panelRefreshCoordinatorFactoryService,
             plugin.runtimeUtilityServices,
             plugin.gson,
             plugin.httpClient,

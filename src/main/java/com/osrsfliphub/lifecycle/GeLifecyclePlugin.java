@@ -105,7 +105,6 @@ public class GeLifecyclePlugin extends Plugin {
 
     ApiClient apiClient;
     GeLifecycleProfileLinkWorkflowRuntimeServices profileLinkWorkflowRuntimeServices;
-    final PanelRefreshCoordinatorFactoryService panelRefreshCoordinatorFactoryService = new PanelRefreshCoordinatorFactoryService();
     GeLifecycleCoreFeatureRuntimeServices coreFeatureRuntimeServices;
     GeLifecycleOfferUiRuntimeServices offerUiRuntimeServices;
     final GeLifecyclePanelBootstrapService panelBootstrapService = new GeLifecyclePanelBootstrapService();
@@ -341,7 +340,7 @@ public class GeLifecyclePlugin extends Plugin {
     }
 
     PanelRefreshCoordinator getPanelRefreshCoordinator() {
-        return getCoreFeatureRuntimeServices().getPanelRefreshCoordinator();
+        return PluginInjectorBridge.get(PanelRefreshCoordinator.class);
     }
 
     GeLifecycleBackfillServices getBackfillServices() {

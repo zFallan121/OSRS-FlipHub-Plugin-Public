@@ -164,26 +164,6 @@ final class GeLifecycleCoreFeatureFactory {
         );
     }
 
-    static PanelRefreshCoordinator createPanelRefreshCoordinator(
-        GeLifecycleCoreFeatureRuntimeContext context,
-        Supplier<GeLifecycleProfileWorkflowService> profileWorkflowServiceSupplier
-    ) {
-        return context.panelRefreshCoordinatorFactoryService.create(
-            new PanelRefreshCoordinatorPluginHooks(
-                () -> context.runtimeUtilityServices.isClientFullyReady(context.clientSupplier.get()),
-                () -> context.runtimeUtilityServices.isPanelVisible(context.panelSupplier.get()),
-                context.panelSupplier,
-                () -> profileWorkflowServiceSupplier.get().ensureSelectedProfileLoaded(),
-                () -> profileWorkflowServiceSupplier.get().updateProfileHeader(),
-                context.clientThreadSupplier,
-                () -> context.panelDataRuntimeServiceSupplier.get().updateLocalItemsPanel(),
-                () -> context.panelDataRuntimeServiceSupplier.get().renderLocalStats(),
-                context.executeAsyncConsumer,
-                context.loggerSupplier
-            )
-        );
-    }
-
     static GeLifecycleBackfillServices createBackfillServices(
         GeLifecycleCoreFeatureRuntimeContext context,
         Supplier<GeLifecycleStatsTradesServices> statsTradesServicesSupplier,

@@ -49,7 +49,6 @@ final class GeLifecyclePluginRuntimeFactoryContext {
     final OfferUpdateStampConfigStore offerUpdateStampConfigStore;
     final OfferUpdateStampLegacyMatcher offerUpdateStampLegacyMatcher;
     final UploadDiagnosticsState uploadState;
-    final PanelRefreshCoordinatorFactoryService panelRefreshCoordinatorFactoryService;
     final GeLifecycleRuntimeUtilityServices runtimeUtilityServices;
     final Gson gson;
     final OkHttpClient httpClient;
@@ -138,7 +137,6 @@ final class GeLifecyclePluginRuntimeFactoryContext {
         OfferUpdateStampConfigStore offerUpdateStampConfigStore,
         OfferUpdateStampLegacyMatcher offerUpdateStampLegacyMatcher,
         UploadDiagnosticsState uploadState,
-        PanelRefreshCoordinatorFactoryService panelRefreshCoordinatorFactoryService,
         GeLifecycleRuntimeUtilityServices runtimeUtilityServices,
         Gson gson,
         OkHttpClient httpClient,
@@ -218,7 +216,6 @@ final class GeLifecyclePluginRuntimeFactoryContext {
         this.offerUpdateStampConfigStore = offerUpdateStampConfigStore;
         this.offerUpdateStampLegacyMatcher = offerUpdateStampLegacyMatcher;
         this.uploadState = uploadState;
-        this.panelRefreshCoordinatorFactoryService = panelRefreshCoordinatorFactoryService;
         this.runtimeUtilityServices = runtimeUtilityServices;
         this.gson = gson;
         this.httpClient = httpClient;

@@ -52,7 +52,6 @@ final class GeLifecycleCoreFeatureRuntimeServices {
         Gson gson,
         OkHttpClient httpClient,
         GeLifecycleRuntimeUtilityServices runtimeUtilityServices,
-        PanelRefreshCoordinatorFactoryService panelRefreshCoordinatorFactoryService,
         boolean hasItemManager,
         Supplier<PluginConfig> configSupplier,
         Supplier<ConfigManager> configManagerSupplier,
@@ -92,7 +91,6 @@ final class GeLifecycleCoreFeatureRuntimeServices {
             gson,
             httpClient,
             runtimeUtilityServices,
-            panelRefreshCoordinatorFactoryService,
             hasItemManager,
             configSupplier,
             configManagerSupplier,
@@ -164,16 +162,7 @@ final class GeLifecycleCoreFeatureRuntimeServices {
     }
 
     PanelRefreshCoordinator getPanelRefreshCoordinator() {
-        PanelRefreshCoordinator coordinator = panelRefreshCoordinator;
-        if (coordinator != null) {
-            return coordinator;
-        }
-        coordinator = GeLifecycleCoreFeatureFactory.createPanelRefreshCoordinator(
-            context,
-            this::getProfileWorkflowService
-        );
-        panelRefreshCoordinator = coordinator;
-        return coordinator;
+        return PluginInjectorBridge.get(PanelRefreshCoordinator.class);
     }
 
     GeLifecycleBackfillServices getBackfillServices() {

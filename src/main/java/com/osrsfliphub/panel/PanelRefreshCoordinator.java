@@ -24,10 +24,15 @@
  */
 package com.osrsfliphub;
 
+import java.awt.EventQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.client.callback.ClientThread;
 
+@Singleton
 final class PanelRefreshCoordinator {
     private static final long REFRESH_DEBOUNCE_MILLIS = 75L;
 
@@ -51,6 +56,89 @@ final class PanelRefreshCoordinator {
     private final AtomicBoolean refreshQueued = new AtomicBoolean(false);
     private final AtomicBoolean refreshPending = new AtomicBoolean(false);
     private final AtomicBoolean statsRefreshInFlight = new AtomicBoolean(false);
+
+    @Inject
+    PanelRefreshCoordinator() {
+        this(new Hooks() {
+            @Override
+            public boolean isEventDispatchThread() {
+                return EventQueue.isDispatchThread();
+            }
+
+            @Override
+            public boolean isClientFullyReady() {
+                return PluginAccess.plugin().runtimeUtilityServices
+                    .isClientFullyReady(PluginAccess.plugin().client);
+            }
+
+            @Override
+            public boolean isPanelVisible() {
+                return PluginAccess.plugin().runtimeUtilityServices
+                    .isPanelVisible(PluginAccess.plugin().panel);
+            }
+
+            @Override
+            public boolean hasPanel() {
+                return PluginAccess.plugin().panel != null;
+            }
+
+            @Override
+            public boolean isStatsTabSelected() {
+                FlipHubPanel panel = PluginAccess.plugin().panel;
+                return panel != null && panel.isStatsTabSelected();
+            }
+
+            @Override
+            public void ensureSelectedProfileLoaded() {
+                PluginAccess.plugin().getProfileWorkflowService().ensureSelectedProfileLoaded();
+            }
+
+            @Override
+            public void updateProfileHeader() {
+                PluginAccess.plugin().getProfileWorkflowService().updateProfileHeader();
+            }
+
+            @Override
+            public void invokeOnClientThreadOrRun(Runnable task) {
+                if (task == null) {
+                    return;
+                }
+                ClientThread clientThread = PluginAccess.plugin().clientThread;
+                if (clientThread != null) {
+                    clientThread.invokeLater(task);
+                } else {
+                    task.run();
+                }
+            }
+
+            @Override
+            public void updateLocalItemsPanel() {
+                PluginInjectorBridge.get(GeLifecyclePanelDataRuntimeService.class).updateLocalItemsPanel();
+            }
+
+            @Override
+            public void renderLocalStats() {
+                PluginInjectorBridge.get(GeLifecyclePanelDataRuntimeService.class).renderLocalStats();
+            }
+
+            @Override
+            public void executeAsync(Runnable task) {
+                PluginAccess.plugin().executeAsync(task);
+            }
+
+            @Override
+            public void logWarn(String message, Throwable error) {
+                if (message == null) {
+                    return;
+                }
+                if (error != null) {
+                    GeLifecyclePlugin.log.warn(message, error);
+                } else {
+                    GeLifecyclePlugin.log.warn(message);
+                }
+            }
+        });
+    }
 
     PanelRefreshCoordinator(Hooks hooks) {
         this.hooks = hooks;

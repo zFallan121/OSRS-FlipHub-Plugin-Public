@@ -126,7 +126,6 @@ final class GeLifecyclePluginRuntimeFactoryServices {
             context.gson,
             context.httpClient,
             context.runtimeUtilityServices,
-            context.panelRefreshCoordinatorFactoryService,
             context.itemManagerSupplier,
             context.configSupplier,
             context.configManagerSupplier,

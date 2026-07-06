@@ -173,7 +173,7 @@ final class GeLifecycleOfferUiRuntimeServices {
     }
 
     private PanelRefreshCoordinator getPanelRefreshCoordinator() {
-        return context.panelRefreshCoordinatorSupplier.get();
+        return PluginInjectorBridge.get(PanelRefreshCoordinator.class);
     }
 
     private GeLifecycleStatsTradesServices getStatsTradesServices() {
