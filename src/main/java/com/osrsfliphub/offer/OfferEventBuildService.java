@@ -147,7 +147,7 @@ final class OfferEventBuildService {
             @Override
             public boolean hasRecentLocalBuy(int itemId, long nowMs) {
                 LocalTradeSessionFacadeService service =
-                    PluginAccess.plugin().getStatsTradesServices().getLocalTradeSessionFacadeService();
+                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
                 if (service == null) {
                     return false;
                 }

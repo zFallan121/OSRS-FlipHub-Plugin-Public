@@ -63,7 +63,7 @@ final class LocalStatsSnapshotService {
             @Override
             public LocalStatsCache getOrBuildStatsCache(long accountKey) {
                 LocalStatsCacheService service =
-                    PluginAccess.plugin().getStatsTradesServices().getLocalStatsCacheService();
+                    PluginInjectorBridge.get(LocalStatsCacheService.class);
                 return service != null ? service.getOrBuild(accountKey) : null;
             }
 
@@ -84,7 +84,7 @@ final class LocalStatsSnapshotService {
             @Override
             public Set<Long> collectAccountwideProfileKeys() {
                 AccountwideProfileKeyCollector collector =
-                    PluginAccess.plugin().getStatsTradesServices().getAccountwideProfileKeyCollector();
+                    PluginInjectorBridge.get(AccountwideProfileKeyCollector.class);
                 ProfileStorageFacadeService storage = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
                 if (collector == null || storage == null) {
                     return Collections.emptySet();

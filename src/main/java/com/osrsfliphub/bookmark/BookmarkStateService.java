@@ -83,8 +83,8 @@ final class BookmarkStateService {
 
             @Override
             public Long resolveActiveProfileKey() {
-                GeLifecycleStatsTradesServices statsTrades = PluginAccess.plugin().getStatsTradesServices();
-                LocalAccountSessionService localAccountSessionService = statsTrades.getLocalAccountSessionService();
+                LocalAccountSessionService localAccountSessionService =
+                    PluginInjectorBridge.get(LocalAccountSessionService.class);
                 if (localAccountSessionService != null) {
                     long localAccountKey = localAccountSessionService.resolveLocalAccountKey();
                     if (localAccountKey > 0) {
@@ -92,7 +92,7 @@ final class BookmarkStateService {
                     }
                 }
                 LocalTradeSessionFacadeService localTradeSessionFacadeService =
-                    statsTrades.getLocalTradeSessionFacadeService();
+                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
                 if (localTradeSessionFacadeService != null) {
                     long accountHash = localTradeSessionFacadeService.resolveAccountHash();
                     if (accountHash > 0) {

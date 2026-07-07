@@ -38,7 +38,6 @@ final class GeLifecycleCoreFeatureFactory {
         Supplier<GeLifecycleProfileWorkflowService> profileWorkflowServiceSupplier,
         Supplier<GeLifecycleOfferStampStateServices> offerStampStateServicesSupplier,
         Supplier<GeLifecycleBackfillServices> backfillServicesSupplier,
-        Supplier<GeLifecycleStatsTradesServices> statsTradesServicesSupplier,
         Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
         Supplier<UploadBackfillDispatchService> uploadBackfillDispatchServiceSupplier
     ) {
@@ -87,17 +86,17 @@ final class GeLifecycleCoreFeatureFactory {
             context.bookmarkStateServiceSupplier,
             () -> PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class),
             () -> backfillServicesSupplier.get().getBackfillMarketServices().getRecentTradeDeduper(),
-            () -> statsTradesServicesSupplier.get().getLocalTradeSessionFacadeService(),
+            () -> PluginInjectorBridge.get(LocalTradeSessionFacadeService.class),
             localTradesRuntimeServiceSupplier,
-            () -> statsTradesServicesSupplier.get().getLocalAccountSessionService(),
+            () -> PluginInjectorBridge.get(LocalAccountSessionService.class),
             () -> PluginInjectorBridge.get(ProfileStorageFacadeService.class),
             () -> PluginInjectorBridge.get(LegacyLocalTradesStore.class),
-            () -> statsTradesServicesSupplier.get().getLocalStatsCacheService(),
+            () -> PluginInjectorBridge.get(LocalStatsCacheService.class),
             () -> backfillServicesSupplier.get().getBackfillMarketServices().getWikiPriceService(),
-            () -> statsTradesServicesSupplier.get().getGeHistoryAutoSyncService(),
+            () -> PluginInjectorBridge.get(GeHistoryAutoSyncService.class),
             context.offerEventBuildServiceSupplier,
             context.loggerSupplier,
-            (event, baselineSynthetic) -> statsTradesServicesSupplier.get().getLocalTradeDeltaRecorder()
+            (event, baselineSynthetic) -> PluginInjectorBridge.get(LocalTradeDeltaRecorder.class)
                 .record(event, baselineSynthetic),
             event -> backfillServicesSupplier.get().getBackfillMarketServices().getRecentTradeDeduper()
                 .normalizeOrSuppress(event),
@@ -115,58 +114,13 @@ final class GeLifecycleCoreFeatureFactory {
             context.executeAsyncConsumer,
             accountHash -> localTradesRuntimeServiceSupplier.get().loadLocalTradesAsync(accountHash),
             (slot, previous, next) -> offerStampStateServicesSupplier.get().trackOfferUpdate(slot, previous, next),
-            () -> statsTradesServicesSupplier.get().getLocalTradeSessionFacadeService().resolveAccountHash(),
+            () -> PluginInjectorBridge.get(LocalTradeSessionFacadeService.class).resolveAccountHash(),
             accountKey -> localTradesRuntimeServiceSupplier.get().ensureLocalTradesLoaded(accountKey)
-        );
-    }
-
-    static GeLifecycleStatsTradesServices createStatsTradesServices(
-        GeLifecycleCoreFeatureRuntimeContext context,
-        Supplier<GeLifecycleBackfillServices> backfillServicesSupplier,
-        Supplier<PanelRefreshCoordinator> panelRefreshCoordinatorSupplier,
-        Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
-        Supplier<GeLifecycleProfileWorkflowService> profileWorkflowServiceSupplier
-    ) {
-        return new GeLifecycleStatsTradesServices(
-            context.gson,
-            context.sharedState,
-            localTradesRuntimeServiceSupplier,
-            context.itemServicesSupplier,
-            () -> PluginInjectorBridge.get(ProfileStorageFacadeService.class),
-            () -> PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class),
-            () -> PluginInjectorBridge.get(AccountwideStatsAggregator.class),
-            profileWorkflowServiceSupplier,
-            context.clientSupplier,
-            context.currentStatsRangeSupplier,
-            context.currentStatsSortSupplier,
-            context.invokeOnClientThreadConsumer,
-            context.executeOnSchedulerConsumer,
-            () -> context.runtimeUtilityServices.triggerStatsRefresh(
-                panelRefreshCoordinatorSupplier.get(),
-                context.schedulerSupplier.get()
-            ),
-            () -> context.runtimeUtilityServices.triggerPanelRefresh(
-                panelRefreshCoordinatorSupplier.get(),
-                context.schedulerSupplier.get()
-            ),
-            () -> backfillServicesSupplier.get().getBackfillMarketServices().getBackfillUploader(),
-            context.uploadEventDispatchFacadeServiceSupplier,
-            context.uploadBackfillDispatchServiceSupplier,
-            context.legacyLocalTradesFilterServiceSupplier,
-            () -> PluginInjectorBridge.get(LegacyLocalTradesStore.class),
-            context.markAccountwideUploadDirtyAction,
-            () -> context.runtimeUtilityServices.scheduleRefreshSoon(
-                panelRefreshCoordinatorSupplier.get(),
-                context.schedulerSupplier.get()
-            ),
-            context.profileFileModifiedMsFn,
-            context.configManagerSupplier
         );
     }
 
     static GeLifecycleBackfillServices createBackfillServices(
         GeLifecycleCoreFeatureRuntimeContext context,
-        Supplier<GeLifecycleStatsTradesServices> statsTradesServicesSupplier,
         Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
         Supplier<PanelRefreshCoordinator> panelRefreshCoordinatorSupplier,
         Function<String, ApiClient.StatsSummaryResponse> fetchRemoteStatsSummaryByToken
@@ -177,13 +131,13 @@ final class GeLifecycleCoreFeatureFactory {
             context.configManagerSupplier,
             context.uploadBackfillDispatchServiceSupplier,
             context.uploadEventDispatchFacadeServiceSupplier,
-            () -> statsTradesServicesSupplier.get().getAccountwideProfileKeyCollector(),
+            () -> PluginInjectorBridge.get(AccountwideProfileKeyCollector.class),
             () -> PluginInjectorBridge.get(ProfileStorageFacadeService.class),
             context.sharedState,
             () -> PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class),
-            () -> statsTradesServicesSupplier.get().getBackfilledProfilesStore(),
+            () -> PluginInjectorBridge.get(BackfilledProfilesStore.class),
             accountKey -> localTradesRuntimeServiceSupplier.get().ensureProfileLoaded(accountKey),
-            () -> statsTradesServicesSupplier.get().getLocalStatsSnapshotService(),
+            () -> PluginInjectorBridge.get(LocalStatsSnapshotService.class),
             fetchRemoteStatsSummaryByToken::apply,
             () -> context.runtimeUtilityServices.triggerStatsRefresh(
                 panelRefreshCoordinatorSupplier.get(),
@@ -193,7 +147,7 @@ final class GeLifecycleCoreFeatureFactory {
                 panelRefreshCoordinatorSupplier.get(),
                 context.schedulerSupplier.get()
             ),
-            () -> statsTradesServicesSupplier.get().getLocalTradeSessionFacadeService(),
+            () -> PluginInjectorBridge.get(LocalTradeSessionFacadeService.class),
             context.clientSupplier,
             context.clientThreadSupplier,
             () -> context.itemServicesSupplier.get().getItemLookupService(),

@@ -105,16 +105,16 @@ final class OfferUpdateStampPersistenceService {
 
             @Override
             public long resolveCurrentAccountKey() {
-                GeLifecycleStatsTradesServices statsTrades = PluginAccess.plugin().getStatsTradesServices();
                 LocalTradeSessionFacadeService localTradeSessionFacadeService =
-                    statsTrades.getLocalTradeSessionFacadeService();
+                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
                 if (localTradeSessionFacadeService != null) {
                     long accountHash = localTradeSessionFacadeService.resolveAccountHash();
                     if (accountHash > 0) {
                         return accountHash;
                     }
                 }
-                LocalAccountSessionService localAccountSessionService = statsTrades.getLocalAccountSessionService();
+                LocalAccountSessionService localAccountSessionService =
+                    PluginInjectorBridge.get(LocalAccountSessionService.class);
                 return localAccountSessionService != null ? localAccountSessionService.resolveLocalAccountKey() : -1L;
             }
 

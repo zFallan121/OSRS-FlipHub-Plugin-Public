@@ -117,7 +117,7 @@ final class AccountwideBackfillCoordinator {
             @Override
             public LocalStatsSnapshot buildLocalStatsSnapshot(long key) {
                 LocalStatsSnapshotService service =
-                    PluginAccess.plugin().getStatsTradesServices().getLocalStatsSnapshotService();
+                    PluginInjectorBridge.get(LocalStatsSnapshotService.class);
                 return service != null ? service.buildSnapshot(key, null, StatsItemSort.COMPLETION) : null;
             }
 

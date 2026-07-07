@@ -37,7 +37,6 @@ final class GeLifecycleOfferUiDataFactory {
         Supplier<PanelRefreshCoordinator> panelRefreshCoordinatorSupplier,
         Supplier<GeLifecycleBackfillServices> backfillServicesSupplier,
         Supplier<GeLifecycleProfileWorkflowService> profileWorkflowServiceSupplier,
-        Supplier<GeLifecycleStatsTradesServices> statsTradesServicesSupplier,
         Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier
     ) {
         return new GeLifecycleItemServices(
@@ -55,8 +54,8 @@ final class GeLifecycleOfferUiDataFactory {
             context.itemNameCache,
             () -> backfillServicesSupplier.get().getBackfillMarketServices().getLocalItemEnrichmentService(),
             () -> PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class),
-            () -> statsTradesServicesSupplier.get().getLocalAccountSessionService(),
-            () -> statsTradesServicesSupplier.get().getLocalTradeSessionFacadeService(),
+            () -> PluginInjectorBridge.get(LocalAccountSessionService.class),
+            () -> PluginInjectorBridge.get(LocalTradeSessionFacadeService.class),
             context.clientSupplier,
             context.hiddenItems::contains,
             () -> backfillServicesSupplier.get().getBackfillMarketServices().getGeLimitService(),

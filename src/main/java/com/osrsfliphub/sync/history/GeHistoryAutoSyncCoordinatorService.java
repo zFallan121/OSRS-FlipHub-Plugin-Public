@@ -91,7 +91,7 @@ final class GeHistoryAutoSyncCoordinatorService {
             @Override
             public long resolveLocalAccountKey() {
                 LocalAccountSessionService service =
-                    PluginAccess.plugin().getStatsTradesServices().getLocalAccountSessionService();
+                    PluginInjectorBridge.get(LocalAccountSessionService.class);
                 return service != null ? service.resolveLocalAccountKey() : -1L;
             }
 

@@ -46,7 +46,6 @@ final class GeLifecyclePluginRuntimeFactoryServices {
             context.panelSupplier,
             context.schedulerSupplier,
             context.panelRefreshCoordinatorSupplier,
-            context.statsTradesServicesSupplier,
             context.localTradesRuntimeServiceSupplier,
             context.backfillServicesSupplier,
             context.profileWorkflowServiceSupplier,

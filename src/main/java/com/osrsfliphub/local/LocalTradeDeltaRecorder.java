@@ -84,7 +84,7 @@ final class LocalTradeDeltaRecorder {
             @Override
             public void applyDeltaToStatsCache(long accountKey, LocalTradeDelta delta) {
                 LocalStatsCacheService service =
-                    PluginAccess.plugin().getStatsTradesServices().getLocalStatsCacheService();
+                    PluginInjectorBridge.get(LocalStatsCacheService.class);
                 if (service != null) {
                     service.applyDelta(accountKey, delta);
                 }

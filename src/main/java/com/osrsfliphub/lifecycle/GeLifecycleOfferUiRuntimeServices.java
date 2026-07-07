@@ -59,7 +59,6 @@ final class GeLifecycleOfferUiRuntimeServices {
         Supplier<FlipHubPanel> panelSupplier,
         Supplier<ScheduledExecutorService> schedulerSupplier,
         Supplier<PanelRefreshCoordinator> panelRefreshCoordinatorSupplier,
-        Supplier<GeLifecycleStatsTradesServices> statsTradesServicesSupplier,
         Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
         Supplier<GeLifecycleBackfillServices> backfillServicesSupplier,
         Supplier<GeLifecycleProfileWorkflowService> profileWorkflowServiceSupplier,
@@ -89,7 +88,6 @@ final class GeLifecycleOfferUiRuntimeServices {
             panelSupplier,
             schedulerSupplier,
             panelRefreshCoordinatorSupplier,
-            statsTradesServicesSupplier,
             localTradesRuntimeServiceSupplier,
             backfillServicesSupplier,
             profileWorkflowServiceSupplier,
@@ -131,7 +129,6 @@ final class GeLifecycleOfferUiRuntimeServices {
             context,
             this::getEventManageHistoryServices,
             this::getPanelRefreshCoordinator,
-            this::getStatsTradesServices,
             this::getLocalTradesRuntimeService,
             this::getProfileWorkflowService
         );
@@ -149,7 +146,6 @@ final class GeLifecycleOfferUiRuntimeServices {
             this::getPanelRefreshCoordinator,
             this::getBackfillServices,
             this::getProfileWorkflowService,
-            this::getStatsTradesServices,
             this::getLocalTradesRuntimeService
         );
         itemServices = services;
@@ -174,10 +170,6 @@ final class GeLifecycleOfferUiRuntimeServices {
 
     private PanelRefreshCoordinator getPanelRefreshCoordinator() {
         return PluginInjectorBridge.get(PanelRefreshCoordinator.class);
-    }
-
-    private GeLifecycleStatsTradesServices getStatsTradesServices() {
-        return context.statsTradesServicesSupplier.get();
     }
 
     private GeLifecycleLocalTradesRuntimeService getLocalTradesRuntimeService() {

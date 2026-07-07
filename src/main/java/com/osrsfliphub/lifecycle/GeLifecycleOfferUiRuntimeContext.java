@@ -46,7 +46,6 @@ final class GeLifecycleOfferUiRuntimeContext {
     final Supplier<FlipHubPanel> panelSupplier;
     final Supplier<ScheduledExecutorService> schedulerSupplier;
     final Supplier<PanelRefreshCoordinator> panelRefreshCoordinatorSupplier;
-    final Supplier<GeLifecycleStatsTradesServices> statsTradesServicesSupplier;
     final Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier;
     final Supplier<GeLifecycleBackfillServices> backfillServicesSupplier;
     final Supplier<GeLifecycleProfileWorkflowService> profileWorkflowServiceSupplier;
@@ -76,7 +75,6 @@ final class GeLifecycleOfferUiRuntimeContext {
         Supplier<FlipHubPanel> panelSupplier,
         Supplier<ScheduledExecutorService> schedulerSupplier,
         Supplier<PanelRefreshCoordinator> panelRefreshCoordinatorSupplier,
-        Supplier<GeLifecycleStatsTradesServices> statsTradesServicesSupplier,
         Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
         Supplier<GeLifecycleBackfillServices> backfillServicesSupplier,
         Supplier<GeLifecycleProfileWorkflowService> profileWorkflowServiceSupplier,
@@ -105,7 +103,6 @@ final class GeLifecycleOfferUiRuntimeContext {
         this.panelSupplier = panelSupplier;
         this.schedulerSupplier = schedulerSupplier;
         this.panelRefreshCoordinatorSupplier = panelRefreshCoordinatorSupplier;
-        this.statsTradesServicesSupplier = statsTradesServicesSupplier;
         this.localTradesRuntimeServiceSupplier = localTradesRuntimeServiceSupplier;
         this.backfillServicesSupplier = backfillServicesSupplier;
         this.profileWorkflowServiceSupplier = profileWorkflowServiceSupplier;

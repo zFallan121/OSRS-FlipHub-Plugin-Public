@@ -77,7 +77,6 @@ final class GeLifecyclePluginRuntimeFactoryContextFactory {
             () -> plugin.apiClient,
             () -> GeLifecyclePlugin.log,
             plugin::getPanelRefreshCoordinator,
-            plugin::getStatsTradesServices,
             plugin::getLocalTradesRuntimeService,
             plugin::getBackfillServices,
             plugin::getProfileWorkflowService,

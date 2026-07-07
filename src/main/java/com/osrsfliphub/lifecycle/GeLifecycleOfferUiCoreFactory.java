@@ -38,7 +38,6 @@ final class GeLifecycleOfferUiCoreFactory {
         GeLifecycleOfferUiRuntimeContext context,
         Supplier<GeLifecycleEventManageHistoryServices> eventManageHistoryServicesSupplier,
         Supplier<PanelRefreshCoordinator> panelRefreshCoordinatorSupplier,
-        Supplier<GeLifecycleStatsTradesServices> statsTradesServicesSupplier,
         Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
         Supplier<GeLifecycleProfileWorkflowService> profileWorkflowServiceSupplier
     ) {
@@ -54,11 +53,11 @@ final class GeLifecycleOfferUiCoreFactory {
                 context.schedulerSupplier.get()
             ),
             context.clientSupplier,
-            () -> statsTradesServicesSupplier.get().getLocalAccountSessionService(),
+            () -> PluginInjectorBridge.get(LocalAccountSessionService.class),
             context.profileDisplayNames,
             localTradesRuntimeServiceSupplier,
             () -> PluginInjectorBridge.get(ProfileStorageFacadeService.class),
-            () -> statsTradesServicesSupplier.get().getLocalTradeSessionFacadeService(),
+            () -> PluginInjectorBridge.get(LocalTradeSessionFacadeService.class),
             () -> profileWorkflowServiceSupplier.get().updateProfileOptionsUI(),
             () -> profileWorkflowServiceSupplier.get().updateProfileHeader()
         );

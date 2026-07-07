@@ -93,7 +93,7 @@ final class GeHistoryAutoSyncService {
             @Override
             public void ensureLocalSessionStart(long accountKey, long tsClientMs) {
                 LocalTradeSessionFacadeService service =
-                    plugin().getStatsTradesServices().getLocalTradeSessionFacadeService();
+                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
                 if (service != null) {
                     service.ensureLocalSessionStart(accountKey, tsClientMs);
                 }
@@ -102,7 +102,7 @@ final class GeHistoryAutoSyncService {
             @Override
             public List<LocalTradeDelta> snapshotLocalTradeDeltas(long accountKey) {
                 LocalTradeSessionFacadeService service =
-                    plugin().getStatsTradesServices().getLocalTradeSessionFacadeService();
+                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
                 return service != null ? service.snapshotLocalTradeDeltas(accountKey) : null;
             }
 
@@ -122,7 +122,7 @@ final class GeHistoryAutoSyncService {
 
             @Override
             public void applyDeltaToStatsCache(long accountKey, LocalTradeDelta delta) {
-                LocalStatsCacheService cacheService = plugin().getStatsTradesServices().getLocalStatsCacheService();
+                LocalStatsCacheService cacheService = PluginInjectorBridge.get(LocalStatsCacheService.class);
                 if (cacheService != null) {
                     cacheService.applyDelta(accountKey, delta);
                 }

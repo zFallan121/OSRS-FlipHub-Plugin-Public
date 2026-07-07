@@ -325,10 +325,6 @@ public class GeLifecyclePlugin extends Plugin {
         return apiClient.wipeWebsiteStats(sessionToken, signingSecret);
     }
 
-    GeLifecycleStatsTradesServices getStatsTradesServices() {
-        return getCoreFeatureRuntimeServices().getStatsTradesServices();
-    }
-
     PanelRefreshCoordinator getPanelRefreshCoordinator() {
         return PluginInjectorBridge.get(PanelRefreshCoordinator.class);
     }

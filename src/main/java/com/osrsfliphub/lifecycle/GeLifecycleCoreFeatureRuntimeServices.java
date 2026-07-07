@@ -42,7 +42,6 @@ final class GeLifecycleCoreFeatureRuntimeServices {
     private final GeLifecycleCoreFeatureRuntimeContext context;
 
     private GeLifecycleEventManageHistoryServices eventManageHistoryServices;
-    private GeLifecycleStatsTradesServices statsTradesServices;
     private PanelRefreshCoordinator panelRefreshCoordinator;
     private GeLifecycleBackfillServices backfillServices;
 
@@ -137,27 +136,10 @@ final class GeLifecycleCoreFeatureRuntimeServices {
             this::getProfileWorkflowService,
             this::getOfferStampStateServices,
             this::getBackfillServices,
-            this::getStatsTradesServices,
             this::getLocalTradesRuntimeService,
             this::getUploadBackfillDispatchService
         );
         eventManageHistoryServices = services;
-        return services;
-    }
-
-    GeLifecycleStatsTradesServices getStatsTradesServices() {
-        GeLifecycleStatsTradesServices services = statsTradesServices;
-        if (services != null) {
-            return services;
-        }
-        services = GeLifecycleCoreFeatureFactory.createStatsTradesServices(
-            context,
-            this::getBackfillServices,
-            this::getPanelRefreshCoordinator,
-            this::getLocalTradesRuntimeService,
-            this::getProfileWorkflowService
-        );
-        statsTradesServices = services;
         return services;
     }
 
@@ -172,7 +154,6 @@ final class GeLifecycleCoreFeatureRuntimeServices {
         }
         services = GeLifecycleCoreFeatureFactory.createBackfillServices(
             context,
-            this::getStatsTradesServices,
             this::getLocalTradesRuntimeService,
             this::getPanelRefreshCoordinator,
             token -> fetchRemoteStatsSummary(token, null, true)

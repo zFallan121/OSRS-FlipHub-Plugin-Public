@@ -71,7 +71,7 @@ final class RemainingLimitSuggestionService {
             @Override
             public long resolveLocalAccountKey() {
                 LocalAccountSessionService service =
-                    PluginAccess.plugin().getStatsTradesServices().getLocalAccountSessionService();
+                    PluginInjectorBridge.get(LocalAccountSessionService.class);
                 return service != null ? service.resolveLocalAccountKey() : 0L;
             }
 
@@ -110,7 +110,7 @@ final class RemainingLimitSuggestionService {
             @Override
             public Map<Integer, LocalLimitInfo> buildLocalLimitInfo(long accountKey, long nowMs) {
                 LocalTradeSessionFacadeService service =
-                    PluginAccess.plugin().getStatsTradesServices().getLocalTradeSessionFacadeService();
+                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
                 return service != null ? service.buildLocalLimitInfo(accountKey, nowMs) : null;
             }
 

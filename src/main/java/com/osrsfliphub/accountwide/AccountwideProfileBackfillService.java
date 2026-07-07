@@ -53,7 +53,7 @@ final class AccountwideProfileBackfillService {
                 @Override
                 public List<LocalTradeDelta> snapshotLocalTrades(long profileKey) {
                     LocalTradeSessionFacadeService service =
-                        PluginAccess.plugin().getStatsTradesServices().getLocalTradeSessionFacadeService();
+                        PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
                     return service != null ? service.snapshotLocalTradeDeltas(profileKey) : null;
                 }
 

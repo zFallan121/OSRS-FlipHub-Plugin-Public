@@ -117,7 +117,7 @@ final class LocalStatsViewService {
             @Override
             public LocalStatsSnapshot buildLocalStatsSnapshot(long accountKey, Long sinceMs, StatsItemSort sort) {
                 LocalStatsSnapshotService service =
-                    PluginAccess.plugin().getStatsTradesServices().getLocalStatsSnapshotService();
+                    PluginInjectorBridge.get(LocalStatsSnapshotService.class);
                 return service != null ? service.buildSnapshot(accountKey, sinceMs, sort) : null;
             }
 

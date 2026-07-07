@@ -147,7 +147,7 @@ final class GameStateChangedHandlerService {
             @Override
             public void updateLocalAccountSessionStart() {
                 LocalTradeSessionFacadeService service =
-                    PluginAccess.plugin().getStatsTradesServices().getLocalTradeSessionFacadeService();
+                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
                 if (service != null) {
                     service.updateLocalAccountSessionStart();
                 }

@@ -76,8 +76,8 @@ final class AccountwideFlipHistoryService {
 
             @Override
             public List<LocalTradeDelta> snapshotLocalTradeDeltas(long accountKey) {
-                return PluginAccess.plugin().getStatsTradesServices()
-                    .getLocalTradeSessionFacadeService().snapshotLocalTradeDeltas(accountKey);
+                return PluginInjectorBridge.get(LocalTradeSessionFacadeService.class)
+                    .snapshotLocalTradeDeltas(accountKey);
             }
 
             @Override

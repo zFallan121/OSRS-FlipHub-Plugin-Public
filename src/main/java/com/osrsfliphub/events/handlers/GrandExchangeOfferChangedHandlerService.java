@@ -102,7 +102,7 @@ final class GrandExchangeOfferChangedHandlerService {
             @Override
             public long resolveAccountHash() {
                 LocalTradeSessionFacadeService service =
-                    PluginAccess.plugin().getStatsTradesServices().getLocalTradeSessionFacadeService();
+                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
                 return service != null ? service.resolveAccountHash() : -1L;
             }
 
@@ -161,7 +161,7 @@ final class GrandExchangeOfferChangedHandlerService {
 
             @Override
             public void recordLocalTradeDelta(GeEvent event, boolean baselineSynthetic) {
-                PluginAccess.plugin().getStatsTradesServices().getLocalTradeDeltaRecorder()
+                PluginInjectorBridge.get(LocalTradeDeltaRecorder.class)
                     .record(event, baselineSynthetic);
             }
 

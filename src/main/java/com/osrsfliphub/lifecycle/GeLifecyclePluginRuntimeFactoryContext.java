@@ -89,7 +89,6 @@ final class GeLifecyclePluginRuntimeFactoryContext {
     final Supplier<Logger> loggerSupplier;
 
     final Supplier<PanelRefreshCoordinator> panelRefreshCoordinatorSupplier;
-    final Supplier<GeLifecycleStatsTradesServices> statsTradesServicesSupplier;
     final Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier;
     final Supplier<GeLifecycleBackfillServices> backfillServicesSupplier;
     final Supplier<GeLifecycleProfileWorkflowService> profileWorkflowServiceSupplier;
@@ -172,7 +171,6 @@ final class GeLifecyclePluginRuntimeFactoryContext {
         Supplier<ApiClient> apiClientSupplier,
         Supplier<Logger> loggerSupplier,
         Supplier<PanelRefreshCoordinator> panelRefreshCoordinatorSupplier,
-        Supplier<GeLifecycleStatsTradesServices> statsTradesServicesSupplier,
         Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
         Supplier<GeLifecycleBackfillServices> backfillServicesSupplier,
         Supplier<GeLifecycleProfileWorkflowService> profileWorkflowServiceSupplier,
@@ -251,7 +249,6 @@ final class GeLifecyclePluginRuntimeFactoryContext {
         this.apiClientSupplier = apiClientSupplier;
         this.loggerSupplier = loggerSupplier;
         this.panelRefreshCoordinatorSupplier = panelRefreshCoordinatorSupplier;
-        this.statsTradesServicesSupplier = statsTradesServicesSupplier;
         this.localTradesRuntimeServiceSupplier = localTradesRuntimeServiceSupplier;
         this.backfillServicesSupplier = backfillServicesSupplier;
         this.profileWorkflowServiceSupplier = profileWorkflowServiceSupplier;

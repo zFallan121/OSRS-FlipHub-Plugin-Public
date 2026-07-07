@@ -54,11 +54,11 @@ final class AccountwideStatsAggregator {
     }
 
     private static LocalStatsCacheService cacheService() {
-        return PluginAccess.plugin().getStatsTradesServices().getLocalStatsCacheService();
+        return PluginInjectorBridge.get(LocalStatsCacheService.class);
     }
 
     private static LocalStatsSnapshotService snapshotService() {
-        return PluginAccess.plugin().getStatsTradesServices().getLocalStatsSnapshotService();
+        return PluginInjectorBridge.get(LocalStatsSnapshotService.class);
     }
 
     private static Hooks productionHooks() {
