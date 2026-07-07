@@ -68,7 +68,7 @@ final class GrandExchangeOfferChangedHandlerService {
     }
 
     private static RecentTradeDeduper recentTradeDeduper() {
-        return PluginAccess.plugin().getBackfillServices().getBackfillMarketServices().getRecentTradeDeduper();
+        return PluginInjectorBridge.get(RecentTradeDeduper.class);
     }
 
     private static Hooks productionHooks(Client client, PluginState state) {

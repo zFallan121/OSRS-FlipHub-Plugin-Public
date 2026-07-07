@@ -96,8 +96,7 @@ final class AccountwideBackfillExecutionService {
 
             @Override
             public AccountwideBackfillCoordinator.Result runBackfillCycle() {
-                AccountwideBackfillCoordinator coordinator = PluginAccess.plugin()
-                    .getBackfillServices().getBackfillMarketServices().getAccountwideBackfillCoordinator();
+                AccountwideBackfillCoordinator coordinator = PluginInjectorBridge.get(AccountwideBackfillCoordinator.class);
                 return coordinator != null ? coordinator.runCycle() : null;
             }
 

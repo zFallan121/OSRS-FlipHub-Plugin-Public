@@ -96,7 +96,7 @@ final class GeLifecyclePluginLifecycleCoordinator {
             () -> PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class),
             GeLifecyclePluginConstants.ACCOUNTWIDE_UPLOAD_INTERVAL_SECONDS,
             GeLifecyclePluginConstants.OFFER_POLL_INTERVAL_MS,
-            () -> plugin.getBackfillServices().getBackfillMarketServices().getWikiPriceService(),
+            () -> PluginInjectorBridge.get(WikiPriceService.class),
             plugin::startProfileWatcher,
             () -> PluginInjectorBridge.get(LinkAttemptService.class),
             () -> plugin.config
@@ -121,7 +121,7 @@ final class GeLifecyclePluginLifecycleCoordinator {
             plugin.scheduler,
             plugin.ioExecutor,
             () -> plugin.clientThread,
-            () -> plugin.getBackfillServices().getBackfillMarketServices().getWikiPriceService(),
+            () -> PluginInjectorBridge.get(WikiPriceService.class),
             plugin::stopProfileWatcher,
             () -> PluginInjectorBridge.get(UploadBackfillDispatchService.class),
             () -> PluginInjectorBridge.get(UploadEventDispatchFacadeService.class),
@@ -130,7 +130,7 @@ final class GeLifecyclePluginLifecycleCoordinator {
             plugin.snapshots,
             () -> plugin.getOfferStampStateServices().persistOfferUpdateTimes(),
             plugin.offerUpdateStamps,
-            () -> plugin.getBackfillServices().getBackfillMarketServices().getRecentTradeDeduper(),
+            () -> PluginInjectorBridge.get(RecentTradeDeduper.class),
             plugin.uploadState
         );
     }

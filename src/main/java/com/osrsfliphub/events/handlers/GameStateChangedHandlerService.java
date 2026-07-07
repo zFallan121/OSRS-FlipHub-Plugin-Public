@@ -108,7 +108,7 @@ final class GameStateChangedHandlerService {
             @Override
             public void clearRecentTradeDeduper() {
                 RecentTradeDeduper deduper =
-                    PluginAccess.plugin().getBackfillServices().getBackfillMarketServices().getRecentTradeDeduper();
+                    PluginInjectorBridge.get(RecentTradeDeduper.class);
                 if (deduper != null) {
                     deduper.clearAll();
                 }

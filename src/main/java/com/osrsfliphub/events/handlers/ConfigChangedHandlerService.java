@@ -106,7 +106,7 @@ final class ConfigChangedHandlerService {
             @Override
             public void resetUploadSnapshot() {
                 AccountwideSummaryUploader uploader =
-                    PluginAccess.plugin().getBackfillServices().getAccountwideSummaryUploader();
+                    PluginInjectorBridge.get(AccountwideSummaryUploader.class);
                 if (uploader != null) {
                     uploader.resetUploadSnapshot();
                 }

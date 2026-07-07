@@ -104,7 +104,6 @@ public class GeLifecyclePlugin extends Plugin {
     OverlayManager overlayManager;
 
     ApiClient apiClient;
-    GeLifecycleCoreFeatureRuntimeServices coreFeatureRuntimeServices;
     final GeLifecyclePanelBootstrapService panelBootstrapService = new GeLifecyclePanelBootstrapService();
     final GeLifecycleRuntimeSchedulerServices runtimeSchedulerServices = new GeLifecycleRuntimeSchedulerServices();
     final GeLifecycleRuntimeUtilityServices runtimeUtilityServices = new GeLifecycleRuntimeUtilityServices();
@@ -118,7 +117,6 @@ public class GeLifecyclePlugin extends Plugin {
     ExecutorService ioExecutor;
     final UploadDiagnosticsState uploadState = new UploadDiagnosticsState();
     BackfillRetryScheduler backfillRetryScheduler;
-    GeLifecyclePluginRuntimeFactoryServices runtimeFactoryServices;
     final Map<Integer, OfferSnapshot> snapshots = new ConcurrentHashMap<>();
     final Map<Integer, OfferUpdateStamp> offerUpdateStamps = new ConcurrentHashMap<>();
     final Set<Integer> bookmarkedItems = ConcurrentHashMap.newKeySet();
@@ -236,10 +234,6 @@ public class GeLifecyclePlugin extends Plugin {
         return previewFacade.isOfferStatusOpen(geRoot, OFFER_STATUS_MARKERS);
     }
 
-    GeLifecyclePluginRuntimeFactoryServices getRuntimeFactoryServices() {
-        return GeLifecyclePluginRuntimeFactoryContextFactory.getOrCreate(this);
-    }
-
     BackfillRetryScheduler getBackfillRetryScheduler() {
         BackfillRetryScheduler scheduler = backfillRetryScheduler;
         if (scheduler != null) {
@@ -269,17 +263,6 @@ public class GeLifecyclePlugin extends Plugin {
 
 
 
-    GeLifecycleCoreFeatureRuntimeServices getCoreFeatureRuntimeServices() {
-        GeLifecycleCoreFeatureRuntimeServices services = coreFeatureRuntimeServices;
-        if (services != null) {
-            return services;
-        }
-        services = getRuntimeFactoryServices().createCoreFeatureRuntimeServices();
-        coreFeatureRuntimeServices = services;
-        return services;
-    }
-
-
     void executeOnScheduler(ScheduledExecutorService scheduler, Runnable task) {
         if (scheduler != null && task != null) {
             scheduler.execute(task);
@@ -303,13 +286,9 @@ public class GeLifecyclePlugin extends Plugin {
         return PluginInjectorBridge.get(PanelRefreshCoordinator.class);
     }
 
-    GeLifecycleBackfillServices getBackfillServices() {
-        return getCoreFeatureRuntimeServices().getBackfillServices();
-    }
-
     // Retained as a narrow compatibility shim for reflection-based tests.
     private AccountwideSummaryUploader getAccountwideSummaryUploader() {
-        return getBackfillServices().getAccountwideSummaryUploader();
+        return PluginInjectorBridge.get(AccountwideSummaryUploader.class);
     }
 
     long getProfileFileModifiedMs(Path file) {
@@ -341,7 +320,7 @@ public class GeLifecyclePlugin extends Plugin {
     }
 
     void markAccountwideUploadDirty() {
-        getBackfillServices().getAccountwideSummaryUploader().markDirty();
+        PluginInjectorBridge.get(AccountwideSummaryUploader.class).markDirty();
         if (PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class).isLinked()) {
             PluginInjectorBridge.get(UploadBackfillDispatchService.class).requestAccountwideSync();
         }

@@ -63,7 +63,7 @@ final class RemainingLimitSuggestionService {
     }
 
     private static GeLimitService geLimitService() {
-        return PluginAccess.plugin().getBackfillServices().getBackfillMarketServices().getGeLimitService();
+        return PluginInjectorBridge.get(GeLimitService.class);
     }
 
     private static Hooks productionHooks() {

@@ -112,7 +112,7 @@ final class LinkAttemptService {
             @Override
             public void resetAccountwideUploadSnapshot() {
                 AccountwideSummaryUploader uploader =
-                    PluginAccess.plugin().getBackfillServices().getAccountwideSummaryUploader();
+                    PluginInjectorBridge.get(AccountwideSummaryUploader.class);
                 if (uploader != null) {
                     uploader.resetUploadSnapshot();
                 }
