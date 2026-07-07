@@ -60,7 +60,6 @@ final class GeLifecycleProfileLinkWorkflowRuntimeServices {
     private final GeLifecycleRuntimeUtilityServices runtimeUtilityServices;
     private final Supplier<Logger> loggerSupplier;
 
-    private GeLifecycleProfileWorkflowServices profileWorkflowServices;
 
     GeLifecycleProfileLinkWorkflowRuntimeServices(
         GeLifecycleSharedState sharedState,
@@ -112,41 +111,12 @@ final class GeLifecycleProfileLinkWorkflowRuntimeServices {
         this.loggerSupplier = loggerSupplier;
     }
 
-    GeLifecycleProfileWorkflowServices getProfileWorkflowServices() {
-        GeLifecycleProfileWorkflowServices services = profileWorkflowServices;
-        if (services != null) {
-            return services;
-        }
-        services = new GeLifecycleProfileWorkflowServices(
-            sharedState,
-            localTradesRuntimeServiceSupplier,
-            () -> getBackfillServices().getAccountwideSummaryUploader(),
-            () -> PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class),
-            uploadBackfillDispatchServiceSupplier,
-            schedulerSupplier,
-            () -> getStatsTradesServices().getLocalStatsSnapshotService(),
-            () -> getStatsTradesServices().getLocalTradeSessionFacadeService(),
-            () -> PluginInjectorBridge.get(ProfileSelectionPersistenceService.class),
-            profileSelection,
-            () -> getEventManageHistoryServices().getProfileLoginService(),
-            bookmarkStateServiceSupplier,
-            () -> PluginInjectorBridge.get(ProfileUiCoordinator.class),
-            panelSupplier,
-            () -> getStatsTradesServices().getLocalAccountMergeService(),
-            () -> getStatsTradesServices().getLocalStatsCacheService(),
-            clientSupplier,
-            accountKey -> getEventManageHistoryServices().getGeHistoryWipeStateStore().isWipeBarrierArmed(accountKey)
-        );
-        profileWorkflowServices = services;
-        return services;
-    }
-
     GeLifecycleProfileWorkflowService getProfileWorkflowService() {
         return PluginInjectorBridge.get(GeLifecycleProfileWorkflowService.class);
     }
 
     LegacyLocalTradesFilterService getLegacyLocalTradesFilterService() {
-        return getProfileWorkflowServices().getLegacyLocalTradesFilterService();
+        return PluginInjectorBridge.get(LegacyLocalTradesFilterService.class);
     }
 
     private GeLifecycleEventManageHistoryServices getEventManageHistoryServices() {
