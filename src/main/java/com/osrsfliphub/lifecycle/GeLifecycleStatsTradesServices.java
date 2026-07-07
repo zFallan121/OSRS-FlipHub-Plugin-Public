@@ -40,7 +40,6 @@ final class GeLifecycleStatsTradesServices {
     private final GeLifecycleStatsTradesOps ops;
 
     private GeHistoryAutoSyncService geHistoryAutoSyncService;
-    private GeLifecycleProfileTradesServices profileTradesServices;
     private BackfilledProfilesStore backfilledProfilesStore;
     private OfferStampFallbackBuilder offerStampFallbackBuilder;
 
@@ -144,44 +143,12 @@ final class GeLifecycleStatsTradesServices {
         return PluginInjectorBridge.get(GeHistoryAutoSyncService.class);
     }
 
-    GeLifecycleProfileTradesServices getProfileTradesServices() {
-        GeLifecycleProfileTradesServices services = profileTradesServices;
-        if (services != null) {
-            return services;
-        }
-        services = new GeLifecycleProfileTradesServices(
-            ACCOUNTWIDE_KEY,
-            MAX_LOCAL_TRADES,
-            LOCAL_EVENT_BUCKET_MS,
-            DUPLICATE_TRADE_WINDOW_MS,
-            context.gson,
-            context.legacyNameKeysByHash,
-            context.loadedProfileFileMs,
-            context.localTradeDeltasByAccount,
-            context.localStatsLock,
-            context.profileDisplayNames,
-            context.profileStorageFacadeServiceSupplier,
-            context.legacyLocalTradesFilterServiceSupplier,
-            context.legacyLocalTradesStoreSupplier,
-            context.profileSelectionPresentationFacadeServiceSupplier,
-            context.localTradesRuntimeServiceSupplier,
-            this::getLocalStatsCacheService,
-            context.itemServicesSupplier,
-            ops::markAccountwideUploadDirty,
-            ops::scheduleRefreshSoon,
-            ops::triggerStatsRefresh,
-            context.profileFileModifiedMsFn
-        );
-        profileTradesServices = services;
-        return services;
-    }
-
     AccountwideProfileKeyCollector getAccountwideProfileKeyCollector() {
-        return getProfileTradesServices().getAccountwideProfileKeyCollector();
+        return PluginInjectorBridge.get(AccountwideProfileKeyCollector.class);
     }
 
     LocalProfileTradesLoadService getLocalProfileTradesLoadService() {
-        return getProfileTradesServices().getLocalProfileTradesLoadService();
+        return PluginInjectorBridge.get(LocalProfileTradesLoadService.class);
     }
 
     BackfilledProfilesStore getBackfilledProfilesStore() {
