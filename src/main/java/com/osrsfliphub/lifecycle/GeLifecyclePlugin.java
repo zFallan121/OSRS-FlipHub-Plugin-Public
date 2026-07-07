@@ -279,9 +279,6 @@ public class GeLifecyclePlugin extends Plugin {
         return services;
     }
 
-    GeLifecycleEventManageHistoryServices getEventManageHistoryServices() {
-        return getCoreFeatureRuntimeServices().getEventManageHistoryServices();
-    }
 
     void executeOnScheduler(ScheduledExecutorService scheduler, Runnable task) {
         if (scheduler != null && task != null) {

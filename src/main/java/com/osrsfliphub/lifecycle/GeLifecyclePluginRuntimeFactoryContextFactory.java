@@ -80,7 +80,6 @@ final class GeLifecyclePluginRuntimeFactoryContextFactory {
             plugin::getLocalTradesRuntimeService,
             plugin::getBackfillServices,
             plugin::getProfileWorkflowService,
-            plugin::getEventManageHistoryServices,
             () -> PluginInjectorBridge.get(GeLifecyclePanelDataRuntimeService.class),
             () -> PluginInjectorBridge.get(OfferPreviewRuntimeFacadeService.class),
             plugin::getOfferStampStateServices,

@@ -41,7 +41,6 @@ import org.slf4j.Logger;
 final class GeLifecycleCoreFeatureRuntimeServices {
     private final GeLifecycleCoreFeatureRuntimeContext context;
 
-    private GeLifecycleEventManageHistoryServices eventManageHistoryServices;
     private PanelRefreshCoordinator panelRefreshCoordinator;
     private GeLifecycleBackfillServices backfillServices;
 
@@ -121,24 +120,6 @@ final class GeLifecycleCoreFeatureRuntimeServices {
             showManageDataErrorConsumer,
             loggerSupplier
         );
-    }
-
-    GeLifecycleEventManageHistoryServices getEventManageHistoryServices() {
-        GeLifecycleEventManageHistoryServices services = eventManageHistoryServices;
-        if (services != null) {
-            return services;
-        }
-        services = GeLifecycleCoreFeatureFactory.createEventManageHistoryServices(
-            context,
-            this::getPanelRefreshCoordinator,
-            this::getProfileWorkflowService,
-            this::getOfferStampStateServices,
-            this::getBackfillServices,
-            this::getLocalTradesRuntimeService,
-            this::getUploadBackfillDispatchService
-        );
-        eventManageHistoryServices = services;
-        return services;
     }
 
     PanelRefreshCoordinator getPanelRefreshCoordinator() {

@@ -92,7 +92,6 @@ final class GeLifecyclePluginRuntimeFactoryContext {
     final Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier;
     final Supplier<GeLifecycleBackfillServices> backfillServicesSupplier;
     final Supplier<GeLifecycleProfileWorkflowService> profileWorkflowServiceSupplier;
-    final Supplier<GeLifecycleEventManageHistoryServices> eventManageHistoryServicesSupplier;
     final Supplier<GeLifecyclePanelDataRuntimeService> panelDataRuntimeServiceSupplier;
     final Supplier<OfferPreviewRuntimeFacadeService> offerPreviewRuntimeFacadeServiceSupplier;
     final Supplier<GeLifecycleOfferStampStateServices> offerStampStateServicesSupplier;
@@ -173,7 +172,6 @@ final class GeLifecyclePluginRuntimeFactoryContext {
         Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
         Supplier<GeLifecycleBackfillServices> backfillServicesSupplier,
         Supplier<GeLifecycleProfileWorkflowService> profileWorkflowServiceSupplier,
-        Supplier<GeLifecycleEventManageHistoryServices> eventManageHistoryServicesSupplier,
         Supplier<GeLifecyclePanelDataRuntimeService> panelDataRuntimeServiceSupplier,
         Supplier<OfferPreviewRuntimeFacadeService> offerPreviewRuntimeFacadeServiceSupplier,
         Supplier<GeLifecycleOfferStampStateServices> offerStampStateServicesSupplier,
@@ -250,7 +248,6 @@ final class GeLifecyclePluginRuntimeFactoryContext {
         this.localTradesRuntimeServiceSupplier = localTradesRuntimeServiceSupplier;
         this.backfillServicesSupplier = backfillServicesSupplier;
         this.profileWorkflowServiceSupplier = profileWorkflowServiceSupplier;
-        this.eventManageHistoryServicesSupplier = eventManageHistoryServicesSupplier;
         this.panelDataRuntimeServiceSupplier = panelDataRuntimeServiceSupplier;
         this.offerPreviewRuntimeFacadeServiceSupplier = offerPreviewRuntimeFacadeServiceSupplier;
         this.offerStampStateServicesSupplier = offerStampStateServicesSupplier;
