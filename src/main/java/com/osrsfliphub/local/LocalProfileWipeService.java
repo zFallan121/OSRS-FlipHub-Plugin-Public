@@ -24,12 +24,22 @@
  */
 package com.osrsfliphub;
 
+import static com.osrsfliphub.GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
+import static com.osrsfliphub.GeLifecyclePluginConstants.GE_HISTORY_CONTAINER_CHILD_ID;
+import static com.osrsfliphub.GeLifecyclePluginConstants.GE_HISTORY_GROUP_ID;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.api.Client;
+import net.runelite.api.GameState;
+import net.runelite.api.widgets.Widget;
 
+@Singleton
 final class LocalProfileWipeService {
     interface Hooks {
         long resolveLocalAccountKey();
@@ -53,9 +63,152 @@ final class LocalProfileWipeService {
     private final long accountwideKey;
     private final Hooks hooks;
 
+    @Inject
+    LocalProfileWipeService() {
+        this(ACCOUNTWIDE_KEY, productionHooks());
+    }
+
     LocalProfileWipeService(long accountwideKey, Hooks hooks) {
         this.accountwideKey = accountwideKey;
         this.hooks = hooks;
+    }
+
+    private static Hooks productionHooks() {
+        return new Hooks() {
+            @Override
+            public long resolveLocalAccountKey() {
+                LocalAccountSessionService service = PluginInjectorBridge.get(LocalAccountSessionService.class);
+                return service != null ? service.resolveLocalAccountKey() : -1L;
+            }
+
+            @Override
+            public List<GeHistoryTrade> tryParseCurrentGeHistoryTrades() {
+                Client client = PluginAccess.plugin().client;
+                if (client == null || client.getGameState() != GameState.LOGGED_IN) {
+                    return null;
+                }
+                Widget historyContainer = client.getWidget(GE_HISTORY_GROUP_ID, GE_HISTORY_CONTAINER_CHILD_ID);
+                if (historyContainer == null || historyContainer.isHidden()) {
+                    return null;
+                }
+                GeHistoryWidgetReadService service = PluginInjectorBridge.get(GeHistoryWidgetReadService.class);
+                return service != null ? service.tryParseReadyTrades(historyContainer.getDynamicChildren()) : null;
+            }
+
+            @Override
+            public List<String> buildGeHistoryCursorSignatures(List<GeHistoryTrade> trades) {
+                GeHistoryCursorService service = PluginInjectorBridge.get(GeHistoryCursorService.class);
+                return service != null ? service.buildCursorSignatures(trades) : null;
+            }
+
+            @Override
+            public Map<Long, String> loadProfilesFromDisk() {
+                ProfileSelectionPresentationFacadeService service =
+                    PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
+                return service != null ? service.loadProfilesFromDisk() : null;
+            }
+
+            @Override
+            public String resolveProfileDisplayName(long accountKey) {
+                Map<Long, String> names = PluginAccess.plugin().profileDisplayNames;
+                return names != null ? names.get(accountKey) : null;
+            }
+
+            @Override
+            public void setProfileDisplayName(long accountKey, String displayName) {
+                Map<Long, String> names = PluginAccess.plugin().profileDisplayNames;
+                if (names == null || accountKey <= 0 || displayName == null) {
+                    return;
+                }
+                String trimmed = displayName.trim();
+                if (!trimmed.isEmpty()) {
+                    names.put(accountKey, trimmed);
+                }
+            }
+
+            @Override
+            public void setWipeBarrierArmed(long accountKey, boolean armed) {
+                GeHistoryWipeStateStore store = PluginInjectorBridge.get(GeHistoryWipeStateStore.class);
+                if (store != null) {
+                    store.setWipeBarrierArmed(accountKey, armed);
+                }
+            }
+
+            @Override
+            public void persistGeHistoryCursor(long accountKey, List<String> cursor) {
+                GeHistoryWipeStateStore store = PluginInjectorBridge.get(GeHistoryWipeStateStore.class);
+                if (store != null) {
+                    store.persistCursor(accountKey, cursor);
+                }
+            }
+
+            @Override
+            public void clearProfileData(long accountKey, String displayName, boolean clearLegacyTradeCache) {
+                ProfileWipeDataService service = PluginInjectorBridge.get(ProfileWipeDataService.class);
+                if (service != null) {
+                    service.clearProfileDataForWipe(accountKey, displayName, clearLegacyTradeCache);
+                }
+            }
+
+            @Override
+            public void clearAccountwideData() {
+                ProfileWipeDataService service = PluginInjectorBridge.get(ProfileWipeDataService.class);
+                if (service != null) {
+                    service.clearAccountwideDataForWipe();
+                }
+            }
+
+            @Override
+            public void clearAllLegacyLocalTrades() {
+                ProfileWipeDataService service = PluginInjectorBridge.get(ProfileWipeDataService.class);
+                if (service != null) {
+                    service.clearAllLegacyLocalTrades();
+                }
+            }
+
+            @Override
+            public void loadLocalTradesForAccount(long accountKey, boolean forceReload) {
+                GeLifecycleLocalTradesRuntimeService localTradesRuntime =
+                    PluginInjectorBridge.get(GeLifecycleLocalTradesRuntimeService.class);
+                if (localTradesRuntime != null) {
+                    localTradesRuntime.loadLocalTradesForAccount(accountKey, forceReload);
+                }
+            }
+
+            @Override
+            public void refreshUiAfterWipe() {
+                GeLifecycleProfileWorkflowService profileWorkflow =
+                    PluginInjectorBridge.get(GeLifecycleProfileWorkflowService.class);
+                if (profileWorkflow != null) {
+                    profileWorkflow.updateProfileOptionsUI();
+                    profileWorkflow.updateProfileHeader();
+                }
+                GeLifecyclePlugin plugin = PluginAccess.plugin();
+                PanelRefreshCoordinator coordinator = PluginInjectorBridge.get(PanelRefreshCoordinator.class);
+                plugin.runtimeUtilityServices.triggerPanelRefresh(coordinator, plugin.scheduler);
+                plugin.runtimeUtilityServices.triggerStatsRefresh(coordinator, plugin.scheduler);
+            }
+
+            @Override
+            public void markAccountwideUploadDirty() {
+                PluginAccess.plugin().markAccountwideUploadDirty();
+            }
+
+            @Override
+            public void pushGameMessage(String message) {
+                GeLifecyclePlugin plugin = PluginAccess.plugin();
+                plugin.runtimeUtilityServices.pushGameMessage(plugin.client, message);
+            }
+
+            @Override
+            public void showError(String message) {
+                GeLifecycleProfileWorkflowService profileWorkflow =
+                    PluginInjectorBridge.get(GeLifecycleProfileWorkflowService.class);
+                if (profileWorkflow != null) {
+                    profileWorkflow.showManageDataError(message);
+                }
+            }
+        };
     }
 
     void wipeSingleLocalProfile(long accountKey, String displayName) {

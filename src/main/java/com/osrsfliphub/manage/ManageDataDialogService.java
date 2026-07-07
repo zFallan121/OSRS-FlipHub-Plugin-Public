@@ -64,10 +64,6 @@ final class ManageDataDialogService {
         return PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
     }
 
-    private static GeLifecycleManageDataServices manageDataServices() {
-        return PluginAccess.plugin().getEventManageHistoryServices().getManageDataServices();
-    }
-
     private static Hooks productionHooks() {
         return new Hooks() {
             @Override
@@ -136,7 +132,7 @@ final class ManageDataDialogService {
 
             @Override
             public void wipeSingleLocalProfile(long accountKey, String label) {
-                LocalProfileWipeService service = manageDataServices().getLocalProfileWipeService();
+                LocalProfileWipeService service = PluginInjectorBridge.get(LocalProfileWipeService.class);
                 if (service != null) {
                     service.wipeSingleLocalProfile(accountKey, label);
                 }
@@ -144,7 +140,7 @@ final class ManageDataDialogService {
 
             @Override
             public void wipeAllLocalProfiles() {
-                LocalProfileWipeService service = manageDataServices().getLocalProfileWipeService();
+                LocalProfileWipeService service = PluginInjectorBridge.get(LocalProfileWipeService.class);
                 if (service != null) {
                     service.wipeAllLocalProfiles();
                 }
