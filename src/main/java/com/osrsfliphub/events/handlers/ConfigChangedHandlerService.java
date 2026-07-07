@@ -115,7 +115,7 @@ final class ConfigChangedHandlerService {
             @Override
             public void setUploadBlocked(String message) {
                 UploadEventDispatchFacadeService service =
-                    PluginAccess.plugin().getUploadRuntimeServices().getUploadEventDispatchFacadeService();
+                    PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
                 if (service != null) {
                     service.markBlocked(message);
                 }

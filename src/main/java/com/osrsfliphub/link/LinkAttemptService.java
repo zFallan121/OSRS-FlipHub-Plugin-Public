@@ -80,11 +80,11 @@ final class LinkAttemptService {
     }
 
     private static UploadBackfillDispatchService uploadBackfillDispatch() {
-        return PluginAccess.plugin().getUploadRuntimeServices().getUploadBackfillDispatchService();
+        return PluginInjectorBridge.get(UploadBackfillDispatchService.class);
     }
 
     private static UploadEventDispatchFacadeService uploadEventDispatchFacade() {
-        return PluginAccess.plugin().getUploadRuntimeServices().getUploadEventDispatchFacadeService();
+        return PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
     }
 
     private static Hooks productionHooks(Client client, PluginConfig config, ApiClient apiClient) {

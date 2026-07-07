@@ -153,7 +153,7 @@ final class GrandExchangeOfferChangedHandlerService {
             @Override
             public void enqueueEvent(GeEvent event) {
                 UploadEventDispatchFacadeService service =
-                    PluginAccess.plugin().getUploadRuntimeServices().getUploadEventDispatchFacadeService();
+                    PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
                 if (service != null) {
                     service.enqueueEvent(event);
                 }

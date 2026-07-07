@@ -247,7 +247,7 @@ final class GameStateChangedHandlerService {
             public void requestBackfillAttempt(int delaySeconds, boolean forceRefresh) {
                 GeLifecyclePlugin plugin = PluginAccess.plugin();
                 UploadBackfillDispatchService dispatch =
-                    plugin.getUploadRuntimeServices().getUploadBackfillDispatchService();
+                    PluginInjectorBridge.get(UploadBackfillDispatchService.class);
                 if (dispatch != null && plugin.scheduler != null) {
                     dispatch.requestBackfillAttempt(plugin.scheduler, delaySeconds, forceRefresh);
                 }

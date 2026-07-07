@@ -118,7 +118,6 @@ public class GeLifecyclePlugin extends Plugin {
     ScheduledExecutorService scheduler;
     ExecutorService ioExecutor;
     final UploadDiagnosticsState uploadState = new UploadDiagnosticsState();
-    GeLifecycleUploadRuntimeServices uploadRuntimeServices;
     BackfillRetryScheduler backfillRetryScheduler;
     GeLifecyclePluginRuntimeFactoryServices runtimeFactoryServices;
     final Map<Integer, OfferSnapshot> snapshots = new ConcurrentHashMap<>();
@@ -257,21 +256,10 @@ public class GeLifecyclePlugin extends Plugin {
         if (scheduler != null) {
             return scheduler;
         }
-        scheduler = getUploadRuntimeServices().getBackfillRetryScheduler();
+        scheduler = PluginInjectorBridge.get(BackfillRetryScheduler.class);
         backfillRetryScheduler = scheduler;
         return scheduler;
     }
-
-    GeLifecycleUploadRuntimeServices getUploadRuntimeServices() {
-        GeLifecycleUploadRuntimeServices services = uploadRuntimeServices;
-        if (services != null) {
-            return services;
-        }
-        services = getRuntimeFactoryServices().createUploadRuntimeServices();
-        uploadRuntimeServices = services;
-        return services;
-    }
-
 
     GeLifecycleLocalTradesRuntimeService getLocalTradesRuntimeService() {
         return PluginInjectorBridge.get(GeLifecycleLocalTradesRuntimeService.class);
@@ -366,29 +354,10 @@ public class GeLifecyclePlugin extends Plugin {
         executeAsync(task);
     }
 
-    // Retained as a narrow compatibility shim for reflection-based tests.
-    private void requestBackfillAttempt(long delaySeconds, boolean resetBackoff) {
-        getBackfillRetryScheduler();
-        getUploadRuntimeServices().requestBackfillAttempt(delaySeconds, resetBackoff);
-    }
-
-    // Retained as a narrow compatibility shim for reflection-based tests.
-    private void scheduleBackfillRetry() {
-        getBackfillRetryScheduler();
-        getUploadRuntimeServices().scheduleBackfillRetry();
-    }
-
-    // Retained as a narrow compatibility shim for reflection-based tests.
-    private void resetBackfillRetryState() {
-        getBackfillRetryScheduler();
-        getUploadRuntimeServices().resetBackfillRetryState();
-    }
-
-    // Retained as a narrow compatibility shim for reflection-based tests.
     void markAccountwideUploadDirty() {
         getBackfillServices().getAccountwideSummaryUploader().markDirty();
         if (PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class).isLinked()) {
-            getUploadRuntimeServices().getUploadBackfillDispatchService().requestAccountwideSync();
+            PluginInjectorBridge.get(UploadBackfillDispatchService.class).requestAccountwideSync();
         }
     }
 

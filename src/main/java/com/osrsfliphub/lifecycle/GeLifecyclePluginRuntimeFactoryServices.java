@@ -26,7 +26,6 @@ package com.osrsfliphub;
 
 final class GeLifecyclePluginRuntimeFactoryServices {
     private final GeLifecycleOfferUiRuntimeFactory offerUiRuntimeFactory = new GeLifecycleOfferUiRuntimeFactory();
-    private final GeLifecycleUploadRuntimeFactory uploadRuntimeFactory = new GeLifecycleUploadRuntimeFactory();
     private final GeLifecycleCoreFeatureRuntimeFactory coreFeatureRuntimeFactory = new GeLifecycleCoreFeatureRuntimeFactory();
     private final GeLifecyclePluginRuntimeFactoryContext context;
 
@@ -65,29 +64,6 @@ final class GeLifecyclePluginRuntimeFactoryServices {
             context.offerPreviewItemSetter
         );
     }
-
-    GeLifecycleUploadRuntimeServices createUploadRuntimeServices() {
-        return uploadRuntimeFactory.create(
-            context.uploadState,
-            context.runtimeUtilityServices,
-            context.maxPendingUploadEvents,
-            context.maxBatchSize,
-            context.backfillRetryIntervalSeconds,
-            context.backfillRetryMaxIntervalSeconds,
-            context.backfillMinIntervalMs,
-            context.clientSupplier,
-            context.panelSupplier,
-            context.apiClientSupplier,
-            context.configSupplier,
-            context.configManagerSupplier,
-            context.loggerSupplier,
-            context.schedulerSupplier,
-            context.backfillServicesSupplier,
-            context.profileWorkflowServiceSupplier,
-            context.executeIoConsumer
-        );
-    }
-
 
 
     GeLifecycleCoreFeatureRuntimeServices createCoreFeatureRuntimeServices() {

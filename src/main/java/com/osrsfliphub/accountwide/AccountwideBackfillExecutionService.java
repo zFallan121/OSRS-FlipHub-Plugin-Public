@@ -60,7 +60,7 @@ final class AccountwideBackfillExecutionService {
     }
 
     private static UploadBackfillDispatchService uploadBackfillDispatch() {
-        return PluginAccess.plugin().getUploadRuntimeServices().getUploadBackfillDispatchService();
+        return PluginInjectorBridge.get(UploadBackfillDispatchService.class);
     }
 
     private static Hooks productionHooks(Client client, ApiClient apiClient, ConfigManager configManager) {

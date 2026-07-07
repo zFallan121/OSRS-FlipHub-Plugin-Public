@@ -183,7 +183,7 @@ final class AccountwideBackfillCoordinator {
             @Override
             public void resetBackfillRetryState() {
                 UploadBackfillDispatchService service =
-                    PluginAccess.plugin().getUploadRuntimeServices().getUploadBackfillDispatchService();
+                    PluginInjectorBridge.get(UploadBackfillDispatchService.class);
                 if (service != null) {
                     service.resetBackfillRetryState();
                 }

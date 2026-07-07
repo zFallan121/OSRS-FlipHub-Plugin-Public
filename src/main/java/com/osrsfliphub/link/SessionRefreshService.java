@@ -94,7 +94,7 @@ final class SessionRefreshService {
             @Override
             public void resetBackfillRetryState() {
                 UploadBackfillDispatchService service =
-                    PluginAccess.plugin().getUploadRuntimeServices().getUploadBackfillDispatchService();
+                    PluginInjectorBridge.get(UploadBackfillDispatchService.class);
                 if (service != null) {
                     service.resetBackfillRetryState();
                 }
@@ -103,7 +103,7 @@ final class SessionRefreshService {
             @Override
             public void setUploadBlocked(String reason) {
                 UploadEventDispatchFacadeService service =
-                    PluginAccess.plugin().getUploadRuntimeServices().getUploadEventDispatchFacadeService();
+                    PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
                 if (service != null) {
                     service.markBlocked(reason);
                 }

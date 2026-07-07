@@ -143,7 +143,7 @@ final class GeHistoryAutoSyncService {
                     return;
                 }
                 UploadEventDispatchFacadeService service =
-                    plugin().getUploadRuntimeServices().getUploadEventDispatchFacadeService();
+                    PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
                 if (service != null) {
                     service.enqueueEvent(event);
                 }
@@ -152,7 +152,7 @@ final class GeHistoryAutoSyncService {
             @Override
             public void requestEventFlush() {
                 UploadBackfillDispatchService service =
-                    plugin().getUploadRuntimeServices().getUploadBackfillDispatchService();
+                    PluginInjectorBridge.get(UploadBackfillDispatchService.class);
                 if (service != null) {
                     service.requestEventFlush();
                 }

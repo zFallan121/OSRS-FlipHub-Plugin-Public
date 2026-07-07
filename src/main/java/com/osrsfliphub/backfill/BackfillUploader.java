@@ -55,7 +55,7 @@ final class BackfillUploader {
     }
 
     private static UploadEventDispatchFacadeService uploadEventDispatchFacade() {
-        return PluginAccess.plugin().getUploadRuntimeServices().getUploadEventDispatchFacadeService();
+        return PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
     }
 
     private static Hooks productionHooks() {

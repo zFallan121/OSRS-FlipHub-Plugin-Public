@@ -102,8 +102,7 @@ final class ProfileUiCoordinator {
 
             @Override
             public void updateUploadDiagnosticsUi() {
-                UploadEventDispatchFacadeService service = PluginAccess.plugin()
-                    .getUploadRuntimeServices().getUploadEventDispatchFacadeService();
+                UploadEventDispatchFacadeService service = PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
                 if (service != null) {
                     service.updateUploadDiagnosticsUi();
                 }
