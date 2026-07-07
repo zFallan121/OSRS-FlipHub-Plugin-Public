@@ -93,7 +93,6 @@ final class GeLifecyclePluginLifecycleCoordinator {
             () -> PluginInjectorBridge.get(OfferPreviewRuntimeFacadeService.class),
             () -> plugin.clientThread,
             () -> PluginInjectorBridge.get(OfferPreviewItemResolver.class),
-            () -> plugin.getOfferUiRuntimeServices().getItemServices(),
             () -> PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class),
             GeLifecyclePluginConstants.ACCOUNTWIDE_UPLOAD_INTERVAL_SECONDS,
             GeLifecyclePluginConstants.OFFER_POLL_INTERVAL_MS,

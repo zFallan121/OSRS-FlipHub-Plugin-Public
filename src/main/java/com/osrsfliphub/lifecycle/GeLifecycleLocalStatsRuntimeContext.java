@@ -42,7 +42,6 @@ final class GeLifecycleLocalStatsRuntimeContext {
     final Map<Long, Long> localSessionStartByAccount;
     final Object localStatsLock;
     final Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier;
-    final Supplier<GeLifecycleItemServices> itemServicesSupplier;
     final Supplier<AccountwideProfileKeyCollector> accountwideProfileKeyCollectorSupplier;
     final Supplier<ProfileStorageFacadeService> profileStorageFacadeServiceSupplier;
     final Supplier<ProfileSelectionPresentationFacadeService> profileSelectionPresentationFacadeServiceSupplier;
@@ -67,7 +66,6 @@ final class GeLifecycleLocalStatsRuntimeContext {
         Map<Long, Long> localSessionStartByAccount,
         Object localStatsLock,
         Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
-        Supplier<GeLifecycleItemServices> itemServicesSupplier,
         Supplier<AccountwideProfileKeyCollector> accountwideProfileKeyCollectorSupplier,
         Supplier<ProfileStorageFacadeService> profileStorageFacadeServiceSupplier,
         Supplier<ProfileSelectionPresentationFacadeService> profileSelectionPresentationFacadeServiceSupplier,
@@ -91,7 +89,6 @@ final class GeLifecycleLocalStatsRuntimeContext {
         this.localSessionStartByAccount = localSessionStartByAccount;
         this.localStatsLock = localStatsLock;
         this.localTradesRuntimeServiceSupplier = localTradesRuntimeServiceSupplier;
-        this.itemServicesSupplier = itemServicesSupplier;
         this.accountwideProfileKeyCollectorSupplier = accountwideProfileKeyCollectorSupplier;
         this.profileStorageFacadeServiceSupplier = profileStorageFacadeServiceSupplier;
         this.profileSelectionPresentationFacadeServiceSupplier = profileSelectionPresentationFacadeServiceSupplier;

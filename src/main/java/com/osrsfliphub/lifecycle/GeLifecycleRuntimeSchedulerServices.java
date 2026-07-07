@@ -70,7 +70,6 @@ final class GeLifecycleRuntimeSchedulerServices {
         Supplier<OfferPreviewRuntimeFacadeService> offerPreviewRuntimeFacadeServiceSupplier,
         Supplier<ClientThread> clientThreadSupplier,
         Supplier<OfferPreviewItemResolver> offerPreviewItemResolverSupplier,
-        Supplier<GeLifecycleItemServices> itemServicesSupplier,
         Supplier<ProfileSelectionPresentationFacadeService> profileSelectionPresentationFacadeServiceSupplier,
         long accountwideUploadIntervalSeconds,
         long offerPollIntervalMs,
@@ -123,17 +122,17 @@ final class GeLifecycleRuntimeSchedulerServices {
                     resolve(clientThreadSupplier),
                     resolve(offerPreviewItemResolverSupplier),
                     itemId -> {
-                        GeLifecycleItemServices itemServices = resolve(itemServicesSupplier);
-                        if (itemServices == null) {
+                        OfferPreviewSyncService sync = PluginInjectorBridge.get(OfferPreviewSyncService.class);
+                        if (sync == null) {
                             return false;
                         }
-                        itemServices.getOfferPreviewSyncService().setPreviewItem(itemId);
+                        sync.setPreviewItem(itemId);
                         return true;
                     },
                     () -> {
-                        GeLifecycleItemServices itemServices = resolve(itemServicesSupplier);
-                        if (itemServices != null) {
-                            itemServices.getOfferPreviewSyncService().clearPreview();
+                        OfferPreviewSyncService sync = PluginInjectorBridge.get(OfferPreviewSyncService.class);
+                        if (sync != null) {
+                            sync.clearPreview();
                         }
                     }
                 );

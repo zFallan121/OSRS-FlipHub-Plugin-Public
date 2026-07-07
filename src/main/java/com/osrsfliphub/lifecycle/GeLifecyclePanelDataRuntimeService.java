@@ -58,7 +58,7 @@ final class GeLifecyclePanelDataRuntimeService {
     GeLifecyclePanelDataRuntimeService() {
         this(
             () -> PluginInjectorBridge.get(LocalOfferPreviewBuilder.class),
-            () -> PluginAccess.plugin().getOfferUiRuntimeServices().getItemServices().getLocalItemsResponseBuilder(),
+            () -> PluginInjectorBridge.get(LocalItemsResponseBuilder.class),
             () -> PluginAccess.plugin().currentQuery,
             () -> PluginAccess.plugin().bookmarkFilterEnabled,
             () -> PluginAccess.plugin().bookmarkedItems,

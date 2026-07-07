@@ -150,7 +150,7 @@ final class GeLifecycleCoreFeatureFactory {
             () -> PluginInjectorBridge.get(LocalTradeSessionFacadeService.class),
             context.clientSupplier,
             context.clientThreadSupplier,
-            () -> context.itemServicesSupplier.get().getItemLookupService(),
+            () -> PluginInjectorBridge.get(ItemLookupService.class),
             () -> context.runtimeUtilityServices.scheduleRefreshSoon(
                 panelRefreshCoordinatorSupplier.get(),
                 context.schedulerSupplier.get()

@@ -96,7 +96,6 @@ final class GeLifecyclePluginRuntimeFactoryContext {
     final Supplier<GeLifecyclePanelDataRuntimeService> panelDataRuntimeServiceSupplier;
     final Supplier<OfferPreviewRuntimeFacadeService> offerPreviewRuntimeFacadeServiceSupplier;
     final Supplier<GeLifecycleOfferStampStateServices> offerStampStateServicesSupplier;
-    final Supplier<GeLifecycleItemServices> itemServicesSupplier;
     final Supplier<BookmarkStateService> bookmarkStateServiceSupplier;
     final Supplier<OfferEventBuildService> offerEventBuildServiceSupplier;
     final Supplier<LegacyLocalTradesFilterService> legacyLocalTradesFilterServiceSupplier;
@@ -178,7 +177,6 @@ final class GeLifecyclePluginRuntimeFactoryContext {
         Supplier<GeLifecyclePanelDataRuntimeService> panelDataRuntimeServiceSupplier,
         Supplier<OfferPreviewRuntimeFacadeService> offerPreviewRuntimeFacadeServiceSupplier,
         Supplier<GeLifecycleOfferStampStateServices> offerStampStateServicesSupplier,
-        Supplier<GeLifecycleItemServices> itemServicesSupplier,
         Supplier<BookmarkStateService> bookmarkStateServiceSupplier,
         Supplier<OfferEventBuildService> offerEventBuildServiceSupplier,
         Supplier<LegacyLocalTradesFilterService> legacyLocalTradesFilterServiceSupplier,
@@ -256,7 +254,6 @@ final class GeLifecyclePluginRuntimeFactoryContext {
         this.panelDataRuntimeServiceSupplier = panelDataRuntimeServiceSupplier;
         this.offerPreviewRuntimeFacadeServiceSupplier = offerPreviewRuntimeFacadeServiceSupplier;
         this.offerStampStateServicesSupplier = offerStampStateServicesSupplier;
-        this.itemServicesSupplier = itemServicesSupplier;
         this.bookmarkStateServiceSupplier = bookmarkStateServiceSupplier;
         this.offerEventBuildServiceSupplier = offerEventBuildServiceSupplier;
         this.legacyLocalTradesFilterServiceSupplier = legacyLocalTradesFilterServiceSupplier;

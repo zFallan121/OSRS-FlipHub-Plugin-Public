@@ -24,14 +24,20 @@
  */
 package com.osrsfliphub;
 
+import static com.osrsfliphub.GeLifecyclePluginConstants.DEFAULT_ITEMS_PAGE_SIZE;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import net.runelite.api.Client;
 import net.runelite.api.GrandExchangeOffer;
 
+@Singleton
 final class LocalItemsResponseBuilder {
     interface Hooks {
         long resolveSelectedProfileKey();
@@ -63,9 +69,126 @@ final class LocalItemsResponseBuilder {
     private final int defaultItemsPageSize;
     private final Hooks hooks;
 
+    @Inject
+    LocalItemsResponseBuilder() {
+        this(DEFAULT_ITEMS_PAGE_SIZE, productionHooks());
+    }
+
     LocalItemsResponseBuilder(int defaultItemsPageSize, Hooks hooks) {
         this.defaultItemsPageSize = Math.max(1, defaultItemsPageSize);
         this.hooks = hooks;
+    }
+
+    private static Hooks productionHooks() {
+        return new Hooks() {
+            @Override
+            public long resolveSelectedProfileKey() {
+                ProfileSelectionPresentationFacadeService service =
+                    PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
+                return service != null ? service.resolveSelectedProfileKey() : 0L;
+            }
+
+            @Override
+            public long resolveLimitAccountKey(long tradeAccountKey) {
+                LocalAccountSessionService service =
+                    PluginInjectorBridge.get(LocalAccountSessionService.class);
+                return service != null ? service.resolveLimitAccountKey(tradeAccountKey) : tradeAccountKey;
+            }
+
+            @Override
+            public Map<Integer, LocalTradeInfo> buildLocalTradeInfo(long accountKey) {
+                LocalTradeSessionFacadeService service =
+                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+                return service != null ? service.buildLocalTradeInfo(accountKey) : null;
+            }
+
+            @Override
+            public Map<Integer, LocalLimitInfo> buildLocalLimitInfo(long accountKey, long nowMs) {
+                LocalTradeSessionFacadeService service =
+                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+                return service != null ? service.buildLocalLimitInfo(accountKey, nowMs) : null;
+            }
+
+            @Override
+            public GrandExchangeOffer[] getGrandExchangeOffers() {
+                Client client = PluginAccess.plugin().client;
+                if (client == null) {
+                    return null;
+                }
+                GrandExchangeOffer[] offers = client.getGrandExchangeOffers();
+                return offers != null && offers.length > 0 ? offers : new GrandExchangeOffer[0];
+            }
+
+            @Override
+            public LocalItemsAssembler.Result assemble(GrandExchangeOffer[] offers,
+                                                       Map<Integer, LocalTradeInfo> tradeInfo,
+                                                       Map<Integer, LocalLimitInfo> limitInfo,
+                                                       String currentQuery,
+                                                       boolean bookmarkFilterEnabled,
+                                                       Set<Integer> bookmarkedItems) {
+                LocalItemsAssembler assembler = PluginInjectorBridge.get(LocalItemsAssembler.class);
+                if (assembler == null) {
+                    return new LocalItemsAssembler.Result(new ArrayList<>(), new HashSet<>());
+                }
+                return assembler.assemble(
+                    offers, tradeInfo, limitInfo, currentQuery, bookmarkFilterEnabled, bookmarkedItems);
+            }
+
+            @Override
+            public boolean isHidden(int itemId) {
+                PluginState state = PluginInjectorBridge.get(PluginState.class);
+                return state != null && state.getHiddenItems().contains(itemId);
+            }
+
+            @Override
+            public void requestGeLimits(Set<Integer> itemIds) {
+                GeLimitService service = PluginInjectorBridge.get(GeLimitService.class);
+                if (service != null) {
+                    service.requestGeLimits(itemIds);
+                }
+            }
+
+            @Override
+            public ApiClient.ItemsResponse buildOfferStampFallback() {
+                GeLifecyclePanelDataRuntimeService service =
+                    PluginInjectorBridge.get(GeLifecyclePanelDataRuntimeService.class);
+                return service != null ? service.buildOfferStampFallback() : null;
+            }
+
+            @Override
+            public ApiClient.ItemsResponse buildOfferStatusFallback() {
+                GeLifecyclePanelDataRuntimeService service =
+                    PluginInjectorBridge.get(GeLifecyclePanelDataRuntimeService.class);
+                return service != null ? service.buildOfferStatusFallback() : null;
+            }
+
+            @Override
+            public ApiClient.ItemsResponse buildPagedItemsResponse(List<FlipHubItem> items,
+                                                                   int page,
+                                                                   int pageSize,
+                                                                   int totalItems,
+                                                                   int totalPages,
+                                                                   long asOfMs,
+                                                                   Long priceCacheMs) {
+                GeLifecyclePanelDataRuntimeService service =
+                    PluginInjectorBridge.get(GeLifecyclePanelDataRuntimeService.class);
+                return service != null
+                    ? service.buildPagedItemsResponse(items, page, pageSize, totalItems, totalPages, asOfMs, priceCacheMs)
+                    : null;
+            }
+
+            @Override
+            public ApiClient.ItemsResponse emptyItemsResponse(long asOfMs, Long priceCacheMs) {
+                GeLifecyclePanelDataRuntimeService service =
+                    PluginInjectorBridge.get(GeLifecyclePanelDataRuntimeService.class);
+                return service != null ? service.emptyItemsResponse(asOfMs, priceCacheMs) : null;
+            }
+
+            @Override
+            public long nowMs() {
+                return System.currentTimeMillis();
+            }
+        };
     }
 
     ApiClient.ItemsResponse build(boolean includeEmptyFallback,

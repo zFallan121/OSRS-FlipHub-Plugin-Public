@@ -41,7 +41,6 @@ final class GeLifecycleOfferUiRuntimeServices {
     private GeLifecycleOfferStampStateServices offerStampStateServices;
     private OfferPreviewRuntimeFacadeService offerPreviewRuntimeFacadeService;
     private OfferPreviewItemResolver offerPreviewItemResolver;
-    private GeLifecycleItemServices itemServices;
     private BookmarkStateService bookmarkStateService;
     private OfferEventBuildService offerEventBuildService;
     private OfferUpdateStampService offerUpdateStampService;
@@ -119,22 +118,6 @@ final class GeLifecycleOfferUiRuntimeServices {
         return PluginInjectorBridge.get(OfferPreviewItemResolver.class);
     }
 
-    GeLifecycleItemServices getItemServices() {
-        GeLifecycleItemServices services = itemServices;
-        if (services != null) {
-            return services;
-        }
-        services = GeLifecycleOfferUiDataFactory.createItemServices(
-            context,
-            this::getPanelRefreshCoordinator,
-            this::getBackfillServices,
-            this::getProfileWorkflowService,
-            this::getLocalTradesRuntimeService
-        );
-        itemServices = services;
-        return services;
-    }
-
     BookmarkStateService getBookmarkStateService() {
         return PluginInjectorBridge.get(BookmarkStateService.class);
     }
@@ -149,21 +132,5 @@ final class GeLifecycleOfferUiRuntimeServices {
 
     OfferUpdateStampPersistenceService getOfferUpdateStampPersistenceService() {
         return PluginInjectorBridge.get(OfferUpdateStampPersistenceService.class);
-    }
-
-    private PanelRefreshCoordinator getPanelRefreshCoordinator() {
-        return PluginInjectorBridge.get(PanelRefreshCoordinator.class);
-    }
-
-    private GeLifecycleLocalTradesRuntimeService getLocalTradesRuntimeService() {
-        return context.localTradesRuntimeServiceSupplier.get();
-    }
-
-    private GeLifecycleBackfillServices getBackfillServices() {
-        return context.backfillServicesSupplier.get();
-    }
-
-    private GeLifecycleProfileWorkflowService getProfileWorkflowService() {
-        return PluginInjectorBridge.get(GeLifecycleProfileWorkflowService.class);
     }
 }
