@@ -27,7 +27,6 @@ package com.osrsfliphub;
 final class GeLifecyclePluginRuntimeFactoryServices {
     private final GeLifecycleOfferUiRuntimeFactory offerUiRuntimeFactory = new GeLifecycleOfferUiRuntimeFactory();
     private final GeLifecycleUploadRuntimeFactory uploadRuntimeFactory = new GeLifecycleUploadRuntimeFactory();
-    private final GeLifecycleProfileLinkWorkflowRuntimeFactory profileLinkWorkflowRuntimeFactory = new GeLifecycleProfileLinkWorkflowRuntimeFactory();
     private final GeLifecycleCoreFeatureRuntimeFactory coreFeatureRuntimeFactory = new GeLifecycleCoreFeatureRuntimeFactory();
     private final GeLifecyclePluginRuntimeFactoryContext context;
 
@@ -91,33 +90,6 @@ final class GeLifecyclePluginRuntimeFactoryServices {
     }
 
 
-    GeLifecycleProfileLinkWorkflowRuntimeServices createProfileLinkWorkflowRuntimeServices() {
-        return profileLinkWorkflowRuntimeFactory.create(
-            context.sharedState,
-            context.profileSelection,
-            context.profileDisplayNames,
-            context.legacyNameKeysByHash,
-            context.loadedProfileFileMs,
-            context.gson,
-            context.configSupplier,
-            context.configManagerSupplier,
-            context.clientSupplier,
-            context.apiClientSupplier,
-            context.schedulerSupplier,
-            context.panelSupplier,
-            context.eventManageHistoryServicesSupplier,
-            context.localTradesRuntimeServiceSupplier,
-            context.statsTradesServicesSupplier,
-            context.uploadEventDispatchFacadeServiceSupplier,
-            context.uploadBackfillDispatchServiceSupplier,
-            context.backfillServicesSupplier,
-            context.bookmarkStateServiceSupplier,
-            context.refreshPanelDataAction,
-            context.executeIoConsumer,
-            context.runtimeUtilityServices,
-            context.loggerSupplier
-        );
-    }
 
     GeLifecycleCoreFeatureRuntimeServices createCoreFeatureRuntimeServices() {
         return coreFeatureRuntimeFactory.create(

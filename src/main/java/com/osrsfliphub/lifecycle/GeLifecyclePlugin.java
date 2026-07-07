@@ -104,7 +104,6 @@ public class GeLifecyclePlugin extends Plugin {
     OverlayManager overlayManager;
 
     ApiClient apiClient;
-    GeLifecycleProfileLinkWorkflowRuntimeServices profileLinkWorkflowRuntimeServices;
     GeLifecycleCoreFeatureRuntimeServices coreFeatureRuntimeServices;
     GeLifecycleOfferUiRuntimeServices offerUiRuntimeServices;
     final GeLifecyclePanelBootstrapService panelBootstrapService = new GeLifecyclePanelBootstrapService();
@@ -292,15 +291,6 @@ public class GeLifecyclePlugin extends Plugin {
     }
 
 
-    GeLifecycleProfileLinkWorkflowRuntimeServices getProfileLinkWorkflowRuntimeServices() {
-        GeLifecycleProfileLinkWorkflowRuntimeServices services = profileLinkWorkflowRuntimeServices;
-        if (services != null) {
-            return services;
-        }
-        services = getRuntimeFactoryServices().createProfileLinkWorkflowRuntimeServices();
-        profileLinkWorkflowRuntimeServices = services;
-        return services;
-    }
 
     GeLifecycleCoreFeatureRuntimeServices getCoreFeatureRuntimeServices() {
         GeLifecycleCoreFeatureRuntimeServices services = coreFeatureRuntimeServices;
@@ -426,7 +416,7 @@ public class GeLifecyclePlugin extends Plugin {
     }
 
     LegacyLocalTradesFilterService getLegacyLocalTradesFilterService() {
-        return getProfileLinkWorkflowRuntimeServices().getLegacyLocalTradesFilterService();
+        return PluginInjectorBridge.get(LegacyLocalTradesFilterService.class);
     }
 
 }
