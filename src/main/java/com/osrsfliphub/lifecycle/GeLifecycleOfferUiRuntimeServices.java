@@ -41,7 +41,6 @@ final class GeLifecycleOfferUiRuntimeServices {
     private GeLifecycleOfferStampStateServices offerStampStateServices;
     private OfferPreviewRuntimeFacadeService offerPreviewRuntimeFacadeService;
     private OfferPreviewItemResolver offerPreviewItemResolver;
-    private GeLifecycleTickServices tickServices;
     private GeLifecycleItemServices itemServices;
     private BookmarkStateService bookmarkStateService;
     private OfferEventBuildService offerEventBuildService;
@@ -120,22 +119,6 @@ final class GeLifecycleOfferUiRuntimeServices {
         return PluginInjectorBridge.get(OfferPreviewItemResolver.class);
     }
 
-    GeLifecycleTickServices getTickServices() {
-        GeLifecycleTickServices services = tickServices;
-        if (services != null) {
-            return services;
-        }
-        services = GeLifecycleOfferUiCoreFactory.createTickServices(
-            context,
-            this::getEventManageHistoryServices,
-            this::getPanelRefreshCoordinator,
-            this::getLocalTradesRuntimeService,
-            this::getProfileWorkflowService
-        );
-        tickServices = services;
-        return services;
-    }
-
     GeLifecycleItemServices getItemServices() {
         GeLifecycleItemServices services = itemServices;
         if (services != null) {
@@ -182,9 +165,5 @@ final class GeLifecycleOfferUiRuntimeServices {
 
     private GeLifecycleProfileWorkflowService getProfileWorkflowService() {
         return PluginInjectorBridge.get(GeLifecycleProfileWorkflowService.class);
-    }
-
-    private GeLifecycleEventManageHistoryServices getEventManageHistoryServices() {
-        return context.eventManageHistoryServicesSupplier.get();
     }
 }

@@ -25,51 +25,16 @@
 package com.osrsfliphub;
 
 import java.util.Map;
-import java.util.function.BooleanSupplier;
-import java.util.function.Supplier;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 
+@Singleton
 final class GeLifecycleTickServices {
-    private final Runnable attemptGeHistoryAutoSyncAction;
-    private final BooleanSupplier panelVisibleSupplier;
-    private final Runnable triggerPanelRefreshAction;
-    private final Runnable triggerStatsRefreshAction;
-    private final Supplier<Client> clientSupplier;
-    private final Supplier<LocalAccountSessionService> localAccountSessionServiceSupplier;
-    private final Map<Long, String> profileDisplayNames;
-    private final Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier;
-    private final Supplier<ProfileStorageFacadeService> profileStorageFacadeServiceSupplier;
-    private final Supplier<LocalTradeSessionFacadeService> localTradeSessionFacadeServiceSupplier;
-    private final Runnable updateProfileOptionsUiAction;
-    private final Runnable updateProfileHeaderAction;
 
-    GeLifecycleTickServices(
-        Runnable attemptGeHistoryAutoSyncAction,
-        BooleanSupplier panelVisibleSupplier,
-        Runnable triggerPanelRefreshAction,
-        Runnable triggerStatsRefreshAction,
-        Supplier<Client> clientSupplier,
-        Supplier<LocalAccountSessionService> localAccountSessionServiceSupplier,
-        Map<Long, String> profileDisplayNames,
-        Supplier<GeLifecycleLocalTradesRuntimeService> localTradesRuntimeServiceSupplier,
-        Supplier<ProfileStorageFacadeService> profileStorageFacadeServiceSupplier,
-        Supplier<LocalTradeSessionFacadeService> localTradeSessionFacadeServiceSupplier,
-        Runnable updateProfileOptionsUiAction,
-        Runnable updateProfileHeaderAction
-    ) {
-        this.attemptGeHistoryAutoSyncAction = attemptGeHistoryAutoSyncAction;
-        this.panelVisibleSupplier = panelVisibleSupplier;
-        this.triggerPanelRefreshAction = triggerPanelRefreshAction;
-        this.triggerStatsRefreshAction = triggerStatsRefreshAction;
-        this.clientSupplier = clientSupplier;
-        this.localAccountSessionServiceSupplier = localAccountSessionServiceSupplier;
-        this.profileDisplayNames = profileDisplayNames;
-        this.localTradesRuntimeServiceSupplier = localTradesRuntimeServiceSupplier;
-        this.profileStorageFacadeServiceSupplier = profileStorageFacadeServiceSupplier;
-        this.localTradeSessionFacadeServiceSupplier = localTradeSessionFacadeServiceSupplier;
-        this.updateProfileOptionsUiAction = updateProfileOptionsUiAction;
-        this.updateProfileHeaderAction = updateProfileHeaderAction;
+    @Inject
+    GeLifecycleTickServices() {
     }
 
     boolean handlePostClientTick(boolean panelVisible) {
@@ -78,19 +43,19 @@ final class GeLifecycleTickServices {
         if (suggestionCycleService != null) {
             suggestionCycleService.update();
         }
-        if (attemptGeHistoryAutoSyncAction != null) {
-            attemptGeHistoryAutoSyncAction.run();
+        GeHistoryAutoSyncCoordinatorService autoSync =
+            PluginInjectorBridge.get(GeHistoryAutoSyncCoordinatorService.class);
+        if (autoSync != null) {
+            autoSync.attemptAutoSync();
         }
         maybeStampCurrentProfileDisplayName();
 
-        boolean visible = panelVisibleSupplier != null && panelVisibleSupplier.getAsBoolean();
+        GeLifecyclePlugin plugin = PluginAccess.plugin();
+        boolean visible = plugin.runtimeUtilityServices.isPanelVisible(plugin.panel);
         if (visible && !panelVisible) {
-            if (triggerPanelRefreshAction != null) {
-                triggerPanelRefreshAction.run();
-            }
-            if (triggerStatsRefreshAction != null) {
-                triggerStatsRefreshAction.run();
-            }
+            PanelRefreshCoordinator coordinator = PluginInjectorBridge.get(PanelRefreshCoordinator.class);
+            plugin.runtimeUtilityServices.triggerPanelRefresh(coordinator, plugin.scheduler);
+            plugin.runtimeUtilityServices.triggerStatsRefresh(coordinator, plugin.scheduler);
             return true;
         }
         if (!visible && panelVisible) {
@@ -100,7 +65,8 @@ final class GeLifecycleTickServices {
     }
 
     void maybeStampCurrentProfileDisplayName() {
-        Client client = resolve(clientSupplier);
+        GeLifecyclePlugin plugin = PluginAccess.plugin();
+        Client client = plugin.client;
         if (client == null || client.getGameState() != GameState.LOGGED_IN) {
             return;
         }
@@ -112,7 +78,8 @@ final class GeLifecycleTickServices {
             return;
         }
         String trimmed = name.trim();
-        LocalAccountSessionService accountSession = resolve(localAccountSessionServiceSupplier);
+        LocalAccountSessionService accountSession =
+            PluginInjectorBridge.get(LocalAccountSessionService.class);
         if (accountSession == null) {
             return;
         }
@@ -120,8 +87,10 @@ final class GeLifecycleTickServices {
         if (accountKey <= 0) {
             return;
         }
+        Map<Long, String> profileDisplayNames = plugin.profileDisplayNames;
         String existing = profileDisplayNames != null ? profileDisplayNames.get(accountKey) : null;
-        GeLifecycleLocalTradesRuntimeService localTradesRuntime = resolve(localTradesRuntimeServiceSupplier);
+        GeLifecycleLocalTradesRuntimeService localTradesRuntime =
+            PluginInjectorBridge.get(GeLifecycleLocalTradesRuntimeService.class);
         if (existing != null
             && localTradesRuntime != null
             && !localTradesRuntime.isPlaceholderDisplayName(existing)
@@ -135,20 +104,18 @@ final class GeLifecycleTickServices {
         if (localTradesRuntime != null) {
             localTradesRuntime.ensureProfileLoaded(accountKey);
         }
-        ProfileStorageFacadeService storage = resolve(profileStorageFacadeServiceSupplier);
-        LocalTradeSessionFacadeService localTradeSessionFacade = resolve(localTradeSessionFacadeServiceSupplier);
+        ProfileStorageFacadeService storage =
+            PluginInjectorBridge.get(ProfileStorageFacadeService.class);
+        LocalTradeSessionFacadeService localTradeSessionFacade =
+            PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
         if (storage != null && localTradeSessionFacade != null) {
             storage.writeProfileData(accountKey, localTradeSessionFacade.snapshotLocalTradeDeltas(accountKey));
         }
-        if (updateProfileOptionsUiAction != null) {
-            updateProfileOptionsUiAction.run();
+        GeLifecycleProfileWorkflowService profileWorkflow =
+            PluginInjectorBridge.get(GeLifecycleProfileWorkflowService.class);
+        if (profileWorkflow != null) {
+            profileWorkflow.updateProfileOptionsUI();
+            profileWorkflow.updateProfileHeader();
         }
-        if (updateProfileHeaderAction != null) {
-            updateProfileHeaderAction.run();
-        }
-    }
-
-    private <T> T resolve(Supplier<T> supplier) {
-        return supplier != null ? supplier.get() : null;
     }
 }

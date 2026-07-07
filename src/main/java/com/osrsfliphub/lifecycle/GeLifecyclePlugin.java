@@ -196,7 +196,7 @@ public class GeLifecyclePlugin extends Plugin {
 
     @Subscribe
     public void onPostClientTick(PostClientTick event) {
-        panelVisible = getOfferUiRuntimeServices().getTickServices().handlePostClientTick(panelVisible);
+        panelVisible = PluginInjectorBridge.get(GeLifecycleTickServices.class).handlePostClientTick(panelVisible);
         // local profile loads are handled on login/selection
     }
 
