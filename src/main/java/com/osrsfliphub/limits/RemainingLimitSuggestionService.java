@@ -103,7 +103,7 @@ final class RemainingLimitSuggestionService {
             @Override
             public Integer lookupGeLimitSafe(int itemId) {
                 ItemLookupService service =
-                    PluginAccess.plugin().getOfferUiRuntimeServices().getItemServices().getItemLookupService();
+                    PluginInjectorBridge.get(ItemLookupService.class);
                 return service != null ? service.lookupGeLimitSafe(itemId) : null;
             }
 

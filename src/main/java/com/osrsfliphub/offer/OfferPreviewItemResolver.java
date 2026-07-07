@@ -95,7 +95,7 @@ final class OfferPreviewItemResolver {
     }
 
     private static ItemLookupService itemLookupService() {
-        return PluginAccess.plugin().getOfferUiRuntimeServices().getItemServices().getItemLookupService();
+        return PluginInjectorBridge.get(ItemLookupService.class);
     }
 
     private static Hooks productionHooks(Client client, OfferPreviewRuntimeFacadeService facade) {

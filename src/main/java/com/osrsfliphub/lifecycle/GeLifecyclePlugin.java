@@ -228,7 +228,7 @@ public class GeLifecyclePlugin extends Plugin {
     }
 
     boolean isOfferStatusOpen() {
-        OfferPreviewRuntimeFacadeService previewFacade = getOfferUiRuntimeServices().getOfferPreviewRuntimeFacadeService();
+        OfferPreviewRuntimeFacadeService previewFacade = PluginInjectorBridge.get(OfferPreviewRuntimeFacadeService.class);
         Widget geRoot = previewFacade
             .getVisibleGeRoot(client, ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
         if (geRoot == null) {

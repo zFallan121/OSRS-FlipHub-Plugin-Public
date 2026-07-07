@@ -62,7 +62,7 @@ final class OfferStampFallbackBuilder {
             }
 
             private ItemLookupService itemLookupService() {
-                return PluginAccess.plugin().getOfferUiRuntimeServices().getItemServices().getItemLookupService();
+                return PluginInjectorBridge.get(ItemLookupService.class);
             }
         };
     }

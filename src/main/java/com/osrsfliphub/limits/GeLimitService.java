@@ -69,7 +69,7 @@ final class GeLimitService {
     }
 
     private static ItemLookupService itemLookupService() {
-        return PluginAccess.plugin().getOfferUiRuntimeServices().getItemServices().getItemLookupService();
+        return PluginInjectorBridge.get(ItemLookupService.class);
     }
 
     private static Hooks productionHooks(ItemManager itemManager, ClientThread clientThread, Client client) {

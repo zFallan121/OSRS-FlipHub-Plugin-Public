@@ -109,7 +109,7 @@ final class GeHistoryAutoSyncService {
             @Override
             public void cacheItemName(int itemId) {
                 ItemLookupService lookup =
-                    plugin().getOfferUiRuntimeServices().getItemServices().getItemLookupService();
+                    PluginInjectorBridge.get(ItemLookupService.class);
                 if (lookup != null) {
                     lookup.cacheItemName(itemId);
                 }

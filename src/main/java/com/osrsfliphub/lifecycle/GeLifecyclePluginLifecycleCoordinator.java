@@ -34,8 +34,8 @@ final class GeLifecyclePluginLifecycleCoordinator {
         GeLifecyclePlugin.log.info("FlipHub OSRS plugin loaded");
         plugin.getOfferStampStateServices().migrateLegacyDevConfigIfNeeded();
         plugin.getProfileWorkflowService().loadProfileSelectionState();
-        plugin.getOfferUiRuntimeServices().getBookmarkStateService().clearCache();
-        plugin.getOfferUiRuntimeServices().getBookmarkStateService().loadSelectedBookmarks(
+        PluginInjectorBridge.get(BookmarkStateService.class).clearCache();
+        PluginInjectorBridge.get(BookmarkStateService.class).loadSelectedBookmarks(
             PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class).resolveSelectedProfileKey(),
             plugin.bookmarkedItems
         );
@@ -71,7 +71,7 @@ final class GeLifecyclePluginLifecycleCoordinator {
             plugin::refreshStatsData,
             plugin.getProfileWorkflowService()::persistProfileSelectionState,
             () -> PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class),
-            () -> plugin.getOfferUiRuntimeServices().getBookmarkStateService(),
+            () -> PluginInjectorBridge.get(BookmarkStateService.class),
             plugin.getLocalTradesRuntimeService()::ensureProfileLoaded,
             plugin.getProfileWorkflowService()::updateProfileOptionsUI,
             plugin.getProfileWorkflowService()::updateProfileHeader,
@@ -90,9 +90,9 @@ final class GeLifecyclePluginLifecycleCoordinator {
             () -> PluginInjectorBridge.get(UploadBackfillDispatchService.class),
             plugin::refreshPanelData,
             plugin::refreshStatsData,
-            () -> plugin.getOfferUiRuntimeServices().getOfferPreviewRuntimeFacadeService(),
+            () -> PluginInjectorBridge.get(OfferPreviewRuntimeFacadeService.class),
             () -> plugin.clientThread,
-            () -> plugin.getOfferUiRuntimeServices().getOfferPreviewItemResolver(),
+            () -> PluginInjectorBridge.get(OfferPreviewItemResolver.class),
             () -> plugin.getOfferUiRuntimeServices().getItemServices(),
             () -> PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class),
             GeLifecyclePluginConstants.ACCOUNTWIDE_UPLOAD_INTERVAL_SECONDS,
