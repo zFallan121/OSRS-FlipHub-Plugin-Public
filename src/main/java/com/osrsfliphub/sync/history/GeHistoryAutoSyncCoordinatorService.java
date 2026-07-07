@@ -77,7 +77,7 @@ final class GeHistoryAutoSyncCoordinatorService {
 
     @Inject
     GeHistoryAutoSyncCoordinatorService(Client client) {
-        this(PluginAccess.plugin().getEventManageHistoryServices().getGeHistoryAutoSyncStateService(),
+        this(PluginInjectorBridge.get(GeHistoryAutoSyncStateService.class),
             productionHooks(client));
     }
 

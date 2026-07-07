@@ -152,7 +152,7 @@ final class ManageDataDialogService {
 
             @Override
             public void wipeWebsiteStatsAsync() {
-                WebsiteStatsWipeService service = manageDataServices().getWebsiteStatsWipeService();
+                WebsiteStatsWipeService service = PluginInjectorBridge.get(WebsiteStatsWipeService.class);
                 if (service != null) {
                     service.wipeWebsiteStatsAsync();
                 }

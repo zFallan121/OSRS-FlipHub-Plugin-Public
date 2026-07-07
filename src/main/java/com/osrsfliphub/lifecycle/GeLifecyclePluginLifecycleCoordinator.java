@@ -47,7 +47,7 @@ final class GeLifecyclePluginLifecycleCoordinator {
         plugin.getLocalTradesRuntimeService().ensureProfileLoaded(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY);
         if (plugin.client != null && plugin.client.getGameState() == GameState.LOGGED_IN) {
             plugin.getOfferStampStateServices().setLastLoginNow();
-            plugin.getEventManageHistoryServices().getGeHistoryAutoSyncStateService().arm();
+            PluginInjectorBridge.get(GeHistoryAutoSyncStateService.class).arm();
             plugin.getOfferStampStateServices().loadOfferUpdateTimesForCurrentAccount();
         }
         GeLifecyclePanelBootstrapService.UiState uiState = plugin.panelBootstrapService.initialize(
@@ -77,7 +77,7 @@ final class GeLifecyclePluginLifecycleCoordinator {
             plugin.getProfileWorkflowService()::updateProfileHeader,
             () -> plugin.runtimeUtilityServices.triggerPanelRefresh(plugin.getPanelRefreshCoordinator(), plugin.scheduler),
             () -> plugin.runtimeUtilityServices.triggerStatsRefresh(plugin.getPanelRefreshCoordinator(), plugin.scheduler),
-            () -> plugin.getEventManageHistoryServices().getManageDataDialogService().showManageDataDialog()
+            () -> PluginInjectorBridge.get(ManageDataDialogService.class).showManageDataDialog()
         );
         plugin.panel = uiState.getPanel();
         plugin.navButton = uiState.getNavButton();

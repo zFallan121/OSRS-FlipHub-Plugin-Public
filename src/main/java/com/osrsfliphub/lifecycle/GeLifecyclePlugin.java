@@ -190,7 +190,7 @@ public class GeLifecyclePlugin extends Plugin {
 
     @Subscribe
     public void onGrandExchangeOfferChanged(GrandExchangeOfferChanged event) {
-        getEventManageHistoryServices().getGrandExchangeOfferChangedHandlerService().handle(event);
+        PluginInjectorBridge.get(GrandExchangeOfferChangedHandlerService.class).handle(event);
     }
 
     @Subscribe

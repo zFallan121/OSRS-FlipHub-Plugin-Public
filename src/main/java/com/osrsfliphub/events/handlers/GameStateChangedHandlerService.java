@@ -102,7 +102,7 @@ final class GameStateChangedHandlerService {
 
             @Override
             public void disarmGeHistoryAutoSync() {
-                PluginAccess.plugin().getEventManageHistoryServices().getGeHistoryAutoSyncStateService().disarm();
+                PluginInjectorBridge.get(GeHistoryAutoSyncStateService.class).disarm();
             }
 
             @Override
@@ -131,7 +131,7 @@ final class GameStateChangedHandlerService {
 
             @Override
             public void armGeHistoryAutoSync() {
-                PluginAccess.plugin().getEventManageHistoryServices().getGeHistoryAutoSyncStateService().arm();
+                PluginInjectorBridge.get(GeHistoryAutoSyncStateService.class).arm();
             }
 
             @Override
