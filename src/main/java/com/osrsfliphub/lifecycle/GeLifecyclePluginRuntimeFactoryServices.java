@@ -25,46 +25,12 @@
 package com.osrsfliphub;
 
 final class GeLifecyclePluginRuntimeFactoryServices {
-    private final GeLifecycleOfferUiRuntimeFactory offerUiRuntimeFactory = new GeLifecycleOfferUiRuntimeFactory();
     private final GeLifecycleCoreFeatureRuntimeFactory coreFeatureRuntimeFactory = new GeLifecycleCoreFeatureRuntimeFactory();
     private final GeLifecyclePluginRuntimeFactoryContext context;
 
     GeLifecyclePluginRuntimeFactoryServices(GeLifecyclePluginRuntimeFactoryContext context) {
         this.context = context;
     }
-
-    GeLifecycleOfferUiRuntimeServices createOfferUiRuntimeServices() {
-        return offerUiRuntimeFactory.create(
-            context.runtimeUtilityServices,
-            context.configSupplier,
-            context.configManagerSupplier,
-            context.gson,
-            context.clientSupplier,
-            context.clientThreadSupplier,
-            context.itemManagerSupplier,
-            context.panelSupplier,
-            context.schedulerSupplier,
-            context.panelRefreshCoordinatorSupplier,
-            context.localTradesRuntimeServiceSupplier,
-            context.backfillServicesSupplier,
-            context.profileWorkflowServiceSupplier,
-            context.eventManageHistoryServicesSupplier,
-            context.panelDataRuntimeServiceSupplier,
-            context.offerUpdateStamps,
-            context.itemNameLookupCache,
-            context.itemNameCache,
-            context.hiddenItems,
-            context.profileDisplayNames,
-            context.bookmarkConfigStore,
-            context.offerUpdateStampConfigStore,
-            context.offerUpdateStampLegacyMatcher,
-            context.offerPreviewItemIdSupplier,
-            context.offerPreviewItemSupplier,
-            context.offerPreviewItemIdSetter,
-            context.offerPreviewItemSetter
-        );
-    }
-
 
     GeLifecycleCoreFeatureRuntimeServices createCoreFeatureRuntimeServices() {
         return coreFeatureRuntimeFactory.create(

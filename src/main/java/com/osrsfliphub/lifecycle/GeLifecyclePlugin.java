@@ -105,7 +105,6 @@ public class GeLifecyclePlugin extends Plugin {
 
     ApiClient apiClient;
     GeLifecycleCoreFeatureRuntimeServices coreFeatureRuntimeServices;
-    GeLifecycleOfferUiRuntimeServices offerUiRuntimeServices;
     final GeLifecyclePanelBootstrapService panelBootstrapService = new GeLifecyclePanelBootstrapService();
     final GeLifecycleRuntimeSchedulerServices runtimeSchedulerServices = new GeLifecycleRuntimeSchedulerServices();
     final GeLifecycleRuntimeUtilityServices runtimeUtilityServices = new GeLifecycleRuntimeUtilityServices();
@@ -239,16 +238,6 @@ public class GeLifecyclePlugin extends Plugin {
 
     GeLifecyclePluginRuntimeFactoryServices getRuntimeFactoryServices() {
         return GeLifecyclePluginRuntimeFactoryContextFactory.getOrCreate(this);
-    }
-
-    GeLifecycleOfferUiRuntimeServices getOfferUiRuntimeServices() {
-        GeLifecycleOfferUiRuntimeServices services = offerUiRuntimeServices;
-        if (services != null) {
-            return services;
-        }
-        services = getRuntimeFactoryServices().createOfferUiRuntimeServices();
-        offerUiRuntimeServices = services;
-        return services;
     }
 
     BackfillRetryScheduler getBackfillRetryScheduler() {
