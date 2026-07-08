@@ -30,14 +30,6 @@ import net.runelite.api.GrandExchangeOfferState;
 
 @Singleton
 final class OfferEventBuildService {
-    interface Hooks {
-        boolean stampMatchesSnapshot(OfferUpdateStamp stamp, OfferSnapshot snapshot);
-        long resolveBaselineTradeTimestamp(OfferUpdateStamp stamp, long lastLoginMs);
-        boolean isWithinLoginGrace();
-        boolean hasRecentLocalBuy(int itemId, long nowMs);
-        long nowMs();
-    }
-
     static final class Input {
         final OfferSnapshot prev;
         final OfferSnapshot next;
@@ -115,51 +107,12 @@ final class OfferEventBuildService {
         }
     }
 
-    private final Hooks hooks;
+    private final OfferUpdateStampService stampService;
     private final OfferEventBuildMathService mathService = new OfferEventBuildMathService();
 
     @Inject
     OfferEventBuildService(OfferUpdateStampService stampService) {
-        this(productionHooks(stampService));
-    }
-
-    OfferEventBuildService(Hooks hooks) {
-        this.hooks = hooks;
-    }
-
-    private static Hooks productionHooks(OfferUpdateStampService stampService) {
-        return new Hooks() {
-            @Override
-            public boolean stampMatchesSnapshot(OfferUpdateStamp stamp, OfferSnapshot snapshot) {
-                return stampService != null && stampService.stampMatchesSnapshot(stamp, snapshot);
-            }
-
-            @Override
-            public long resolveBaselineTradeTimestamp(OfferUpdateStamp stamp, long lastLoginMs) {
-                return stampService != null ? stampService.resolveBaselineTradeTimestamp(stamp, lastLoginMs) : 0L;
-            }
-
-            @Override
-            public boolean isWithinLoginGrace() {
-                return PluginAccess.plugin().getOfferStampStateServices().isWithinLoginGrace();
-            }
-
-            @Override
-            public boolean hasRecentLocalBuy(int itemId, long nowMs) {
-                LocalTradeSessionFacadeService service =
-                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
-                if (service == null) {
-                    return false;
-                }
-                long accountKey = service.resolveAccountHash();
-                return accountKey > 0 && service.hasRecentLocalBuy(accountKey, itemId, nowMs);
-            }
-
-            @Override
-            public long nowMs() {
-                return System.currentTimeMillis();
-            }
-        };
+        this.stampService = stampService;
     }
 
     Result derive(Input input) {
@@ -285,22 +238,27 @@ final class OfferEventBuildService {
     }
 
     private boolean stampMatchesSnapshot(OfferUpdateStamp stamp, OfferSnapshot snapshot) {
-        return hooks != null && hooks.stampMatchesSnapshot(stamp, snapshot);
+        return stampService != null && stampService.stampMatchesSnapshot(stamp, snapshot);
     }
 
     private long resolveBaselineTradeTimestamp(OfferUpdateStamp stamp, long lastLoginMs) {
-        return hooks != null ? hooks.resolveBaselineTradeTimestamp(stamp, lastLoginMs) : 0L;
+        return stampService != null ? stampService.resolveBaselineTradeTimestamp(stamp, lastLoginMs) : 0L;
     }
 
     private boolean isWithinLoginGrace() {
-        return hooks != null && hooks.isWithinLoginGrace();
+        return PluginAccess.plugin().getOfferStampStateServices().isWithinLoginGrace();
     }
 
     private boolean hasRecentLocalBuy(int itemId, long nowMs) {
-        return hooks != null && hooks.hasRecentLocalBuy(itemId, nowMs);
+        LocalTradeSessionFacadeService service = PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+        if (service == null) {
+            return false;
+        }
+        long accountKey = service.resolveAccountHash();
+        return accountKey > 0 && service.hasRecentLocalBuy(accountKey, itemId, nowMs);
     }
 
     private long nowMs() {
-        return hooks != null ? hooks.nowMs() : System.currentTimeMillis();
+        return System.currentTimeMillis();
     }
 }
