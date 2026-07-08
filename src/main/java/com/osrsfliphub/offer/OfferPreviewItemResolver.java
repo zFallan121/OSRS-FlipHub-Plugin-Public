@@ -35,20 +35,6 @@ import net.runelite.api.widgets.Widget;
 
 @Singleton
 final class OfferPreviewItemResolver {
-    interface Hooks {
-        Widget getVisibleGeRoot();
-        boolean isOfferStatusOpen(Widget geRoot);
-        int getNewOfferTypeVarbit();
-        int getSelectedSlotVarbit();
-        Widget getOfferContainer();
-        String normalizeOfferText(String text);
-        int findFirstItemId(Widget widget);
-        int getCurrentGeItemVarp();
-        GrandExchangeOffer getSelectedOffer();
-        String findItemNameCandidate(Widget geRoot);
-        int resolveItemIdFromName(String name);
-    }
-
     static final class Resolution {
         private final Integer itemId;
         private final String itemName;
@@ -81,104 +67,81 @@ final class OfferPreviewItemResolver {
         }
     }
 
-    private final Hooks hooks;
+    private final Client client;
+    private final OfferPreviewRuntimeFacadeService facade;
     private final String[] setupBlockers;
 
     @Inject
     OfferPreviewItemResolver(Client client, OfferPreviewRuntimeFacadeService facade) {
-        this(productionHooks(client, facade), GeLifecyclePluginConstants.OFFER_SETUP_BLOCKERS);
-    }
-
-    OfferPreviewItemResolver(Hooks hooks, String[] setupBlockers) {
-        this.hooks = hooks;
-        this.setupBlockers = setupBlockers != null ? setupBlockers : new String[0];
+        this.client = client;
+        this.facade = facade;
+        this.setupBlockers = GeLifecyclePluginConstants.OFFER_SETUP_BLOCKERS != null
+            ? GeLifecyclePluginConstants.OFFER_SETUP_BLOCKERS : new String[0];
     }
 
     private static ItemLookupService itemLookupService() {
         return PluginInjectorBridge.get(ItemLookupService.class);
     }
 
-    private static Hooks productionHooks(Client client, OfferPreviewRuntimeFacadeService facade) {
-        return new Hooks() {
-            @Override
-            public Widget getVisibleGeRoot() {
-                return facade != null
-                    ? facade.getVisibleGeRoot(client, ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER)
-                    : null;
-            }
+    private Widget getVisibleGeRoot() {
+        return facade != null
+            ? facade.getVisibleGeRoot(client, ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER)
+            : null;
+    }
 
-            @Override
-            public boolean isOfferStatusOpen(Widget geRoot) {
-                return facade != null && facade.isOfferStatusOpen(geRoot, GeLifecyclePluginConstants.OFFER_STATUS_MARKERS);
-            }
+    private boolean isOfferStatusOpen(Widget geRoot) {
+        return facade != null && facade.isOfferStatusOpen(geRoot, GeLifecyclePluginConstants.OFFER_STATUS_MARKERS);
+    }
 
-            @Override
-            public int getNewOfferTypeVarbit() {
-                return client != null ? client.getVarbitValue(VarbitID.GE_NEWOFFER_TYPE) : 0;
-            }
+    private int getNewOfferTypeVarbit() {
+        return client != null ? client.getVarbitValue(VarbitID.GE_NEWOFFER_TYPE) : 0;
+    }
 
-            @Override
-            public int getSelectedSlotVarbit() {
-                return client != null ? client.getVarbitValue(VarbitID.GE_SELECTEDSLOT) : -1;
-            }
+    private int getSelectedSlotVarbit() {
+        return client != null ? client.getVarbitValue(VarbitID.GE_SELECTEDSLOT) : -1;
+    }
 
-            @Override
-            public Widget getOfferContainer() {
-                return client != null ? client.getWidget(ComponentID.GRAND_EXCHANGE_OFFER_CONTAINER) : null;
-            }
+    private Widget getOfferContainer() {
+        return client != null ? client.getWidget(ComponentID.GRAND_EXCHANGE_OFFER_CONTAINER) : null;
+    }
 
-            @Override
-            public String normalizeOfferText(String text) {
-                return OfferPreviewWidgetParser.normalizeText(text);
-            }
+    private int findFirstItemId(Widget widget) {
+        return facade != null ? facade.findFirstItemId(widget) : -1;
+    }
 
-            @Override
-            public int findFirstItemId(Widget widget) {
-                return facade != null ? facade.findFirstItemId(widget) : -1;
-            }
+    private int getCurrentGeItemVarp() {
+        return client != null ? client.getVarpValue(VarPlayer.CURRENT_GE_ITEM) : -1;
+    }
 
-            @Override
-            public int getCurrentGeItemVarp() {
-                return client != null ? client.getVarpValue(VarPlayer.CURRENT_GE_ITEM) : -1;
-            }
+    private GrandExchangeOffer getSelectedOffer() {
+        return facade != null ? facade.getSelectedOffer(client, VarbitID.GE_SELECTEDSLOT) : null;
+    }
 
-            @Override
-            public GrandExchangeOffer getSelectedOffer() {
-                return facade != null ? facade.getSelectedOffer(client, VarbitID.GE_SELECTEDSLOT) : null;
-            }
+    private String findItemNameCandidate(Widget geRoot) {
+        ItemLookupService itemLookupService = itemLookupService();
+        if (facade == null || itemLookupService == null) {
+            return null;
+        }
+        return facade.findItemNameCandidate(
+            geRoot,
+            GeLifecyclePluginConstants.ITEM_NAME_EXCLUDES,
+            itemLookupService::resolveItemIdFromName);
+    }
 
-            @Override
-            public String findItemNameCandidate(Widget geRoot) {
-                ItemLookupService itemLookupService = itemLookupService();
-                if (facade == null || itemLookupService == null) {
-                    return null;
-                }
-                return facade.findItemNameCandidate(
-                    geRoot,
-                    GeLifecyclePluginConstants.ITEM_NAME_EXCLUDES,
-                    itemLookupService::resolveItemIdFromName);
-            }
-
-            @Override
-            public int resolveItemIdFromName(String name) {
-                ItemLookupService itemLookupService = itemLookupService();
-                return itemLookupService != null ? itemLookupService.resolveItemIdFromName(name) : -1;
-            }
-        };
+    private int resolveItemIdFromName(String name) {
+        ItemLookupService itemLookupService = itemLookupService();
+        return itemLookupService != null ? itemLookupService.resolveItemIdFromName(name) : -1;
     }
 
     Resolution resolve() {
-        if (hooks == null) {
-            return Resolution.clear();
-        }
-        Widget geRoot = hooks.getVisibleGeRoot();
-        Widget offerContainer = hooks.getOfferContainer();
+        Widget geRoot = getVisibleGeRoot();
+        Widget offerContainer = getOfferContainer();
         boolean offerVisible = offerContainer != null && !offerContainer.isHidden();
         boolean geOpen = geRoot != null;
-        boolean offerStatusOpen = geOpen && hooks.isOfferStatusOpen(geRoot);
+        boolean offerStatusOpen = geOpen && isOfferStatusOpen(geRoot);
         // Some client builds can lag the setup varbit while the setup container is already visible.
-        boolean setupMode = hooks.getNewOfferTypeVarbit() > 0 || offerVisible;
-        int selectedSlot = hooks.getSelectedSlotVarbit();
+        boolean setupMode = getNewOfferTypeVarbit() > 0 || offerVisible;
+        int selectedSlot = getSelectedSlotVarbit();
 
         if (geOpen && !setupMode && !offerStatusOpen && selectedSlot <= 0) {
             return Resolution.clear();
@@ -220,7 +183,7 @@ final class OfferPreviewItemResolver {
             return Resolution.clear();
         }
 
-        String normalized = hooks.normalizeOfferText(offerContainer.getText());
+        String normalized = OfferPreviewWidgetParser.normalizeText(offerContainer.getText());
         if (normalized != null) {
             String lower = normalized.toLowerCase();
             if (OfferPreviewWidgetParser.containsAny(lower, setupBlockers)) {
@@ -228,7 +191,7 @@ final class OfferPreviewItemResolver {
             }
         }
 
-        int itemId = hooks.findFirstItemId(offerContainer);
+        int itemId = findFirstItemId(offerContainer);
         if (itemId <= 0) {
             return Resolution.clear();
         }
@@ -239,7 +202,7 @@ final class OfferPreviewItemResolver {
         if (geRoot == null) {
             return null;
         }
-        int itemId = hooks.findFirstItemId(geRoot);
+        int itemId = findFirstItemId(geRoot);
         if (itemId <= 0) {
             return null;
         }
@@ -251,7 +214,7 @@ final class OfferPreviewItemResolver {
         if (!setupMode && !offerStatusOpen && selectedSlot <= 0) {
             return null;
         }
-        int itemId = hooks.getCurrentGeItemVarp();
+        int itemId = getCurrentGeItemVarp();
         if (itemId <= 0) {
             return null;
         }
@@ -259,7 +222,7 @@ final class OfferPreviewItemResolver {
     }
 
     private Resolution resolveFromSelectedSlot() {
-        GrandExchangeOffer offer = hooks.getSelectedOffer();
+        GrandExchangeOffer offer = getSelectedOffer();
         if (offer == null) {
             return null;
         }
@@ -274,11 +237,11 @@ final class OfferPreviewItemResolver {
         if (geRoot == null) {
             return null;
         }
-        String candidate = hooks.findItemNameCandidate(geRoot);
+        String candidate = findItemNameCandidate(geRoot);
         if (candidate == null) {
             return null;
         }
-        int itemId = hooks.resolveItemIdFromName(candidate);
+        int itemId = resolveItemIdFromName(candidate);
         if (itemId <= 0) {
             return null;
         }
