@@ -34,96 +34,69 @@ import net.runelite.client.config.ConfigManager;
 
 @Singleton
 final class AccountwideBackfillExecutionService {
-    interface Hooks {
-        boolean isClientLoggedIn();
-        boolean isLinked();
-        boolean isBackfillReady();
-        long nowMs();
-        void requestBackfillAttempt(long delaySeconds, boolean resetBackoff);
-        AccountwideBackfillCoordinator.Result runBackfillCycle();
-        void scheduleBackfillRetry();
-    }
-
     private final long backfillMinIntervalMs;
-    private final Hooks hooks;
+    private final Client client;
+    private final ApiClient apiClient;
+    private final ConfigManager configManager;
     private final AtomicBoolean backfillInFlight = new AtomicBoolean(false);
     private volatile long lastBackfillAttemptMs;
 
     @Inject
     AccountwideBackfillExecutionService(Client client, ApiClient apiClient, ConfigManager configManager) {
-        this(GeLifecyclePluginConstants.BACKFILL_MIN_INTERVAL_MS, productionHooks(client, apiClient, configManager));
-    }
-
-    AccountwideBackfillExecutionService(long backfillMinIntervalMs, Hooks hooks) {
-        this.backfillMinIntervalMs = Math.max(0L, backfillMinIntervalMs);
-        this.hooks = hooks;
+        this.backfillMinIntervalMs = Math.max(0L, GeLifecyclePluginConstants.BACKFILL_MIN_INTERVAL_MS);
+        this.client = client;
+        this.apiClient = apiClient;
+        this.configManager = configManager;
     }
 
     private static UploadBackfillDispatchService uploadBackfillDispatch() {
         return PluginInjectorBridge.get(UploadBackfillDispatchService.class);
     }
 
-    private static Hooks productionHooks(Client client, ApiClient apiClient, ConfigManager configManager) {
-        return new Hooks() {
-            @Override
-            public boolean isClientLoggedIn() {
-                return client != null && client.getGameState() == GameState.LOGGED_IN;
-            }
+    private boolean isClientLoggedIn() {
+        return client != null && client.getGameState() == GameState.LOGGED_IN;
+    }
 
-            @Override
-            public boolean isLinked() {
-                ProfileSelectionPresentationFacadeService service = PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
-                return service != null && service.isLinked();
-            }
+    private boolean isLinked() {
+        ProfileSelectionPresentationFacadeService service =
+            PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
+        return service != null && service.isLinked();
+    }
 
-            @Override
-            public boolean isBackfillReady() {
-                return apiClient != null && configManager != null;
-            }
+    private boolean isBackfillReady() {
+        return apiClient != null && configManager != null;
+    }
 
-            @Override
-            public long nowMs() {
-                return System.currentTimeMillis();
-            }
+    private void requestBackfillAttempt(long delaySeconds, boolean resetBackoff) {
+        UploadBackfillDispatchService service = uploadBackfillDispatch();
+        if (service != null) {
+            service.requestBackfillAttempt(PluginAccess.plugin().scheduler, delaySeconds, resetBackoff);
+        }
+    }
 
-            @Override
-            public void requestBackfillAttempt(long delaySeconds, boolean resetBackoff) {
-                UploadBackfillDispatchService service = uploadBackfillDispatch();
-                if (service != null) {
-                    service.requestBackfillAttempt(PluginAccess.plugin().scheduler, delaySeconds, resetBackoff);
-                }
-            }
+    private AccountwideBackfillCoordinator.Result runBackfillCycle() {
+        AccountwideBackfillCoordinator coordinator = PluginInjectorBridge.get(AccountwideBackfillCoordinator.class);
+        return coordinator != null ? coordinator.runCycle() : null;
+    }
 
-            @Override
-            public AccountwideBackfillCoordinator.Result runBackfillCycle() {
-                AccountwideBackfillCoordinator coordinator = PluginInjectorBridge.get(AccountwideBackfillCoordinator.class);
-                return coordinator != null ? coordinator.runCycle() : null;
-            }
-
-            @Override
-            public void scheduleBackfillRetry() {
-                UploadBackfillDispatchService service = uploadBackfillDispatch();
-                if (service != null) {
-                    service.scheduleBackfillRetry(PluginAccess.plugin().scheduler);
-                }
-            }
-        };
+    private void scheduleBackfillRetry() {
+        UploadBackfillDispatchService service = uploadBackfillDispatch();
+        if (service != null) {
+            service.scheduleBackfillRetry(PluginAccess.plugin().scheduler);
+        }
     }
 
     void attemptIfNeeded() {
         boolean shouldRetry = false;
-        if (hooks == null) {
+        if (!isClientLoggedIn() || !isLinked() || !isBackfillReady()) {
             return;
         }
-        if (!hooks.isClientLoggedIn() || !hooks.isLinked() || !hooks.isBackfillReady()) {
-            return;
-        }
-        long nowMs = hooks.nowMs();
+        long nowMs = System.currentTimeMillis();
         long elapsedMs = nowMs - lastBackfillAttemptMs;
         if (elapsedMs >= 0 && elapsedMs < backfillMinIntervalMs) {
             long remainingMs = backfillMinIntervalMs - elapsedMs;
             long delaySeconds = Math.max(1L, TimeUnit.MILLISECONDS.toSeconds(remainingMs));
-            hooks.requestBackfillAttempt(delaySeconds, false);
+            requestBackfillAttempt(delaySeconds, false);
             return;
         }
         if (!backfillInFlight.compareAndSet(false, true)) {
@@ -131,12 +104,12 @@ final class AccountwideBackfillExecutionService {
         }
         lastBackfillAttemptMs = nowMs;
         try {
-            AccountwideBackfillCoordinator.Result result = hooks.runBackfillCycle();
+            AccountwideBackfillCoordinator.Result result = runBackfillCycle();
             shouldRetry = result != null && result.shouldRetry;
         } finally {
             backfillInFlight.set(false);
-            if (shouldRetry && hooks.isLinked()) {
-                hooks.scheduleBackfillRetry();
+            if (shouldRetry && isLinked()) {
+                scheduleBackfillRetry();
             }
         }
     }
