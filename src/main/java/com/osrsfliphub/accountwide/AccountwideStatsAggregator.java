@@ -35,22 +35,8 @@ import javax.inject.Singleton;
 
 @Singleton
 final class AccountwideStatsAggregator {
-    interface Hooks {
-        void ensureProfileLoaded(long accountKey);
-        LocalStatsSnapshot buildSnapshotForProfile(long accountKey, Long sinceMs);
-        void hydrateItemNames(List<StatsItem> items);
-        Comparator<StatsItem> buildComparator(StatsItemSort sort);
-    }
-
-    private final Hooks hooks;
-
     @Inject
     AccountwideStatsAggregator() {
-        this(productionHooks());
-    }
-
-    AccountwideStatsAggregator(Hooks hooks) {
-        this.hooks = hooks;
     }
 
     private static LocalStatsCacheService cacheService() {
@@ -61,41 +47,33 @@ final class AccountwideStatsAggregator {
         return PluginInjectorBridge.get(LocalStatsSnapshotService.class);
     }
 
-    private static Hooks productionHooks() {
-        return new Hooks() {
-            @Override
-            public void ensureProfileLoaded(long accountKey) {
-                PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
-            }
+    private void ensureProfileLoaded(long accountKey) {
+        PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
+    }
 
-            @Override
-            public LocalStatsSnapshot buildSnapshotForProfile(long accountKey, Long sinceMs) {
-                LocalStatsCacheService cacheService = cacheService();
-                LocalStatsCache cache = cacheService != null ? cacheService.getOrBuild(accountKey) : null;
-                if (cache == null) {
-                    return new LocalStatsSnapshot(new StatsSummary(), new ArrayList<>());
-                }
-                return cache.buildSnapshotSince(sinceMs);
-            }
+    private LocalStatsSnapshot buildSnapshotForProfile(long accountKey, Long sinceMs) {
+        LocalStatsCacheService cacheService = cacheService();
+        LocalStatsCache cache = cacheService != null ? cacheService.getOrBuild(accountKey) : null;
+        if (cache == null) {
+            return new LocalStatsSnapshot(new StatsSummary(), new ArrayList<>());
+        }
+        return cache.buildSnapshotSince(sinceMs);
+    }
 
-            @Override
-            public void hydrateItemNames(List<StatsItem> items) {
-                LocalStatsSnapshotService snapshotService = snapshotService();
-                if (snapshotService != null) {
-                    snapshotService.hydrateItemNames(items);
-                }
-            }
+    private void hydrateItemNames(List<StatsItem> items) {
+        LocalStatsSnapshotService snapshotService = snapshotService();
+        if (snapshotService != null) {
+            snapshotService.hydrateItemNames(items);
+        }
+    }
 
-            @Override
-            public Comparator<StatsItem> buildComparator(StatsItemSort sort) {
-                LocalStatsSnapshotService snapshotService = snapshotService();
-                return snapshotService != null ? snapshotService.buildComparator(sort) : null;
-            }
-        };
+    private Comparator<StatsItem> buildComparator(StatsItemSort sort) {
+        LocalStatsSnapshotService snapshotService = snapshotService();
+        return snapshotService != null ? snapshotService.buildComparator(sort) : null;
     }
 
     LocalStatsSnapshot buildFromProfiles(Set<Long> profileKeys, Long sinceMs, StatsItemSort sort) {
-        if (profileKeys == null || profileKeys.isEmpty() || hooks == null) {
+        if (profileKeys == null || profileKeys.isEmpty()) {
             return new LocalStatsSnapshot(new StatsSummary(), new ArrayList<>());
         }
 
@@ -113,8 +91,8 @@ final class AccountwideStatsAggregator {
             if (key == null || key <= 0) {
                 continue;
             }
-            hooks.ensureProfileLoaded(key);
-            LocalStatsSnapshot snapshot = hooks.buildSnapshotForProfile(key, sinceMs);
+            ensureProfileLoaded(key);
+            LocalStatsSnapshot snapshot = buildSnapshotForProfile(key, sinceMs);
             if (snapshot == null) {
                 continue;
             }
@@ -226,8 +204,8 @@ final class AccountwideStatsAggregator {
                 long profit = item.total_profit_gp != null ? item.total_profit_gp : 0L;
                 item.roi_percent = cost > 0 ? (profit * 100.0) / cost : 0.0;
             }
-            hooks.hydrateItemNames(items);
-            Comparator<StatsItem> comparator = hooks.buildComparator(sort);
+            hydrateItemNames(items);
+            Comparator<StatsItem> comparator = buildComparator(sort);
             if (comparator != null) {
                 items.sort(comparator);
             }
