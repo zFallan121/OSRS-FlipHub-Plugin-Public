@@ -30,130 +30,93 @@ import javax.inject.Singleton;
 
 @Singleton
 final class OfferPreviewSyncService {
-    interface Hooks {
-        Integer getOfferPreviewItemId();
-        FlipHubItem getOfferPreviewItem();
-        void setOfferPreviewItemId(Integer itemId);
-        void setOfferPreviewItem(FlipHubItem item);
-        FlipHubItem buildLocalOfferPreview(int itemId);
-        void setPanelOfferPreview(FlipHubItem item, long asOfMs, Long priceCacheMs);
-        void markSuggestionDirty();
-        void scheduleRefreshSoon();
-        long nowMs();
-    }
-
-    private final Hooks hooks;
-
     @Inject
     OfferPreviewSyncService() {
-        this(productionHooks());
     }
 
-    OfferPreviewSyncService(Hooks hooks) {
-        this.hooks = hooks;
+    private Integer getOfferPreviewItemId() {
+        return PluginAccess.plugin().offerPreviewItemId;
     }
 
-    private static Hooks productionHooks() {
-        return new Hooks() {
-            @Override
-            public Integer getOfferPreviewItemId() {
-                return PluginAccess.plugin().offerPreviewItemId;
-            }
+    private FlipHubItem getOfferPreviewItem() {
+        return PluginAccess.plugin().offerPreviewItem;
+    }
 
-            @Override
-            public FlipHubItem getOfferPreviewItem() {
-                return PluginAccess.plugin().offerPreviewItem;
-            }
+    private void setOfferPreviewItemId(Integer itemId) {
+        PluginAccess.plugin().offerPreviewItemId = itemId;
+    }
 
-            @Override
-            public void setOfferPreviewItemId(Integer itemId) {
-                PluginAccess.plugin().offerPreviewItemId = itemId;
-            }
+    private void setOfferPreviewItem(FlipHubItem item) {
+        PluginAccess.plugin().offerPreviewItem = item;
+    }
 
-            @Override
-            public void setOfferPreviewItem(FlipHubItem item) {
-                PluginAccess.plugin().offerPreviewItem = item;
-            }
+    private FlipHubItem buildLocalOfferPreview(int itemId) {
+        return PluginInjectorBridge.get(GeLifecyclePanelDataRuntimeService.class).buildLocalOfferPreview(itemId);
+    }
 
-            @Override
-            public FlipHubItem buildLocalOfferPreview(int itemId) {
-                return PluginInjectorBridge.get(GeLifecyclePanelDataRuntimeService.class)
-                    .buildLocalOfferPreview(itemId);
-            }
+    private void setPanelOfferPreview(FlipHubItem item, long asOfMs, Long priceCacheMs) {
+        FlipHubPanel panel = PluginAccess.plugin().panel;
+        if (panel != null) {
+            panel.setOfferPreview(item, asOfMs, priceCacheMs);
+        }
+    }
 
-            @Override
-            public void setPanelOfferPreview(FlipHubItem item, long asOfMs, Long priceCacheMs) {
-                FlipHubPanel panel = PluginAccess.plugin().panel;
-                if (panel != null) {
-                    panel.setOfferPreview(item, asOfMs, priceCacheMs);
-                }
-            }
+    private void markSuggestionDirty() {
+        ChatboxSuggestionRuntimeStateService service =
+            PluginInjectorBridge.get(ChatboxSuggestionRuntimeStateService.class);
+        if (service != null) {
+            service.markSuggestionDirty();
+        }
+    }
 
-            @Override
-            public void markSuggestionDirty() {
-                ChatboxSuggestionRuntimeStateService service =
-                    PluginInjectorBridge.get(ChatboxSuggestionRuntimeStateService.class);
-                if (service != null) {
-                    service.markSuggestionDirty();
-                }
-            }
-
-            @Override
-            public void scheduleRefreshSoon() {
-                GeLifecyclePlugin plugin = PluginAccess.plugin();
-                PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
-                if (coordinator != null) {
-                    coordinator.scheduleRefreshSoon(plugin.scheduler);
-                }
-            }
-
-            @Override
-            public long nowMs() {
-                return System.currentTimeMillis();
-            }
-        };
+    private void scheduleRefreshSoon() {
+        GeLifecyclePlugin plugin = PluginAccess.plugin();
+        PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
+        if (coordinator != null) {
+            coordinator.scheduleRefreshSoon(plugin.scheduler);
+        }
     }
 
     void clearPreview() {
-        if (hooks == null || hooks.getOfferPreviewItemId() == null) {
+        if (getOfferPreviewItemId() == null) {
             return;
         }
-        hooks.setOfferPreviewItemId(null);
-        hooks.setOfferPreviewItem(null);
-        hooks.setPanelOfferPreview(null, 0L, null);
+        setOfferPreviewItemId(null);
+        setOfferPreviewItem(null);
+        setPanelOfferPreview(null, 0L, null);
         // Returning from offer setup should show the same prices the setup view just used.
-        hooks.scheduleRefreshSoon();
+        scheduleRefreshSoon();
     }
 
     boolean setPreviewItem(int itemId) {
-        if (hooks == null || itemId <= 0) {
+        if (itemId <= 0) {
             return false;
         }
-        Integer currentItemId = hooks.getOfferPreviewItemId();
-        FlipHubItem currentItem = hooks.getOfferPreviewItem();
+        Integer currentItemId = getOfferPreviewItemId();
+        FlipHubItem currentItem = getOfferPreviewItem();
         if (currentItemId != null && currentItemId == itemId && currentItem != null) {
             updateLocalPreview(itemId);
             return true;
         }
-        hooks.setOfferPreviewItemId(itemId);
+        setOfferPreviewItemId(itemId);
         updateLocalPreview(itemId);
         return true;
     }
 
     private void updateLocalPreview(int itemId) {
-        FlipHubItem previous = hooks.getOfferPreviewItem();
-        FlipHubItem next = hooks.buildLocalOfferPreview(itemId);
+        FlipHubItem previous = getOfferPreviewItem();
+        FlipHubItem next = buildLocalOfferPreview(itemId);
         boolean changed = !isOfferPreviewEquivalent(previous, next);
         boolean pricesChanged = !isOfferPreviewPricesEquivalent(previous, next);
 
-        hooks.setOfferPreviewItem(next);
+        setOfferPreviewItem(next);
         if (changed) {
-            hooks.markSuggestionDirty();
-            hooks.setPanelOfferPreview(next, hooks.nowMs(), null);
+            markSuggestionDirty();
+            setPanelOfferPreview(next, System.currentTimeMillis(), null);
         }
         // Keep Activity cards in sync with offer-setup prices when they change.
         if (pricesChanged) {
-            hooks.scheduleRefreshSoon();
+            scheduleRefreshSoon();
         }
     }
 
