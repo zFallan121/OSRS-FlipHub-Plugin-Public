@@ -35,19 +35,6 @@ final class RemainingLimitSuggestionService {
     private static final long LIMIT_SUGGESTION_REFRESH_MS = 1000L;
     private static final long GE_LIMIT_WINDOW_MS = 4L * 60L * 60L * 1000L;
 
-    interface Hooks {
-        long resolveLocalAccountKey();
-        long resolveSelectedProfileKey();
-        void ensureProfileLoaded(long accountKey);
-        void requestGeLimits(Set<Integer> itemIds);
-        Integer getCachedGeLimit(int itemId);
-        Integer lookupGeLimitSafe(int itemId);
-        Map<Integer, LocalLimitInfo> buildLocalLimitInfo(long accountKey, long nowMs);
-        FlipHubItem getOfferPreviewItem();
-        long nowMs();
-    }
-
-    private final Hooks hooks;
     private Integer cachedRemainingLimitSuggestion;
     private Integer cachedRemainingLimitItemId;
     private long cachedRemainingLimitAccountKey = Long.MIN_VALUE;
@@ -55,86 +42,62 @@ final class RemainingLimitSuggestionService {
 
     @Inject
     RemainingLimitSuggestionService() {
-        this(productionHooks());
-    }
-
-    RemainingLimitSuggestionService(Hooks hooks) {
-        this.hooks = hooks;
     }
 
     private static GeLimitService geLimitService() {
         return PluginInjectorBridge.get(GeLimitService.class);
     }
 
-    private static Hooks productionHooks() {
-        return new Hooks() {
-            @Override
-            public long resolveLocalAccountKey() {
-                LocalAccountSessionService service =
-                    PluginInjectorBridge.get(LocalAccountSessionService.class);
-                return service != null ? service.resolveLocalAccountKey() : 0L;
-            }
+    private long resolveLocalAccountKey() {
+        LocalAccountSessionService service = PluginInjectorBridge.get(LocalAccountSessionService.class);
+        return service != null ? service.resolveLocalAccountKey() : 0L;
+    }
 
-            @Override
-            public long resolveSelectedProfileKey() {
-                ProfileSelectionPresentationFacadeService service = PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
-                return service != null ? service.resolveSelectedProfileKey() : 0L;
-            }
+    private long resolveSelectedProfileKey() {
+        ProfileSelectionPresentationFacadeService service =
+            PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
+        return service != null ? service.resolveSelectedProfileKey() : 0L;
+    }
 
-            @Override
-            public void ensureProfileLoaded(long accountKey) {
-                PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
-            }
+    private void ensureProfileLoaded(long accountKey) {
+        PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
+    }
 
-            @Override
-            public void requestGeLimits(Set<Integer> itemIds) {
-                GeLimitService service = geLimitService();
-                if (service != null) {
-                    service.requestGeLimits(itemIds);
-                }
-            }
+    private void requestGeLimits(Set<Integer> itemIds) {
+        GeLimitService service = geLimitService();
+        if (service != null) {
+            service.requestGeLimits(itemIds);
+        }
+    }
 
-            @Override
-            public Integer getCachedGeLimit(int itemId) {
-                GeLimitService service = geLimitService();
-                return service != null ? service.getCachedGeLimit(itemId) : null;
-            }
+    private Integer getCachedGeLimit(int itemId) {
+        GeLimitService service = geLimitService();
+        return service != null ? service.getCachedGeLimit(itemId) : null;
+    }
 
-            @Override
-            public Integer lookupGeLimitSafe(int itemId) {
-                ItemLookupService service =
-                    PluginInjectorBridge.get(ItemLookupService.class);
-                return service != null ? service.lookupGeLimitSafe(itemId) : null;
-            }
+    private Integer lookupGeLimitSafe(int itemId) {
+        ItemLookupService service = PluginInjectorBridge.get(ItemLookupService.class);
+        return service != null ? service.lookupGeLimitSafe(itemId) : null;
+    }
 
-            @Override
-            public Map<Integer, LocalLimitInfo> buildLocalLimitInfo(long accountKey, long nowMs) {
-                LocalTradeSessionFacadeService service =
-                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
-                return service != null ? service.buildLocalLimitInfo(accountKey, nowMs) : null;
-            }
+    private Map<Integer, LocalLimitInfo> buildLocalLimitInfo(long accountKey, long nowMs) {
+        LocalTradeSessionFacadeService service = PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+        return service != null ? service.buildLocalLimitInfo(accountKey, nowMs) : null;
+    }
 
-            @Override
-            public FlipHubItem getOfferPreviewItem() {
-                return PluginAccess.plugin().offerPreviewItem;
-            }
-
-            @Override
-            public long nowMs() {
-                return System.currentTimeMillis();
-            }
-        };
+    private FlipHubItem getOfferPreviewItem() {
+        return PluginAccess.plugin().offerPreviewItem;
     }
 
     Integer getThrottledSuggestion(int itemId) {
-        if (hooks == null || itemId <= 0) {
+        if (itemId <= 0) {
             return null;
         }
         long accountKey = resolveAccountKey();
         if (accountKey < 0) {
             return null;
         }
-        long now = hooks.nowMs();
+        long now = System.currentTimeMillis();
         boolean canUseCache = cachedRemainingLimitSuggestion != null
             && cachedRemainingLimitItemId != null
             && cachedRemainingLimitItemId == itemId
@@ -149,10 +112,7 @@ final class RemainingLimitSuggestionService {
     }
 
     void cacheSuggestion(int itemId, Integer remaining) {
-        if (hooks == null) {
-            return;
-        }
-        cacheSuggestion(itemId, remaining, resolveAccountKey(), hooks.nowMs());
+        cacheSuggestion(itemId, remaining, resolveAccountKey(), System.currentTimeMillis());
     }
 
     void clearCache() {
@@ -163,7 +123,7 @@ final class RemainingLimitSuggestionService {
     }
 
     Integer computeSuggestion(int itemId) {
-        if (hooks == null || itemId <= 0) {
+        if (itemId <= 0) {
             return null;
         }
         long accountKey = resolveAccountKey();
@@ -174,31 +134,31 @@ final class RemainingLimitSuggestionService {
     }
 
     private Integer computeSuggestion(int itemId, long accountKey) {
-        if (itemId <= 0 || accountKey < 0 || hooks == null) {
+        if (itemId <= 0 || accountKey < 0) {
             return null;
         }
-        hooks.ensureProfileLoaded(accountKey);
-        hooks.requestGeLimits(Collections.singleton(itemId));
-        Integer geLimit = hooks.getCachedGeLimit(itemId);
+        ensureProfileLoaded(accountKey);
+        requestGeLimits(Collections.singleton(itemId));
+        Integer geLimit = getCachedGeLimit(itemId);
         if (geLimit == null || geLimit <= 0) {
-            geLimit = hooks.lookupGeLimitSafe(itemId);
+            geLimit = lookupGeLimitSafe(itemId);
         }
         if (geLimit == null || geLimit <= 0) {
             return null;
         }
-        Map<Integer, LocalLimitInfo> limitInfo = hooks.buildLocalLimitInfo(accountKey, hooks.nowMs());
+        Map<Integer, LocalLimitInfo> limitInfo = buildLocalLimitInfo(accountKey, System.currentTimeMillis());
         LocalLimitInfo info = limitInfo != null ? limitInfo.get(itemId) : null;
         int remaining = geLimit;
         if (info != null && info.buyQty > 0) {
             remaining = (int) Math.max(0L, geLimit - info.buyQty);
         }
-        FlipHubItem previewItem = hooks.getOfferPreviewItem();
+        FlipHubItem previewItem = getOfferPreviewItem();
         if (previewItem != null && previewItem.item_id == itemId) {
             previewItem.ge_limit_total = geLimit;
             previewItem.ge_limit_remaining = remaining;
             if (info != null && info.firstBuyTs != null) {
                 long resetAt = info.firstBuyTs + GE_LIMIT_WINDOW_MS;
-                previewItem.ge_limit_reset_ms = Math.max(0L, resetAt - hooks.nowMs());
+                previewItem.ge_limit_reset_ms = Math.max(0L, resetAt - System.currentTimeMillis());
             }
         }
         return remaining;
@@ -212,9 +172,9 @@ final class RemainingLimitSuggestionService {
     }
 
     private long resolveAccountKey() {
-        long accountKey = hooks.resolveLocalAccountKey();
+        long accountKey = resolveLocalAccountKey();
         if (accountKey <= 0) {
-            accountKey = hooks.resolveSelectedProfileKey();
+            accountKey = resolveSelectedProfileKey();
         }
         return accountKey;
     }
