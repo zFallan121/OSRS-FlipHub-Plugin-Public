@@ -116,7 +116,6 @@ public class GeLifecyclePlugin extends Plugin {
     ScheduledExecutorService scheduler;
     ExecutorService ioExecutor;
     final UploadDiagnosticsState uploadState = new UploadDiagnosticsState();
-    BackfillRetryScheduler backfillRetryScheduler;
     final Map<Integer, OfferSnapshot> snapshots = new ConcurrentHashMap<>();
     final Map<Integer, OfferUpdateStamp> offerUpdateStamps = new ConcurrentHashMap<>();
     final Set<Integer> bookmarkedItems = ConcurrentHashMap.newKeySet();
@@ -212,15 +211,6 @@ public class GeLifecyclePlugin extends Plugin {
         return previewFacade.isOfferStatusOpen(geRoot, OFFER_STATUS_MARKERS);
     }
 
-    BackfillRetryScheduler getBackfillRetryScheduler() {
-        BackfillRetryScheduler scheduler = backfillRetryScheduler;
-        if (scheduler != null) {
-            return scheduler;
-        }
-        scheduler = PluginInjectorBridge.get(BackfillRetryScheduler.class);
-        backfillRetryScheduler = scheduler;
-        return scheduler;
-    }
 
     GeLifecycleLocalTradesRuntimeService getLocalTradesRuntimeService() {
         return PluginInjectorBridge.get(GeLifecycleLocalTradesRuntimeService.class);
@@ -264,10 +254,6 @@ public class GeLifecyclePlugin extends Plugin {
         return PluginInjectorBridge.get(PanelRefreshCoordinator.class);
     }
 
-    // Retained as a narrow compatibility shim for reflection-based tests.
-    private AccountwideSummaryUploader getAccountwideSummaryUploader() {
-        return PluginInjectorBridge.get(AccountwideSummaryUploader.class);
-    }
 
     long getProfileFileModifiedMs(Path file) {
         return PluginInjectorBridge.get(ProfileStore.class).getProfileFileModifiedMs(file);
