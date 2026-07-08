@@ -33,75 +33,60 @@ import net.runelite.client.config.ConfigManager;
 
 @Singleton
 final class BookmarkStateService {
-    interface Hooks {
-        String readBookmarksForProfile(long normalizedProfileKey);
-        void persistBookmarksForProfile(long normalizedProfileKey, String serializedBookmarkIds);
-        Long resolveActiveProfileKey();
-    }
-
     private final BookmarkConfigStore configStore;
-    private final Hooks hooks;
+    private final ConfigManager configManager;
+    private final PluginConfig config;
     private final Map<Long, Set<Integer>> bookmarksByProfile = new ConcurrentHashMap<>();
 
     @Inject
     BookmarkStateService(ConfigManager configManager, PluginConfig config, PluginState state) {
-        this(state.getBookmarkConfigStore(), productionHooks(configManager, config, state.getBookmarkConfigStore()));
+        this.configStore = state.getBookmarkConfigStore();
+        this.configManager = configManager;
+        this.config = config;
     }
 
-    BookmarkStateService(BookmarkConfigStore configStore, Hooks hooks) {
-        this.configStore = configStore;
-        this.hooks = hooks;
+    private String readBookmarksForProfile(long normalizedProfileKey) {
+        if (configStore == null) {
+            return "";
+        }
+        if (configManager == null) {
+            return configStore.isAccountwide(normalizedProfileKey) && config != null
+                ? config.bookmarks()
+                : "";
+        }
+        return configManager.getConfiguration(
+            FliphubConfigGroups.CONFIG_GROUP,
+            configStore.buildConfigKey(normalizedProfileKey));
     }
 
-    private static Hooks productionHooks(ConfigManager configManager, PluginConfig config, BookmarkConfigStore configStore) {
-        return new Hooks() {
-            @Override
-            public String readBookmarksForProfile(long normalizedProfileKey) {
-                if (configStore == null) {
-                    return "";
-                }
-                if (configManager == null) {
-                    return configStore.isAccountwide(normalizedProfileKey) && config != null
-                        ? config.bookmarks()
-                        : "";
-                }
-                return configManager.getConfiguration(
-                    FliphubConfigGroups.CONFIG_GROUP,
-                    configStore.buildConfigKey(normalizedProfileKey));
-            }
+    private void persistBookmarksForProfile(long normalizedProfileKey, String serializedBookmarkIds) {
+        if (configManager == null || configStore == null) {
+            return;
+        }
+        configManager.setConfiguration(
+            FliphubConfigGroups.CONFIG_GROUP,
+            configStore.buildConfigKey(normalizedProfileKey),
+            serializedBookmarkIds);
+    }
 
-            @Override
-            public void persistBookmarksForProfile(long normalizedProfileKey, String serializedBookmarkIds) {
-                if (configManager == null || configStore == null) {
-                    return;
-                }
-                configManager.setConfiguration(
-                    FliphubConfigGroups.CONFIG_GROUP,
-                    configStore.buildConfigKey(normalizedProfileKey),
-                    serializedBookmarkIds);
+    private Long resolveActiveProfileKey() {
+        LocalAccountSessionService localAccountSessionService =
+            PluginInjectorBridge.get(LocalAccountSessionService.class);
+        if (localAccountSessionService != null) {
+            long localAccountKey = localAccountSessionService.resolveLocalAccountKey();
+            if (localAccountKey > 0) {
+                return localAccountKey;
             }
-
-            @Override
-            public Long resolveActiveProfileKey() {
-                LocalAccountSessionService localAccountSessionService =
-                    PluginInjectorBridge.get(LocalAccountSessionService.class);
-                if (localAccountSessionService != null) {
-                    long localAccountKey = localAccountSessionService.resolveLocalAccountKey();
-                    if (localAccountKey > 0) {
-                        return localAccountKey;
-                    }
-                }
-                LocalTradeSessionFacadeService localTradeSessionFacadeService =
-                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
-                if (localTradeSessionFacadeService != null) {
-                    long accountHash = localTradeSessionFacadeService.resolveAccountHash();
-                    if (accountHash > 0) {
-                        return accountHash;
-                    }
-                }
-                return null;
+        }
+        LocalTradeSessionFacadeService localTradeSessionFacadeService =
+            PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+        if (localTradeSessionFacadeService != null) {
+            long accountHash = localTradeSessionFacadeService.resolveAccountHash();
+            if (accountHash > 0) {
+                return accountHash;
             }
-        };
+        }
+        return null;
     }
 
     void clearCache() {
@@ -138,7 +123,7 @@ final class BookmarkStateService {
         long normalizedSelectedProfileKey = configStore.normalizeProfileKey(selectedProfileKey);
         if (normalizedSelectedProfileKey == BookmarkSyncService.ACCOUNTWIDE_KEY) {
             Set<Integer> accountwideBookmarks = getOrLoadBookmarksForProfile(BookmarkSyncService.ACCOUNTWIDE_KEY);
-            Long activeProfileKey = hooks != null ? hooks.resolveActiveProfileKey() : null;
+            Long activeProfileKey = resolveActiveProfileKey();
             Set<Integer> activeProfileBookmarks = activeProfileKey != null
                 ? getOrLoadBookmarksForProfile(activeProfileKey)
                 : null;
@@ -186,18 +171,12 @@ final class BookmarkStateService {
     }
 
     private String readBookmarksConfig(long profileKey) {
-        if (hooks == null) {
-            return "";
-        }
-        String raw = hooks.readBookmarksForProfile(configStore.normalizeProfileKey(profileKey));
+        String raw = readBookmarksForProfile(configStore.normalizeProfileKey(profileKey));
         return raw != null ? raw : "";
     }
 
     private void persistBookmarksForProfile(long profileKey, Set<Integer> bookmarkIds) {
-        if (hooks == null) {
-            return;
-        }
         long normalizedProfileKey = configStore.normalizeProfileKey(profileKey);
-        hooks.persistBookmarksForProfile(normalizedProfileKey, configStore.serializeItemIds(bookmarkIds));
+        persistBookmarksForProfile(normalizedProfileKey, configStore.serializeItemIds(bookmarkIds));
     }
 }
