@@ -35,104 +35,79 @@ import net.runelite.http.api.item.ItemPrice;
 
 @Singleton
 final class ItemLookupService {
-    interface Hooks {
-        Integer findItemIdByExactName(String name);
-        String lookupItemName(int itemId);
-        Integer lookupGeLimit(int itemId);
-        Integer lookupGuidePrice(int itemId);
-        boolean canCacheItemNamesAsync();
-        void invokeOnClientThread(Runnable task);
-        void onItemNameCacheUpdated();
-    }
-
     private final Map<String, Integer> itemNameLookupCache;
     private final Map<Integer, String> itemNameCache;
-    private final Hooks hooks;
+    private final ItemManager itemManager;
+    private final ClientThread clientThread;
 
     @Inject
     ItemLookupService(ItemManager itemManager, ClientThread clientThread, PluginState state) {
-        this(state.getItemNameLookupCache(), state.getItemNameCache(), productionHooks(itemManager, clientThread));
+        this.itemNameLookupCache = state.getItemNameLookupCache();
+        this.itemNameCache = state.getItemNameCache();
+        this.itemManager = itemManager;
+        this.clientThread = clientThread;
     }
 
-    ItemLookupService(Map<String, Integer> itemNameLookupCache,
-                      Map<Integer, String> itemNameCache,
-                      Hooks hooks) {
-        this.itemNameLookupCache = itemNameLookupCache;
-        this.itemNameCache = itemNameCache;
-        this.hooks = hooks;
+    private Integer findItemIdByExactName(String name) {
+        if (name == null || itemManager == null) {
+            return null;
+        }
+        for (ItemPrice price : itemManager.search(name)) {
+            if (price.getName() != null && price.getName().equalsIgnoreCase(name)) {
+                return price.getId();
+            }
+        }
+        return null;
     }
 
-    private static Hooks productionHooks(ItemManager itemManager, ClientThread clientThread) {
-        return new Hooks() {
-            @Override
-            public Integer findItemIdByExactName(String name) {
-                if (name == null || itemManager == null) {
-                    return null;
-                }
-                for (ItemPrice price : itemManager.search(name)) {
-                    if (price.getName() != null && price.getName().equalsIgnoreCase(name)) {
-                        return price.getId();
-                    }
-                }
-                return null;
-            }
+    private String lookupItemName(int itemId) {
+        if (itemManager == null || itemId <= 0) {
+            return null;
+        }
+        ItemComposition composition = itemManager.getItemComposition(itemId);
+        return composition != null ? composition.getName() : null;
+    }
 
-            @Override
-            public String lookupItemName(int itemId) {
-                if (itemManager == null || itemId <= 0) {
-                    return null;
-                }
-                ItemComposition composition = itemManager.getItemComposition(itemId);
-                return composition != null ? composition.getName() : null;
-            }
+    private Integer lookupGeLimit(int itemId) {
+        if (itemManager == null || itemId <= 0) {
+            return null;
+        }
+        ItemStats stats = itemManager.getItemStats(itemId);
+        if (stats != null && stats.getGeLimit() > 0) {
+            return stats.getGeLimit();
+        }
+        return null;
+    }
 
-            @Override
-            public Integer lookupGeLimit(int itemId) {
-                if (itemManager == null || itemId <= 0) {
-                    return null;
-                }
-                ItemStats stats = itemManager.getItemStats(itemId);
-                if (stats != null && stats.getGeLimit() > 0) {
-                    return stats.getGeLimit();
-                }
-                return null;
-            }
+    private Integer lookupGuidePrice(int itemId) {
+        if (itemManager == null || itemId <= 0) {
+            return null;
+        }
+        int guidePrice = itemManager.getItemPrice(itemId);
+        return guidePrice > 0 ? guidePrice : null;
+    }
 
-            @Override
-            public Integer lookupGuidePrice(int itemId) {
-                if (itemManager == null || itemId <= 0) {
-                    return null;
-                }
-                int guidePrice = itemManager.getItemPrice(itemId);
-                return guidePrice > 0 ? guidePrice : null;
-            }
+    private boolean canCacheItemNamesAsync() {
+        return itemManager != null && clientThread != null;
+    }
 
-            @Override
-            public boolean canCacheItemNamesAsync() {
-                return itemManager != null && clientThread != null;
-            }
+    private void invokeOnClientThread(Runnable task) {
+        if (task != null && clientThread != null) {
+            clientThread.invokeLater(task);
+        }
+    }
 
-            @Override
-            public void invokeOnClientThread(Runnable task) {
-                if (task != null && clientThread != null) {
-                    clientThread.invokeLater(task);
-                }
-            }
-
-            @Override
-            public void onItemNameCacheUpdated() {
-                GeLifecyclePlugin plugin = PluginAccess.plugin();
-                PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
-                if (coordinator != null) {
-                    coordinator.scheduleRefreshSoon(plugin.scheduler);
-                    coordinator.triggerStatsRefresh(plugin.scheduler);
-                }
-            }
-        };
+    private void onItemNameCacheUpdated() {
+        GeLifecyclePlugin plugin = PluginAccess.plugin();
+        PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
+        if (coordinator != null) {
+            coordinator.scheduleRefreshSoon(plugin.scheduler);
+            coordinator.triggerStatsRefresh(plugin.scheduler);
+        }
     }
 
     int resolveItemIdFromName(String name) {
-        if (name == null || hooks == null) {
+        if (name == null) {
             return -1;
         }
         String key = name.trim().toLowerCase();
@@ -144,7 +119,7 @@ final class ItemLookupService {
             return cached;
         }
         try {
-            Integer resolved = hooks.findItemIdByExactName(name);
+            Integer resolved = findItemIdByExactName(name);
             if (resolved != null && resolved > 0) {
                 if (itemNameLookupCache != null) {
                     itemNameLookupCache.put(key, resolved);
@@ -157,22 +132,22 @@ final class ItemLookupService {
     }
 
     String lookupItemNameSafe(int itemId) {
-        if (itemId <= 0 || hooks == null) {
+        if (itemId <= 0) {
             return null;
         }
         try {
-            return hooks.lookupItemName(itemId);
+            return lookupItemName(itemId);
         } catch (RuntimeException ignored) {
             return null;
         }
     }
 
     Integer lookupGeLimitSafe(int itemId) {
-        if (itemId <= 0 || hooks == null) {
+        if (itemId <= 0) {
             return null;
         }
         try {
-            Integer geLimit = hooks.lookupGeLimit(itemId);
+            Integer geLimit = lookupGeLimit(itemId);
             return geLimit != null && geLimit > 0 ? geLimit : null;
         } catch (RuntimeException ignored) {
             return null;
@@ -180,11 +155,11 @@ final class ItemLookupService {
     }
 
     Integer lookupGuidePriceSafe(int itemId) {
-        if (itemId <= 0 || hooks == null) {
+        if (itemId <= 0) {
             return null;
         }
         try {
-            Integer guidePrice = hooks.lookupGuidePrice(itemId);
+            Integer guidePrice = lookupGuidePrice(itemId);
             return guidePrice != null && guidePrice > 0 ? guidePrice : null;
         } catch (RuntimeException ignored) {
             return null;
@@ -192,13 +167,13 @@ final class ItemLookupService {
     }
 
     void cacheItemName(int itemId) {
-        if (itemId <= 0 || hooks == null || !hooks.canCacheItemNamesAsync()) {
+        if (itemId <= 0 || !canCacheItemNamesAsync()) {
             return;
         }
         if (itemNameCache != null && itemNameCache.containsKey(itemId)) {
             return;
         }
-        hooks.invokeOnClientThread(() -> {
+        invokeOnClientThread(() -> {
             try {
                 String name = lookupItemNameSafe(itemId);
                 if (name == null || name.trim().isEmpty()) {
@@ -208,7 +183,7 @@ final class ItemLookupService {
                     return;
                 }
                 if (itemNameCache.putIfAbsent(itemId, name) == null) {
-                    hooks.onItemNameCacheUpdated();
+                    onItemNameCacheUpdated();
                 }
             } catch (AssertionError ignored) {
             } catch (RuntimeException ignored) {
