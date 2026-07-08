@@ -31,40 +31,8 @@ import javax.inject.Singleton;
 
 @Singleton
 final class OfferStampFallbackBuilder {
-    interface Hooks {
-        String getItemName(int itemId);
-        Integer getGuidePrice(int itemId);
-    }
-
-    private final Hooks hooks;
-
     @Inject
     OfferStampFallbackBuilder() {
-        this(productionHooks());
-    }
-
-    OfferStampFallbackBuilder(Hooks hooks) {
-        this.hooks = hooks;
-    }
-
-    private static Hooks productionHooks() {
-        return new Hooks() {
-            @Override
-            public String getItemName(int itemId) {
-                ItemLookupService service = itemLookupService();
-                return service != null ? service.lookupItemNameSafe(itemId) : null;
-            }
-
-            @Override
-            public Integer getGuidePrice(int itemId) {
-                ItemLookupService service = itemLookupService();
-                return service != null ? service.lookupGuidePriceSafe(itemId) : null;
-            }
-
-            private ItemLookupService itemLookupService() {
-                return PluginInjectorBridge.get(ItemLookupService.class);
-            }
-        };
     }
 
     List<FlipHubItem> buildItems(Iterable<OfferUpdateStamp> stamps) {
@@ -72,18 +40,19 @@ final class OfferStampFallbackBuilder {
         if (stamps == null) {
             return items;
         }
+        ItemLookupService lookup = PluginInjectorBridge.get(ItemLookupService.class);
         for (OfferUpdateStamp stamp : stamps) {
             if (stamp == null || stamp.itemId <= 0) {
                 continue;
             }
             FlipHubItem item = new FlipHubItem();
             item.item_id = stamp.itemId;
-            if (hooks != null) {
-                String itemName = hooks.getItemName(stamp.itemId);
+            if (lookup != null) {
+                String itemName = lookup.lookupItemNameSafe(stamp.itemId);
                 if (itemName != null && !itemName.trim().isEmpty()) {
                     item.item_name = itemName;
                 }
-                Integer guidePrice = hooks.getGuidePrice(stamp.itemId);
+                Integer guidePrice = lookup.lookupGuidePriceSafe(stamp.itemId);
                 if (guidePrice != null && guidePrice > 0) {
                     item.instabuy_price = guidePrice;
                     item.instasell_price = guidePrice;

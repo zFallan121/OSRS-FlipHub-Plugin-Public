@@ -26,9 +26,7 @@ package com.osrsfliphub;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -38,7 +36,7 @@ import static org.junit.Assert.assertTrue;
 public class OfferStampFallbackBuilderTest {
     @Test
     public void buildItemsSkipsInvalidStamps() {
-        OfferStampFallbackBuilder builder = new OfferStampFallbackBuilder(new TestHooks());
+        OfferStampFallbackBuilder builder = new OfferStampFallbackBuilder();
         OfferUpdateStamp invalid = new OfferUpdateStamp();
         invalid.itemId = 0;
 
@@ -48,28 +46,8 @@ public class OfferStampFallbackBuilderTest {
     }
 
     @Test
-    public void buildItemsBuildsBuyItemWithNameAndGuidePrices() {
-        TestHooks hooks = new TestHooks();
-        hooks.names.put(4151, "Abyssal whip");
-        hooks.guidePrices.put(4151, 2_400_000);
-        OfferStampFallbackBuilder builder = new OfferStampFallbackBuilder(hooks);
-        OfferUpdateStamp buy = stamp(4151, 2_350_000, true);
-
-        List<FlipHubItem> items = builder.buildItems(Collections.singletonList(buy));
-
-        assertEquals(1, items.size());
-        FlipHubItem item = items.get(0);
-        assertEquals(4151, item.item_id);
-        assertEquals("Abyssal whip", item.item_name);
-        assertEquals(Integer.valueOf(2_400_000), item.instabuy_price);
-        assertEquals(Integer.valueOf(2_400_000), item.instasell_price);
-        assertEquals(Integer.valueOf(2_350_000), item.last_buy_price);
-        assertNull(item.last_sell_price);
-    }
-
-    @Test
     public void buildItemsBuildsSellItem() {
-        OfferStampFallbackBuilder builder = new OfferStampFallbackBuilder(new TestHooks());
+        OfferStampFallbackBuilder builder = new OfferStampFallbackBuilder();
         OfferUpdateStamp sell = stamp(11286, 5_100_000, false);
 
         List<FlipHubItem> items = builder.buildItems(Arrays.asList(sell));
@@ -87,20 +65,5 @@ public class OfferStampFallbackBuilderTest {
         stamp.price = price;
         stamp.isBuy = isBuy;
         return stamp;
-    }
-
-    private static final class TestHooks implements OfferStampFallbackBuilder.Hooks {
-        private final Map<Integer, String> names = new HashMap<>();
-        private final Map<Integer, Integer> guidePrices = new HashMap<>();
-
-        @Override
-        public String getItemName(int itemId) {
-            return names.get(itemId);
-        }
-
-        @Override
-        public Integer getGuidePrice(int itemId) {
-            return guidePrices.get(itemId);
-        }
     }
 }

@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(grep -rEn \"getUploadRuntimeServices\\\\\\(\\\\\\)\\\\s*$|getUploadRuntimeServices\\\\\\(\\\\\\)\\\\.\\(scheduleBackfillRetry|resetBackfillRetryState|requestBackfillAttempt\\)\" src/main/java/)",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(git commit -q -m ' *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\ariel\\.claude\\projects\\c--Users-ariel-OSRS-Code-Projects-OSRS-FlipHub-Plugin-Public\\memory"

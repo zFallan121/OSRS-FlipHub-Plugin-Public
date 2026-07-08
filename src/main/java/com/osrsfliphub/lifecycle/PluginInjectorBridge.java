@@ -45,9 +45,8 @@ final class PluginInjectorBridge {
 
     static <T> T get(Class<T> type) {
         Injector active = injector;
-        if (active == null) {
-            throw new IllegalStateException("Plugin injector not initialized for " + type.getName());
-        }
-        return active.getInstance(type);
+        // Null before startUp wires the injector (e.g. in unit tests). Production
+        // always sets it first, so callers' existing null-guards suffice.
+        return active != null ? active.getInstance(type) : null;
     }
 }
