@@ -40,73 +40,34 @@ import javax.inject.Singleton;
 
 @Singleton
 final class AccountwideTradesMergeService {
-    interface Hooks {
-        Path getProfilesDir();
-        Path getLegacyProfilesDir();
-        ProfileData readProfileData(Path file);
-        Map<String, String> getLegacyLocalTradesCache();
-    }
-
     private final Gson gson;
     private final int maxLocalTrades;
-    private final Hooks hooks;
 
     @Inject
     AccountwideTradesMergeService(Gson gson) {
-        this(gson, GeLifecyclePluginConstants.MAX_LOCAL_TRADES, productionHooks());
-    }
-
-    AccountwideTradesMergeService(Gson gson, int maxLocalTrades, Hooks hooks) {
         this.gson = gson;
-        this.maxLocalTrades = maxLocalTrades;
-        this.hooks = hooks;
+        this.maxLocalTrades = GeLifecyclePluginConstants.MAX_LOCAL_TRADES;
     }
 
     private static ProfileStorageFacadeService profileStorage() {
         return PluginInjectorBridge.get(ProfileStorageFacadeService.class);
     }
 
-    private static Hooks productionHooks() {
-        return new Hooks() {
-            @Override
-            public Path getProfilesDir() {
-                ProfileStorageFacadeService service = profileStorage();
-                return service != null ? service.getProfilesDir() : null;
-            }
-
-            @Override
-            public Path getLegacyProfilesDir() {
-                ProfileStorageFacadeService service = profileStorage();
-                return service != null ? service.getLegacyProfilesDir() : null;
-            }
-
-            @Override
-            public ProfileData readProfileData(Path file) {
-                ProfileStorageFacadeService service = profileStorage();
-                return service != null ? service.readProfileData(file) : null;
-            }
-
-            @Override
-            public Map<String, String> getLegacyLocalTradesCache() {
-                LegacyLocalTradesFilterService filterService = PluginAccess.plugin().getLegacyLocalTradesFilterService();
-                LegacyLocalTradesStore store =
-                    PluginInjectorBridge.get(LegacyLocalTradesStore.class);
-                if (filterService == null || store == null) {
-                    return null;
-                }
-                return filterService.filter(store.getEntries());
-            }
-        };
+    private static Map<String, String> legacyLocalTradesCache() {
+        LegacyLocalTradesFilterService filterService = PluginAccess.plugin().getLegacyLocalTradesFilterService();
+        LegacyLocalTradesStore store = PluginInjectorBridge.get(LegacyLocalTradesStore.class);
+        if (filterService == null || store == null) {
+            return null;
+        }
+        return filterService.filter(store.getEntries());
     }
 
     List<LocalTradeDelta> buildAccountwideFromDisk() {
-        if (hooks == null) {
-            return null;
-        }
         List<LocalTradeDelta> merged = new ArrayList<>();
         Set<String> seen = new HashSet<>();
-        mergeAccountwideFromDir(merged, seen, hooks.getProfilesDir());
-        mergeAccountwideFromDir(merged, seen, hooks.getLegacyProfilesDir());
+        ProfileStorageFacadeService storage = profileStorage();
+        mergeAccountwideFromDir(merged, seen, storage != null ? storage.getProfilesDir() : null);
+        mergeAccountwideFromDir(merged, seen, storage != null ? storage.getLegacyProfilesDir() : null);
         mergeAccountwideFromLegacyConfig(merged, seen);
         if (merged.isEmpty()) {
             return null;
@@ -123,7 +84,7 @@ final class AccountwideTradesMergeService {
         if (gson == null) {
             return;
         }
-        Map<String, String> entries = hooks.getLegacyLocalTradesCache();
+        Map<String, String> entries = legacyLocalTradesCache();
         if (entries == null || entries.isEmpty()) {
             return;
         }
@@ -151,8 +112,12 @@ final class AccountwideTradesMergeService {
     }
 
     private void mergeAccountwideFromDir(List<LocalTradeDelta> merged, Set<String> seen, Path dir) {
+        ProfileStorageFacadeService storage = profileStorage();
+        if (storage == null) {
+            return;
+        }
         ProfileHashFileWalker.walk(dir, (profileHash, path) -> {
-            ProfileData data = hooks.readProfileData(path);
+            ProfileData data = storage.readProfileData(path);
             if (data == null || data.deltas == null || data.deltas.isEmpty()) {
                 return;
             }
