@@ -121,28 +121,20 @@ public class GeLifecyclePlugin extends Plugin {
     final Map<Integer, OfferUpdateStamp> offerUpdateStamps = new ConcurrentHashMap<>();
     final Set<Integer> bookmarkedItems = ConcurrentHashMap.newKeySet();
     final Set<Integer> hiddenItems = ConcurrentHashMap.newKeySet();
-    final Map<String, Integer> itemNameLookupCache = new ConcurrentHashMap<>();
     volatile Integer offerPreviewItemId;
     volatile FlipHubItem offerPreviewItem;
     FlipHubPanel panel;
     NavigationButton navButton;
-    final Set<Long> loadedProfiles = ConcurrentHashMap.newKeySet();
     final Map<Long, Long> loadedProfileFileMs = new ConcurrentHashMap<>();
     final Map<Long, String> profileDisplayNames = new ConcurrentHashMap<>();
-    final Map<Long, LocalStatsCache> statsCacheByAccount = new ConcurrentHashMap<>();
     volatile String currentQuery = "";
     volatile int currentPage = 1;
     volatile boolean bookmarkFilterEnabled = false;
     volatile boolean panelVisible;
     volatile StatsRange currentStatsRange = StatsRange.SESSION;
     volatile StatsItemSort currentStatsSort = StatsItemSort.COMPLETION;
-    final Object localStatsLock = new Object();
     final LocalTradesLoadCoordinator.State localTradesLoadState = new LocalTradesLoadCoordinator.State();
-    final Map<Long, List<LocalTradeDelta>> localTradeDeltasByAccount = new HashMap<>();
-    final Map<Long, Long> localSessionStartByAccount = new HashMap<>();
-    final Map<Integer, String> itemNameCache = new ConcurrentHashMap<>();
     boolean localTradesLoadedThisLogin = false;
-    final Map<Long, String> legacyNameKeysByHash = new ConcurrentHashMap<>();
     GeOfferTimerOverlay offerTimerOverlay;
 
     @Provides
