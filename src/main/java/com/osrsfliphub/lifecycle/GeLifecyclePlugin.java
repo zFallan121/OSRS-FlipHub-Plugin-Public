@@ -143,20 +143,6 @@ public class GeLifecyclePlugin extends Plugin {
     final Map<Integer, String> itemNameCache = new ConcurrentHashMap<>();
     boolean localTradesLoadedThisLogin = false;
     final Map<Long, String> legacyNameKeysByHash = new ConcurrentHashMap<>();
-    final GeLifecycleSharedState sharedState = new GeLifecycleSharedState(
-        localStatsLock,
-        localTradeDeltasByAccount,
-        localSessionStartByAccount,
-        statsCacheByAccount,
-        loadedProfiles,
-        loadedProfileFileMs,
-        legacyNameKeysByHash,
-        profileDisplayNames,
-        bookmarkedItems,
-        hiddenItems,
-        snapshots,
-        offerUpdateStamps
-    );
     GeOfferTimerOverlay offerTimerOverlay;
 
     @Provides
