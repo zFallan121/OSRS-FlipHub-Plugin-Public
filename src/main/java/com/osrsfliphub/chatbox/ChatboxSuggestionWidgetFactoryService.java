@@ -24,6 +24,7 @@
  */
 package com.osrsfliphub;
 
+import java.util.function.Consumer;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.FontID;
@@ -36,12 +37,6 @@ import net.runelite.api.widgets.WidgetType;
 
 @Singleton
 final class ChatboxSuggestionWidgetFactoryService {
-    interface Hooks {
-        void onApplySuggestedPriceToChat();
-        void onApplySuggestedLimitToChat();
-        void onApplySuggestedAffordableLimitToChat();
-    }
-
     private final int suggestionTextColor;
     private final int suggestionHoverTextColor;
     private final int suggestionTopY;
@@ -50,192 +45,88 @@ final class ChatboxSuggestionWidgetFactoryService {
     private final String priceSuggestionWidgetName;
     private final String limitSuggestionWidgetName;
     private final String affordableLimitSuggestionWidgetName;
-    private final Hooks hooks;
 
     @Inject
     ChatboxSuggestionWidgetFactoryService() {
-        this(GeLifecyclePluginConstants.SUGGESTION_TEXT_COLOR,
-            GeLifecyclePluginConstants.SUGGESTION_HOVER_TEXT_COLOR,
-            GeLifecyclePluginConstants.SUGGESTION_TOP_Y,
-            GeLifecyclePluginConstants.SUGGESTION_RIGHT_X,
-            GeLifecyclePluginConstants.SUGGESTION_RIGHT_WIDTH_PADDING,
-            GeLifecyclePluginConstants.PRICE_SUGGESTION_WIDGET_NAME,
-            GeLifecyclePluginConstants.LIMIT_SUGGESTION_WIDGET_NAME,
-            GeLifecyclePluginConstants.AFFORDABLE_LIMIT_SUGGESTION_WIDGET_NAME,
-            new Hooks() {
-                @Override
-                public void onApplySuggestedPriceToChat() {
-                    ChatboxSuggestionApplyService service =
-                        PluginInjectorBridge.get(ChatboxSuggestionApplyService.class);
-                    if (service != null) {
-                        service.applySuggestedPriceToChat();
-                    }
-                }
-
-                @Override
-                public void onApplySuggestedLimitToChat() {
-                    ChatboxSuggestionApplyService service =
-                        PluginInjectorBridge.get(ChatboxSuggestionApplyService.class);
-                    if (service != null) {
-                        service.applySuggestedLimitToChat();
-                    }
-                }
-
-                @Override
-                public void onApplySuggestedAffordableLimitToChat() {
-                    ChatboxSuggestionApplyService service =
-                        PluginInjectorBridge.get(ChatboxSuggestionApplyService.class);
-                    if (service != null) {
-                        service.applySuggestedAffordableLimitToChat();
-                    }
-                }
-            });
-    }
-
-    ChatboxSuggestionWidgetFactoryService(int suggestionTextColor,
-                                          int suggestionHoverTextColor,
-                                          int suggestionTopY,
-                                          int suggestionRightX,
-                                          int suggestionRightWidthPadding,
-                                          String priceSuggestionWidgetName,
-                                          String limitSuggestionWidgetName,
-                                          String affordableLimitSuggestionWidgetName,
-                                          Hooks hooks) {
-        this.suggestionTextColor = suggestionTextColor;
-        this.suggestionHoverTextColor = suggestionHoverTextColor;
-        this.suggestionTopY = suggestionTopY;
-        this.suggestionRightX = suggestionRightX;
-        this.suggestionRightWidthPadding = suggestionRightWidthPadding;
-        this.priceSuggestionWidgetName = priceSuggestionWidgetName;
-        this.limitSuggestionWidgetName = limitSuggestionWidgetName;
-        this.affordableLimitSuggestionWidgetName = affordableLimitSuggestionWidgetName;
-        this.hooks = hooks;
+        this.suggestionTextColor = GeLifecyclePluginConstants.SUGGESTION_TEXT_COLOR;
+        this.suggestionHoverTextColor = GeLifecyclePluginConstants.SUGGESTION_HOVER_TEXT_COLOR;
+        this.suggestionTopY = GeLifecyclePluginConstants.SUGGESTION_TOP_Y;
+        this.suggestionRightX = GeLifecyclePluginConstants.SUGGESTION_RIGHT_X;
+        this.suggestionRightWidthPadding = GeLifecyclePluginConstants.SUGGESTION_RIGHT_WIDTH_PADDING;
+        this.priceSuggestionWidgetName = GeLifecyclePluginConstants.PRICE_SUGGESTION_WIDGET_NAME;
+        this.limitSuggestionWidgetName = GeLifecyclePluginConstants.LIMIT_SUGGESTION_WIDGET_NAME;
+        this.affordableLimitSuggestionWidgetName = GeLifecyclePluginConstants.AFFORDABLE_LIMIT_SUGGESTION_WIDGET_NAME;
     }
 
     Widget ensurePriceSuggestionWidget(Widget container, Widget currentWidget) {
-        if (container == null) {
-            return currentWidget;
-        }
-        Widget widget = currentWidget;
-        if (!isSuggestionWidgetAttached(container, widget)) {
-            widget = ChatboxSuggestionWidgets.findNamedTextWidget(container, priceSuggestionWidgetName);
-        }
-        if (!isSuggestionWidgetAttached(container, widget)) {
-            widget = container.createChild(-1, WidgetType.TEXT);
-            widget.setTextColor(suggestionTextColor);
-            widget.setTextShadowed(false);
-            widget.setFontId(FontID.VERDANA_11_BOLD);
-            widget.setXPositionMode(WidgetPositionMode.ABSOLUTE_LEFT);
-            widget.setYPositionMode(WidgetPositionMode.ABSOLUTE_TOP);
-            widget.setOriginalX(10);
-            widget.setOriginalWidth(16);
-            widget.setWidthMode(WidgetSizeMode.MINUS);
-            widget.setOriginalHeight(20);
-            widget.setXTextAlignment(WidgetTextAlignment.LEFT);
-            widget.setYTextAlignment(WidgetTextAlignment.CENTER);
-            widget.setName(priceSuggestionWidgetName);
-            widget.setAction(0, "Select");
-            widget.setOnOpListener((JavaScriptCallback) ev -> {
-                if (hooks != null) {
-                    hooks.onApplySuggestedPriceToChat();
-                }
-            });
-            widget.setHasListener(true);
-            widget.revalidate();
-        }
-        configureSuggestionWidgetStyle(widget);
-        int y = ChatboxSuggestionWidgets.computeSuggestionY(container, suggestionTopY, 20);
-        widget.setOriginalY(y);
-        widget.setName(priceSuggestionWidgetName);
-        return widget;
+        return ensureSuggestionWidget(container, currentWidget, priceSuggestionWidgetName,
+            WidgetPositionMode.ABSOLUTE_LEFT, 10, 16, WidgetSizeMode.MINUS, WidgetTextAlignment.LEFT,
+            false, ChatboxSuggestionApplyService::applySuggestedPriceToChat);
     }
 
     Widget ensureLimitSuggestionWidget(Widget container, Widget currentWidget) {
-        if (container == null) {
-            return currentWidget;
-        }
-        Widget widget = currentWidget;
-        if (!isSuggestionWidgetAttached(container, widget)) {
-            widget = ChatboxSuggestionWidgets.findNamedTextWidget(container, limitSuggestionWidgetName);
-        }
-        if (!isSuggestionWidgetAttached(container, widget)) {
-            widget = container.createChild(-1, WidgetType.TEXT);
-            widget.setTextColor(suggestionTextColor);
-            widget.setTextShadowed(false);
-            widget.setFontId(FontID.VERDANA_11_BOLD);
-            widget.setXPositionMode(WidgetPositionMode.ABSOLUTE_LEFT);
-            widget.setYPositionMode(WidgetPositionMode.ABSOLUTE_TOP);
-            widget.setOriginalX(10);
-            widget.setOriginalWidth(16);
-            widget.setWidthMode(WidgetSizeMode.ABSOLUTE);
-            widget.setOriginalHeight(20);
-            widget.setXTextAlignment(WidgetTextAlignment.LEFT);
-            widget.setYTextAlignment(WidgetTextAlignment.CENTER);
-            widget.setName(limitSuggestionWidgetName);
-            widget.setAction(0, "Select");
-            widget.setOnOpListener((JavaScriptCallback) ev -> {
-                if (hooks != null) {
-                    hooks.onApplySuggestedLimitToChat();
-                }
-            });
-            widget.setHasListener(true);
-            widget.revalidate();
-        }
-        configureSuggestionWidgetStyle(widget);
-        widget.setXPositionMode(WidgetPositionMode.ABSOLUTE_LEFT);
-        widget.setOriginalX(10);
-        widget.setOriginalWidth(16);
-        widget.setWidthMode(WidgetSizeMode.ABSOLUTE);
-        widget.setXTextAlignment(WidgetTextAlignment.LEFT);
-        widget.setYTextAlignment(WidgetTextAlignment.CENTER);
-        int y = ChatboxSuggestionWidgets.computeSuggestionY(container, suggestionTopY, 20);
-        widget.setOriginalY(y);
-        widget.setName(limitSuggestionWidgetName);
-        return widget;
+        return ensureSuggestionWidget(container, currentWidget, limitSuggestionWidgetName,
+            WidgetPositionMode.ABSOLUTE_LEFT, 10, 16, WidgetSizeMode.ABSOLUTE, WidgetTextAlignment.LEFT,
+            true, ChatboxSuggestionApplyService::applySuggestedLimitToChat);
     }
 
     Widget ensureAffordableLimitSuggestionWidget(Widget container, Widget currentWidget) {
+        return ensureSuggestionWidget(container, currentWidget, affordableLimitSuggestionWidgetName,
+            WidgetPositionMode.ABSOLUTE_RIGHT, suggestionRightX, suggestionRightWidthPadding,
+            WidgetSizeMode.ABSOLUTE, WidgetTextAlignment.RIGHT,
+            true, ChatboxSuggestionApplyService::applySuggestedAffordableLimitToChat);
+    }
+
+    private Widget ensureSuggestionWidget(Widget container, Widget currentWidget, String name,
+                                          int positionMode, int originalX, int originalWidth, int widthMode,
+                                          int textAlignment, boolean reapplyLayout,
+                                          Consumer<ChatboxSuggestionApplyService> onApply) {
         if (container == null) {
             return currentWidget;
         }
         Widget widget = currentWidget;
         if (!isSuggestionWidgetAttached(container, widget)) {
-            widget = ChatboxSuggestionWidgets.findNamedTextWidget(container, affordableLimitSuggestionWidgetName);
+            widget = ChatboxSuggestionWidgets.findNamedTextWidget(container, name);
         }
         if (!isSuggestionWidgetAttached(container, widget)) {
             widget = container.createChild(-1, WidgetType.TEXT);
             widget.setTextColor(suggestionTextColor);
             widget.setTextShadowed(false);
             widget.setFontId(FontID.VERDANA_11_BOLD);
-            widget.setXPositionMode(WidgetPositionMode.ABSOLUTE_RIGHT);
+            widget.setXPositionMode(positionMode);
             widget.setYPositionMode(WidgetPositionMode.ABSOLUTE_TOP);
-            widget.setOriginalX(suggestionRightX);
-            widget.setOriginalWidth(suggestionRightWidthPadding);
-            widget.setWidthMode(WidgetSizeMode.ABSOLUTE);
+            widget.setOriginalX(originalX);
+            widget.setOriginalWidth(originalWidth);
+            widget.setWidthMode(widthMode);
             widget.setOriginalHeight(20);
-            widget.setXTextAlignment(WidgetTextAlignment.RIGHT);
+            widget.setXTextAlignment(textAlignment);
             widget.setYTextAlignment(WidgetTextAlignment.CENTER);
-            widget.setName(affordableLimitSuggestionWidgetName);
+            widget.setName(name);
             widget.setAction(0, "Select");
-            widget.setOnOpListener((JavaScriptCallback) ev -> {
-                if (hooks != null) {
-                    hooks.onApplySuggestedAffordableLimitToChat();
-                }
-            });
+            widget.setOnOpListener((JavaScriptCallback) ev -> applySuggested(onApply));
             widget.setHasListener(true);
             widget.revalidate();
         }
         configureSuggestionWidgetStyle(widget);
-        widget.setXPositionMode(WidgetPositionMode.ABSOLUTE_RIGHT);
-        widget.setOriginalX(suggestionRightX);
-        widget.setOriginalWidth(suggestionRightWidthPadding);
-        widget.setWidthMode(WidgetSizeMode.ABSOLUTE);
-        widget.setXTextAlignment(WidgetTextAlignment.RIGHT);
-        widget.setYTextAlignment(WidgetTextAlignment.CENTER);
+        if (reapplyLayout) {
+            widget.setXPositionMode(positionMode);
+            widget.setOriginalX(originalX);
+            widget.setOriginalWidth(originalWidth);
+            widget.setWidthMode(widthMode);
+            widget.setXTextAlignment(textAlignment);
+            widget.setYTextAlignment(WidgetTextAlignment.CENTER);
+        }
         int y = ChatboxSuggestionWidgets.computeSuggestionY(container, suggestionTopY, 20);
         widget.setOriginalY(y);
-        widget.setName(affordableLimitSuggestionWidgetName);
+        widget.setName(name);
         return widget;
+    }
+
+    private void applySuggested(Consumer<ChatboxSuggestionApplyService> action) {
+        ChatboxSuggestionApplyService service = PluginInjectorBridge.get(ChatboxSuggestionApplyService.class);
+        if (service != null) {
+            action.accept(service);
+        }
     }
 
     private void configureSuggestionWidgetStyle(Widget widget) {

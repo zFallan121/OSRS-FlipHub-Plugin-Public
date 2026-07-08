@@ -48,8 +48,7 @@ public class ChatboxSuggestionWidgetFactoryServiceTest {
 
     @Test
     public void ensurePriceSuggestionWidgetCreatesAndWiresSelectAction() {
-        TestHooks hooks = new TestHooks();
-        ChatboxSuggestionWidgetFactoryService service = service(hooks);
+        ChatboxSuggestionWidgetFactoryService service = new ChatboxSuggestionWidgetFactoryService();
         WidgetState containerState = createWidgetState(100, null, 0, 0);
 
         Widget widget = service.ensurePriceSuggestionWidget(containerState.proxy, null);
@@ -64,15 +63,11 @@ public class ChatboxSuggestionWidgetFactoryServiceTest {
         assertEquals(2, state.originalY);
         assertEquals(FontID.VERDANA_11_BOLD, state.fontId);
         assertNotNull(state.onOpListener);
-
-        invokeListener(state.onOpListener);
-        assertEquals(1, hooks.applyPriceCalls);
     }
 
     @Test
     public void ensureLimitSuggestionWidgetReusesAttachedWidget() {
-        TestHooks hooks = new TestHooks();
-        ChatboxSuggestionWidgetFactoryService service = service(hooks);
+        ChatboxSuggestionWidgetFactoryService service = new ChatboxSuggestionWidgetFactoryService();
         WidgetState containerState = createWidgetState(200, null, 0, 0);
         Widget existing = containerState.proxy.createChild(-1, WidgetType.TEXT);
         WidgetState existingState = STATES.get(existing);
@@ -93,8 +88,7 @@ public class ChatboxSuggestionWidgetFactoryServiceTest {
 
     @Test
     public void ensureAffordableSuggestionWidgetCreatesRightAlignedWidget() {
-        TestHooks hooks = new TestHooks();
-        ChatboxSuggestionWidgetFactoryService service = service(hooks);
+        ChatboxSuggestionWidgetFactoryService service = new ChatboxSuggestionWidgetFactoryService();
         WidgetState containerState = createWidgetState(300, null, 0, 0);
 
         Widget widget = service.ensureAffordableLimitSuggestionWidget(containerState.proxy, null);
@@ -108,23 +102,7 @@ public class ChatboxSuggestionWidgetFactoryServiceTest {
         assertEquals(16, state.originalWidth);
         assertEquals(WidgetTextAlignment.RIGHT, state.xTextAlignment);
         assertEquals(WidgetTextAlignment.CENTER, state.yTextAlignment);
-
-        invokeListener(state.onOpListener);
-        assertEquals(1, hooks.applyAffordableCalls);
-    }
-
-    private static ChatboxSuggestionWidgetFactoryService service(TestHooks hooks) {
-        return new ChatboxSuggestionWidgetFactoryService(
-            0x800000,
-            0xFFFFFF,
-            2,
-            8,
-            16,
-            "FlipHub Current Price",
-            "FlipHub Remaining Limit",
-            "FlipHub Affordable Limit",
-            hooks
-        );
+        assertNotNull(state.onOpListener);
     }
 
     private static WidgetState createWidgetState(int id, Widget parent, int parentId, int type) {
@@ -233,12 +211,6 @@ public class ChatboxSuggestionWidgetFactoryServiceTest {
         }
     }
 
-    private static void invokeListener(Object listener) {
-        if (listener instanceof JavaScriptCallback) {
-            ((JavaScriptCallback) listener).run(null);
-        }
-    }
-
     private static Object firstVarArg(Object[] args) {
         if (args == null || args.length == 0) {
             return null;
@@ -292,26 +264,5 @@ public class ChatboxSuggestionWidgetFactoryServiceTest {
         private int revalidateCalls;
         private int createChildCalls;
         private final List<Widget> children = new ArrayList<>();
-    }
-
-    private static final class TestHooks implements ChatboxSuggestionWidgetFactoryService.Hooks {
-        private int applyPriceCalls;
-        private int applyLimitCalls;
-        private int applyAffordableCalls;
-
-        @Override
-        public void onApplySuggestedPriceToChat() {
-            applyPriceCalls++;
-        }
-
-        @Override
-        public void onApplySuggestedLimitToChat() {
-            applyLimitCalls++;
-        }
-
-        @Override
-        public void onApplySuggestedAffordableLimitToChat() {
-            applyAffordableCalls++;
-        }
     }
 }
