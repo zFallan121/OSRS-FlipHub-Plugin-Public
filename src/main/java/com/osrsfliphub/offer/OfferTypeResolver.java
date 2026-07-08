@@ -36,69 +36,37 @@ import net.runelite.api.widgets.Widget;
 
 @Singleton
 final class OfferTypeResolver {
-    interface Hooks {
-        Widget getOfferContainer();
-        GrandExchangeOffer getSelectedOffer();
-        int getNewOfferTypeVarbit();
-        Widget getVisibleGeRoot();
-        List<String> collectWidgetText(Widget widget);
-        String normalizeOfferText(String text);
-    }
-
-    private final Hooks hooks;
+    private final Client client;
+    private final OfferPreviewRuntimeFacadeService facade;
     private Integer newOfferTypeBuyValue;
     private Integer newOfferTypeSellValue;
     private Boolean lastResolvedOfferType;
 
     @Inject
     OfferTypeResolver(Client client, OfferPreviewRuntimeFacadeService facade) {
-        this(productionHooks(client, facade));
+        this.client = client;
+        this.facade = facade;
     }
 
-    OfferTypeResolver(Hooks hooks) {
-        this.hooks = hooks;
+    private Widget getOfferContainer() {
+        return client != null ? client.getWidget(ComponentID.GRAND_EXCHANGE_OFFER_CONTAINER) : null;
     }
 
-    private static Hooks productionHooks(Client client, OfferPreviewRuntimeFacadeService facade) {
-        return new Hooks() {
-            @Override
-            public Widget getOfferContainer() {
-                return client != null ? client.getWidget(ComponentID.GRAND_EXCHANGE_OFFER_CONTAINER) : null;
-            }
+    private GrandExchangeOffer getSelectedOffer() {
+        return facade != null ? facade.getSelectedOffer(client, VarbitID.GE_SELECTEDSLOT) : null;
+    }
 
-            @Override
-            public GrandExchangeOffer getSelectedOffer() {
-                return facade != null ? facade.getSelectedOffer(client, VarbitID.GE_SELECTEDSLOT) : null;
-            }
+    private int getNewOfferTypeVarbit() {
+        return client != null ? client.getVarbitValue(VarbitID.GE_NEWOFFER_TYPE) : 0;
+    }
 
-            @Override
-            public int getNewOfferTypeVarbit() {
-                return client != null ? client.getVarbitValue(VarbitID.GE_NEWOFFER_TYPE) : 0;
-            }
-
-            @Override
-            public Widget getVisibleGeRoot() {
-                return facade != null
-                    ? facade.getVisibleGeRoot(client, ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER)
-                    : null;
-            }
-
-            @Override
-            public List<String> collectWidgetText(Widget widget) {
-                return OfferPreviewWidgetParser.collectWidgetText(widget);
-            }
-
-            @Override
-            public String normalizeOfferText(String text) {
-                return OfferPreviewWidgetParser.normalizeText(text);
-            }
-        };
+    private Widget getVisibleGeRoot() {
+        return facade != null
+            ? facade.getVisibleGeRoot(client, ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER)
+            : null;
     }
 
     Boolean resolveOfferType() {
-        if (hooks == null) {
-            return null;
-        }
         Boolean fromSetupText = findOfferTypeFromSetupWidgets();
         if (fromSetupText != null) {
             cacheOfferTypeMapping(fromSetupText);
@@ -108,7 +76,7 @@ final class OfferTypeResolver {
         if (fromSelectedSlot != null) {
             return remember(fromSelectedSlot);
         }
-        Boolean fromVarbit = mapNewOfferType(hooks.getNewOfferTypeVarbit());
+        Boolean fromVarbit = mapNewOfferType(getNewOfferTypeVarbit());
         if (fromVarbit != null) {
             return remember(fromVarbit);
         }
@@ -120,7 +88,7 @@ final class OfferTypeResolver {
     }
 
     private Boolean findOfferTypeFromSetupWidgets() {
-        Widget offerContainer = hooks.getOfferContainer();
+        Widget offerContainer = getOfferContainer();
         return findOfferTypeInWidget(offerContainer);
     }
 
@@ -128,7 +96,7 @@ final class OfferTypeResolver {
         if (widget == null || widget.isHidden()) {
             return null;
         }
-        String normalized = hooks.normalizeOfferText(widget.getText());
+        String normalized = OfferPreviewWidgetParser.normalizeText(widget.getText());
         if (normalized != null) {
             String lower = normalized.toLowerCase();
             if (lower.contains("buy offer")) {
@@ -163,7 +131,7 @@ final class OfferTypeResolver {
     }
 
     private Boolean findOfferTypeFromSelectedSlot() {
-        GrandExchangeOffer offer = hooks.getSelectedOffer();
+        GrandExchangeOffer offer = getSelectedOffer();
         if (offer == null) {
             return null;
         }
@@ -185,7 +153,7 @@ final class OfferTypeResolver {
     }
 
     private void cacheOfferTypeMapping(boolean isBuy) {
-        int offerType = hooks.getNewOfferTypeVarbit();
+        int offerType = getNewOfferTypeVarbit();
         if (offerType <= 0) {
             return;
         }
@@ -216,11 +184,11 @@ final class OfferTypeResolver {
     }
 
     private Boolean findOfferTypeFromGeRoot() {
-        Widget geRoot = hooks.getVisibleGeRoot();
+        Widget geRoot = getVisibleGeRoot();
         if (geRoot == null || geRoot.isHidden()) {
             return null;
         }
-        List<String> texts = hooks.collectWidgetText(geRoot);
+        List<String> texts = OfferPreviewWidgetParser.collectWidgetText(geRoot);
         boolean seenBuy = false;
         boolean seenSell = false;
         for (String text : texts) {
