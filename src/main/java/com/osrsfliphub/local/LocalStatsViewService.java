@@ -33,17 +33,6 @@ import javax.inject.Singleton;
 
 @Singleton
 final class LocalStatsViewService {
-    interface Hooks {
-        void ensureSelectedProfileLoaded();
-        long nowMs();
-        StatsRange currentStatsRange();
-        StatsItemSort currentStatsSort();
-        long resolveSelectedProfileKey();
-        long resolveSessionStartMs(long accountKey, long nowMs);
-        LocalStatsSnapshot buildLocalStatsSnapshot(long accountKey, Long sinceMs, StatsItemSort sort);
-        Map<Integer, List<StatsFlipInstance>> buildStatsFlipHistory(long accountKey, Long sinceMs);
-    }
-
     static final class Result {
         final StatsSummary summary;
         final List<StatsItem> items;
@@ -61,11 +50,8 @@ final class LocalStatsViewService {
         }
     }
 
-    private final Hooks hooks;
-
     @Inject
     LocalStatsViewService() {
-        this(productionHooks());
     }
 
     private static ProfileSelectionPresentationFacadeService profileSelectionFacade() {
@@ -76,83 +62,51 @@ final class LocalStatsViewService {
         return PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
     }
 
-    private static Hooks productionHooks() {
-        return new Hooks() {
-            @Override
-            public void ensureSelectedProfileLoaded() {
-                ProfileSelectionPresentationFacadeService facade = profileSelectionFacade();
-                if (facade != null) {
-                    PluginAccess.plugin().getLocalTradesRuntimeService()
-                        .ensureProfileLoaded(facade.resolveSelectedProfileKey());
-                }
-            }
-
-            @Override
-            public long nowMs() {
-                return System.currentTimeMillis();
-            }
-
-            @Override
-            public StatsRange currentStatsRange() {
-                return PluginAccess.plugin().currentStatsRange;
-            }
-
-            @Override
-            public StatsItemSort currentStatsSort() {
-                return PluginAccess.plugin().currentStatsSort;
-            }
-
-            @Override
-            public long resolveSelectedProfileKey() {
-                ProfileSelectionPresentationFacadeService facade = profileSelectionFacade();
-                return facade != null ? facade.resolveSelectedProfileKey() : -1L;
-            }
-
-            @Override
-            public long resolveSessionStartMs(long accountKey, long nowMs) {
-                LocalTradeSessionFacadeService service = localTradeSessionFacade();
-                return service != null ? service.resolveStatsSessionStartMs(accountKey, nowMs) : 0L;
-            }
-
-            @Override
-            public LocalStatsSnapshot buildLocalStatsSnapshot(long accountKey, Long sinceMs, StatsItemSort sort) {
-                LocalStatsSnapshotService service =
-                    PluginInjectorBridge.get(LocalStatsSnapshotService.class);
-                return service != null ? service.buildSnapshot(accountKey, sinceMs, sort) : null;
-            }
-
-            @Override
-            public Map<Integer, List<StatsFlipInstance>> buildStatsFlipHistory(long accountKey, Long sinceMs) {
-                LocalTradeSessionFacadeService service = localTradeSessionFacade();
-                return service != null ? service.buildStatsFlipHistory(accountKey, sinceMs) : null;
-            }
-        };
+    private void ensureSelectedProfileLoaded() {
+        ProfileSelectionPresentationFacadeService facade = profileSelectionFacade();
+        if (facade != null) {
+            PluginAccess.plugin().getLocalTradesRuntimeService()
+                .ensureProfileLoaded(facade.resolveSelectedProfileKey());
+        }
     }
 
-    LocalStatsViewService(Hooks hooks) {
-        this.hooks = hooks;
+    private long resolveSelectedProfileKey() {
+        ProfileSelectionPresentationFacadeService facade = profileSelectionFacade();
+        return facade != null ? facade.resolveSelectedProfileKey() : -1L;
+    }
+
+    private long resolveSessionStartMs(long accountKey, long nowMs) {
+        LocalTradeSessionFacadeService service = localTradeSessionFacade();
+        return service != null ? service.resolveStatsSessionStartMs(accountKey, nowMs) : 0L;
+    }
+
+    private LocalStatsSnapshot buildLocalStatsSnapshot(long accountKey, Long sinceMs, StatsItemSort sort) {
+        LocalStatsSnapshotService service = PluginInjectorBridge.get(LocalStatsSnapshotService.class);
+        return service != null ? service.buildSnapshot(accountKey, sinceMs, sort) : null;
+    }
+
+    private Map<Integer, List<StatsFlipInstance>> buildStatsFlipHistory(long accountKey, Long sinceMs) {
+        LocalTradeSessionFacadeService service = localTradeSessionFacade();
+        return service != null ? service.buildStatsFlipHistory(accountKey, sinceMs) : null;
     }
 
     Result build() {
-        if (hooks == null) {
-            return emptyResult(System.currentTimeMillis());
-        }
-        hooks.ensureSelectedProfileLoaded();
+        ensureSelectedProfileLoaded();
 
-        long nowMs = hooks.nowMs();
-        StatsRange range = hooks.currentStatsRange();
+        long nowMs = System.currentTimeMillis();
+        StatsRange range = PluginAccess.plugin().currentStatsRange;
         StatsRange effectiveRange = range != null ? range : StatsRange.SESSION;
-        StatsItemSort sort = hooks.currentStatsSort();
+        StatsItemSort sort = PluginAccess.plugin().currentStatsSort;
         StatsItemSort effectiveSort = sort != null ? sort : StatsItemSort.COMPLETION;
-        long accountKey = hooks.resolveSelectedProfileKey();
+        long accountKey = resolveSelectedProfileKey();
         if (accountKey < 0) {
             return emptyResult(nowMs);
         }
 
-        long sessionStartMs = hooks.resolveSessionStartMs(accountKey, nowMs);
+        long sessionStartMs = resolveSessionStartMs(accountKey, nowMs);
         Long sinceMs = effectiveRange.getSinceMs(sessionStartMs, nowMs);
-        LocalStatsSnapshot snapshot = hooks.buildLocalStatsSnapshot(accountKey, sinceMs, effectiveSort);
-        Map<Integer, List<StatsFlipInstance>> history = hooks.buildStatsFlipHistory(accountKey, sinceMs);
+        LocalStatsSnapshot snapshot = buildLocalStatsSnapshot(accountKey, sinceMs, effectiveSort);
+        Map<Integer, List<StatsFlipInstance>> history = buildStatsFlipHistory(accountKey, sinceMs);
 
         StatsSummary summary = snapshot != null && snapshot.summary != null ? snapshot.summary : new StatsSummary();
         List<StatsItem> items = snapshot != null && snapshot.items != null ? snapshot.items : new ArrayList<>();
