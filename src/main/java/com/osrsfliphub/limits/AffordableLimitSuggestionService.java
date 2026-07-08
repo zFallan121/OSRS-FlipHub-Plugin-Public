@@ -35,80 +35,27 @@ import net.runelite.api.gameval.VarbitID;
 
 @Singleton
 final class AffordableLimitSuggestionService {
-    interface Hooks {
-        Integer getEnteredOfferPrice();
-        Integer getSelectedOfferPrice();
-        long getInventoryCoins();
-    }
-
-    private final Hooks hooks;
+    private final Client client;
+    private final OfferPreviewRuntimeFacadeService facade;
 
     @Inject
     AffordableLimitSuggestionService(Client client, OfferPreviewRuntimeFacadeService facade) {
-        this(productionHooks(client, facade));
-    }
-
-    AffordableLimitSuggestionService(Hooks hooks) {
-        this.hooks = hooks;
-    }
-
-    private static Hooks productionHooks(Client client, OfferPreviewRuntimeFacadeService facade) {
-        return new Hooks() {
-            @Override
-            public Integer getEnteredOfferPrice() {
-                if (client == null) {
-                    return null;
-                }
-                int enteredPrice = client.getVarbitValue(GeLifecyclePluginConstants.GE_OFFER_PRICE_VARBIT);
-                return enteredPrice > 0 ? enteredPrice : null;
-            }
-
-            @Override
-            public Integer getSelectedOfferPrice() {
-                if (client == null || facade == null) {
-                    return null;
-                }
-                GrandExchangeOffer offer = facade.getSelectedOffer(client, VarbitID.GE_SELECTEDSLOT);
-                if (offer == null || offer.getPrice() <= 0) {
-                    return null;
-                }
-                return offer.getPrice();
-            }
-
-            @Override
-            public long getInventoryCoins() {
-                if (client == null) {
-                    return 0L;
-                }
-                ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
-                if (inventory == null) {
-                    return 0L;
-                }
-                Item[] items = inventory.getItems();
-                if (items == null || items.length == 0) {
-                    return 0L;
-                }
-                long totalCoins = 0L;
-                for (Item item : items) {
-                    if (item == null || item.getId() != GeLifecyclePluginConstants.COINS_ITEM_ID) {
-                        continue;
-                    }
-                    totalCoins += Math.max(0, item.getQuantity());
-                }
-                return totalCoins;
-            }
-        };
+        this.client = client;
+        this.facade = facade;
     }
 
     Integer computeAffordableLimit(Integer remainingLimit) {
-        if (hooks == null) {
-            return null;
-        }
-        Integer offerPrice = resolveOfferPrice();
+        return computeAffordableLimit(remainingLimit, enteredOfferPrice(), selectedOfferPrice(), inventoryCoins());
+    }
+
+    // Pure computation, split out so it stays unit-testable without a client.
+    Integer computeAffordableLimit(Integer remainingLimit, Integer enteredPrice, Integer selectedPrice, long coins) {
+        Integer offerPrice = enteredPrice != null && enteredPrice > 0
+            ? enteredPrice
+            : (selectedPrice != null && selectedPrice > 0 ? selectedPrice : null);
         if (offerPrice == null || offerPrice <= 0) {
             return null;
         }
-        long coins = hooks.getInventoryCoins();
         if (coins <= 0) {
             return null;
         }
@@ -122,15 +69,44 @@ final class AffordableLimitSuggestionService {
         return affordable > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) affordable;
     }
 
-    private Integer resolveOfferPrice() {
-        Integer entered = hooks.getEnteredOfferPrice();
-        if (entered != null && entered > 0) {
-            return entered;
+    private Integer enteredOfferPrice() {
+        if (client == null) {
+            return null;
         }
-        Integer selected = hooks.getSelectedOfferPrice();
-        if (selected != null && selected > 0) {
-            return selected;
+        int enteredPrice = client.getVarbitValue(GeLifecyclePluginConstants.GE_OFFER_PRICE_VARBIT);
+        return enteredPrice > 0 ? enteredPrice : null;
+    }
+
+    private Integer selectedOfferPrice() {
+        if (client == null || facade == null) {
+            return null;
         }
-        return null;
+        GrandExchangeOffer offer = facade.getSelectedOffer(client, VarbitID.GE_SELECTEDSLOT);
+        if (offer == null || offer.getPrice() <= 0) {
+            return null;
+        }
+        return offer.getPrice();
+    }
+
+    private long inventoryCoins() {
+        if (client == null) {
+            return 0L;
+        }
+        ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
+        if (inventory == null) {
+            return 0L;
+        }
+        Item[] items = inventory.getItems();
+        if (items == null || items.length == 0) {
+            return 0L;
+        }
+        long totalCoins = 0L;
+        for (Item item : items) {
+            if (item == null || item.getId() != GeLifecyclePluginConstants.COINS_ITEM_ID) {
+                continue;
+            }
+            totalCoins += Math.max(0, item.getQuantity());
+        }
+        return totalCoins;
     }
 }

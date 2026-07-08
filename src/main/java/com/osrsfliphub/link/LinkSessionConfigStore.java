@@ -36,40 +36,13 @@ final class LinkSessionConfigStore {
     static final String LINK_CODE_KEY = "linkCode";
     static final String UNLINK_NOW_KEY = "unlinkNow";
 
-    interface Hooks {
-        void setString(String group, String key, String value);
-        void setBoolean(String group, String key, boolean value);
-    }
-
-    private final Hooks hooks;
+    private final ConfigManager configManager;
     private final String configGroup;
 
     @Inject
     LinkSessionConfigStore(ConfigManager configManager) {
-        this(productionHooks(configManager), FliphubConfigGroups.CONFIG_GROUP);
-    }
-
-    LinkSessionConfigStore(Hooks hooks, String configGroup) {
-        this.hooks = hooks;
-        this.configGroup = configGroup;
-    }
-
-    private static Hooks productionHooks(ConfigManager configManager) {
-        return new Hooks() {
-            @Override
-            public void setString(String group, String key, String value) {
-                if (configManager != null) {
-                    configManager.setConfiguration(group, key, value);
-                }
-            }
-
-            @Override
-            public void setBoolean(String group, String key, boolean value) {
-                if (configManager != null) {
-                    configManager.setConfiguration(group, key, value);
-                }
-            }
-        };
+        this.configManager = configManager;
+        this.configGroup = FliphubConfigGroups.CONFIG_GROUP;
     }
 
     void clearLinkState() {
@@ -91,17 +64,15 @@ final class LinkSessionConfigStore {
     }
 
     private void setString(String key, String value) {
-        if (hooks == null) {
-            return;
+        if (configManager != null) {
+            configManager.setConfiguration(configGroup, key, value);
         }
-        hooks.setString(configGroup, key, value);
     }
 
     private void setBoolean(String key, boolean value) {
-        if (hooks == null) {
-            return;
+        if (configManager != null) {
+            configManager.setConfiguration(configGroup, key, value);
         }
-        hooks.setBoolean(configGroup, key, value);
     }
 
     private String safe(String value) {

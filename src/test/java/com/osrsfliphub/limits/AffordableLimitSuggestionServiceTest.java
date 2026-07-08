@@ -30,78 +30,32 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 public class AffordableLimitSuggestionServiceTest {
+    private final AffordableLimitSuggestionService service = new AffordableLimitSuggestionService(null, null);
+
     @Test
     public void computeUsesEnteredPriceBeforeSelectedOfferPrice() {
-        TestHooks hooks = new TestHooks();
-        hooks.enteredOfferPrice = 100;
-        hooks.selectedOfferPrice = 200;
-        hooks.inventoryCoins = 10_000L;
-        AffordableLimitSuggestionService service = new AffordableLimitSuggestionService(hooks);
-
-        assertEquals(Integer.valueOf(100), service.computeAffordableLimit(null));
+        assertEquals(Integer.valueOf(100), service.computeAffordableLimit(null, 100, 200, 10_000L));
     }
 
     @Test
     public void computeFallsBackToSelectedOfferPrice() {
-        TestHooks hooks = new TestHooks();
-        hooks.enteredOfferPrice = 0;
-        hooks.selectedOfferPrice = 250;
-        hooks.inventoryCoins = 2_750L;
-        AffordableLimitSuggestionService service = new AffordableLimitSuggestionService(hooks);
-
-        assertEquals(Integer.valueOf(11), service.computeAffordableLimit(null));
+        assertEquals(Integer.valueOf(11), service.computeAffordableLimit(null, 0, 250, 2_750L));
     }
 
     @Test
     public void computeClampsToRemainingLimitWhenPresent() {
-        TestHooks hooks = new TestHooks();
-        hooks.enteredOfferPrice = 100;
-        hooks.inventoryCoins = 10_000L;
-        AffordableLimitSuggestionService service = new AffordableLimitSuggestionService(hooks);
-
-        assertEquals(Integer.valueOf(25), service.computeAffordableLimit(25));
+        assertEquals(Integer.valueOf(25), service.computeAffordableLimit(25, 100, null, 10_000L));
     }
 
     @Test
     public void computeReturnsNullWithoutUsablePriceOrCoins() {
-        TestHooks hooks = new TestHooks();
-        AffordableLimitSuggestionService service = new AffordableLimitSuggestionService(hooks);
-
-        assertNull(service.computeAffordableLimit(10));
-
-        hooks.enteredOfferPrice = 100;
-        hooks.inventoryCoins = 0L;
-        assertNull(service.computeAffordableLimit(10));
+        assertNull(service.computeAffordableLimit(10, null, null, 0L));
+        assertNull(service.computeAffordableLimit(10, 100, null, 0L));
     }
 
     @Test
     public void computeCapsAtIntegerMaxValue() {
-        TestHooks hooks = new TestHooks();
-        hooks.enteredOfferPrice = 1;
-        hooks.inventoryCoins = (long) Integer.MAX_VALUE + 1000L;
-        AffordableLimitSuggestionService service = new AffordableLimitSuggestionService(hooks);
-
-        assertEquals(Integer.valueOf(Integer.MAX_VALUE), service.computeAffordableLimit(null));
-    }
-
-    private static final class TestHooks implements AffordableLimitSuggestionService.Hooks {
-        private Integer enteredOfferPrice;
-        private Integer selectedOfferPrice;
-        private long inventoryCoins;
-
-        @Override
-        public Integer getEnteredOfferPrice() {
-            return enteredOfferPrice;
-        }
-
-        @Override
-        public Integer getSelectedOfferPrice() {
-            return selectedOfferPrice;
-        }
-
-        @Override
-        public long getInventoryCoins() {
-            return inventoryCoins;
-        }
+        assertEquals(Integer.valueOf(Integer.MAX_VALUE),
+            service.computeAffordableLimit(null, 1, null, (long) Integer.MAX_VALUE + 1000L));
     }
 }
