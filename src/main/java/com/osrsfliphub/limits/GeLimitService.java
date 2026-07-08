@@ -43,76 +43,54 @@ import org.slf4j.LoggerFactory;
 final class GeLimitService {
     private static final Logger log = LoggerFactory.getLogger(GeLimitService.class);
 
-    interface Hooks {
-        boolean isClientFullyReady();
-        void invokeOnClientThread(Runnable task);
-        Integer lookupGeLimit(int itemId);
-        void onLimitsUpdated();
-        void logDebug(String message);
-    }
-
     private final int maxLookupsPerRequest;
-    private final Hooks hooks;
+    private final ItemManager itemManager;
+    private final ClientThread clientThread;
+    private final Client client;
     private final Object geLimitLock = new Object();
     private final Map<Integer, Integer> geLimitCache = new HashMap<>();
     private final Set<Integer> geLimitPending = new HashSet<>();
 
     @Inject
     GeLimitService(ItemManager itemManager, ClientThread clientThread, Client client) {
-        this(GeLifecyclePluginConstants.MAX_GE_LIMIT_LOOKUPS_PER_REQUEST,
-            productionHooks(itemManager, clientThread, client));
+        this.maxLookupsPerRequest = GeLifecyclePluginConstants.MAX_GE_LIMIT_LOOKUPS_PER_REQUEST;
+        this.itemManager = itemManager;
+        this.clientThread = clientThread;
+        this.client = client;
     }
 
-    GeLimitService(int maxLookupsPerRequest, Hooks hooks) {
-        this.maxLookupsPerRequest = maxLookupsPerRequest;
-        this.hooks = hooks;
+    private boolean isClientFullyReady() {
+        return client != null
+            && client.getGameState() == GameState.LOGGED_IN
+            && client.getLocalPlayer() != null
+            && clientThread != null
+            && itemManager != null;
     }
 
-    private static ItemLookupService itemLookupService() {
-        return PluginInjectorBridge.get(ItemLookupService.class);
+    private void invokeOnClientThread(Runnable task) {
+        if (task != null && clientThread != null) {
+            clientThread.invokeLater(task);
+        }
     }
 
-    private static Hooks productionHooks(ItemManager itemManager, ClientThread clientThread, Client client) {
-        return new Hooks() {
-            @Override
-            public boolean isClientFullyReady() {
-                return client != null
-                    && client.getGameState() == GameState.LOGGED_IN
-                    && client.getLocalPlayer() != null
-                    && clientThread != null
-                    && itemManager != null;
-            }
+    private Integer lookupGeLimit(int itemId) {
+        ItemLookupService service = PluginInjectorBridge.get(ItemLookupService.class);
+        Integer geLimit = service != null ? service.lookupGeLimitSafe(itemId) : null;
+        return geLimit != null ? geLimit : 0;
+    }
 
-            @Override
-            public void invokeOnClientThread(Runnable task) {
-                if (task != null && clientThread != null) {
-                    clientThread.invokeLater(task);
-                }
-            }
+    private void onLimitsUpdated() {
+        GeLifecyclePlugin plugin = PluginAccess.plugin();
+        PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
+        if (coordinator != null) {
+            coordinator.scheduleRefreshSoon(plugin.scheduler);
+        }
+    }
 
-            @Override
-            public Integer lookupGeLimit(int itemId) {
-                ItemLookupService service = itemLookupService();
-                Integer geLimit = service != null ? service.lookupGeLimitSafe(itemId) : null;
-                return geLimit != null ? geLimit : 0;
-            }
-
-            @Override
-            public void onLimitsUpdated() {
-                GeLifecyclePlugin plugin = PluginAccess.plugin();
-                PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
-                if (coordinator != null) {
-                    coordinator.scheduleRefreshSoon(plugin.scheduler);
-                }
-            }
-
-            @Override
-            public void logDebug(String message) {
-                if (message != null && log.isDebugEnabled()) {
-                    log.debug(message);
-                }
-            }
-        };
+    private void logDebug(String message) {
+        if (message != null && log.isDebugEnabled()) {
+            log.debug(message);
+        }
     }
 
     Integer getCachedGeLimit(int itemId) {
@@ -122,7 +100,7 @@ final class GeLimitService {
     }
 
     void requestGeLimits(Set<Integer> itemIds) {
-        if (hooks == null || !hooks.isClientFullyReady()) {
+        if (!isClientFullyReady()) {
             return;
         }
         if (itemIds == null || itemIds.isEmpty()) {
@@ -147,17 +125,17 @@ final class GeLimitService {
         if (missing.isEmpty()) {
             return;
         }
-        hooks.invokeOnClientThread(() -> {
+        invokeOnClientThread(() -> {
             boolean updated = false;
             for (int itemId : missing) {
                 int limit = 0;
                 try {
-                    Integer lookedUp = hooks.lookupGeLimit(itemId);
+                    Integer lookedUp = lookupGeLimit(itemId);
                     if (lookedUp != null) {
                         limit = lookedUp;
                     }
                 } catch (RuntimeException ex) {
-                    hooks.logDebug("Local GE limit lookup failed for " + itemId + ": " + ex.getMessage());
+                    logDebug("Local GE limit lookup failed for " + itemId + ": " + ex.getMessage());
                 }
                 synchronized (geLimitLock) {
                     if (limit > 0) {
@@ -168,7 +146,7 @@ final class GeLimitService {
                 }
             }
             if (updated) {
-                hooks.onLimitsUpdated();
+                onLimitsUpdated();
             }
         });
     }

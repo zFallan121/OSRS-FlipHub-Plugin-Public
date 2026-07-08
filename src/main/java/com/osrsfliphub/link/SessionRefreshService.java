@@ -37,96 +37,26 @@ final class SessionRefreshService {
     private static final String SESSION_CLEARED_REASON =
         "Session cleared. Event uploads paused until relinked.";
 
-    interface Hooks {
-        ApiClient.LinkResponse refreshSession(String currentToken, String signingSecret, String deviceId) throws IOException;
-        String getSigningSecret();
-        String getDeviceId();
-        void setConfiguration(String group, String key, String value);
-        void resetAccountwideUploadSnapshot();
-        void resetBackfillRetryState();
-        void setUploadBlocked(String reason);
-    }
-
-    private final Hooks hooks;
+    private final ApiClient apiClient;
+    private final PluginConfig config;
+    private final ConfigManager configManager;
 
     @Inject
     SessionRefreshService(ApiClient apiClient, PluginConfig config, ConfigManager configManager) {
-        this(productionHooks(apiClient, config, configManager));
-    }
-
-    private static Hooks productionHooks(ApiClient apiClient, PluginConfig config, ConfigManager configManager) {
-        return new Hooks() {
-            @Override
-            public ApiClient.LinkResponse refreshSession(String currentToken, String signingSecret, String deviceId)
-                throws IOException {
-                if (apiClient == null) {
-                    throw new IllegalStateException("Refresh failed: api client unavailable");
-                }
-                return apiClient.refreshSession(currentToken, signingSecret, deviceId);
-            }
-
-            @Override
-            public String getSigningSecret() {
-                return config != null ? config.signingSecret() : null;
-            }
-
-            @Override
-            public String getDeviceId() {
-                return config != null ? config.deviceId() : null;
-            }
-
-            @Override
-            public void setConfiguration(String group, String key, String value) {
-                if (configManager != null) {
-                    configManager.setConfiguration(group, key, value);
-                }
-            }
-
-            @Override
-            public void resetAccountwideUploadSnapshot() {
-                AccountwideSummaryUploader uploader =
-                    PluginInjectorBridge.get(AccountwideSummaryUploader.class);
-                if (uploader != null) {
-                    uploader.resetUploadSnapshot();
-                }
-            }
-
-            @Override
-            public void resetBackfillRetryState() {
-                UploadBackfillDispatchService service =
-                    PluginInjectorBridge.get(UploadBackfillDispatchService.class);
-                if (service != null) {
-                    service.resetBackfillRetryState();
-                }
-            }
-
-            @Override
-            public void setUploadBlocked(String reason) {
-                UploadEventDispatchFacadeService service =
-                    PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
-                if (service != null) {
-                    service.markBlocked(reason);
-                }
-            }
-        };
-    }
-
-    SessionRefreshService(Hooks hooks) {
-        this.hooks = hooks;
+        this.apiClient = apiClient;
+        this.config = config;
+        this.configManager = configManager;
     }
 
     boolean attemptRefresh(String currentToken) {
-        if (hooks == null) {
-            return false;
-        }
         try {
-            String signingSecret = hooks.getSigningSecret();
-            String deviceId = hooks.getDeviceId();
-            ApiClient.LinkResponse response = hooks.refreshSession(currentToken, signingSecret, deviceId);
+            String signingSecret = config != null ? config.signingSecret() : null;
+            String deviceId = config != null ? config.deviceId() : null;
+            ApiClient.LinkResponse response = refreshSession(currentToken, signingSecret, deviceId);
             if (response != null && response.session_token != null) {
-                hooks.setConfiguration(DEFAULT_CONFIG_GROUP, SESSION_TOKEN_KEY, response.session_token);
+                setConfiguration(DEFAULT_CONFIG_GROUP, SESSION_TOKEN_KEY, response.session_token);
                 if (response.signing_secret != null && !response.signing_secret.isEmpty()) {
-                    hooks.setConfiguration(DEFAULT_CONFIG_GROUP, SIGNING_SECRET_KEY, response.signing_secret);
+                    setConfiguration(DEFAULT_CONFIG_GROUP, SIGNING_SECRET_KEY, response.signing_secret);
                 }
                 return true;
             }
@@ -139,13 +69,33 @@ final class SessionRefreshService {
     }
 
     void clearSession() {
-        if (hooks == null) {
-            return;
+        setConfiguration(DEFAULT_CONFIG_GROUP, SESSION_TOKEN_KEY, "");
+        setConfiguration(DEFAULT_CONFIG_GROUP, SIGNING_SECRET_KEY, "");
+        AccountwideSummaryUploader uploader = PluginInjectorBridge.get(AccountwideSummaryUploader.class);
+        if (uploader != null) {
+            uploader.resetUploadSnapshot();
         }
-        hooks.setConfiguration(DEFAULT_CONFIG_GROUP, SESSION_TOKEN_KEY, "");
-        hooks.setConfiguration(DEFAULT_CONFIG_GROUP, SIGNING_SECRET_KEY, "");
-        hooks.resetAccountwideUploadSnapshot();
-        hooks.resetBackfillRetryState();
-        hooks.setUploadBlocked(SESSION_CLEARED_REASON);
+        UploadBackfillDispatchService dispatch = PluginInjectorBridge.get(UploadBackfillDispatchService.class);
+        if (dispatch != null) {
+            dispatch.resetBackfillRetryState();
+        }
+        UploadEventDispatchFacadeService facade = PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
+        if (facade != null) {
+            facade.markBlocked(SESSION_CLEARED_REASON);
+        }
+    }
+
+    private ApiClient.LinkResponse refreshSession(String currentToken, String signingSecret, String deviceId)
+        throws IOException {
+        if (apiClient == null) {
+            throw new IllegalStateException("Refresh failed: api client unavailable");
+        }
+        return apiClient.refreshSession(currentToken, signingSecret, deviceId);
+    }
+
+    private void setConfiguration(String group, String key, String value) {
+        if (configManager != null) {
+            configManager.setConfiguration(group, key, value);
+        }
     }
 }
