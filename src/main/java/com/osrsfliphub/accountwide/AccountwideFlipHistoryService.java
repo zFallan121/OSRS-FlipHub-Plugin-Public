@@ -35,23 +35,11 @@ import javax.inject.Singleton;
 
 @Singleton
 final class AccountwideFlipHistoryService {
-    interface Hooks {
-        long accountwideKey();
-        void ensureProfileLoaded(long accountKey);
-        List<LocalTradeDelta> snapshotLocalTradeDeltas(long accountKey);
-        Map<Integer, List<StatsFlipInstance>> buildLocalHistory(List<LocalTradeDelta> deltas, Long sinceMs);
-        Set<Long> collectAccountwideProfileKeys();
-    }
-
-    private final Hooks hooks;
+    private final PluginState state;
 
     @Inject
     AccountwideFlipHistoryService(PluginState state) {
-        this(productionHooks(state));
-    }
-
-    AccountwideFlipHistoryService(Hooks hooks) {
-        this.hooks = hooks;
+        this.state = state;
     }
 
     private static ProfileSelectionPresentationFacadeService profileSelectionFacade() {
@@ -62,59 +50,42 @@ final class AccountwideFlipHistoryService {
         return PluginInjectorBridge.get(ProfileStorageFacadeService.class);
     }
 
-    private static Hooks productionHooks(PluginState state) {
-        return new Hooks() {
-            @Override
-            public long accountwideKey() {
-                return GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
-            }
+    private void ensureProfileLoaded(long accountKey) {
+        PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
+    }
 
-            @Override
-            public void ensureProfileLoaded(long accountKey) {
-                PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
-            }
+    private List<LocalTradeDelta> snapshotLocalTradeDeltas(long accountKey) {
+        return PluginInjectorBridge.get(LocalTradeSessionFacadeService.class).snapshotLocalTradeDeltas(accountKey);
+    }
 
-            @Override
-            public List<LocalTradeDelta> snapshotLocalTradeDeltas(long accountKey) {
-                return PluginInjectorBridge.get(LocalTradeSessionFacadeService.class)
-                    .snapshotLocalTradeDeltas(accountKey);
-            }
+    private Map<Integer, List<StatsFlipInstance>> buildLocalHistory(List<LocalTradeDelta> deltas, Long sinceMs) {
+        return PluginInjectorBridge.get(LocalFlipHistoryService.class).buildHistory(deltas, sinceMs);
+    }
 
-            @Override
-            public Map<Integer, List<StatsFlipInstance>> buildLocalHistory(List<LocalTradeDelta> deltas, Long sinceMs) {
-                return PluginInjectorBridge.get(LocalFlipHistoryService.class).buildHistory(deltas, sinceMs);
-            }
-
-            @Override
-            public Set<Long> collectAccountwideProfileKeys() {
-                ProfileStorageFacadeService storage = profileStorage();
-                return PluginInjectorBridge.get(AccountwideProfileKeyCollector.class).collect(
-                    storage != null ? storage.getProfilesDir() : null,
-                    storage != null ? storage.getLegacyProfilesDir() : null,
-                    state.getLocalTradeDeltasByAccount(),
-                    state.getLocalStatsLock(),
-                    () -> profileSelectionFacade().loadProfilesFromDisk());
-            }
-        };
+    private Set<Long> collectAccountwideProfileKeys() {
+        ProfileStorageFacadeService storage = profileStorage();
+        return PluginInjectorBridge.get(AccountwideProfileKeyCollector.class).collect(
+            storage != null ? storage.getProfilesDir() : null,
+            storage != null ? storage.getLegacyProfilesDir() : null,
+            state.getLocalTradeDeltasByAccount(),
+            state.getLocalStatsLock(),
+            () -> profileSelectionFacade().loadProfilesFromDisk());
     }
 
     Map<Integer, List<StatsFlipInstance>> buildAccountwideHistory(Long sinceMs) {
-        if (hooks == null) {
-            return new HashMap<>();
-        }
-        long accountwideKey = hooks.accountwideKey();
-        hooks.ensureProfileLoaded(accountwideKey);
+        long accountwideKey = GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
+        ensureProfileLoaded(accountwideKey);
 
         Map<Integer, List<StatsFlipInstance>> merged = new HashMap<>();
-        Set<Long> profileKeys = hooks.collectAccountwideProfileKeys();
+        Set<Long> profileKeys = collectAccountwideProfileKeys();
         if (profileKeys != null && !profileKeys.isEmpty()) {
             for (Long key : profileKeys) {
                 if (key == null || key <= 0 || key == accountwideKey) {
                     continue;
                 }
-                hooks.ensureProfileLoaded(key);
-                Map<Integer, List<StatsFlipInstance>> perProfile = hooks.buildLocalHistory(
-                    hooks.snapshotLocalTradeDeltas(key),
+                ensureProfileLoaded(key);
+                Map<Integer, List<StatsFlipInstance>> perProfile = buildLocalHistory(
+                    snapshotLocalTradeDeltas(key),
                     sinceMs
                 );
                 mergeHistory(merged, perProfile);
@@ -125,8 +96,8 @@ final class AccountwideFlipHistoryService {
             }
         }
 
-        Map<Integer, List<StatsFlipInstance>> accountwide = hooks.buildLocalHistory(
-            hooks.snapshotLocalTradeDeltas(accountwideKey),
+        Map<Integer, List<StatsFlipInstance>> accountwide = buildLocalHistory(
+            snapshotLocalTradeDeltas(accountwideKey),
             sinceMs
         );
         if (accountwide == null || accountwide.isEmpty()) {
