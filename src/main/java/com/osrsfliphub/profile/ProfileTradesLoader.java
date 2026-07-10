@@ -33,17 +33,6 @@ import javax.inject.Singleton;
 
 @Singleton
 final class ProfileTradesLoader {
-    interface Hooks {
-        Path getProfileFile(long accountHash);
-        long getProfileFileModifiedMs(Path file);
-        ProfileData readProfileData(long accountHash);
-        List<LocalTradeDelta> buildAccountwideFromDisk();
-        List<LocalTradeDelta> readLegacyLocalTrades(long accountHash);
-        boolean isPlaceholderDisplayName(String displayName);
-        String displayNameFromLegacyKey(String legacyKey);
-        String resolveLegacyDisplayNameForHash(long accountHash);
-    }
-
     static final class Result {
         final List<LocalTradeDelta> deltas;
         final String resolvedDisplayName;
@@ -56,66 +45,23 @@ final class ProfileTradesLoader {
         }
     }
 
-    private final long accountwideKey;
-    private final Hooks hooks;
+    private final long accountwideKey = GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
 
     @Inject
     ProfileTradesLoader() {
-        this(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY, new Hooks() {
-            @Override
-            public Path getProfileFile(long accountHash) {
-                ProfileStorageFacadeService service = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
-                return service != null ? service.getProfileFile(accountHash) : null;
-            }
-
-            @Override
-            public long getProfileFileModifiedMs(Path file) {
-                return PluginAccess.plugin().getProfileFileModifiedMs(file);
-            }
-
-            @Override
-            public ProfileData readProfileData(long accountHash) {
-                ProfileStorageFacadeService service = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
-                return service != null ? service.readProfileData(accountHash) : null;
-            }
-
-            @Override
-            public List<LocalTradeDelta> buildAccountwideFromDisk() {
-                AccountwideTradesMergeService service = PluginInjectorBridge.get(AccountwideTradesMergeService.class);
-                return service != null ? service.buildAccountwideFromDisk() : null;
-            }
-
-            @Override
-            public List<LocalTradeDelta> readLegacyLocalTrades(long accountHash) {
-                ProfileStorageFacadeService service = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
-                return service != null ? service.readLegacyLocalTrades(accountHash) : null;
-            }
-
-            @Override
-            public boolean isPlaceholderDisplayName(String displayName) {
-                GeLifecycleLocalTradesRuntimeService runtime = PluginAccess.plugin().getLocalTradesRuntimeService();
-                return runtime != null && runtime.isPlaceholderDisplayName(displayName);
-            }
-
-            @Override
-            public String displayNameFromLegacyKey(String legacyKey) {
-                ProfileSelectionPresentationFacadeService service =
-                    PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
-                return service != null ? service.displayNameFromLegacyKey(legacyKey) : null;
-            }
-
-            @Override
-            public String resolveLegacyDisplayNameForHash(long accountHash) {
-                ProfileSelectionPresentationFacadeService service =
-                    PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
-                return service != null ? service.resolveLegacyDisplayNameForHash(accountHash) : null;
-            }
-        });
     }
 
-    ProfileTradesLoader(long accountwideKey, Hooks hooks) {
-        this.accountwideKey = accountwideKey;
-        this.hooks = hooks;
+    private ProfileStorageFacadeService storage() {
+        return PluginInjectorBridge.get(ProfileStorageFacadeService.class);
+    }
+
+    private ProfileSelectionPresentationFacadeService presentation() {
+        return PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
+    }
+
+    private boolean isPlaceholderDisplayName(String displayName) {
+        GeLifecycleLocalTradesRuntimeService runtime = PluginAccess.plugin().getLocalTradesRuntimeService();
+        return runtime != null && runtime.isPlaceholderDisplayName(displayName);
     }
 
     Result load(long accountHash,
@@ -123,27 +69,30 @@ final class ProfileTradesLoader {
                 int maxLocalTrades,
                 long localEventBucketMs,
                 long duplicateTradeWindowMs) {
-        if (accountHash < 0 || hooks == null) {
+        if (accountHash < 0) {
             return null;
         }
+        ProfileStorageFacadeService storage = storage();
         long fileMs = 0L;
-        Path file = hooks.getProfileFile(accountHash);
+        Path file = storage != null ? storage.getProfileFile(accountHash) : null;
         if (file != null) {
-            fileMs = hooks.getProfileFileModifiedMs(file);
+            fileMs = PluginAccess.plugin().getProfileFileModifiedMs(file);
         }
 
-        ProfileData profile = hooks.readProfileData(accountHash);
+        ProfileData profile = storage != null ? storage.readProfileData(accountHash) : null;
         List<LocalTradeDelta> merged = profile != null ? profile.deltas : null;
         String profileName = profile != null ? profile.displayName : null;
-        boolean placeholderName = hooks.isPlaceholderDisplayName(profileName);
+        boolean placeholderName = isPlaceholderDisplayName(profileName);
         if (accountHash == accountwideKey) {
-            merged = hooks.buildAccountwideFromDisk();
+            AccountwideTradesMergeService mergeService =
+                PluginInjectorBridge.get(AccountwideTradesMergeService.class);
+            merged = mergeService != null ? mergeService.buildAccountwideFromDisk() : null;
         }
         if (accountHash != accountwideKey) {
             if (merged == null || merged.isEmpty()) {
-                merged = hooks.readLegacyLocalTrades(accountHash);
+                merged = storage != null ? storage.readLegacyLocalTrades(accountHash) : null;
             } else if (placeholderName) {
-                List<LocalTradeDelta> legacy = hooks.readLegacyLocalTrades(accountHash);
+                List<LocalTradeDelta> legacy = storage != null ? storage.readLegacyLocalTrades(accountHash) : null;
                 if (legacy != null && !legacy.isEmpty()) {
                     merged = legacy;
                 }
@@ -160,14 +109,15 @@ final class ProfileTradesLoader {
         }
 
         String resolvedName = null;
-        if (profileName != null && !profileName.trim().isEmpty() && !hooks.isPlaceholderDisplayName(profileName)) {
+        if (profileName != null && !profileName.trim().isEmpty() && !placeholderName) {
             resolvedName = profileName.trim();
         }
         if (resolvedName == null) {
+            ProfileSelectionPresentationFacadeService presentation = presentation();
             String legacyKey = legacyNameKeysByHash != null ? legacyNameKeysByHash.get(accountHash) : null;
-            String legacyDisplay = hooks.displayNameFromLegacyKey(legacyKey);
-            if (legacyDisplay == null) {
-                legacyDisplay = hooks.resolveLegacyDisplayNameForHash(accountHash);
+            String legacyDisplay = presentation != null ? presentation.displayNameFromLegacyKey(legacyKey) : null;
+            if (legacyDisplay == null && presentation != null) {
+                legacyDisplay = presentation.resolveLegacyDisplayNameForHash(accountHash);
             }
             if (legacyDisplay != null && !legacyDisplay.trim().isEmpty()) {
                 resolvedName = legacyDisplay.trim();

@@ -29,97 +29,28 @@ import javax.inject.Singleton;
 
 @Singleton
 final class LocalTradeDeltaRecorder {
-    interface Hooks {
-        long resolveLocalAccountKey();
-        void ensureProfileLoaded(long accountKey);
-        void ensureLocalSessionStart(long accountKey, long tsClientMs);
-        void cacheItemName(int itemId);
-        void appendTradeDeltaPair(long accountKey, long accountwideKey, LocalTradeDelta delta);
-        void applyDeltaToStatsCache(long accountKey, LocalTradeDelta delta);
-        void persistLocalTrades(long accountKey);
-        void triggerStatsRefresh();
-        void triggerPanelRefresh();
-    }
-
-    private final long accountwideKey;
-    private final Hooks hooks;
+    private final long accountwideKey = GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
 
     @Inject
     LocalTradeDeltaRecorder() {
-        this(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY, new Hooks() {
-            @Override
-            public long resolveLocalAccountKey() {
-                LocalAccountSessionService service = PluginInjectorBridge.get(LocalAccountSessionService.class);
-                return service != null ? service.resolveLocalAccountKey() : 0L;
-            }
-
-            @Override
-            public void ensureProfileLoaded(long accountKey) {
-                PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
-            }
-
-            @Override
-            public void ensureLocalSessionStart(long accountKey, long tsClientMs) {
-                LocalTradeSessionFacadeService service =
-                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
-                if (service != null) {
-                    service.ensureLocalSessionStart(accountKey, tsClientMs);
-                }
-            }
-
-            @Override
-            public void cacheItemName(int itemId) {
-                ItemLookupService service = PluginInjectorBridge.get(ItemLookupService.class);
-                if (service != null) {
-                    service.cacheItemName(itemId);
-                }
-            }
-
-            @Override
-            public void appendTradeDeltaPair(long accountKey, long accountwideKey, LocalTradeDelta delta) {
-                PluginAccess.plugin().getLocalTradesRuntimeService()
-                    .appendTradeDeltaPair(accountKey, accountwideKey, delta);
-            }
-
-            @Override
-            public void applyDeltaToStatsCache(long accountKey, LocalTradeDelta delta) {
-                LocalStatsCacheService service =
-                    PluginInjectorBridge.get(LocalStatsCacheService.class);
-                if (service != null) {
-                    service.applyDelta(accountKey, delta);
-                }
-            }
-
-            @Override
-            public void persistLocalTrades(long accountKey) {
-                PluginAccess.plugin().getLocalTradesRuntimeService().persistLocalTrades(accountKey);
-            }
-
-            @Override
-            public void triggerStatsRefresh() {
-                PanelRefreshCoordinator coordinator = PluginAccess.plugin().getPanelRefreshCoordinator();
-                if (coordinator != null) {
-                    coordinator.triggerStatsRefresh(PluginAccess.plugin().scheduler);
-                }
-            }
-
-            @Override
-            public void triggerPanelRefresh() {
-                PanelRefreshCoordinator coordinator = PluginAccess.plugin().getPanelRefreshCoordinator();
-                if (coordinator != null) {
-                    coordinator.triggerPanelRefresh(PluginAccess.plugin().scheduler);
-                }
-            }
-        });
     }
 
-    LocalTradeDeltaRecorder(long accountwideKey, Hooks hooks) {
-        this.accountwideKey = accountwideKey;
-        this.hooks = hooks;
+    private void ensureLocalSessionStart(long accountKey, long tsClientMs) {
+        LocalTradeSessionFacadeService service = PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+        if (service != null) {
+            service.ensureLocalSessionStart(accountKey, tsClientMs);
+        }
+    }
+
+    private void applyDeltaToStatsCache(long accountKey, LocalTradeDelta delta) {
+        LocalStatsCacheService service = PluginInjectorBridge.get(LocalStatsCacheService.class);
+        if (service != null) {
+            service.applyDelta(accountKey, delta);
+        }
     }
 
     boolean record(GeEvent event, boolean baselineSynthetic) {
-        if (hooks == null || event == null) {
+        if (event == null) {
             return false;
         }
 
@@ -131,15 +62,17 @@ final class LocalTradeDeltaRecorder {
             return false;
         }
 
-        long accountKey = hooks.resolveLocalAccountKey();
+        LocalAccountSessionService sessionService = PluginInjectorBridge.get(LocalAccountSessionService.class);
+        long accountKey = sessionService != null ? sessionService.resolveLocalAccountKey() : 0L;
         if (accountKey <= 0) {
             return false;
         }
 
-        hooks.ensureProfileLoaded(accountKey);
-        hooks.ensureProfileLoaded(accountwideKey);
-        hooks.ensureLocalSessionStart(accountKey, event.ts_client_ms);
-        hooks.ensureLocalSessionStart(accountwideKey, event.ts_client_ms);
+        GeLifecycleLocalTradesRuntimeService tradesRuntime = PluginAccess.plugin().getLocalTradesRuntimeService();
+        tradesRuntime.ensureProfileLoaded(accountKey);
+        tradesRuntime.ensureProfileLoaded(accountwideKey);
+        ensureLocalSessionStart(accountKey, event.ts_client_ms);
+        ensureLocalSessionStart(accountwideKey, event.ts_client_ms);
 
         LocalTradeDelta delta = new LocalTradeDelta(
             event.ts_client_ms,
@@ -153,16 +86,22 @@ final class LocalTradeDeltaRecorder {
             baselineSynthetic
         );
 
-        hooks.cacheItemName(event.item_id);
-        hooks.appendTradeDeltaPair(accountKey, accountwideKey, delta);
-        hooks.applyDeltaToStatsCache(accountKey, delta);
-        if (accountwideKey != accountKey) {
-            hooks.applyDeltaToStatsCache(accountwideKey, delta);
+        ItemLookupService itemLookup = PluginInjectorBridge.get(ItemLookupService.class);
+        if (itemLookup != null) {
+            itemLookup.cacheItemName(event.item_id);
         }
-        hooks.persistLocalTrades(accountKey);
-        hooks.persistLocalTrades(accountwideKey);
-        hooks.triggerStatsRefresh();
-        hooks.triggerPanelRefresh();
+        tradesRuntime.appendTradeDeltaPair(accountKey, accountwideKey, delta);
+        applyDeltaToStatsCache(accountKey, delta);
+        if (accountwideKey != accountKey) {
+            applyDeltaToStatsCache(accountwideKey, delta);
+        }
+        tradesRuntime.persistLocalTrades(accountKey);
+        tradesRuntime.persistLocalTrades(accountwideKey);
+        PanelRefreshCoordinator coordinator = PluginAccess.plugin().getPanelRefreshCoordinator();
+        if (coordinator != null) {
+            coordinator.triggerStatsRefresh(PluginAccess.plugin().scheduler);
+            coordinator.triggerPanelRefresh(PluginAccess.plugin().scheduler);
+        }
         return true;
     }
 }
