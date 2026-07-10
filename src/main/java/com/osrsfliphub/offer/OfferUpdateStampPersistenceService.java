@@ -45,96 +45,24 @@ final class OfferUpdateStampPersistenceService {
         }
     }
 
-    interface Hooks {
-        Gson gson();
-        boolean hasConfigurationAccess();
-        boolean isClientLoggedIn();
-        long resolveCurrentAccountKey();
-        GrandExchangeOffer[] currentOffers();
-        String readConfiguration(String configGroup, String key);
-        void writeConfiguration(String configGroup, String key, String value);
-    }
-
     private static final int MIN_SLOT = 0;
     private static final int MAX_SLOT = 7;
 
-    private final String configGroup;
-    private final String legacyDevConfigGroup;
+    private final String configGroup = FliphubConfigGroups.CONFIG_GROUP;
+    private final String legacyDevConfigGroup = FliphubConfigGroups.LEGACY_DEV_CONFIG_GROUP;
     private final OfferUpdateStampConfigStore configStore;
     private final OfferUpdateStampLegacyMatcher legacyMatcher;
-    private final Hooks hooks;
+    private final Gson gson;
+    private final ConfigManager configManager;
+    private final Client client;
 
     @Inject
     OfferUpdateStampPersistenceService(Gson gson, ConfigManager configManager, Client client, PluginState state) {
-        this(
-            FliphubConfigGroups.CONFIG_GROUP,
-            FliphubConfigGroups.LEGACY_DEV_CONFIG_GROUP,
-            state.getOfferUpdateStampConfigStore(),
-            state.getOfferUpdateStampLegacyMatcher(),
-            productionHooks(gson, configManager, client));
-    }
-
-    OfferUpdateStampPersistenceService(String configGroup,
-                                       String legacyDevConfigGroup,
-                                       OfferUpdateStampConfigStore configStore,
-                                       OfferUpdateStampLegacyMatcher legacyMatcher,
-                                       Hooks hooks) {
-        this.configGroup = configGroup;
-        this.legacyDevConfigGroup = legacyDevConfigGroup;
-        this.configStore = configStore;
-        this.legacyMatcher = legacyMatcher;
-        this.hooks = hooks;
-    }
-
-    private static Hooks productionHooks(Gson gson, ConfigManager configManager, Client client) {
-        return new Hooks() {
-            @Override
-            public Gson gson() {
-                return gson;
-            }
-
-            @Override
-            public boolean hasConfigurationAccess() {
-                return configManager != null;
-            }
-
-            @Override
-            public boolean isClientLoggedIn() {
-                return client != null && client.getGameState() == GameState.LOGGED_IN;
-            }
-
-            @Override
-            public long resolveCurrentAccountKey() {
-                LocalTradeSessionFacadeService localTradeSessionFacadeService =
-                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
-                if (localTradeSessionFacadeService != null) {
-                    long accountHash = localTradeSessionFacadeService.resolveAccountHash();
-                    if (accountHash > 0) {
-                        return accountHash;
-                    }
-                }
-                LocalAccountSessionService localAccountSessionService =
-                    PluginInjectorBridge.get(LocalAccountSessionService.class);
-                return localAccountSessionService != null ? localAccountSessionService.resolveLocalAccountKey() : -1L;
-            }
-
-            @Override
-            public GrandExchangeOffer[] currentOffers() {
-                return client != null ? client.getGrandExchangeOffers() : null;
-            }
-
-            @Override
-            public String readConfiguration(String configGroup, String key) {
-                return configManager != null ? configManager.getConfiguration(configGroup, key) : null;
-            }
-
-            @Override
-            public void writeConfiguration(String configGroup, String key, String value) {
-                if (configManager != null) {
-                    configManager.setConfiguration(configGroup, key, value);
-                }
-            }
-        };
+        this.configStore = state.getOfferUpdateStampConfigStore();
+        this.legacyMatcher = state.getOfferUpdateStampLegacyMatcher();
+        this.gson = gson;
+        this.configManager = configManager;
+        this.client = client;
     }
 
     void loadLegacyGlobal(Map<Integer, OfferUpdateStamp> destination) {
@@ -217,7 +145,7 @@ final class OfferUpdateStampPersistenceService {
         if (legacy.isEmpty() || legacyMatcher == null) {
             return false;
         }
-        GrandExchangeOffer[] offers = hooks != null ? hooks.currentOffers() : null;
+        GrandExchangeOffer[] offers = client != null ? client.getGrandExchangeOffers() : null;
         if (!legacyMatcher.matchesCurrentOffers(legacy, offers)) {
             return false;
         }
@@ -234,28 +162,38 @@ final class OfferUpdateStampPersistenceService {
     }
 
     private Gson gson() {
-        return hooks != null ? hooks.gson() : null;
+        return gson;
     }
 
     private boolean hasConfigurationAccess() {
-        return hooks != null && hooks.hasConfigurationAccess();
+        return configManager != null;
     }
 
     private boolean isClientLoggedIn() {
-        return hooks != null && hooks.isClientLoggedIn();
+        return client != null && client.getGameState() == GameState.LOGGED_IN;
     }
 
     private long resolveCurrentAccountKey() {
-        return hooks != null ? hooks.resolveCurrentAccountKey() : -1L;
+        LocalTradeSessionFacadeService localTradeSessionFacadeService =
+            PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+        if (localTradeSessionFacadeService != null) {
+            long accountHash = localTradeSessionFacadeService.resolveAccountHash();
+            if (accountHash > 0) {
+                return accountHash;
+            }
+        }
+        LocalAccountSessionService localAccountSessionService =
+            PluginInjectorBridge.get(LocalAccountSessionService.class);
+        return localAccountSessionService != null ? localAccountSessionService.resolveLocalAccountKey() : -1L;
     }
 
     private String readConfiguration(String configGroup, String key) {
-        return hooks != null ? hooks.readConfiguration(configGroup, key) : null;
+        return configManager != null ? configManager.getConfiguration(configGroup, key) : null;
     }
 
     private void writeConfiguration(String configGroup, String key, String value) {
-        if (hooks != null) {
-            hooks.writeConfiguration(configGroup, key, value);
+        if (configManager != null) {
+            configManager.setConfiguration(configGroup, key, value);
         }
     }
 

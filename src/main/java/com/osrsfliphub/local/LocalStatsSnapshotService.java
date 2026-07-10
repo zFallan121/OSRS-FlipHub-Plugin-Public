@@ -35,108 +35,54 @@ import javax.inject.Singleton;
 
 @Singleton
 final class LocalStatsSnapshotService {
-    interface Hooks {
-        long accountwideKey();
-        void ensureProfileLoaded(long accountKey);
-        LocalStatsCache getOrBuildStatsCache(long accountKey);
-        String getCachedItemName(int itemId);
-        void cacheItemName(int itemId);
-        Set<Long> collectAccountwideProfileKeys();
-        LocalStatsSnapshot buildAccountwideFromProfiles(Set<Long> profileKeys, Long sinceMs, StatsItemSort sort);
-    }
-
-    private final Hooks hooks;
+    private final long accountwideKey = GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
+    private final PluginState pluginState;
 
     @Inject
     LocalStatsSnapshotService(PluginState pluginState) {
-        this(new Hooks() {
-            @Override
-            public long accountwideKey() {
-                return GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
-            }
-
-            @Override
-            public void ensureProfileLoaded(long accountKey) {
-                PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
-            }
-
-            @Override
-            public LocalStatsCache getOrBuildStatsCache(long accountKey) {
-                LocalStatsCacheService service =
-                    PluginInjectorBridge.get(LocalStatsCacheService.class);
-                return service != null ? service.getOrBuild(accountKey) : null;
-            }
-
-            @Override
-            public String getCachedItemName(int itemId) {
-                ItemLookupService service = PluginInjectorBridge.get(ItemLookupService.class);
-                return service != null ? service.getCachedItemName(itemId) : null;
-            }
-
-            @Override
-            public void cacheItemName(int itemId) {
-                ItemLookupService service = PluginInjectorBridge.get(ItemLookupService.class);
-                if (service != null) {
-                    service.cacheItemName(itemId);
-                }
-            }
-
-            @Override
-            public Set<Long> collectAccountwideProfileKeys() {
-                AccountwideProfileKeyCollector collector =
-                    PluginInjectorBridge.get(AccountwideProfileKeyCollector.class);
-                ProfileStorageFacadeService storage = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
-                if (collector == null || storage == null) {
-                    return Collections.emptySet();
-                }
-                return collector.collect(
-                    storage.getProfilesDir(),
-                    storage.getLegacyProfilesDir(),
-                    pluginState.getLocalTradeDeltasByAccount(),
-                    pluginState.getLocalStatsLock(),
-                    this::loadProfilesFromDisk);
-            }
-
-            @Override
-            public LocalStatsSnapshot buildAccountwideFromProfiles(Set<Long> profileKeys, Long sinceMs, StatsItemSort sort) {
-                AccountwideStatsAggregator aggregator = PluginInjectorBridge.get(AccountwideStatsAggregator.class);
-                return aggregator != null ? aggregator.buildFromProfiles(profileKeys, sinceMs, sort) : null;
-            }
-
-            private Map<Long, String> loadProfilesFromDisk() {
-                ProfileSelectionPresentationFacadeService service =
-                    PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
-                return service != null ? service.loadProfilesFromDisk() : Collections.emptyMap();
-            }
-        });
+        this.pluginState = pluginState;
     }
 
-    LocalStatsSnapshotService(Hooks hooks) {
-        this.hooks = hooks;
+    private Set<Long> collectAccountwideProfileKeys() {
+        AccountwideProfileKeyCollector collector = PluginInjectorBridge.get(AccountwideProfileKeyCollector.class);
+        ProfileStorageFacadeService storage = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
+        if (collector == null || storage == null) {
+            return Collections.emptySet();
+        }
+        return collector.collect(
+            storage.getProfilesDir(),
+            storage.getLegacyProfilesDir(),
+            pluginState.getLocalTradeDeltasByAccount(),
+            pluginState.getLocalStatsLock(),
+            this::loadProfilesFromDisk);
+    }
+
+    private Map<Long, String> loadProfilesFromDisk() {
+        ProfileSelectionPresentationFacadeService service =
+            PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
+        return service != null ? service.loadProfilesFromDisk() : Collections.emptyMap();
     }
 
     LocalStatsSnapshot buildSnapshot(long accountKey, Long sinceMs, StatsItemSort sort) {
-        if (hooks == null) {
-            return emptySnapshot();
-        }
-        if (accountKey == hooks.accountwideKey()) {
+        if (accountKey == accountwideKey) {
             return buildAccountwideSnapshot(sinceMs, sort);
         }
         return buildSnapshotForAccount(accountKey, sinceMs, sort);
     }
 
     void hydrateItemNames(List<StatsItem> items) {
-        if (hooks == null || items == null || items.isEmpty()) {
+        if (items == null || items.isEmpty()) {
             return;
         }
+        ItemLookupService itemLookup = PluginInjectorBridge.get(ItemLookupService.class);
         for (StatsItem item : items) {
             if (item == null || item.item_id <= 0) {
                 continue;
             }
-            String cachedName = hooks.getCachedItemName(item.item_id);
+            String cachedName = itemLookup != null ? itemLookup.getCachedItemName(item.item_id) : null;
             item.item_name = cachedName;
-            if (cachedName == null || cachedName.trim().isEmpty()) {
-                hooks.cacheItemName(item.item_id);
+            if ((cachedName == null || cachedName.trim().isEmpty()) && itemLookup != null) {
+                itemLookup.cacheItemName(item.item_id);
             }
         }
     }
@@ -168,19 +114,21 @@ final class LocalStatsSnapshotService {
     }
 
     private LocalStatsSnapshot buildAccountwideSnapshot(Long sinceMs, StatsItemSort sort) {
-        long accountwideKey = hooks.accountwideKey();
         LocalStatsSnapshot accountwideSnapshot = buildSnapshotForAccount(accountwideKey, sinceMs, sort);
         if (AccountwideStatsAggregator.hasMeaningfulStats(accountwideSnapshot)) {
             return accountwideSnapshot;
         }
-        Set<Long> profileKeys = hooks.collectAccountwideProfileKeys();
-        LocalStatsSnapshot aggregated = hooks.buildAccountwideFromProfiles(profileKeys, sinceMs, sort);
+        Set<Long> profileKeys = collectAccountwideProfileKeys();
+        AccountwideStatsAggregator aggregator = PluginInjectorBridge.get(AccountwideStatsAggregator.class);
+        LocalStatsSnapshot aggregated =
+            aggregator != null ? aggregator.buildFromProfiles(profileKeys, sinceMs, sort) : null;
         return aggregated != null ? aggregated : emptySnapshot();
     }
 
     private LocalStatsSnapshot buildSnapshotForAccount(long accountKey, Long sinceMs, StatsItemSort sort) {
-        hooks.ensureProfileLoaded(accountKey);
-        LocalStatsCache cache = hooks.getOrBuildStatsCache(accountKey);
+        PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
+        LocalStatsCacheService cacheService = PluginInjectorBridge.get(LocalStatsCacheService.class);
+        LocalStatsCache cache = cacheService != null ? cacheService.getOrBuild(accountKey) : null;
         if (cache == null) {
             return emptySnapshot();
         }
