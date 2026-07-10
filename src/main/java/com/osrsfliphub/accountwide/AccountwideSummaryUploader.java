@@ -34,15 +34,10 @@ import javax.inject.Singleton;
 
 @Singleton
 final class AccountwideSummaryUploader {
-    interface Hooks {
-        boolean isClientFullyReady();
-        LocalStatsSnapshot buildAccountwideSnapshot();
-        boolean attemptRefresh(String currentToken);
-        void clearSession();
-    }
-
-    private final long minUploadIntervalMs;
-    private final long resyncIntervalMs;
+    private final long minUploadIntervalMs =
+        Math.max(0L, GeLifecyclePluginConstants.ACCOUNTWIDE_UPLOAD_MIN_INTERVAL_MS);
+    private final long resyncIntervalMs =
+        Math.max(0L, GeLifecyclePluginConstants.ACCOUNTWIDE_UPLOAD_RESYNC_INTERVAL_MS);
     private final AtomicBoolean dirty = new AtomicBoolean(true);
     private volatile long lastUploadAttemptMs;
     private volatile long lastUploadSuccessMs;
@@ -50,13 +45,26 @@ final class AccountwideSummaryUploader {
 
     @Inject
     AccountwideSummaryUploader() {
-        this(GeLifecyclePluginConstants.ACCOUNTWIDE_UPLOAD_MIN_INTERVAL_MS,
-            GeLifecyclePluginConstants.ACCOUNTWIDE_UPLOAD_RESYNC_INTERVAL_MS);
     }
 
-    AccountwideSummaryUploader(long minUploadIntervalMs, long resyncIntervalMs) {
-        this.minUploadIntervalMs = Math.max(0L, minUploadIntervalMs);
-        this.resyncIntervalMs = Math.max(0L, resyncIntervalMs);
+    private boolean isClientFullyReady() {
+        return PluginAccess.plugin().runtimeUtilityServices.isClientFullyReady(PluginAccess.plugin().client);
+    }
+
+    private LocalStatsSnapshot buildAccountwideSnapshot() {
+        return PluginAccess.plugin().getProfileWorkflowService().buildReconciledAccountwideSnapshot();
+    }
+
+    private boolean attemptRefresh(String currentToken) {
+        SessionRefreshService service = PluginInjectorBridge.get(SessionRefreshService.class);
+        return service != null && service.attemptRefresh(currentToken);
+    }
+
+    private void clearSession() {
+        SessionRefreshService service = PluginInjectorBridge.get(SessionRefreshService.class);
+        if (service != null) {
+            service.clearSession();
+        }
     }
 
     void markDirty() {
@@ -72,8 +80,8 @@ final class AccountwideSummaryUploader {
         return dirty.get();
     }
 
-    void syncIfNeeded(ApiClient apiClient, PluginConfig config, Hooks hooks) {
-        if (hooks == null || apiClient == null || config == null || !hooks.isClientFullyReady()) {
+    void syncIfNeeded(ApiClient apiClient, PluginConfig config) {
+        if (apiClient == null || config == null || !isClientFullyReady()) {
             return;
         }
         String sessionToken = config.sessionToken();
@@ -94,7 +102,7 @@ final class AccountwideSummaryUploader {
             return;
         }
 
-        LocalStatsSnapshot snapshot = hooks.buildAccountwideSnapshot();
+        LocalStatsSnapshot snapshot = buildAccountwideSnapshot();
         StatsSummary summary = snapshot != null && snapshot.summary != null ? snapshot.summary : new StatsSummary();
         List<StatsItem> items = snapshot != null ? snapshot.items : null;
         if (items == null) {
@@ -114,7 +122,7 @@ final class AccountwideSummaryUploader {
         try {
             int status = apiClient.sendAccountwideSummary(sessionToken, signingSecret, summary, items);
             if (ApiStatusPolicy.isAuthStatus(status)) {
-                boolean refreshed = hooks.attemptRefresh(sessionToken);
+                boolean refreshed = attemptRefresh(sessionToken);
                 if (refreshed) {
                     String refreshedToken = config.sessionToken();
                     String refreshedSecret = config.signingSecret();
@@ -127,11 +135,11 @@ final class AccountwideSummaryUploader {
                             return;
                         }
                         if (ApiStatusPolicy.isAuthStatus(status)) {
-                            hooks.clearSession();
+                            clearSession();
                         }
                     }
                 } else {
-                    hooks.clearSession();
+                    clearSession();
                 }
                 if (wasDirty) {
                     markDirty();

@@ -122,7 +122,7 @@ public class GeLifecycleProfileWorkflowServiceTest {
                 }
             );
 
-            AccountwideSummaryUploader uploader = new AccountwideSummaryUploader(0L, 0L);
+            AccountwideSummaryUploader uploader = new AccountwideSummaryUploader();
             ProfileSelectionState profileSelection = new ProfileSelectionState(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY_STRING);
 
             ProfileSelectionPresentationFacadeService profileFacade = new ProfileSelectionPresentationFacadeService(

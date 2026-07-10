@@ -53,38 +53,9 @@ final class UploadBackfillDispatchService {
 
     private void syncAccountwideSummaryIfNeeded() {
         AccountwideSummaryUploader uploader = PluginInjectorBridge.get(AccountwideSummaryUploader.class);
-        ApiClient apiClient = PluginAccess.plugin().apiClient;
-        PluginConfig config = PluginAccess.plugin().config;
-        if (uploader == null || apiClient == null || config == null) {
-            return;
+        if (uploader != null) {
+            uploader.syncIfNeeded(PluginAccess.plugin().apiClient, PluginAccess.plugin().config);
         }
-        uploader.syncIfNeeded(apiClient, config, new AccountwideSummaryUploader.Hooks() {
-            @Override
-            public boolean isClientFullyReady() {
-                return PluginAccess.plugin().runtimeUtilityServices
-                    .isClientFullyReady(PluginAccess.plugin().client);
-            }
-
-            @Override
-            public LocalStatsSnapshot buildAccountwideSnapshot() {
-                return PluginAccess.plugin().getProfileWorkflowService()
-                    .buildReconciledAccountwideSnapshot();
-            }
-
-            @Override
-            public boolean attemptRefresh(String currentToken) {
-                SessionRefreshService service = PluginInjectorBridge.get(SessionRefreshService.class);
-                return service != null && service.attemptRefresh(currentToken);
-            }
-
-            @Override
-            public void clearSession() {
-                SessionRefreshService service = PluginInjectorBridge.get(SessionRefreshService.class);
-                if (service != null) {
-                    service.clearSession();
-                }
-            }
-        });
     }
 
     private void attemptAccountwideBackfillIfNeeded() {
