@@ -29,71 +29,26 @@ import javax.inject.Singleton;
 
 @Singleton
 final class ProfileLoginService {
-    interface Hooks {
-        void putProfileDisplayName(long accountHash, String displayName);
-        void executeAsync(Runnable task);
-        void loadLocalTradesAsync(long accountHash);
-        void persistProfileSelectionState();
-        void updateProfileOptionsUi();
-        void updateProfileHeader();
-    }
-
-    private final Hooks hooks;
+    private final PluginState pluginState;
 
     @Inject
     ProfileLoginService(PluginState pluginState) {
-        this(new Hooks() {
-            @Override
-            public void putProfileDisplayName(long accountHash, String displayName) {
-                if (accountHash <= 0 || displayName == null || displayName.trim().isEmpty()) {
-                    return;
-                }
-                pluginState.getProfileDisplayNames().put(accountHash, displayName.trim());
-            }
-
-            @Override
-            public void executeAsync(Runnable task) {
-                PluginAccess.plugin().executeAsync(task);
-            }
-
-            @Override
-            public void loadLocalTradesAsync(long accountHash) {
-                PluginAccess.plugin().getLocalTradesRuntimeService().loadLocalTradesAsync(accountHash);
-            }
-
-            @Override
-            public void persistProfileSelectionState() {
-                PluginAccess.plugin().getProfileWorkflowService().persistProfileSelectionState();
-            }
-
-            @Override
-            public void updateProfileOptionsUi() {
-                PluginAccess.plugin().getProfileWorkflowService().updateProfileOptionsUI();
-            }
-
-            @Override
-            public void updateProfileHeader() {
-                PluginAccess.plugin().getProfileWorkflowService().updateProfileHeader();
-            }
-        });
-    }
-
-    ProfileLoginService(Hooks hooks) {
-        this.hooks = hooks;
+        this.pluginState = pluginState;
     }
 
     void handleLogin(ProfileSelectionState profileSelection, long accountHash, String displayName) {
-        if (hooks == null || profileSelection == null || accountHash <= 0) {
+        if (profileSelection == null || accountHash <= 0) {
             return;
         }
         if (displayName != null && !displayName.trim().isEmpty()) {
-            hooks.putProfileDisplayName(accountHash, displayName.trim());
+            pluginState.getProfileDisplayNames().put(accountHash, displayName.trim());
         }
-        hooks.executeAsync(() -> hooks.loadLocalTradesAsync(accountHash));
+        PluginAccess.plugin().executeAsync(
+            () -> PluginAccess.plugin().getLocalTradesRuntimeService().loadLocalTradesAsync(accountHash));
         if (profileSelection.updateForLogin(accountHash)) {
-            hooks.persistProfileSelectionState();
+            PluginAccess.plugin().getProfileWorkflowService().persistProfileSelectionState();
         }
-        hooks.updateProfileOptionsUi();
-        hooks.updateProfileHeader();
+        PluginAccess.plugin().getProfileWorkflowService().updateProfileOptionsUI();
+        PluginAccess.plugin().getProfileWorkflowService().updateProfileHeader();
     }
 }

@@ -33,54 +33,21 @@ import net.runelite.api.GameState;
 
 @Singleton
 final class LocalAccountSessionService {
-    interface Hooks {
-        boolean isLoggedIn();
-        long readAccountHash();
-        String readDisplayName();
-        long nowMs();
-        void mergeLocalAccountData(long accountHash, long nameKey);
-    }
-
-    private final Hooks hooks;
+    private final Client client;
     private long lastMergedAccountHash = -1L;
     private long lastMergedNameKey = -1L;
 
     @Inject
     LocalAccountSessionService(Client client) {
-        this(new Hooks() {
-            @Override
-            public boolean isLoggedIn() {
-                return client != null && client.getGameState() == GameState.LOGGED_IN;
-            }
-
-            @Override
-            public long readAccountHash() {
-                return client != null ? client.getAccountHash() : -1L;
-            }
-
-            @Override
-            public String readDisplayName() {
-                return client != null && client.getLocalPlayer() != null ? client.getLocalPlayer().getName() : null;
-            }
-
-            @Override
-            public long nowMs() {
-                return System.currentTimeMillis();
-            }
-
-            @Override
-            public void mergeLocalAccountData(long accountHash, long nameKey) {
-                PluginAccess.plugin().getProfileWorkflowService().mergeLocalAccountData(accountHash, nameKey);
-            }
-        });
+        this.client = client;
     }
 
-    LocalAccountSessionService(Hooks hooks) {
-        this.hooks = hooks;
+    private boolean isLoggedIn() {
+        return client != null && client.getGameState() == GameState.LOGGED_IN;
     }
 
     long resolveLocalAccountKey() {
-        if (hooks == null || !hooks.isLoggedIn()) {
+        if (!isLoggedIn()) {
             return -1L;
         }
         long accountHash = resolveAccountHash();
@@ -107,11 +74,11 @@ final class LocalAccountSessionService {
     }
 
     long resolveAccountHash() {
-        if (hooks == null || !hooks.isLoggedIn()) {
+        if (!isLoggedIn()) {
             return -1L;
         }
         try {
-            long hash = hooks.readAccountHash();
+            long hash = client != null ? client.getAccountHash() : -1L;
             return hash > 0 ? hash : -1L;
         } catch (RuntimeException ignored) {
             return -1L;
@@ -119,11 +86,9 @@ final class LocalAccountSessionService {
     }
 
     String resolveDisplayName() {
-        if (hooks == null) {
-            return null;
-        }
         try {
-            String name = hooks.readDisplayName();
+            String name = client != null && client.getLocalPlayer() != null
+                ? client.getLocalPlayer().getName() : null;
             return name != null ? name.trim() : null;
         } catch (RuntimeException ignored) {
             return null;
@@ -140,7 +105,7 @@ final class LocalAccountSessionService {
         if (accountKey <= 0) {
             return;
         }
-        long nowMs = hooks != null ? hooks.nowMs() : System.currentTimeMillis();
+        long nowMs = System.currentTimeMillis();
         synchronized (localStatsLock) {
             localSessionStartByAccount.put(accountKey, nowMs);
             if (accountwideKey >= 0) {
@@ -197,13 +162,13 @@ final class LocalAccountSessionService {
     }
 
     private void maybeMergeLocalAccounts(long accountHash, long nameKey) {
-        if (hooks == null || accountHash <= 0 || nameKey <= 0 || accountHash == nameKey) {
+        if (accountHash <= 0 || nameKey <= 0 || accountHash == nameKey) {
             return;
         }
         if (accountHash == lastMergedAccountHash && nameKey == lastMergedNameKey) {
             return;
         }
-        hooks.mergeLocalAccountData(accountHash, nameKey);
+        PluginAccess.plugin().getProfileWorkflowService().mergeLocalAccountData(accountHash, nameKey);
         lastMergedAccountHash = accountHash;
         lastMergedNameKey = nameKey;
     }

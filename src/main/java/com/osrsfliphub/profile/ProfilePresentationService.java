@@ -34,57 +34,36 @@ import javax.inject.Singleton;
 
 @Singleton
 final class ProfilePresentationService {
-    interface Hooks {
-        String resolveLegacyDisplayNameForHash(long hash);
-        String displayNameFromLegacyKey(String legacyKey);
-        String buildProfileKey(long accountHash);
-        boolean isPlaceholderDisplayName(String displayName);
-    }
-
-    private final long accountwideKey;
-    private final String accountwideKeyString;
-    private final Hooks hooks;
+    private final long accountwideKey = GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
+    private final String accountwideKeyString = GeLifecyclePluginConstants.ACCOUNTWIDE_KEY_STRING;
 
     @Inject
     ProfilePresentationService() {
-        this(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY,
-            GeLifecyclePluginConstants.ACCOUNTWIDE_KEY_STRING,
-            new Hooks() {
-                private ProfileSelectionPresentationFacadeService facade() {
-                    return PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
-                }
-
-                @Override
-                public String resolveLegacyDisplayNameForHash(long hash) {
-                    ProfileSelectionPresentationFacadeService service = facade();
-                    return service != null ? service.resolveLegacyDisplayNameForHash(hash) : null;
-                }
-
-                @Override
-                public String displayNameFromLegacyKey(String legacyKey) {
-                    ProfileSelectionPresentationFacadeService service = facade();
-                    return service != null ? service.displayNameFromLegacyKey(legacyKey) : null;
-                }
-
-                @Override
-                public String buildProfileKey(long accountHash) {
-                    ProfileSelectionPresentationFacadeService service = facade();
-                    return service != null ? service.buildProfileKey(accountHash) : String.valueOf(accountHash);
-                }
-
-                @Override
-                public boolean isPlaceholderDisplayName(String displayName) {
-                    GeLifecycleLocalTradesRuntimeService localTradesRuntime =
-                        PluginAccess.plugin().getLocalTradesRuntimeService();
-                    return localTradesRuntime != null && localTradesRuntime.isPlaceholderDisplayName(displayName);
-                }
-            });
     }
 
-    ProfilePresentationService(long accountwideKey, String accountwideKeyString, Hooks hooks) {
-        this.accountwideKey = accountwideKey;
-        this.accountwideKeyString = accountwideKeyString;
-        this.hooks = hooks;
+    private ProfileSelectionPresentationFacadeService facade() {
+        return PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
+    }
+
+    private String resolveLegacyDisplayNameForHash(long hash) {
+        ProfileSelectionPresentationFacadeService service = facade();
+        return service != null ? service.resolveLegacyDisplayNameForHash(hash) : null;
+    }
+
+    private String displayNameFromLegacyKey(String legacyKey) {
+        ProfileSelectionPresentationFacadeService service = facade();
+        return service != null ? service.displayNameFromLegacyKey(legacyKey) : null;
+    }
+
+    private String buildProfileKey(long accountHash) {
+        ProfileSelectionPresentationFacadeService service = facade();
+        return service != null ? service.buildProfileKey(accountHash) : String.valueOf(accountHash);
+    }
+
+    private boolean isPlaceholderDisplayName(String displayName) {
+        GeLifecycleLocalTradesRuntimeService localTradesRuntime =
+            PluginAccess.plugin().getLocalTradesRuntimeService();
+        return localTradesRuntime != null && localTradesRuntime.isPlaceholderDisplayName(displayName);
     }
 
     String resolveSelectedProfileLabel(long key,
@@ -94,13 +73,13 @@ final class ProfilePresentationService {
             return "Accountwide";
         }
         String displayName = profileDisplayNames != null ? profileDisplayNames.get(key) : null;
-        if (displayName != null && !displayName.trim().isEmpty() && !hooks.isPlaceholderDisplayName(displayName)) {
+        if (displayName != null && !displayName.trim().isEmpty() && !isPlaceholderDisplayName(displayName)) {
             return displayName;
         }
         String legacyKey = legacyNameKeysByHash != null ? legacyNameKeysByHash.get(key) : null;
-        String legacyDisplay = hooks.displayNameFromLegacyKey(legacyKey);
+        String legacyDisplay = displayNameFromLegacyKey(legacyKey);
         if (legacyDisplay == null) {
-            legacyDisplay = hooks.resolveLegacyDisplayNameForHash(key);
+            legacyDisplay = resolveLegacyDisplayNameForHash(key);
         }
         if (legacyDisplay != null) {
             if (profileDisplayNames != null) {
@@ -147,19 +126,19 @@ final class ProfilePresentationService {
             }
             if (label.startsWith("Profile ")) {
                 String legacyKey = legacyNameKeysByHash != null ? legacyNameKeysByHash.get(hash) : null;
-                String legacyDisplay = hooks.displayNameFromLegacyKey(legacyKey);
+                String legacyDisplay = displayNameFromLegacyKey(legacyKey);
                 if (legacyDisplay == null) {
-                    legacyDisplay = hooks.resolveLegacyDisplayNameForHash(hash);
+                    legacyDisplay = resolveLegacyDisplayNameForHash(hash);
                 }
                 if (legacyDisplay != null) {
                     label = legacyDisplay;
                 }
             }
             if (profileDisplayNames != null && label != null && !label.trim().isEmpty()
-                && !hooks.isPlaceholderDisplayName(label)) {
+                && !isPlaceholderDisplayName(label)) {
                 profileDisplayNames.put(hash, label.trim());
             }
-            options.add(new FlipHubProfileOption(hooks.buildProfileKey(hash), label));
+            options.add(new FlipHubProfileOption(buildProfileKey(hash), label));
         }
         return options;
     }

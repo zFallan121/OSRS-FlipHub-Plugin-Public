@@ -32,73 +32,25 @@ import javax.inject.Singleton;
 
 @Singleton
 final class LocalTradeSessionFacadeService {
-    interface Hooks {
-        LocalAccountSessionService getLocalAccountSessionService();
-        LocalTradeAnalyticsService getLocalTradeAnalyticsService();
-        LocalFlipHistoryService getLocalFlipHistoryService();
-        AccountwideFlipHistoryService getAccountwideFlipHistoryService();
-        void ensureProfileLoaded(long accountKey);
-    }
-
-    private final long accountwideKey;
+    private final long accountwideKey = GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
     private final Map<Long, List<LocalTradeDelta>> localTradeDeltasByAccount;
     private final Map<Long, Long> localSessionStartByAccount;
     private final Object localStatsLock;
-    private final Hooks hooks;
 
     @Inject
     LocalTradeSessionFacadeService(PluginState state) {
-        this(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY,
-            state.getLocalTradeDeltasByAccount(),
-            state.getLocalSessionStartByAccount(),
-            state.getLocalStatsLock(),
-            new Hooks() {
-                @Override
-                public LocalAccountSessionService getLocalAccountSessionService() {
-                    return PluginInjectorBridge.get(LocalAccountSessionService.class);
-                }
-
-                @Override
-                public LocalTradeAnalyticsService getLocalTradeAnalyticsService() {
-                    return PluginInjectorBridge.get(LocalTradeAnalyticsService.class);
-                }
-
-                @Override
-                public LocalFlipHistoryService getLocalFlipHistoryService() {
-                    return PluginInjectorBridge.get(LocalFlipHistoryService.class);
-                }
-
-                @Override
-                public AccountwideFlipHistoryService getAccountwideFlipHistoryService() {
-                    return PluginInjectorBridge.get(AccountwideFlipHistoryService.class);
-                }
-
-                @Override
-                public void ensureProfileLoaded(long accountKey) {
-                    PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
-                }
-            });
-    }
-
-    LocalTradeSessionFacadeService(long accountwideKey,
-                                   Map<Long, List<LocalTradeDelta>> localTradeDeltasByAccount,
-                                   Map<Long, Long> localSessionStartByAccount,
-                                   Object localStatsLock,
-                                   Hooks hooks) {
-        this.accountwideKey = accountwideKey;
-        this.localTradeDeltasByAccount = localTradeDeltasByAccount;
-        this.localSessionStartByAccount = localSessionStartByAccount;
-        this.localStatsLock = localStatsLock;
-        this.hooks = hooks;
+        this.localTradeDeltasByAccount = state.getLocalTradeDeltasByAccount();
+        this.localSessionStartByAccount = state.getLocalSessionStartByAccount();
+        this.localStatsLock = state.getLocalStatsLock();
     }
 
     long resolveAccountHash() {
-        LocalAccountSessionService sessionService = hooks != null ? hooks.getLocalAccountSessionService() : null;
+        LocalAccountSessionService sessionService = PluginInjectorBridge.get(LocalAccountSessionService.class);
         return sessionService != null ? sessionService.resolveAccountHash() : -1L;
     }
 
     void updateLocalAccountSessionStart() {
-        LocalAccountSessionService sessionService = hooks != null ? hooks.getLocalAccountSessionService() : null;
+        LocalAccountSessionService sessionService = PluginInjectorBridge.get(LocalAccountSessionService.class);
         if (sessionService == null) {
             return;
         }
@@ -106,7 +58,7 @@ final class LocalTradeSessionFacadeService {
     }
 
     void ensureLocalSessionStart(long accountKey, long nowMs) {
-        LocalAccountSessionService sessionService = hooks != null ? hooks.getLocalAccountSessionService() : null;
+        LocalAccountSessionService sessionService = PluginInjectorBridge.get(LocalAccountSessionService.class);
         if (sessionService == null) {
             return;
         }
@@ -114,7 +66,7 @@ final class LocalTradeSessionFacadeService {
     }
 
     long resolveStatsSessionStartMs(long accountKey, long nowMs) {
-        LocalAccountSessionService sessionService = hooks != null ? hooks.getLocalAccountSessionService() : null;
+        LocalAccountSessionService sessionService = PluginInjectorBridge.get(LocalAccountSessionService.class);
         if (sessionService == null) {
             return nowMs;
         }
@@ -122,14 +74,14 @@ final class LocalTradeSessionFacadeService {
     }
 
     Map<Integer, LocalTradeInfo> buildLocalTradeInfo(long accountKey) {
-        LocalTradeAnalyticsService analyticsService = hooks != null ? hooks.getLocalTradeAnalyticsService() : null;
+        LocalTradeAnalyticsService analyticsService = PluginInjectorBridge.get(LocalTradeAnalyticsService.class);
         return analyticsService != null
             ? analyticsService.buildLocalTradeInfo(snapshotLocalTradeDeltas(accountKey))
             : java.util.Collections.emptyMap();
     }
 
     Map<Integer, LocalLimitInfo> buildLocalLimitInfo(long accountKey, long nowMs) {
-        LocalTradeAnalyticsService analyticsService = hooks != null ? hooks.getLocalTradeAnalyticsService() : null;
+        LocalTradeAnalyticsService analyticsService = PluginInjectorBridge.get(LocalTradeAnalyticsService.class);
         return analyticsService != null
             ? analyticsService.buildLocalLimitInfo(snapshotLocalTradeDeltas(accountKey), nowMs)
             : java.util.Collections.emptyMap();
@@ -139,12 +91,12 @@ final class LocalTradeSessionFacadeService {
         if (accountKey <= 0 || itemId <= 0) {
             return false;
         }
-        LocalTradeAnalyticsService analyticsService = hooks != null ? hooks.getLocalTradeAnalyticsService() : null;
+        LocalTradeAnalyticsService analyticsService = PluginInjectorBridge.get(LocalTradeAnalyticsService.class);
         return analyticsService != null && analyticsService.hasRecentLocalBuy(snapshotLocalTradeDeltas(accountKey), itemId, nowMs);
     }
 
     List<LocalTradeDelta> snapshotLocalTradeDeltas(long accountKey) {
-        LocalTradeAnalyticsService analyticsService = hooks != null ? hooks.getLocalTradeAnalyticsService() : null;
+        LocalTradeAnalyticsService analyticsService = PluginInjectorBridge.get(LocalTradeAnalyticsService.class);
         if (analyticsService == null) {
             return new ArrayList<>();
         }
@@ -156,15 +108,13 @@ final class LocalTradeSessionFacadeService {
 
     Map<Integer, List<StatsFlipInstance>> buildStatsFlipHistory(long accountKey, Long sinceMs) {
         if (accountKey == accountwideKey) {
-            AccountwideFlipHistoryService accountwideService = hooks != null ? hooks.getAccountwideFlipHistoryService() : null;
+            AccountwideFlipHistoryService accountwideService = PluginInjectorBridge.get(AccountwideFlipHistoryService.class);
             return accountwideService != null
                 ? accountwideService.buildAccountwideHistory(sinceMs)
                 : java.util.Collections.emptyMap();
         }
-        if (hooks != null) {
-            hooks.ensureProfileLoaded(accountKey);
-        }
-        LocalFlipHistoryService localHistoryService = hooks != null ? hooks.getLocalFlipHistoryService() : null;
+        PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
+        LocalFlipHistoryService localHistoryService = PluginInjectorBridge.get(LocalFlipHistoryService.class);
         return localHistoryService != null
             ? localHistoryService.buildHistory(snapshotLocalTradeDeltas(accountKey), sinceMs)
             : java.util.Collections.emptyMap();

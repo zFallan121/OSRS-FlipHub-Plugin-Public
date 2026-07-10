@@ -31,90 +31,73 @@ import javax.inject.Singleton;
 
 @Singleton
 final class UploadBackfillDispatchService {
-    interface Hooks {
-        void executeIo(Runnable task);
-        void flushEvents();
-        void syncAccountwideSummaryIfNeeded();
-        void attemptAccountwideBackfillIfNeeded();
-    }
-
     private final BackfillRetryScheduler backfillRetryScheduler;
-    private final Hooks hooks;
     private final AtomicBoolean flushInFlight = new AtomicBoolean(false);
     private final AtomicBoolean accountwideSyncInFlight = new AtomicBoolean(false);
 
     @Inject
     UploadBackfillDispatchService(BackfillRetryScheduler backfillRetryScheduler) {
-        this(backfillRetryScheduler, new Hooks() {
+        this.backfillRetryScheduler = backfillRetryScheduler;
+    }
+
+    private void executeIo(Runnable task) {
+        PluginAccess.plugin().executeIo(task);
+    }
+
+    private void flushEvents() {
+        PluginInjectorBridge.get(UploadEventDispatchFacadeService.class).flushEvents(
+            PluginAccess.plugin().apiClient,
+            PluginAccess.plugin().config,
+            GeLifecyclePlugin.log);
+    }
+
+    private void syncAccountwideSummaryIfNeeded() {
+        AccountwideSummaryUploader uploader = PluginInjectorBridge.get(AccountwideSummaryUploader.class);
+        ApiClient apiClient = PluginAccess.plugin().apiClient;
+        PluginConfig config = PluginAccess.plugin().config;
+        if (uploader == null || apiClient == null || config == null) {
+            return;
+        }
+        uploader.syncIfNeeded(apiClient, config, new AccountwideSummaryUploader.Hooks() {
             @Override
-            public void executeIo(Runnable task) {
-                PluginAccess.plugin().executeIo(task);
+            public boolean isClientFullyReady() {
+                return PluginAccess.plugin().runtimeUtilityServices
+                    .isClientFullyReady(PluginAccess.plugin().client);
             }
 
             @Override
-            public void flushEvents() {
-                PluginInjectorBridge.get(UploadEventDispatchFacadeService.class).flushEvents(
-                    PluginAccess.plugin().apiClient,
-                    PluginAccess.plugin().config,
-                    GeLifecyclePlugin.log);
+            public LocalStatsSnapshot buildAccountwideSnapshot() {
+                return PluginAccess.plugin().getProfileWorkflowService()
+                    .buildReconciledAccountwideSnapshot();
             }
 
             @Override
-            public void syncAccountwideSummaryIfNeeded() {
-                AccountwideSummaryUploader uploader = PluginInjectorBridge.get(AccountwideSummaryUploader.class);
-                ApiClient apiClient = PluginAccess.plugin().apiClient;
-                PluginConfig config = PluginAccess.plugin().config;
-                if (uploader == null || apiClient == null || config == null) {
-                    return;
+            public boolean attemptRefresh(String currentToken) {
+                SessionRefreshService service = PluginInjectorBridge.get(SessionRefreshService.class);
+                return service != null && service.attemptRefresh(currentToken);
+            }
+
+            @Override
+            public void clearSession() {
+                SessionRefreshService service = PluginInjectorBridge.get(SessionRefreshService.class);
+                if (service != null) {
+                    service.clearSession();
                 }
-                uploader.syncIfNeeded(apiClient, config, new AccountwideSummaryUploader.Hooks() {
-                    @Override
-                    public boolean isClientFullyReady() {
-                        return PluginAccess.plugin().runtimeUtilityServices
-                            .isClientFullyReady(PluginAccess.plugin().client);
-                    }
-
-                    @Override
-                    public LocalStatsSnapshot buildAccountwideSnapshot() {
-                        return PluginAccess.plugin().getProfileWorkflowService()
-                            .buildReconciledAccountwideSnapshot();
-                    }
-
-                    @Override
-                    public boolean attemptRefresh(String currentToken) {
-                        SessionRefreshService service = PluginInjectorBridge.get(SessionRefreshService.class);
-                        return service != null && service.attemptRefresh(currentToken);
-                    }
-
-                    @Override
-                    public void clearSession() {
-                        SessionRefreshService service = PluginInjectorBridge.get(SessionRefreshService.class);
-                        if (service != null) {
-                            service.clearSession();
-                        }
-                    }
-                });
-            }
-
-            @Override
-            public void attemptAccountwideBackfillIfNeeded() {
-                PluginInjectorBridge.get(AccountwideBackfillExecutionService.class).attemptIfNeeded();
             }
         });
     }
 
-    UploadBackfillDispatchService(BackfillRetryScheduler backfillRetryScheduler, Hooks hooks) {
-        this.backfillRetryScheduler = backfillRetryScheduler;
-        this.hooks = hooks;
+    private void attemptAccountwideBackfillIfNeeded() {
+        PluginInjectorBridge.get(AccountwideBackfillExecutionService.class).attemptIfNeeded();
     }
 
     void requestEventFlush() {
-        if (hooks == null || !flushInFlight.compareAndSet(false, true)) {
+        if (!flushInFlight.compareAndSet(false, true)) {
             return;
         }
-        hooks.executeIo(() -> {
+        executeIo(() -> {
             try {
-                hooks.flushEvents();
+                flushEvents();
             } finally {
                 flushInFlight.set(false);
             }
@@ -122,12 +105,12 @@ final class UploadBackfillDispatchService {
     }
 
     void requestAccountwideSync() {
-        if (hooks == null || !accountwideSyncInFlight.compareAndSet(false, true)) {
+        if (!accountwideSyncInFlight.compareAndSet(false, true)) {
             return;
         }
-        hooks.executeIo(() -> {
+        executeIo(() -> {
             try {
-                hooks.syncAccountwideSummaryIfNeeded();
+                syncAccountwideSummaryIfNeeded();
             } finally {
                 accountwideSyncInFlight.set(false);
             }
@@ -135,24 +118,24 @@ final class UploadBackfillDispatchService {
     }
 
     void requestBackfillAttempt(ScheduledExecutorService scheduler, long delaySeconds, boolean resetBackoff) {
-        if (backfillRetryScheduler == null || hooks == null) {
+        if (backfillRetryScheduler == null) {
             return;
         }
         backfillRetryScheduler.requestAttempt(
             scheduler,
             delaySeconds,
             resetBackoff,
-            () -> hooks.executeIo(hooks::attemptAccountwideBackfillIfNeeded)
+            () -> executeIo(this::attemptAccountwideBackfillIfNeeded)
         );
     }
 
     void scheduleBackfillRetry(ScheduledExecutorService scheduler) {
-        if (backfillRetryScheduler == null || hooks == null) {
+        if (backfillRetryScheduler == null) {
             return;
         }
         backfillRetryScheduler.scheduleRetry(
             scheduler,
-            () -> hooks.executeIo(hooks::attemptAccountwideBackfillIfNeeded)
+            () -> executeIo(this::attemptAccountwideBackfillIfNeeded)
         );
     }
 
