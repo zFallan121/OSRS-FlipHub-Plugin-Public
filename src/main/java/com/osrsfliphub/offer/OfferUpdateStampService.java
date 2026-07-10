@@ -32,42 +32,11 @@ import net.runelite.api.GrandExchangeOfferState;
 
 @Singleton
 final class OfferUpdateStampService {
-    interface Hooks {
-        long nowMs();
-        boolean isWithinLoginGrace();
-        void persistOfferUpdateTimes();
-    }
-
-    private final Hooks hooks;
     private final OfferUpdateStampRuleEvaluator ruleEvaluator;
 
     @Inject
     OfferUpdateStampService() {
-        this(productionHooks());
-    }
-
-    OfferUpdateStampService(Hooks hooks) {
-        this.hooks = hooks;
         this.ruleEvaluator = new OfferUpdateStampRuleEvaluator(this::nowMs, this::isWithinLoginGrace);
-    }
-
-    private static Hooks productionHooks() {
-        return new Hooks() {
-            @Override
-            public long nowMs() {
-                return System.currentTimeMillis();
-            }
-
-            @Override
-            public boolean isWithinLoginGrace() {
-                return PluginAccess.plugin().getOfferStampStateServices().isWithinLoginGrace();
-            }
-
-            @Override
-            public void persistOfferUpdateTimes() {
-                PluginAccess.plugin().getOfferStampStateServices().persistOfferUpdateTimes();
-            }
-        };
     }
 
     void trackOfferUpdate(Map<Integer, OfferUpdateStamp> stamps, int slot, OfferSnapshot prev, OfferSnapshot next) {
@@ -242,16 +211,14 @@ final class OfferUpdateStampService {
     }
 
     private long nowMs() {
-        return hooks != null ? hooks.nowMs() : System.currentTimeMillis();
+        return System.currentTimeMillis();
     }
 
     private boolean isWithinLoginGrace() {
-        return hooks != null && hooks.isWithinLoginGrace();
+        return PluginAccess.plugin().getOfferStampStateServices().isWithinLoginGrace();
     }
 
     private void persistOfferUpdateTimes() {
-        if (hooks != null) {
-            hooks.persistOfferUpdateTimes();
-        }
+        PluginAccess.plugin().getOfferStampStateServices().persistOfferUpdateTimes();
     }
 }

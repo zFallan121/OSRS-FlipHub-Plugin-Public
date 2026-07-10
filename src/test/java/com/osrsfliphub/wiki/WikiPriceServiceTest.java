@@ -37,11 +37,11 @@ import static org.junit.Assert.assertNotNull;
 public class WikiPriceServiceTest {
     @Test
     public void getPriceEntryTriggersFetchWhenStale() {
-        TestHooks hooks = new TestHooks();
-        hooks.panelVisible = true;
+        PluginRuntime runtime = new PluginRuntime(null);
+        runtime.setPanelVisible(true);
         ImmediateSuccessFetcher fetcher = new ImmediateSuccessFetcher();
         fetcher.entries.put(4151, entry(1200, 1000));
-        WikiPriceService service = new WikiPriceService(1L, 0L, hooks, fetcher);
+        WikiPriceService service = new WikiPriceService(1L, 0L, runtime, fetcher);
 
         WikiPriceEntry first = service.getPriceEntry(4151, true);
         WikiPriceEntry second = service.getPriceEntry(4151, false);
@@ -54,11 +54,11 @@ public class WikiPriceServiceTest {
 
     @Test
     public void refreshSkipsWhenPanelHidden() {
-        TestHooks hooks = new TestHooks();
-        hooks.panelVisible = false;
+        PluginRuntime runtime = new PluginRuntime(null);
+        runtime.setPanelVisible(false);
         ImmediateSuccessFetcher fetcher = new ImmediateSuccessFetcher();
         fetcher.entries.put(100, entry(10, 9));
-        WikiPriceService service = new WikiPriceService(1000L, 0L, hooks, fetcher);
+        WikiPriceService service = new WikiPriceService(1000L, 0L, runtime, fetcher);
 
         service.refreshPrices();
 
@@ -67,11 +67,11 @@ public class WikiPriceServiceTest {
 
     @Test
     public void refreshRespectsMinRefreshInterval() {
-        TestHooks hooks = new TestHooks();
-        hooks.panelVisible = true;
+        PluginRuntime runtime = new PluginRuntime(null);
+        runtime.setPanelVisible(true);
         ImmediateSuccessFetcher fetcher = new ImmediateSuccessFetcher();
         fetcher.entries.put(100, entry(10, 9));
-        WikiPriceService service = new WikiPriceService(-1L, 60_000L, hooks, fetcher);
+        WikiPriceService service = new WikiPriceService(-1L, 60_000L, runtime, fetcher);
 
         service.refreshPrices();
         service.refreshPrices();
@@ -81,10 +81,10 @@ public class WikiPriceServiceTest {
 
     @Test
     public void startSchedulesAndStopCancels() {
-        TestHooks hooks = new TestHooks();
-        hooks.panelVisible = true;
+        PluginRuntime runtime = new PluginRuntime(null);
+        runtime.setPanelVisible(true);
         ImmediateSuccessFetcher fetcher = new ImmediateSuccessFetcher();
-        WikiPriceService service = new WikiPriceService(1000L, 0L, hooks, fetcher);
+        WikiPriceService service = new WikiPriceService(1000L, 0L, runtime, fetcher);
         StubScheduler scheduler = new StubScheduler();
 
         service.start(scheduler);
@@ -99,24 +99,6 @@ public class WikiPriceServiceTest {
         entry.high = high;
         entry.low = low;
         return entry;
-    }
-
-    private static final class TestHooks implements WikiPriceService.Hooks {
-        private boolean panelVisible;
-
-        @Override
-        public boolean isPanelVisible() {
-            return panelVisible;
-        }
-
-        @Override
-        public boolean isDebugEnabled() {
-            return false;
-        }
-
-        @Override
-        public void logDebug(String message) {
-        }
     }
 
     private static final class ImmediateSuccessFetcher implements WikiPriceService.Fetcher {

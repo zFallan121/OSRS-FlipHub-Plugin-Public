@@ -47,12 +47,6 @@ import org.slf4j.LoggerFactory;
 final class WikiPriceService {
     private static final Logger log = LoggerFactory.getLogger(WikiPriceService.class);
 
-    interface Hooks {
-        boolean isPanelVisible();
-        boolean isDebugEnabled();
-        void logDebug(String message);
-    }
-
     interface Fetcher {
         interface Callback {
             void onSuccess(Map<Integer, WikiPriceEntry> entries);
@@ -64,7 +58,7 @@ final class WikiPriceService {
 
     private final long cacheTtlMs;
     private final long minRefreshMs;
-    private final Hooks hooks;
+    private final PluginRuntime runtime;
     private final Fetcher fetcher;
     private final Object wikiPriceLock = new Object();
     private final Map<Integer, WikiPriceEntry> wikiLatestCache = new HashMap<>();
@@ -75,37 +69,18 @@ final class WikiPriceService {
 
     @Inject
     WikiPriceService(OkHttpClient httpClient, Gson gson, PluginRuntime runtime) {
-        this(
-            GeLifecyclePluginConstants.WIKI_CACHE_TTL_MS,
+        this(GeLifecyclePluginConstants.WIKI_CACHE_TTL_MS,
             GeLifecyclePluginConstants.WIKI_MIN_REFRESH_MS,
-            new Hooks() {
-                @Override
-                public boolean isPanelVisible() {
-                    return runtime != null && runtime.isPanelVisible();
-                }
-
-                @Override
-                public boolean isDebugEnabled() {
-                    return log.isDebugEnabled();
-                }
-
-                @Override
-                public void logDebug(String message) {
-                    if (message != null && log.isDebugEnabled()) {
-                        log.debug(message);
-                    }
-                }
-            },
+            runtime,
             httpFetcher(httpClient, gson,
                 GeLifecyclePluginConstants.WIKI_LATEST_URL,
-                GeLifecyclePluginConstants.WIKI_USER_AGENT)
-        );
+                GeLifecyclePluginConstants.WIKI_USER_AGENT));
     }
 
-    WikiPriceService(long cacheTtlMs, long minRefreshMs, Hooks hooks, Fetcher fetcher) {
+    WikiPriceService(long cacheTtlMs, long minRefreshMs, PluginRuntime runtime, Fetcher fetcher) {
         this.cacheTtlMs = cacheTtlMs;
         this.minRefreshMs = minRefreshMs;
-        this.hooks = hooks;
+        this.runtime = runtime;
         this.fetcher = fetcher;
     }
 
@@ -233,8 +208,8 @@ final class WikiPriceService {
             @Override
             public void onFailure(Exception error) {
                 try {
-                    if (error != null && hooks != null && hooks.isDebugEnabled()) {
-                        hooks.logDebug("Wiki price refresh failed: " + error.getMessage());
+                    if (error != null && log.isDebugEnabled()) {
+                        log.debug("Wiki price refresh failed: " + error.getMessage());
                     }
                 } finally {
                     wikiFetchInFlight.set(false);
@@ -245,7 +220,7 @@ final class WikiPriceService {
 
     private boolean shouldFetch(boolean allowWhenHidden) {
         long now = System.currentTimeMillis();
-        if (!allowWhenHidden && hooks != null && !hooks.isPanelVisible()) {
+        if (!allowWhenHidden && runtime != null && !runtime.isPanelVisible()) {
             return false;
         }
         if (wikiFetchInFlight.get()) {

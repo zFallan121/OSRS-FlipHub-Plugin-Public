@@ -29,47 +29,27 @@ import javax.inject.Singleton;
 
 @Singleton
 final class LocalItemEnrichmentService {
-    interface Hooks {
-        Integer getCachedGeLimit(int itemId);
-        WikiPriceEntry getWikiPriceEntry(int itemId, boolean allowRefresh);
-        long nowMs();
-    }
-
-    private final Hooks hooks;
-    private final long localLimitWindowMs;
+    private final long localLimitWindowMs = GeLifecyclePluginConstants.LOCAL_LIMIT_WINDOW_MS;
 
     @Inject
     LocalItemEnrichmentService() {
-        this(new Hooks() {
-            @Override
-            public Integer getCachedGeLimit(int itemId) {
-                GeLimitService service = PluginInjectorBridge.get(GeLimitService.class);
-                return service != null ? service.getCachedGeLimit(itemId) : null;
-            }
-
-            @Override
-            public WikiPriceEntry getWikiPriceEntry(int itemId, boolean allowRefresh) {
-                WikiPriceService service = PluginInjectorBridge.get(WikiPriceService.class);
-                return service != null ? service.getPriceEntry(itemId, allowRefresh) : null;
-            }
-
-            @Override
-            public long nowMs() {
-                return System.currentTimeMillis();
-            }
-        }, GeLifecyclePluginConstants.LOCAL_LIMIT_WINDOW_MS);
     }
 
-    LocalItemEnrichmentService(Hooks hooks, long localLimitWindowMs) {
-        this.hooks = hooks;
-        this.localLimitWindowMs = localLimitWindowMs;
+    private Integer getCachedGeLimit(int itemId) {
+        GeLimitService service = PluginInjectorBridge.get(GeLimitService.class);
+        return service != null ? service.getCachedGeLimit(itemId) : null;
+    }
+
+    private WikiPriceEntry getWikiPriceEntry(int itemId, boolean allowRefresh) {
+        WikiPriceService service = PluginInjectorBridge.get(WikiPriceService.class);
+        return service != null ? service.getPriceEntry(itemId, allowRefresh) : null;
     }
 
     void applyGuidePrices(FlipHubItem item, int itemId, boolean allowRefresh) {
-        if (item == null || itemId <= 0 || hooks == null) {
+        if (item == null || itemId <= 0) {
             return;
         }
-        WikiPriceEntry entry = hooks.getWikiPriceEntry(itemId, allowRefresh);
+        WikiPriceEntry entry = getWikiPriceEntry(itemId, allowRefresh);
         if (entry == null) {
             return;
         }
@@ -102,10 +82,10 @@ final class LocalItemEnrichmentService {
     }
 
     void applyLocalLimitInfo(FlipHubItem item, int itemId, LocalLimitInfo info) {
-        if (item == null || itemId <= 0 || hooks == null) {
+        if (item == null || itemId <= 0) {
             return;
         }
-        Integer geLimit = hooks.getCachedGeLimit(itemId);
+        Integer geLimit = getCachedGeLimit(itemId);
         if (geLimit == null || geLimit <= 0) {
             return;
         }
@@ -116,7 +96,7 @@ final class LocalItemEnrichmentService {
             item.ge_limit_remaining = remaining;
             if (info.firstBuyTs != null) {
                 long resetAt = info.firstBuyTs + localLimitWindowMs;
-                item.ge_limit_reset_ms = Math.max(0L, resetAt - hooks.nowMs());
+                item.ge_limit_reset_ms = Math.max(0L, resetAt - System.currentTimeMillis());
             }
             else {
                 item.ge_limit_reset_ms = 0L;

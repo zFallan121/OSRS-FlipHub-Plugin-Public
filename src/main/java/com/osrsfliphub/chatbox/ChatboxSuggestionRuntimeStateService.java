@@ -35,13 +35,7 @@ import net.runelite.api.widgets.Widget;
 
 @Singleton
 final class ChatboxSuggestionRuntimeStateService {
-    interface Hooks {
-        Client getClient();
-        ChatboxSuggestionWidgetFactoryService getWidgetFactoryService();
-        ChatboxPromptWidgetResolverService getPromptWidgetResolverService();
-    }
-
-    private final Hooks hooks;
+    private final Client client;
     private Widget priceSuggestionWidget;
     private Widget limitSuggestionWidget;
     private Widget affordableLimitSuggestionWidget;
@@ -52,26 +46,7 @@ final class ChatboxSuggestionRuntimeStateService {
 
     @Inject
     ChatboxSuggestionRuntimeStateService(Client client) {
-        this(new Hooks() {
-            @Override
-            public Client getClient() {
-                return client;
-            }
-
-            @Override
-            public ChatboxSuggestionWidgetFactoryService getWidgetFactoryService() {
-                return PluginInjectorBridge.get(ChatboxSuggestionWidgetFactoryService.class);
-            }
-
-            @Override
-            public ChatboxPromptWidgetResolverService getPromptWidgetResolverService() {
-                return PluginInjectorBridge.get(ChatboxPromptWidgetResolverService.class);
-            }
-        });
-    }
-
-    ChatboxSuggestionRuntimeStateService(Hooks hooks) {
-        this.hooks = hooks;
+        this.client = client;
     }
 
     void markSuggestionDirty() {
@@ -96,7 +71,7 @@ final class ChatboxSuggestionRuntimeStateService {
     }
 
     Widget getPricePromptWidget() {
-        ChatboxPromptWidgetResolverService resolver = hooks != null ? hooks.getPromptWidgetResolverService() : null;
+        ChatboxPromptWidgetResolverService resolver = PluginInjectorBridge.get(ChatboxPromptWidgetResolverService.class);
         cachedPricePromptWidget = resolver != null
             ? resolver.resolvePromptWidget(cachedPricePromptWidget, true)
             : null;
@@ -104,7 +79,7 @@ final class ChatboxSuggestionRuntimeStateService {
     }
 
     Widget getQuantityPromptWidget() {
-        ChatboxPromptWidgetResolverService resolver = hooks != null ? hooks.getPromptWidgetResolverService() : null;
+        ChatboxPromptWidgetResolverService resolver = PluginInjectorBridge.get(ChatboxPromptWidgetResolverService.class);
         cachedQuantityPromptWidget = resolver != null
             ? resolver.resolvePromptWidget(cachedQuantityPromptWidget, false)
             : null;
@@ -112,7 +87,7 @@ final class ChatboxSuggestionRuntimeStateService {
     }
 
     boolean isGeInputPromptActive() {
-        Client client = hooks != null ? hooks.getClient() : null;
+        Client client = this.client;
         if (client == null) {
             return false;
         }
@@ -140,7 +115,7 @@ final class ChatboxSuggestionRuntimeStateService {
     }
 
     boolean isChatboxInputVisible() {
-        Client client = hooks != null ? hooks.getClient() : null;
+        Client client = this.client;
         if (client == null) {
             return false;
         }
@@ -165,7 +140,7 @@ final class ChatboxSuggestionRuntimeStateService {
     }
 
     Widget getChatboxContainer() {
-        Client client = hooks != null ? hooks.getClient() : null;
+        Client client = this.client;
         if (client == null) {
             return null;
         }
@@ -177,7 +152,7 @@ final class ChatboxSuggestionRuntimeStateService {
     }
 
     Widget ensurePriceSuggestionWidget(Widget container) {
-        ChatboxSuggestionWidgetFactoryService factory = hooks != null ? hooks.getWidgetFactoryService() : null;
+        ChatboxSuggestionWidgetFactoryService factory = PluginInjectorBridge.get(ChatboxSuggestionWidgetFactoryService.class);
         priceSuggestionWidget = factory != null
             ? factory.ensurePriceSuggestionWidget(container, priceSuggestionWidget)
             : priceSuggestionWidget;
@@ -185,7 +160,7 @@ final class ChatboxSuggestionRuntimeStateService {
     }
 
     Widget ensureLimitSuggestionWidget(Widget container) {
-        ChatboxSuggestionWidgetFactoryService factory = hooks != null ? hooks.getWidgetFactoryService() : null;
+        ChatboxSuggestionWidgetFactoryService factory = PluginInjectorBridge.get(ChatboxSuggestionWidgetFactoryService.class);
         limitSuggestionWidget = factory != null
             ? factory.ensureLimitSuggestionWidget(container, limitSuggestionWidget)
             : limitSuggestionWidget;
@@ -193,7 +168,7 @@ final class ChatboxSuggestionRuntimeStateService {
     }
 
     Widget ensureAffordableLimitSuggestionWidget(Widget container) {
-        ChatboxSuggestionWidgetFactoryService factory = hooks != null ? hooks.getWidgetFactoryService() : null;
+        ChatboxSuggestionWidgetFactoryService factory = PluginInjectorBridge.get(ChatboxSuggestionWidgetFactoryService.class);
         affordableLimitSuggestionWidget = factory != null
             ? factory.ensureAffordableLimitSuggestionWidget(container, affordableLimitSuggestionWidget)
             : affordableLimitSuggestionWidget;
