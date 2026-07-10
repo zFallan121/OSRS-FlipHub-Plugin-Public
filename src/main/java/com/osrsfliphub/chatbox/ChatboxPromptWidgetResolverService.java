@@ -32,39 +32,16 @@ import net.runelite.api.widgets.Widget;
 
 @Singleton
 final class ChatboxPromptWidgetResolverService {
-    interface Hooks {
-        Widget getWidget(int componentId);
-    }
-
-    private final int fullInputComponentId;
-    private final int titleComponentId;
-    private final int firstMessageComponentId;
-    private final int messageLinesComponentId;
-    private final int containerComponentId;
-    private final Hooks hooks;
+    private final int fullInputComponentId = ComponentID.CHATBOX_FULL_INPUT;
+    private final int titleComponentId = ComponentID.CHATBOX_TITLE;
+    private final int firstMessageComponentId = ComponentID.CHATBOX_FIRST_MESSAGE;
+    private final int messageLinesComponentId = ComponentID.CHATBOX_MESSAGE_LINES;
+    private final int containerComponentId = ComponentID.CHATBOX_CONTAINER;
+    private final Client client;
 
     @Inject
     ChatboxPromptWidgetResolverService(Client client) {
-        this(ComponentID.CHATBOX_FULL_INPUT,
-            ComponentID.CHATBOX_TITLE,
-            ComponentID.CHATBOX_FIRST_MESSAGE,
-            ComponentID.CHATBOX_MESSAGE_LINES,
-            ComponentID.CHATBOX_CONTAINER,
-            componentId -> client != null ? client.getWidget(componentId) : null);
-    }
-
-    ChatboxPromptWidgetResolverService(int fullInputComponentId,
-                                       int titleComponentId,
-                                       int firstMessageComponentId,
-                                       int messageLinesComponentId,
-                                       int containerComponentId,
-                                       Hooks hooks) {
-        this.fullInputComponentId = fullInputComponentId;
-        this.titleComponentId = titleComponentId;
-        this.firstMessageComponentId = firstMessageComponentId;
-        this.messageLinesComponentId = messageLinesComponentId;
-        this.containerComponentId = containerComponentId;
-        this.hooks = hooks;
+        this.client = client;
     }
 
     Widget resolvePromptWidget(Widget cachedPromptWidget, boolean pricePrompt) {
@@ -83,17 +60,19 @@ final class ChatboxPromptWidgetResolverService {
         if (found != null) {
             return found;
         }
-        Widget messageLines = hooks != null ? hooks.getWidget(messageLinesComponentId) : null;
-        found = ChatboxSuggestionWidgets.findPromptWidget(messageLines, pricePrompt);
+        found = ChatboxSuggestionWidgets.findPromptWidget(getWidget(messageLinesComponentId), pricePrompt);
         if (found != null) {
             return found;
         }
-        Widget container = hooks != null ? hooks.getWidget(containerComponentId) : null;
-        return ChatboxSuggestionWidgets.findPromptWidget(container, pricePrompt);
+        return ChatboxSuggestionWidgets.findPromptWidget(getWidget(containerComponentId), pricePrompt);
+    }
+
+    private Widget getWidget(int componentId) {
+        return client != null ? client.getWidget(componentId) : null;
     }
 
     private Widget findDirectPromptWidget(int componentId, boolean pricePrompt) {
-        Widget widget = hooks != null ? hooks.getWidget(componentId) : null;
+        Widget widget = getWidget(componentId);
         return isPromptWidget(widget, pricePrompt) ? widget : null;
     }
 
