@@ -30,130 +30,72 @@ import javax.inject.Singleton;
 
 @Singleton
 final class WebsiteStatsWipeService {
-    interface Hooks {
-        boolean isLinked();
-        LinkSessionGuardService.Credentials resolveLinkedCredentials();
-        boolean hasIoExecutor();
-        void executeIo(Runnable task);
-        void runOnClientThread(Runnable task);
-        ApiClient.WipeStatsResponse wipeWebsiteStats(String sessionToken, String signingSecret) throws Exception;
-        void showError(String message);
-        void pushGameMessage(String message);
-        void triggerStatsRefresh();
-    }
-
-    private final Hooks hooks;
-
     @Inject
     WebsiteStatsWipeService() {
-        this(new Hooks() {
-            private ProfileSelectionPresentationFacadeService facade() {
-                return PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
-            }
-
-            @Override
-            public boolean isLinked() {
-                ProfileSelectionPresentationFacadeService service = facade();
-                return service != null && service.isLinked();
-            }
-
-            @Override
-            public LinkSessionGuardService.Credentials resolveLinkedCredentials() {
-                ProfileSelectionPresentationFacadeService service = facade();
-                return service != null ? service.resolveLinkedCredentials() : null;
-            }
-
-            @Override
-            public boolean hasIoExecutor() {
-                return PluginAccess.plugin().ioExecutor != null;
-            }
-
-            @Override
-            public void executeIo(Runnable task) {
-                ExecutorService executor = PluginAccess.plugin().ioExecutor;
-                if (executor != null && task != null) {
-                    executor.execute(task);
-                }
-            }
-
-            @Override
-            public void runOnClientThread(Runnable task) {
-                if (task != null) {
-                    PluginAccess.plugin().invokeOnClientThread(task);
-                }
-            }
-
-            @Override
-            public ApiClient.WipeStatsResponse wipeWebsiteStats(String sessionToken, String signingSecret) throws Exception {
-                return PluginAccess.plugin().wipeWebsiteStats(sessionToken, signingSecret);
-            }
-
-            @Override
-            public void showError(String message) {
-                PluginAccess.plugin().getProfileWorkflowService().showManageDataError(message);
-            }
-
-            @Override
-            public void pushGameMessage(String message) {
-                PluginAccess.plugin().runtimeUtilityServices.pushGameMessage(PluginAccess.plugin().client, message);
-            }
-
-            @Override
-            public void triggerStatsRefresh() {
-                PanelRefreshCoordinator coordinator = PluginAccess.plugin().getPanelRefreshCoordinator();
-                if (coordinator != null) {
-                    coordinator.triggerStatsRefresh(PluginAccess.plugin().scheduler);
-                }
-            }
-        });
     }
 
-    WebsiteStatsWipeService(Hooks hooks) {
-        this.hooks = hooks;
+    private ProfileSelectionPresentationFacadeService facade() {
+        return PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
+    }
+
+    private void runOnClientThread(Runnable task) {
+        if (task != null) {
+            PluginAccess.plugin().invokeOnClientThread(task);
+        }
+    }
+
+    private void showError(String message) {
+        PluginAccess.plugin().getProfileWorkflowService().showManageDataError(message);
+    }
+
+    private void pushGameMessage(String message) {
+        PluginAccess.plugin().runtimeUtilityServices.pushGameMessage(PluginAccess.plugin().client, message);
     }
 
     void wipeWebsiteStatsAsync() {
-        if (hooks == null) {
+        ProfileSelectionPresentationFacadeService facade = facade();
+        if (facade == null || !facade.isLinked()) {
+            showError("Website wipe is only available when linked.");
             return;
         }
-        if (!hooks.isLinked()) {
-            hooks.showError("Website wipe is only available when linked.");
-            return;
-        }
-        LinkSessionGuardService.Credentials credentials = hooks.resolveLinkedCredentials();
+        LinkSessionGuardService.Credentials credentials = facade.resolveLinkedCredentials();
         if (credentials == null) {
-            hooks.showError("Website wipe failed: missing link credentials. Try relinking.");
+            showError("Website wipe failed: missing link credentials. Try relinking.");
             return;
         }
-        if (!hooks.hasIoExecutor()) {
-            hooks.showError("Website wipe failed: IO executor is unavailable.");
+        ExecutorService executor = PluginAccess.plugin().ioExecutor;
+        if (executor == null) {
+            showError("Website wipe failed: IO executor is unavailable.");
             return;
         }
 
-        hooks.executeIo(() -> {
+        executor.execute(() -> {
             try {
-                ApiClient.WipeStatsResponse response = hooks.wipeWebsiteStats(
+                ApiClient.WipeStatsResponse response = PluginAccess.plugin().wipeWebsiteStats(
                     credentials.sessionToken,
                     credentials.signingSecret
                 );
-                hooks.runOnClientThread(() -> {
+                runOnClientThread(() -> {
                     if (response != null && response.status != null && response.status.equalsIgnoreCase("ok")) {
                         int events = response.deleted_trade_events != null ? response.deleted_trade_events : 0;
                         int lots = response.deleted_buy_lots != null ? response.deleted_buy_lots : 0;
                         int fills = response.deleted_flip_fills != null ? response.deleted_flip_fills : 0;
                         int summaries = response.deleted_accountwide_stats != null ? response.deleted_accountwide_stats : 0;
-                        hooks.pushGameMessage(
+                        pushGameMessage(
                             "FlipHub website wipe: deleted " + events + " events, " + lots + " lots, "
                                 + fills + " fills, " + summaries + " summaries."
                         );
-                        hooks.triggerStatsRefresh();
+                        PanelRefreshCoordinator coordinator = PluginAccess.plugin().getPanelRefreshCoordinator();
+                        if (coordinator != null) {
+                            coordinator.triggerStatsRefresh(PluginAccess.plugin().scheduler);
+                        }
                     } else {
-                        hooks.pushGameMessage("FlipHub website wipe failed: unexpected response.");
+                        pushGameMessage("FlipHub website wipe failed: unexpected response.");
                     }
                 });
             } catch (Exception ex) {
                 String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "unknown error";
-                hooks.runOnClientThread(() -> hooks.pushGameMessage("FlipHub website wipe failed: " + msg));
+                runOnClientThread(() -> pushGameMessage("FlipHub website wipe failed: " + msg));
             }
         });
     }

@@ -32,77 +32,28 @@ import net.runelite.api.gameval.VarClientID;
 
 @Singleton
 final class ChatboxSuggestionApplyService {
-    interface Hooks {
-        boolean canApplyChatInput();
-        Boolean resolveOfferType();
-        FlipHubItem getOfferPreviewItem();
-        Integer computeRemainingLimitSuggestion(int itemId);
-        Integer computeAffordableLimitSuggestion(Integer remainingLimit);
-        void setChatInput(String value);
-        void rebuildChatInput();
-    }
-
-    private final Hooks hooks;
+    private final Client client;
 
     @Inject
     ChatboxSuggestionApplyService(Client client) {
-        this(new Hooks() {
-            @Override
-            public boolean canApplyChatInput() {
-                return client != null;
-            }
-
-            @Override
-            public Boolean resolveOfferType() {
-                OfferTypeResolver resolver = PluginInjectorBridge.get(OfferTypeResolver.class);
-                return resolver != null ? resolver.resolveOfferType() : null;
-            }
-
-            @Override
-            public FlipHubItem getOfferPreviewItem() {
-                return PluginAccess.plugin().offerPreviewItem;
-            }
-
-            @Override
-            public Integer computeRemainingLimitSuggestion(int itemId) {
-                RemainingLimitSuggestionService service =
-                    PluginInjectorBridge.get(RemainingLimitSuggestionService.class);
-                return service != null ? service.computeSuggestion(itemId) : null;
-            }
-
-            @Override
-            public Integer computeAffordableLimitSuggestion(Integer remainingLimit) {
-                AffordableLimitSuggestionService service =
-                    PluginInjectorBridge.get(AffordableLimitSuggestionService.class);
-                return service != null ? service.computeAffordableLimit(remainingLimit) : null;
-            }
-
-            @Override
-            public void setChatInput(String value) {
-                if (client != null && value != null) {
-                    client.setVarcStrValue(VarClientID.MESLAYERINPUT, value);
-                }
-            }
-
-            @Override
-            public void rebuildChatInput() {
-                if (client != null) {
-                    client.runScript(ScriptID.CHAT_TEXT_INPUT_REBUILD, "");
-                }
-            }
-        });
+        this.client = client;
     }
 
-    ChatboxSuggestionApplyService(Hooks hooks) {
-        this.hooks = hooks;
+    private Boolean resolveOfferType() {
+        OfferTypeResolver resolver = PluginInjectorBridge.get(OfferTypeResolver.class);
+        return resolver != null ? resolver.resolveOfferType() : null;
+    }
+
+    private FlipHubItem getOfferPreviewItem() {
+        return PluginAccess.plugin().offerPreviewItem;
     }
 
     void applySuggestedPriceToChat() {
-        if (hooks == null || !hooks.canApplyChatInput()) {
+        if (client == null) {
             return;
         }
-        Boolean isBuy = hooks.resolveOfferType();
-        FlipHubItem previewItem = hooks.getOfferPreviewItem();
+        Boolean isBuy = resolveOfferType();
+        FlipHubItem previewItem = getOfferPreviewItem();
         if (isBuy == null || previewItem == null) {
             return;
         }
@@ -114,11 +65,11 @@ final class ChatboxSuggestionApplyService {
     }
 
     void applySuggestedLimitToChat() {
-        if (hooks == null || !hooks.canApplyChatInput()) {
+        if (client == null) {
             return;
         }
-        Boolean isBuy = hooks.resolveOfferType();
-        FlipHubItem previewItem = hooks.getOfferPreviewItem();
+        Boolean isBuy = resolveOfferType();
+        FlipHubItem previewItem = getOfferPreviewItem();
         if (isBuy == null || !isBuy || previewItem == null) {
             return;
         }
@@ -130,19 +81,23 @@ final class ChatboxSuggestionApplyService {
     }
 
     void applySuggestedAffordableLimitToChat() {
-        if (hooks == null || !hooks.canApplyChatInput()) {
+        if (client == null) {
             return;
         }
-        Boolean isBuy = hooks.resolveOfferType();
-        FlipHubItem previewItem = hooks.getOfferPreviewItem();
+        Boolean isBuy = resolveOfferType();
+        FlipHubItem previewItem = getOfferPreviewItem();
         if (isBuy == null || !isBuy || previewItem == null) {
             return;
         }
         Integer remaining = previewItem.ge_limit_remaining;
         if (remaining == null || remaining <= 0) {
-            remaining = hooks.computeRemainingLimitSuggestion(previewItem.item_id);
+            RemainingLimitSuggestionService remainingService =
+                PluginInjectorBridge.get(RemainingLimitSuggestionService.class);
+            remaining = remainingService != null ? remainingService.computeSuggestion(previewItem.item_id) : null;
         }
-        Integer affordable = hooks.computeAffordableLimitSuggestion(remaining);
+        AffordableLimitSuggestionService affordableService =
+            PluginInjectorBridge.get(AffordableLimitSuggestionService.class);
+        Integer affordable = affordableService != null ? affordableService.computeAffordableLimit(remaining) : null;
         if (affordable == null || affordable <= 0) {
             return;
         }
@@ -150,10 +105,10 @@ final class ChatboxSuggestionApplyService {
     }
 
     private void applySuggestedQuantityToChat(int quantity) {
-        if (quantity <= 0 || hooks == null || !hooks.canApplyChatInput()) {
+        if (quantity <= 0 || client == null) {
             return;
         }
-        hooks.setChatInput(String.valueOf(quantity));
-        hooks.rebuildChatInput();
+        client.setVarcStrValue(VarClientID.MESLAYERINPUT, String.valueOf(quantity));
+        client.runScript(ScriptID.CHAT_TEXT_INPUT_REBUILD, "");
     }
 }
