@@ -157,17 +157,7 @@ public class GeLifecycleProfileWorkflowServiceTest {
 
                     @Override
                     public LinkSessionGuardService getLinkSessionGuardService() {
-                        return new LinkSessionGuardService(new LinkSessionGuardService.Hooks() {
-                            @Override
-                            public String getSessionToken() {
-                                return null;
-                            }
-
-                            @Override
-                            public String getSigningSecret() {
-                                return null;
-                            }
-                        });
+                        return new LinkSessionGuardService(null);
                     }
 
                     @Override

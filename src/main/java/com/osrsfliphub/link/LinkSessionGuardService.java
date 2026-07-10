@@ -29,11 +29,6 @@ import javax.inject.Singleton;
 
 @Singleton
 final class LinkSessionGuardService {
-    interface Hooks {
-        String getSessionToken();
-        String getSigningSecret();
-    }
-
     static final class Credentials {
         final String sessionToken;
         final String signingSecret;
@@ -44,25 +39,11 @@ final class LinkSessionGuardService {
         }
     }
 
-    private final Hooks hooks;
+    private final PluginConfig config;
 
     @Inject
     LinkSessionGuardService(PluginConfig config) {
-        this(new Hooks() {
-            @Override
-            public String getSessionToken() {
-                return config != null ? config.sessionToken() : null;
-            }
-
-            @Override
-            public String getSigningSecret() {
-                return config != null ? config.signingSecret() : null;
-            }
-        });
-    }
-
-    LinkSessionGuardService(Hooks hooks) {
-        this.hooks = hooks;
+        this.config = config;
     }
 
     boolean hasSessionToken() {
@@ -83,11 +64,11 @@ final class LinkSessionGuardService {
     }
 
     private String readSessionToken() {
-        return hooks != null ? hooks.getSessionToken() : null;
+        return config != null ? config.sessionToken() : null;
     }
 
     private String readSigningSecret() {
-        return hooks != null ? hooks.getSigningSecret() : null;
+        return config != null ? config.signingSecret() : null;
     }
 
     private String normalize(String value) {

@@ -32,71 +32,48 @@ import net.runelite.client.config.ConfigManager;
 
 @Singleton
 final class GeHistoryWipeStateStore {
-    interface Hooks {
-        String readConfiguration(String configGroup, String key);
-        void writeConfiguration(String configGroup, String key, String value);
-    }
-
-    private final Hooks hooks;
-    private final String configGroup;
-    private final String wipeBarrierKeyPrefix;
-    private final String cursorKeyPrefix;
-    private final int maxCursorTrades;
+    private final ConfigManager configManager;
+    private final String configGroup = FliphubConfigGroups.CONFIG_GROUP;
+    private final String wipeBarrierKeyPrefix = GeLifecyclePluginConstants.WIPE_BARRIER_KEY_PREFIX;
+    private final String cursorKeyPrefix = GeLifecyclePluginConstants.GE_HISTORY_CURSOR_KEY_PREFIX;
+    private final int maxCursorTrades = Math.max(1, GeLifecyclePluginConstants.GE_HISTORY_CURSOR_MAX_TRADES);
 
     @Inject
     GeHistoryWipeStateStore(ConfigManager configManager) {
-        this(new Hooks() {
-            @Override
-            public String readConfiguration(String configGroup, String key) {
-                return configManager != null ? configManager.getConfiguration(configGroup, key) : null;
-            }
-
-            @Override
-            public void writeConfiguration(String configGroup, String key, String value) {
-                if (configManager != null) {
-                    configManager.setConfiguration(configGroup, key, value);
-                }
-            }
-        },
-            FliphubConfigGroups.CONFIG_GROUP,
-            GeLifecyclePluginConstants.WIPE_BARRIER_KEY_PREFIX,
-            GeLifecyclePluginConstants.GE_HISTORY_CURSOR_KEY_PREFIX,
-            GeLifecyclePluginConstants.GE_HISTORY_CURSOR_MAX_TRADES);
+        this.configManager = configManager;
     }
 
-    GeHistoryWipeStateStore(Hooks hooks,
-                            String configGroup,
-                            String wipeBarrierKeyPrefix,
-                            String cursorKeyPrefix,
-                            int maxCursorTrades) {
-        this.hooks = hooks;
-        this.configGroup = configGroup;
-        this.wipeBarrierKeyPrefix = wipeBarrierKeyPrefix;
-        this.cursorKeyPrefix = cursorKeyPrefix;
-        this.maxCursorTrades = Math.max(1, maxCursorTrades);
+    private String readConfiguration(String group, String key) {
+        return configManager != null ? configManager.getConfiguration(group, key) : null;
+    }
+
+    private void writeConfiguration(String group, String key, String value) {
+        if (configManager != null) {
+            configManager.setConfiguration(group, key, value);
+        }
     }
 
     boolean isWipeBarrierArmed(long accountKey) {
-        if (hooks == null || accountKey <= 0) {
+        if (accountKey <= 0) {
             return false;
         }
-        String raw = hooks.readConfiguration(configGroup, wipeBarrierKeyPrefix + accountKey);
+        String raw = readConfiguration(configGroup, wipeBarrierKeyPrefix + accountKey);
         return raw != null && !raw.trim().isEmpty();
     }
 
     void setWipeBarrierArmed(long accountKey, boolean armed) {
-        if (hooks == null || accountKey <= 0) {
+        if (accountKey <= 0) {
             return;
         }
-        hooks.writeConfiguration(configGroup, wipeBarrierKeyPrefix + accountKey, armed ? "1" : "");
+        writeConfiguration(configGroup, wipeBarrierKeyPrefix + accountKey, armed ? "1" : "");
     }
 
     List<String> loadCursor(long accountKey) {
         List<String> cursor = new ArrayList<>();
-        if (hooks == null || accountKey <= 0) {
+        if (accountKey <= 0) {
             return cursor;
         }
-        String raw = hooks.readConfiguration(configGroup, cursorKeyPrefix + accountKey);
+        String raw = readConfiguration(configGroup, cursorKeyPrefix + accountKey);
         if (raw == null || raw.trim().isEmpty()) {
             return cursor;
         }
@@ -114,15 +91,15 @@ final class GeHistoryWipeStateStore {
     }
 
     void persistCursor(long accountKey, List<String> cursor) {
-        if (hooks == null || accountKey <= 0) {
+        if (accountKey <= 0) {
             return;
         }
         if (cursor == null || cursor.isEmpty()) {
-            hooks.writeConfiguration(configGroup, cursorKeyPrefix + accountKey, "");
+            writeConfiguration(configGroup, cursorKeyPrefix + accountKey, "");
             return;
         }
         int limit = Math.min(maxCursorTrades, cursor.size());
         String raw = String.join(",", cursor.subList(0, limit));
-        hooks.writeConfiguration(configGroup, cursorKeyPrefix + accountKey, raw);
+        writeConfiguration(configGroup, cursorKeyPrefix + accountKey, raw);
     }
 }

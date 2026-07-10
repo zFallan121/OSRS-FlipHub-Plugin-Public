@@ -33,45 +33,21 @@ import net.runelite.client.config.ConfigManager;
 
 @Singleton
 final class BackfilledProfilesStore {
-    interface Hooks {
-        String getConfiguration(String group, String key);
-        void setConfiguration(String group, String key, String value);
-    }
-
-    private final String configGroup;
-    private final String configKey;
-    private final Hooks hooks;
+    private final String configGroup = FliphubConfigGroups.CONFIG_GROUP;
+    private final String configKey = GeLifecyclePluginConstants.BACKFILLED_PROFILES_KEY;
+    private final ConfigManager configManager;
 
     @Inject
     BackfilledProfilesStore(ConfigManager configManager) {
-        this(FliphubConfigGroups.CONFIG_GROUP, GeLifecyclePluginConstants.BACKFILLED_PROFILES_KEY,
-            new Hooks() {
-                @Override
-                public String getConfiguration(String group, String key) {
-                    return configManager != null ? configManager.getConfiguration(group, key) : null;
-                }
-
-                @Override
-                public void setConfiguration(String group, String key, String value) {
-                    if (configManager != null) {
-                        configManager.setConfiguration(group, key, value);
-                    }
-                }
-            });
-    }
-
-    BackfilledProfilesStore(String configGroup, String configKey, Hooks hooks) {
-        this.configGroup = configGroup;
-        this.configKey = configKey;
-        this.hooks = hooks;
+        this.configManager = configManager;
     }
 
     Set<Long> load() {
         Set<Long> keys = new HashSet<>();
-        if (hooks == null) {
+        if (configManager == null) {
             return keys;
         }
-        String raw = hooks.getConfiguration(configGroup, configKey);
+        String raw = configManager.getConfiguration(configGroup, configKey);
         if (raw == null || raw.trim().isEmpty()) {
             return keys;
         }
@@ -92,11 +68,11 @@ final class BackfilledProfilesStore {
     }
 
     void persist(Set<Long> keys) {
-        if (hooks == null) {
+        if (configManager == null) {
             return;
         }
         if (keys == null || keys.isEmpty()) {
-            hooks.setConfiguration(configGroup, configKey, "");
+            configManager.setConfiguration(configGroup, configKey, "");
             return;
         }
         String raw = keys.stream()
@@ -104,6 +80,6 @@ final class BackfilledProfilesStore {
             .sorted()
             .map(String::valueOf)
             .collect(Collectors.joining(","));
-        hooks.setConfiguration(configGroup, configKey, raw);
+        configManager.setConfiguration(configGroup, configKey, raw);
     }
 }

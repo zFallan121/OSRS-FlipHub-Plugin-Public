@@ -32,55 +32,27 @@ import net.runelite.api.Client;
 
 @Singleton
 final class AccountwideProfileBackfillService {
-    interface Hooks {
-        List<LocalTradeDelta> snapshotLocalTrades(long profileKey);
-        Integer resolveWorld();
-    }
-
-    private final int maxBatchSize;
-    private final int maxLocalTrades;
-    private final long localEventBucketMs;
-    private final long duplicateTradeWindowMs;
-    private final Hooks hooks;
+    private final int maxBatchSize = GeLifecyclePluginConstants.MAX_BATCH_SIZE;
+    private final int maxLocalTrades = GeLifecyclePluginConstants.MAX_LOCAL_TRADES;
+    private final long localEventBucketMs = GeLifecyclePluginConstants.LOCAL_EVENT_BUCKET_MS;
+    private final long duplicateTradeWindowMs = GeLifecyclePluginConstants.DUPLICATE_TRADE_WINDOW_MS;
+    private final Client client;
 
     @Inject
     AccountwideProfileBackfillService(Client client) {
-        this(GeLifecyclePluginConstants.MAX_BATCH_SIZE,
-            GeLifecyclePluginConstants.MAX_LOCAL_TRADES,
-            GeLifecyclePluginConstants.LOCAL_EVENT_BUCKET_MS,
-            GeLifecyclePluginConstants.DUPLICATE_TRADE_WINDOW_MS,
-            new Hooks() {
-                @Override
-                public List<LocalTradeDelta> snapshotLocalTrades(long profileKey) {
-                    LocalTradeSessionFacadeService service =
-                        PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
-                    return service != null ? service.snapshotLocalTradeDeltas(profileKey) : null;
-                }
-
-                @Override
-                public Integer resolveWorld() {
-                    return client != null ? client.getWorld() : null;
-                }
-            });
+        this.client = client;
     }
 
-    AccountwideProfileBackfillService(int maxBatchSize,
-                                      int maxLocalTrades,
-                                      long localEventBucketMs,
-                                      long duplicateTradeWindowMs,
-                                      Hooks hooks) {
-        this.maxBatchSize = Math.max(1, maxBatchSize);
-        this.maxLocalTrades = Math.max(1, maxLocalTrades);
-        this.localEventBucketMs = Math.max(1L, localEventBucketMs);
-        this.duplicateTradeWindowMs = Math.max(0L, duplicateTradeWindowMs);
-        this.hooks = hooks;
+    private List<LocalTradeDelta> snapshotLocalTrades(long profileKey) {
+        LocalTradeSessionFacadeService service = PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+        return service != null ? service.snapshotLocalTradeDeltas(profileKey) : null;
     }
 
     boolean backfillProfileTrades(long profileKey, ApiClient apiClient, PluginConfig config, BackfillUploader uploader) {
-        if (profileKey <= 0 || apiClient == null || config == null || uploader == null || hooks == null) {
+        if (profileKey <= 0 || apiClient == null || config == null || uploader == null) {
             return false;
         }
-        List<LocalTradeDelta> source = hooks.snapshotLocalTrades(profileKey);
+        List<LocalTradeDelta> source = snapshotLocalTrades(profileKey);
         List<LocalTradeDelta> snapshot = source != null ? new ArrayList<>(source) : new ArrayList<>();
         snapshot = LocalTradeDeltaUtils.dedupeLocalTrades(
             snapshot,
@@ -92,7 +64,7 @@ final class AccountwideProfileBackfillService {
             return true;
         }
 
-        Integer world = hooks.resolveWorld();
+        Integer world = client != null ? (Integer) client.getWorld() : null;
         List<GeEvent> currentBatch = new ArrayList<>(maxBatchSize);
         for (LocalTradeDelta delta : snapshot) {
             GeEvent event = uploader.buildBackfillEvent(profileKey, delta, world);

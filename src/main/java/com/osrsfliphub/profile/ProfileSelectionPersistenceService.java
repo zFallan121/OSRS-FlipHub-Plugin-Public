@@ -30,60 +30,31 @@ import net.runelite.client.config.ConfigManager;
 
 @Singleton
 final class ProfileSelectionPersistenceService {
-    interface Hooks {
-        String readConfiguration(String configGroup, String key);
-        void writeConfiguration(String configGroup, String key, String value);
-    }
-
-    private final Hooks hooks;
-    private final String configGroup;
-    private final String legacyGroup;
-    private final String selectedKeyName;
-    private final String modeKeyName;
+    private final ConfigManager configManager;
+    private final String configGroup = FliphubConfigGroups.CONFIG_GROUP;
+    private final String legacyGroup = FliphubConfigGroups.LEGACY_DEV_CONFIG_GROUP;
+    private final String selectedKeyName = GeLifecyclePluginConstants.PROFILE_SELECTED_KEY;
+    private final String modeKeyName = GeLifecyclePluginConstants.PROFILE_SELECTION_MODE_KEY;
 
     @Inject
     ProfileSelectionPersistenceService(ConfigManager configManager) {
-        this(new Hooks() {
-            @Override
-            public String readConfiguration(String group, String key) {
-                return configManager != null ? configManager.getConfiguration(group, key) : null;
-            }
-
-            @Override
-            public void writeConfiguration(String group, String key, String value) {
-                if (configManager != null) {
-                    configManager.setConfiguration(group, key, value);
-                }
-            }
-        },
-            FliphubConfigGroups.CONFIG_GROUP,
-            FliphubConfigGroups.LEGACY_DEV_CONFIG_GROUP,
-            GeLifecyclePluginConstants.PROFILE_SELECTED_KEY,
-            GeLifecyclePluginConstants.PROFILE_SELECTION_MODE_KEY);
+        this.configManager = configManager;
     }
 
-    ProfileSelectionPersistenceService(Hooks hooks,
-                                       String configGroup,
-                                       String legacyGroup,
-                                       String selectedKeyName,
-                                       String modeKeyName) {
-        this.hooks = hooks;
-        this.configGroup = configGroup;
-        this.legacyGroup = legacyGroup;
-        this.selectedKeyName = selectedKeyName;
-        this.modeKeyName = modeKeyName;
+    private String readConfiguration(String group, String key) {
+        return configManager != null ? configManager.getConfiguration(group, key) : null;
     }
 
     boolean load(ProfileSelectionState state) {
-        if (hooks == null || state == null) {
+        if (configManager == null || state == null) {
             return false;
         }
-        String storedKey = hooks.readConfiguration(configGroup, selectedKeyName);
-        String mode = hooks.readConfiguration(configGroup, modeKeyName);
+        String storedKey = readConfiguration(configGroup, selectedKeyName);
+        String mode = readConfiguration(configGroup, modeKeyName);
         boolean migratedFromLegacy = false;
         if (isBlank(storedKey) || isBlank(mode)) {
-            String legacyKey = hooks.readConfiguration(legacyGroup, selectedKeyName);
-            String legacyMode = hooks.readConfiguration(legacyGroup, modeKeyName);
+            String legacyKey = readConfiguration(legacyGroup, selectedKeyName);
+            String legacyMode = readConfiguration(legacyGroup, modeKeyName);
             if (isBlank(storedKey) && !isBlank(legacyKey)) {
                 storedKey = legacyKey.trim();
                 migratedFromLegacy = true;
@@ -98,11 +69,11 @@ final class ProfileSelectionPersistenceService {
     }
 
     void persist(ProfileSelectionState state) {
-        if (hooks == null || state == null) {
+        if (configManager == null || state == null) {
             return;
         }
-        hooks.writeConfiguration(configGroup, selectedKeyName, state.selectedProfileKeyForPersistence());
-        hooks.writeConfiguration(configGroup, modeKeyName, state.selectionModeForPersistence());
+        configManager.setConfiguration(configGroup, selectedKeyName, state.selectedProfileKeyForPersistence());
+        configManager.setConfiguration(configGroup, modeKeyName, state.selectionModeForPersistence());
     }
 
     private boolean isBlank(String value) {

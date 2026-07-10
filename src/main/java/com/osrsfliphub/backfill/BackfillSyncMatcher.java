@@ -38,38 +38,13 @@ import org.slf4j.LoggerFactory;
 final class BackfillSyncMatcher {
     private static final Logger log = LoggerFactory.getLogger(BackfillSyncMatcher.class);
 
-    interface Hooks {
-        boolean isDebugEnabled();
-        void logDebug(String message);
-    }
-
-    private final int maxBackfillProfileCount;
-    private final double backfillMatchScoreThreshold;
-    private final Hooks hooks;
+    private final int maxBackfillProfileCount =
+        Math.max(1, GeLifecyclePluginConstants.MAX_BACKFILL_PROFILE_COUNT);
+    private final double backfillMatchScoreThreshold =
+        Math.max(0.0d, GeLifecyclePluginConstants.BACKFILL_MATCH_SCORE_THRESHOLD);
 
     @Inject
     BackfillSyncMatcher() {
-        this(GeLifecyclePluginConstants.MAX_BACKFILL_PROFILE_COUNT,
-            GeLifecyclePluginConstants.BACKFILL_MATCH_SCORE_THRESHOLD,
-            new Hooks() {
-                @Override
-                public boolean isDebugEnabled() {
-                    return log.isDebugEnabled();
-                }
-
-                @Override
-                public void logDebug(String message) {
-                    if (message != null && log.isDebugEnabled()) {
-                        log.debug(message);
-                    }
-                }
-            });
-    }
-
-    BackfillSyncMatcher(int maxBackfillProfileCount, double backfillMatchScoreThreshold, Hooks hooks) {
-        this.maxBackfillProfileCount = Math.max(1, maxBackfillProfileCount);
-        this.backfillMatchScoreThreshold = Math.max(0.0d, backfillMatchScoreThreshold);
-        this.hooks = hooks;
     }
 
     Set<Long> inferLikelySyncedProfiles(Set<Long> profileKeys,
@@ -117,11 +92,9 @@ final class BackfillSyncMatcher {
         }
 
         if (bestScore > backfillMatchScoreThreshold) {
-            if (hooks != null && hooks.isDebugEnabled()) {
-                hooks.logDebug(
-                    "FlipHub backfill skipped: best summary match score " + bestScore
-                        + " exceeds threshold " + backfillMatchScoreThreshold
-                );
+            if (log.isDebugEnabled()) {
+                log.debug("FlipHub backfill skipped: best summary match score " + bestScore
+                    + " exceeds threshold " + backfillMatchScoreThreshold);
             }
             return null;
         }
