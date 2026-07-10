@@ -34,74 +34,48 @@ import net.runelite.api.GrandExchangeOfferState;
 
 @Singleton
 final class BackfillUploader {
-    interface Hooks {
-        boolean attemptRefresh(String currentToken);
-        void clearSession();
-        void setUploadBlocked(String reason);
-        void recordUploadAttempt();
-        void recordUploadSuccess(int uploadedCount, int statusCode);
-        void recordUploadFailure(Integer statusCode, String errorMessage, boolean dropped, int droppedCount);
-    }
-
-    private final Hooks hooks;
-
     @Inject
     BackfillUploader() {
-        this(productionHooks());
-    }
-
-    BackfillUploader(Hooks hooks) {
-        this.hooks = hooks;
     }
 
     private static UploadEventDispatchFacadeService uploadEventDispatchFacade() {
         return PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
     }
 
-    private static Hooks productionHooks() {
-        return new Hooks() {
-            @Override
-            public boolean attemptRefresh(String currentToken) {
-                return PluginInjectorBridge.get(SessionRefreshService.class).attemptRefresh(currentToken);
-            }
+    private boolean attemptRefresh(String currentToken) {
+        return PluginInjectorBridge.get(SessionRefreshService.class).attemptRefresh(currentToken);
+    }
 
-            @Override
-            public void clearSession() {
-                PluginInjectorBridge.get(SessionRefreshService.class).clearSession();
-            }
+    private void clearSession() {
+        PluginInjectorBridge.get(SessionRefreshService.class).clearSession();
+    }
 
-            @Override
-            public void setUploadBlocked(String reason) {
-                UploadEventDispatchFacadeService service = uploadEventDispatchFacade();
-                if (service != null) {
-                    service.markBlocked(reason);
-                }
-            }
+    private void setUploadBlocked(String reason) {
+        UploadEventDispatchFacadeService service = uploadEventDispatchFacade();
+        if (service != null) {
+            service.markBlocked(reason);
+        }
+    }
 
-            @Override
-            public void recordUploadAttempt() {
-                UploadEventDispatchFacadeService service = uploadEventDispatchFacade();
-                if (service != null) {
-                    service.markAttempt();
-                }
-            }
+    private void recordUploadAttempt() {
+        UploadEventDispatchFacadeService service = uploadEventDispatchFacade();
+        if (service != null) {
+            service.markAttempt();
+        }
+    }
 
-            @Override
-            public void recordUploadSuccess(int uploadedCount, int statusCode) {
-                UploadEventDispatchFacadeService service = uploadEventDispatchFacade();
-                if (service != null) {
-                    service.markSuccess(uploadedCount, statusCode);
-                }
-            }
+    private void recordUploadSuccess(int uploadedCount, int statusCode) {
+        UploadEventDispatchFacadeService service = uploadEventDispatchFacade();
+        if (service != null) {
+            service.markSuccess(uploadedCount, statusCode);
+        }
+    }
 
-            @Override
-            public void recordUploadFailure(Integer statusCode, String errorMessage, boolean dropped, int droppedCount) {
-                UploadEventDispatchFacadeService service = uploadEventDispatchFacade();
-                if (service != null) {
-                    service.markFailure(statusCode, errorMessage, dropped, droppedCount);
-                }
-            }
-        };
+    private void recordUploadFailure(Integer statusCode, String errorMessage, boolean dropped, int droppedCount) {
+        UploadEventDispatchFacadeService service = uploadEventDispatchFacade();
+        if (service != null) {
+            service.markFailure(statusCode, errorMessage, dropped, droppedCount);
+        }
     }
 
     GeEvent buildBackfillEvent(long profileKey, LocalTradeDelta delta, Integer world) {
@@ -145,23 +119,23 @@ final class BackfillUploader {
     }
 
     boolean sendBatch(ApiClient apiClient, PluginConfig config, List<GeEvent> batch) {
-        if (batch == null || batch.isEmpty() || apiClient == null || config == null || hooks == null) {
+        if (batch == null || batch.isEmpty() || apiClient == null || config == null) {
             return false;
         }
         String sessionToken = config.sessionToken();
         String signingSecret = config.signingSecret();
         if (!ApiStatusPolicy.hasCredentials(sessionToken, signingSecret)) {
-            hooks.setUploadBlocked("Backfill paused: plugin is not linked.");
+            setUploadBlocked("Backfill paused: plugin is not linked.");
             return false;
         }
 
-        hooks.recordUploadAttempt();
+        recordUploadAttempt();
         try {
             ApiClient.EventUploadResponse upload = apiClient.sendEventsDetailed(sessionToken, signingSecret, batch);
             int status = upload != null ? upload.status_code : 500;
             if (status < 400) {
                 if (!isBackfillUploadUsable(upload, batch.size())) {
-                    hooks.recordUploadFailure(
+                    recordUploadFailure(
                         status,
                         "Backfill upload rejected all events in batch.",
                         false,
@@ -169,11 +143,11 @@ final class BackfillUploader {
                     );
                     return false;
                 }
-                hooks.recordUploadSuccess(resolveBackfillUploadedCount(upload, batch.size()), status);
+                recordUploadSuccess(resolveBackfillUploadedCount(upload, batch.size()), status);
                 return true;
             }
             if (ApiStatusPolicy.isAuthStatus(status)) {
-                boolean refreshed = hooks.attemptRefresh(sessionToken);
+                boolean refreshed = attemptRefresh(sessionToken);
                 if (refreshed) {
                     String refreshedToken = config.sessionToken();
                     String refreshedSecret = config.signingSecret();
@@ -183,7 +157,7 @@ final class BackfillUploader {
                         int retryStatus = retryUpload != null ? retryUpload.status_code : 500;
                         if (retryStatus < 400) {
                             if (!isBackfillUploadUsable(retryUpload, batch.size())) {
-                                hooks.recordUploadFailure(
+                                recordUploadFailure(
                                     retryStatus,
                                     "Backfill upload rejected all events in batch.",
                                     false,
@@ -191,23 +165,23 @@ final class BackfillUploader {
                                 );
                                 return false;
                             }
-                            hooks.recordUploadSuccess(resolveBackfillUploadedCount(retryUpload, batch.size()), retryStatus);
+                            recordUploadSuccess(resolveBackfillUploadedCount(retryUpload, batch.size()), retryStatus);
                             return true;
                         }
-                        hooks.recordUploadFailure(retryStatus,
+                        recordUploadFailure(retryStatus,
                             "Backfill upload failed with status " + retryStatus + ".", false, 0);
                         return false;
                     }
                 }
-                hooks.clearSession();
-                hooks.recordUploadFailure(status, "Backfill upload unauthorized.", false, 0);
+                clearSession();
+                recordUploadFailure(status, "Backfill upload unauthorized.", false, 0);
                 return false;
             }
-            hooks.recordUploadFailure(status, "Backfill upload failed with status " + status + ".", false, 0);
+            recordUploadFailure(status, "Backfill upload failed with status " + status + ".", false, 0);
             return false;
         } catch (IOException | RuntimeException ex) {
             String message = ex != null && ex.getMessage() != null ? ex.getMessage() : "Unknown backfill exception";
-            hooks.recordUploadFailure(-1, "Backfill upload exception: " + message, false, 0);
+            recordUploadFailure(-1, "Backfill upload exception: " + message, false, 0);
             return false;
         }
     }
