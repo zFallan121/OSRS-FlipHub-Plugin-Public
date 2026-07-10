@@ -38,15 +38,6 @@ import net.runelite.client.game.ItemManager;
 
 @Singleton
 final class LocalItemsAssembler {
-    interface Hooks {
-        String getCachedItemName(int itemId);
-        void cacheItemName(int itemId);
-        void applyGuidePrices(FlipHubItem item, int itemId);
-        void applyLocalTradeInfo(FlipHubItem item, LocalTradeInfo info);
-        void applyLocalLimitInfo(FlipHubItem item, int itemId, LocalLimitInfo info);
-        void applyMarginInfo(FlipHubItem item);
-    }
-
     static final class Result {
         final List<FlipHubItem> items;
         final Set<Integer> itemsNeedingLimits;
@@ -57,64 +48,37 @@ final class LocalItemsAssembler {
         }
     }
 
-    private final Hooks hooks;
+    private final ItemManager itemManager;
 
     @Inject
     LocalItemsAssembler(ItemManager itemManager) {
-        this(new Hooks() {
-            @Override
-            public String getCachedItemName(int itemId) {
-                if (itemManager == null) {
-                    return null;
-                }
-                ItemLookupService service = PluginInjectorBridge.get(ItemLookupService.class);
-                return service != null ? service.getCachedItemName(itemId) : null;
-            }
-
-            @Override
-            public void cacheItemName(int itemId) {
-                ItemLookupService service = PluginInjectorBridge.get(ItemLookupService.class);
-                if (service != null) {
-                    service.cacheItemName(itemId);
-                }
-            }
-
-            @Override
-            public void applyGuidePrices(FlipHubItem item, int itemId) {
-                LocalItemEnrichmentService service = PluginInjectorBridge.get(LocalItemEnrichmentService.class);
-                if (service != null) {
-                    service.applyGuidePrices(item, itemId, true);
-                }
-            }
-
-            @Override
-            public void applyLocalTradeInfo(FlipHubItem item, LocalTradeInfo info) {
-                LocalItemEnrichmentService service = PluginInjectorBridge.get(LocalItemEnrichmentService.class);
-                if (service != null) {
-                    service.applyLocalTradeInfo(item, info);
-                }
-            }
-
-            @Override
-            public void applyLocalLimitInfo(FlipHubItem item, int itemId, LocalLimitInfo info) {
-                LocalItemEnrichmentService service = PluginInjectorBridge.get(LocalItemEnrichmentService.class);
-                if (service != null) {
-                    service.applyLocalLimitInfo(item, itemId, info);
-                }
-            }
-
-            @Override
-            public void applyMarginInfo(FlipHubItem item) {
-                LocalItemEnrichmentService service = PluginInjectorBridge.get(LocalItemEnrichmentService.class);
-                if (service != null) {
-                    service.applyMarginInfo(item);
-                }
-            }
-        });
+        this.itemManager = itemManager;
     }
 
-    LocalItemsAssembler(Hooks hooks) {
-        this.hooks = hooks;
+    private String getCachedItemName(int itemId) {
+        if (itemManager == null) {
+            return null;
+        }
+        ItemLookupService service = PluginInjectorBridge.get(ItemLookupService.class);
+        return service != null ? service.getCachedItemName(itemId) : null;
+    }
+
+    private void cacheItemName(int itemId) {
+        ItemLookupService service = PluginInjectorBridge.get(ItemLookupService.class);
+        if (service != null) {
+            service.cacheItemName(itemId);
+        }
+    }
+
+    private void applyItemInfo(FlipHubItem item, int itemId, LocalTradeInfo tradeInfo, LocalLimitInfo limitInfo) {
+        LocalItemEnrichmentService service = PluginInjectorBridge.get(LocalItemEnrichmentService.class);
+        if (service == null) {
+            return;
+        }
+        service.applyGuidePrices(item, itemId, true);
+        service.applyLocalTradeInfo(item, tradeInfo);
+        service.applyLocalLimitInfo(item, itemId, limitInfo);
+        service.applyMarginInfo(item);
     }
 
     Result assemble(GrandExchangeOffer[] offers,
@@ -150,14 +114,9 @@ final class LocalItemsAssembler {
             FlipHubItem item = new FlipHubItem();
             item.item_id = itemId;
             item.item_name = name;
-            if (hooks != null) {
-                hooks.applyGuidePrices(item, itemId);
-            }
-            if (hooks != null) {
-                hooks.applyLocalTradeInfo(item, tradeInfo != null ? tradeInfo.get(itemId) : null);
-                hooks.applyLocalLimitInfo(item, itemId, limitInfo != null ? limitInfo.get(itemId) : null);
-                hooks.applyMarginInfo(item);
-            }
+            applyItemInfo(item, itemId,
+                tradeInfo != null ? tradeInfo.get(itemId) : null,
+                limitInfo != null ? limitInfo.get(itemId) : null);
             if (!seenItemIds.contains(itemId)) {
                 items.add(item);
                 seenItemIds.add(itemId);
@@ -181,12 +140,8 @@ final class LocalItemsAssembler {
                 FlipHubItem item = new FlipHubItem();
                 item.item_id = itemId;
                 item.item_name = name;
-                if (hooks != null) {
-                    hooks.applyGuidePrices(item, itemId);
-                    hooks.applyLocalTradeInfo(item, entry.getValue());
-                    hooks.applyLocalLimitInfo(item, itemId, limitInfo != null ? limitInfo.get(itemId) : null);
-                    hooks.applyMarginInfo(item);
-                }
+                applyItemInfo(item, itemId, entry.getValue(),
+                    limitInfo != null ? limitInfo.get(itemId) : null);
                 items.add(item);
                 seenItemIds.add(itemId);
                 itemsNeedingLimits.add(itemId);
@@ -197,12 +152,10 @@ final class LocalItemsAssembler {
     }
 
     private String resolveName(int itemId) {
-        String name = hooks != null ? hooks.getCachedItemName(itemId) : null;
+        String name = getCachedItemName(itemId);
         if (name == null || name.trim().isEmpty()) {
-            if (hooks != null) {
-                hooks.cacheItemName(itemId);
-                name = hooks.getCachedItemName(itemId);
-            }
+            cacheItemName(itemId);
+            name = getCachedItemName(itemId);
         }
         return name;
     }

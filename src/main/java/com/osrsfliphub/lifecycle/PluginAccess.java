@@ -48,4 +48,8 @@ final class PluginAccess {
         }
         return active;
     }
+
+    static GeLifecyclePlugin pluginOrNull() {
+        return plugin;
+    }
 }

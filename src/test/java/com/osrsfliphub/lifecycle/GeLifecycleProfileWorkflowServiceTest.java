@@ -189,44 +189,7 @@ public class GeLifecycleProfileWorkflowServiceTest {
                 () -> {}
             );
 
-            ProfileUiCoordinator profileUiCoordinator = new ProfileUiCoordinator(new ProfileUiCoordinator.Hooks() {
-                @Override
-                public boolean hasPanel() {
-                    return false;
-                }
-
-                @Override
-                public List<FlipHubProfileOption> buildProfileOptions() {
-                    return new ArrayList<>();
-                }
-
-                @Override
-                public String resolveSelectedProfileKeyForUi() {
-                    return GeLifecyclePluginConstants.ACCOUNTWIDE_KEY_STRING;
-                }
-
-                @Override
-                public void setProfileOptions(List<FlipHubProfileOption> options, String selectedKey) {
-                }
-
-                @Override
-                public String resolveProfileHeaderLabel() {
-                    return "Accountwide";
-                }
-
-                @Override
-                public boolean isLinked() {
-                    return false;
-                }
-
-                @Override
-                public void setProfileHeader(String label, boolean linked) {
-                }
-
-                @Override
-                public void updateUploadDiagnosticsUi() {
-                }
-            });
+            ProfileUiCoordinator profileUiCoordinator = new ProfileUiCoordinator();
 
             service = new GeLifecycleProfileWorkflowService(
                 accountwideKey,

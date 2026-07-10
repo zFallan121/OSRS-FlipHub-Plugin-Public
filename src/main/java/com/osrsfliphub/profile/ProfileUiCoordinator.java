@@ -31,104 +31,45 @@ import javax.inject.Singleton;
 
 @Singleton
 final class ProfileUiCoordinator {
-    interface Hooks {
-        boolean hasPanel();
-        List<FlipHubProfileOption> buildProfileOptions();
-        String resolveSelectedProfileKeyForUi();
-        void setProfileOptions(List<FlipHubProfileOption> options, String selectedKey);
-        String resolveProfileHeaderLabel();
-        boolean isLinked();
-        void setProfileHeader(String label, boolean linked);
-        void updateUploadDiagnosticsUi();
-    }
-
-    private final Hooks hooks;
-
     @Inject
     ProfileUiCoordinator() {
-        this(new Hooks() {
-            private FlipHubPanel panel() {
-                return PluginAccess.plugin().panel;
-            }
-
-            private ProfileSelectionPresentationFacadeService facade() {
-                return PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
-            }
-
-            @Override
-            public boolean hasPanel() {
-                return panel() != null;
-            }
-
-            @Override
-            public List<FlipHubProfileOption> buildProfileOptions() {
-                ProfileSelectionPresentationFacadeService service = facade();
-                return service != null ? service.buildProfileOptions() : Collections.emptyList();
-            }
-
-            @Override
-            public String resolveSelectedProfileKeyForUi() {
-                ProfileSelectionPresentationFacadeService service = facade();
-                return service != null ? service.resolveSelectedProfileKeyForUi() : null;
-            }
-
-            @Override
-            public void setProfileOptions(List<FlipHubProfileOption> options, String selectedKey) {
-                FlipHubPanel panel = panel();
-                if (panel != null) {
-                    panel.setProfileOptions(options, selectedKey);
-                }
-            }
-
-            @Override
-            public String resolveProfileHeaderLabel() {
-                ProfileSelectionPresentationFacadeService service = facade();
-                return service != null ? service.resolveProfileHeaderLabel() : null;
-            }
-
-            @Override
-            public boolean isLinked() {
-                ProfileSelectionPresentationFacadeService service = facade();
-                return service != null && service.isLinked();
-            }
-
-            @Override
-            public void setProfileHeader(String label, boolean linked) {
-                FlipHubPanel panel = panel();
-                if (panel != null) {
-                    panel.setProfileHeader(label, linked);
-                }
-            }
-
-            @Override
-            public void updateUploadDiagnosticsUi() {
-                UploadEventDispatchFacadeService service = PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
-                if (service != null) {
-                    service.updateUploadDiagnosticsUi();
-                }
-            }
-        });
     }
 
-    ProfileUiCoordinator(Hooks hooks) {
-        this.hooks = hooks;
+    private FlipHubPanel panel() {
+        GeLifecyclePlugin plugin = PluginAccess.pluginOrNull();
+        return plugin != null ? plugin.panel : null;
+    }
+
+    private ProfileSelectionPresentationFacadeService facade() {
+        return PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
     }
 
     void updateProfileOptionsUi() {
-        if (hooks == null || !hooks.hasPanel()) {
+        FlipHubPanel panel = panel();
+        ProfileSelectionPresentationFacadeService service = facade();
+        if (panel == null) {
             return;
         }
-        List<FlipHubProfileOption> options = hooks.buildProfileOptions();
-        String selected = hooks.resolveSelectedProfileKeyForUi();
-        hooks.setProfileOptions(options, selected);
+        List<FlipHubProfileOption> options =
+            service != null ? service.buildProfileOptions() : Collections.emptyList();
+        String selected = service != null ? service.resolveSelectedProfileKeyForUi() : null;
+        panel.setProfileOptions(options, selected);
     }
 
     void updateProfileHeader() {
-        if (hooks == null || !hooks.hasPanel()) {
+        FlipHubPanel panel = panel();
+        ProfileSelectionPresentationFacadeService service = facade();
+        if (panel == null) {
             return;
         }
-        hooks.setProfileHeader(hooks.resolveProfileHeaderLabel(), hooks.isLinked());
-        hooks.updateUploadDiagnosticsUi();
+        panel.setProfileHeader(
+            service != null ? service.resolveProfileHeaderLabel() : null,
+            service != null && service.isLinked());
+        UploadEventDispatchFacadeService uploadService =
+            PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
+        if (uploadService != null) {
+            uploadService.updateUploadDiagnosticsUi();
+        }
     }
 }
 
