@@ -31,79 +31,49 @@ import javax.inject.Singleton;
 
 @Singleton
 final class ProfileSelectionPresentationFacadeService {
-    interface Hooks {
-        ProfileSelectionResolverService getProfileSelectionResolverService();
-        ProfilePresentationService getProfilePresentationService();
-        ProfileCatalogService getProfileCatalogService();
-        LegacyLocalTradesStore getLegacyLocalTradesStore();
-        LocalAccountSessionService getLocalAccountSessionService();
-        LinkSessionGuardService getLinkSessionGuardService();
-        long resolveAccountHash();
-    }
-
     private final ProfileSelectionState profileSelection;
     private final Map<Long, String> profileDisplayNames;
     private final Map<Long, String> legacyNameKeysByHash;
-    private final Hooks hooks;
 
     @Inject
     ProfileSelectionPresentationFacadeService(PluginState pluginState) {
-        this(pluginState.getProfileSelection(),
-            pluginState.getProfileDisplayNames(),
-            pluginState.getLegacyNameKeysByHash(),
-            new Hooks() {
-                @Override
-                public ProfileSelectionResolverService getProfileSelectionResolverService() {
-                    return PluginInjectorBridge.get(ProfileSelectionResolverService.class);
-                }
-
-                @Override
-                public ProfilePresentationService getProfilePresentationService() {
-                    return PluginInjectorBridge.get(ProfilePresentationService.class);
-                }
-
-                @Override
-                public ProfileCatalogService getProfileCatalogService() {
-                    return PluginInjectorBridge.get(ProfileCatalogService.class);
-                }
-
-                @Override
-                public LegacyLocalTradesStore getLegacyLocalTradesStore() {
-                    return PluginInjectorBridge.get(LegacyLocalTradesStore.class);
-                }
-
-                @Override
-                public LocalAccountSessionService getLocalAccountSessionService() {
-                    return PluginInjectorBridge.get(LocalAccountSessionService.class);
-                }
-
-                @Override
-                public LinkSessionGuardService getLinkSessionGuardService() {
-                    return PluginInjectorBridge.get(LinkSessionGuardService.class);
-                }
-
-                @Override
-                public long resolveAccountHash() {
-                    LocalTradeSessionFacadeService facade =
-                        PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
-                    return facade != null ? facade.resolveAccountHash() : -1L;
-                }
-            });
+        this.profileSelection = pluginState.getProfileSelection();
+        this.profileDisplayNames = pluginState.getProfileDisplayNames();
+        this.legacyNameKeysByHash = pluginState.getLegacyNameKeysByHash();
     }
 
-    ProfileSelectionPresentationFacadeService(ProfileSelectionState profileSelection,
-                                              Map<Long, String> profileDisplayNames,
-                                              Map<Long, String> legacyNameKeysByHash,
-                                              Hooks hooks) {
-        this.profileSelection = profileSelection;
-        this.profileDisplayNames = profileDisplayNames;
-        this.legacyNameKeysByHash = legacyNameKeysByHash;
-        this.hooks = hooks;
+    private ProfileSelectionResolverService getProfileSelectionResolverService() {
+        return PluginInjectorBridge.get(ProfileSelectionResolverService.class);
+    }
+
+    private ProfilePresentationService getProfilePresentationService() {
+        return PluginInjectorBridge.get(ProfilePresentationService.class);
+    }
+
+    private ProfileCatalogService getProfileCatalogService() {
+        return PluginInjectorBridge.get(ProfileCatalogService.class);
+    }
+
+    private LegacyLocalTradesStore getLegacyLocalTradesStore() {
+        return PluginInjectorBridge.get(LegacyLocalTradesStore.class);
+    }
+
+    private LocalAccountSessionService getLocalAccountSessionService() {
+        return PluginInjectorBridge.get(LocalAccountSessionService.class);
+    }
+
+    private LinkSessionGuardService getLinkSessionGuardService() {
+        return PluginInjectorBridge.get(LinkSessionGuardService.class);
+    }
+
+    private long resolveAccountHash() {
+        LocalTradeSessionFacadeService facade = PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+        return facade != null ? facade.resolveAccountHash() : -1L;
     }
 
     String resolveSelectedProfileKeyForUi() {
-        return hooks != null && hooks.getProfileSelectionResolverService() != null
-            ? hooks.getProfileSelectionResolverService().resolveSelectedProfileKeyForUi(profileSelection)
+        return getProfileSelectionResolverService() != null
+            ? getProfileSelectionResolverService().resolveSelectedProfileKeyForUi(profileSelection)
             : String.valueOf(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY);
     }
 
@@ -112,33 +82,31 @@ final class ProfileSelectionPresentationFacadeService {
     }
 
     boolean hasSessionToken() {
-        return hooks != null
-            && hooks.getLinkSessionGuardService() != null
-            && hooks.getLinkSessionGuardService().hasSessionToken();
+        return getLinkSessionGuardService() != null
+            && getLinkSessionGuardService().hasSessionToken();
     }
 
     LinkSessionGuardService.Credentials resolveLinkedCredentials() {
-        return hooks != null && hooks.getLinkSessionGuardService() != null
-            ? hooks.getLinkSessionGuardService().resolveLinkedCredentials()
+        return getLinkSessionGuardService() != null
+            ? getLinkSessionGuardService().resolveLinkedCredentials()
             : null;
     }
 
     boolean isLinked() {
-        return hooks != null
-            && hooks.getLinkSessionGuardService() != null
-            && hooks.getLinkSessionGuardService().isLinked();
+        return getLinkSessionGuardService() != null
+            && getLinkSessionGuardService().isLinked();
     }
 
     long resolveSelectedProfileKey() {
-        return hooks != null && hooks.getProfileSelectionResolverService() != null
-            ? hooks.getProfileSelectionResolverService().resolveSelectedProfileKey(profileSelection)
+        return getProfileSelectionResolverService() != null
+            ? getProfileSelectionResolverService().resolveSelectedProfileKey(profileSelection)
             : GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
     }
 
     String resolveSelectedProfileLabel() {
         long key = resolveSelectedProfileKey();
-        return hooks != null && hooks.getProfilePresentationService() != null
-            ? hooks.getProfilePresentationService().resolveSelectedProfileLabel(
+        return getProfilePresentationService() != null
+            ? getProfilePresentationService().resolveSelectedProfileLabel(
                 key,
                 profileDisplayNames,
                 legacyNameKeysByHash
@@ -147,23 +115,23 @@ final class ProfileSelectionPresentationFacadeService {
     }
 
     String buildProfileKey(long accountHash) {
-        return hooks != null && hooks.getProfileSelectionResolverService() != null
-            ? hooks.getProfileSelectionResolverService().buildProfileKey(profileSelection, accountHash)
+        return getProfileSelectionResolverService() != null
+            ? getProfileSelectionResolverService().buildProfileKey(profileSelection, accountHash)
             : String.valueOf(accountHash);
     }
 
     String resolveDisplayName() {
-        return hooks != null && hooks.getLocalAccountSessionService() != null
-            ? hooks.getLocalAccountSessionService().resolveDisplayName()
+        return getLocalAccountSessionService() != null
+            ? getLocalAccountSessionService().resolveDisplayName()
             : null;
     }
 
     List<FlipHubProfileOption> buildProfileOptions() {
         Map<Long, String> diskProfiles = loadProfilesFromDisk();
-        long currentHash = hooks != null ? hooks.resolveAccountHash() : 0L;
+        long currentHash = resolveAccountHash();
         String display = resolveDisplayName();
-        return hooks != null && hooks.getProfilePresentationService() != null
-            ? hooks.getProfilePresentationService().buildProfileOptions(
+        return getProfilePresentationService() != null
+            ? getProfilePresentationService().buildProfileOptions(
                 profileDisplayNames,
                 legacyNameKeysByHash,
                 diskProfiles,
@@ -174,8 +142,8 @@ final class ProfileSelectionPresentationFacadeService {
     }
 
     String resolveLegacyDisplayNameForHash(long hash) {
-        return hooks != null && hooks.getLegacyLocalTradesStore() != null
-            ? hooks.getLegacyLocalTradesStore().resolveDisplayNameForHash(hash)
+        return getLegacyLocalTradesStore() != null
+            ? getLegacyLocalTradesStore().resolveDisplayNameForHash(hash)
             : null;
     }
 
@@ -184,8 +152,8 @@ final class ProfileSelectionPresentationFacadeService {
     }
 
     Map<Long, String> loadProfilesFromDisk() {
-        return hooks != null && hooks.getProfileCatalogService() != null
-            ? hooks.getProfileCatalogService().loadProfiles(profileDisplayNames, legacyNameKeysByHash)
+        return getProfileCatalogService() != null
+            ? getProfileCatalogService().loadProfiles(profileDisplayNames, legacyNameKeysByHash)
             : java.util.Collections.emptyMap();
     }
 }

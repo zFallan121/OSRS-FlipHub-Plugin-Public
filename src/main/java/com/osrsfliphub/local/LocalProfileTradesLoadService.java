@@ -32,139 +32,68 @@ import javax.inject.Singleton;
 
 @Singleton
 final class LocalProfileTradesLoadService {
-    interface Hooks {
-        ProfileTradesLoader.Result loadProfileTrades(long accountHash);
-        void putLoadedProfileFileMs(long accountHash, long fileMs);
-        void setLocalTradeDeltas(long accountHash, List<LocalTradeDelta> deltas);
-        void rebuildStatsCache(long accountHash, List<LocalTradeDelta> deltas);
-        void putProfileDisplayName(long accountHash, String displayName);
-        void cacheItemName(int itemId);
-        void persistLocalTrades(long accountHash);
-        void markAccountwideUploadDirty();
-        void scheduleRefreshSoon();
-        void triggerStatsRefresh();
-    }
-
-    private final long accountwideKey;
-    private final Hooks hooks;
+    private final long accountwideKey = GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
+    private final PluginState pluginState;
+    private final Gson gson;
 
     @Inject
     LocalProfileTradesLoadService(PluginState pluginState, Gson gson) {
-        this(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY, new Hooks() {
-            @Override
-            public ProfileTradesLoader.Result loadProfileTrades(long accountHash) {
-                ProfileTradesLoader loader = PluginInjectorBridge.get(ProfileTradesLoader.class);
-                if (gson == null || loader == null) {
-                    return null;
-                }
-                return loader.load(
-                    accountHash,
-                    pluginState.getLegacyNameKeysByHash(),
-                    GeLifecyclePluginConstants.MAX_LOCAL_TRADES,
-                    GeLifecyclePluginConstants.LOCAL_EVENT_BUCKET_MS,
-                    GeLifecyclePluginConstants.DUPLICATE_TRADE_WINDOW_MS);
-            }
-
-            @Override
-            public void putLoadedProfileFileMs(long accountHash, long fileMs) {
-                pluginState.getLoadedProfileFileMs().put(accountHash, fileMs);
-            }
-
-            @Override
-            public void setLocalTradeDeltas(long accountHash, List<LocalTradeDelta> deltas) {
-                synchronized (pluginState.getLocalStatsLock()) {
-                    pluginState.getLocalTradeDeltasByAccount()
-                        .put(accountHash, deltas != null ? deltas : new ArrayList<>());
-                }
-            }
-
-            @Override
-            public void rebuildStatsCache(long accountHash, List<LocalTradeDelta> deltas) {
-                LocalStatsCacheService service = PluginInjectorBridge.get(LocalStatsCacheService.class);
-                if (service != null) {
-                    service.rebuild(accountHash, deltas);
-                }
-            }
-
-            @Override
-            public void putProfileDisplayName(long accountHash, String displayName) {
-                if (displayName == null || displayName.trim().isEmpty()) {
-                    return;
-                }
-                pluginState.getProfileDisplayNames().put(accountHash, displayName.trim());
-            }
-
-            @Override
-            public void cacheItemName(int itemId) {
-                ItemLookupService service = PluginInjectorBridge.get(ItemLookupService.class);
-                if (service != null) {
-                    service.cacheItemName(itemId);
-                }
-            }
-
-            @Override
-            public void persistLocalTrades(long accountHash) {
-                PluginAccess.plugin().getLocalTradesRuntimeService().persistLocalTrades(accountHash);
-            }
-
-            @Override
-            public void markAccountwideUploadDirty() {
-                PluginAccess.plugin().markAccountwideUploadDirty();
-            }
-
-            @Override
-            public void scheduleRefreshSoon() {
-                PanelRefreshCoordinator coordinator = PluginAccess.plugin().getPanelRefreshCoordinator();
-                if (coordinator != null) {
-                    coordinator.scheduleRefreshSoon(PluginAccess.plugin().scheduler);
-                }
-            }
-
-            @Override
-            public void triggerStatsRefresh() {
-                PanelRefreshCoordinator coordinator = PluginAccess.plugin().getPanelRefreshCoordinator();
-                if (coordinator != null) {
-                    coordinator.triggerStatsRefresh(PluginAccess.plugin().scheduler);
-                }
-            }
-        });
+        this.pluginState = pluginState;
+        this.gson = gson;
     }
 
-    LocalProfileTradesLoadService(long accountwideKey, Hooks hooks) {
-        this.accountwideKey = accountwideKey;
-        this.hooks = hooks;
+    private ProfileTradesLoader.Result loadProfileTrades(long accountHash) {
+        ProfileTradesLoader loader = PluginInjectorBridge.get(ProfileTradesLoader.class);
+        if (gson == null || loader == null) {
+            return null;
+        }
+        return loader.load(
+            accountHash,
+            pluginState.getLegacyNameKeysByHash(),
+            GeLifecyclePluginConstants.MAX_LOCAL_TRADES,
+            GeLifecyclePluginConstants.LOCAL_EVENT_BUCKET_MS,
+            GeLifecyclePluginConstants.DUPLICATE_TRADE_WINDOW_MS);
     }
 
     boolean load(long accountHash, boolean persistAfterLoad) {
-        if (accountHash < 0 || hooks == null) {
+        if (accountHash < 0) {
             return false;
         }
-        ProfileTradesLoader.Result loaded = hooks.loadProfileTrades(accountHash);
+        ProfileTradesLoader.Result loaded = loadProfileTrades(accountHash);
         if (loaded == null) {
             return false;
         }
         if (loaded.profileFileModifiedMs > 0) {
-            hooks.putLoadedProfileFileMs(accountHash, loaded.profileFileModifiedMs);
+            pluginState.getLoadedProfileFileMs().put(accountHash, loaded.profileFileModifiedMs);
         }
         List<LocalTradeDelta> merged = loaded.deltas != null ? loaded.deltas : new ArrayList<>();
-        hooks.setLocalTradeDeltas(accountHash, new ArrayList<>(merged));
-        hooks.rebuildStatsCache(accountHash, merged);
+        synchronized (pluginState.getLocalStatsLock()) {
+            pluginState.getLocalTradeDeltasByAccount().put(accountHash, new ArrayList<>(merged));
+        }
+        LocalStatsCacheService statsCache = PluginInjectorBridge.get(LocalStatsCacheService.class);
+        if (statsCache != null) {
+            statsCache.rebuild(accountHash, merged);
+        }
         String resolvedName = loaded.resolvedDisplayName;
         if (resolvedName != null && !resolvedName.trim().isEmpty()) {
-            hooks.putProfileDisplayName(accountHash, resolvedName.trim());
+            pluginState.getProfileDisplayNames().put(accountHash, resolvedName.trim());
         }
+        ItemLookupService itemLookup = PluginInjectorBridge.get(ItemLookupService.class);
         for (LocalTradeDelta delta : merged) {
-            if (delta != null && delta.itemId > 0) {
-                hooks.cacheItemName(delta.itemId);
+            if (delta != null && delta.itemId > 0 && itemLookup != null) {
+                itemLookup.cacheItemName(delta.itemId);
             }
         }
         if (persistAfterLoad) {
-            hooks.persistLocalTrades(accountHash);
+            PluginAccess.plugin().getLocalTradesRuntimeService().persistLocalTrades(accountHash);
         } else if (accountHash != accountwideKey) {
-            hooks.markAccountwideUploadDirty();
+            PluginAccess.plugin().markAccountwideUploadDirty();
         }
-        hooks.scheduleRefreshSoon();
-        hooks.triggerStatsRefresh();
+        PanelRefreshCoordinator coordinator = PluginAccess.plugin().getPanelRefreshCoordinator();
+        if (coordinator != null) {
+            coordinator.scheduleRefreshSoon(PluginAccess.plugin().scheduler);
+            coordinator.triggerStatsRefresh(PluginAccess.plugin().scheduler);
+        }
         return true;
     }
 }
