@@ -32,82 +32,41 @@ import org.slf4j.Logger;
 
 @Singleton
 final class UploadEventDispatchFacadeService {
-    interface Hooks {
-        boolean isClientLoggedIn();
-        void requeue(List<GeEvent> batch);
-        boolean attemptRefresh(String currentToken);
-        void clearSession();
-        boolean isPanelVisible();
-        void updateProfileHeader();
-        void clearUploadDiagnosticsTooltip();
-    }
-
     private final UploadDiagnosticsState uploadState;
-    private final int maxPendingUploadEvents;
-    private final int maxBatchSize;
-    private final Hooks hooks;
+    private final int maxPendingUploadEvents = GeLifecyclePluginConstants.MAX_PENDING_UPLOAD_EVENTS;
+    private final int maxBatchSize = GeLifecyclePluginConstants.MAX_BATCH_SIZE;
 
     @Inject
     UploadEventDispatchFacadeService(PluginState pluginState) {
-        this(pluginState.getUploadState(),
-            GeLifecyclePluginConstants.MAX_PENDING_UPLOAD_EVENTS,
-            GeLifecyclePluginConstants.MAX_BATCH_SIZE,
-            new Hooks() {
-                @Override
-                public boolean isClientLoggedIn() {
-                    return PluginAccess.plugin().runtimeUtilityServices
-                        .isClientLoggedIn(PluginAccess.plugin().client);
-                }
-
-                @Override
-                public void requeue(List<GeEvent> batch) {
-                    PluginAccess.plugin().runtimeUtilityServices.requeue(
-                        PluginInjectorBridge.get(UploadEventDispatchFacadeService.class), batch);
-                }
-
-                @Override
-                public boolean attemptRefresh(String currentToken) {
-                    SessionRefreshService service = PluginInjectorBridge.get(SessionRefreshService.class);
-                    return service != null && service.attemptRefresh(currentToken);
-                }
-
-                @Override
-                public void clearSession() {
-                    SessionRefreshService service = PluginInjectorBridge.get(SessionRefreshService.class);
-                    if (service != null) {
-                        service.clearSession();
-                    }
-                }
-
-                @Override
-                public boolean isPanelVisible() {
-                    return PluginAccess.plugin().runtimeUtilityServices
-                        .isPanelVisible(PluginAccess.plugin().panel);
-                }
-
-                @Override
-                public void updateProfileHeader() {
-                    PluginAccess.plugin().getProfileWorkflowService().updateProfileHeader();
-                }
-
-                @Override
-                public void clearUploadDiagnosticsTooltip() {
-                    FlipHubPanel panel = PluginAccess.plugin().panel;
-                    if (panel != null) {
-                        panel.setUploadDiagnosticsTooltip(null);
-                    }
-                }
-            });
+        this.uploadState = pluginState.getUploadState();
     }
 
-    UploadEventDispatchFacadeService(UploadDiagnosticsState uploadState,
-                                     int maxPendingUploadEvents,
-                                     int maxBatchSize,
-                                     Hooks hooks) {
-        this.uploadState = uploadState;
-        this.maxPendingUploadEvents = maxPendingUploadEvents;
-        this.maxBatchSize = maxBatchSize;
-        this.hooks = hooks;
+    private boolean isClientLoggedIn() {
+        return PluginAccess.plugin().runtimeUtilityServices.isClientLoggedIn(PluginAccess.plugin().client);
+    }
+
+    private void requeue(List<GeEvent> batch) {
+        PluginAccess.plugin().runtimeUtilityServices.requeue(this, batch);
+    }
+
+    private boolean attemptRefresh(String currentToken) {
+        SessionRefreshService service = PluginInjectorBridge.get(SessionRefreshService.class);
+        return service != null && service.attemptRefresh(currentToken);
+    }
+
+    private void clearSession() {
+        SessionRefreshService service = PluginInjectorBridge.get(SessionRefreshService.class);
+        if (service != null) {
+            service.clearSession();
+        }
+    }
+
+    private boolean isPanelVisible() {
+        return PluginAccess.plugin().runtimeUtilityServices.isPanelVisible(PluginAccess.plugin().panel);
+    }
+
+    private void updateProfileHeader() {
+        PluginAccess.plugin().getProfileWorkflowService().updateProfileHeader();
     }
 
     void enqueueEvent(GeEvent event) {
@@ -158,8 +117,10 @@ final class UploadEventDispatchFacadeService {
     }
 
     void updateUploadDiagnosticsUi() {
-        if (hooks != null) {
-            hooks.clearUploadDiagnosticsTooltip();
+        GeLifecyclePlugin plugin = PluginAccess.pluginOrNull();
+        FlipHubPanel panel = plugin != null ? plugin.panel : null;
+        if (panel != null) {
+            panel.setUploadDiagnosticsTooltip(null);
         }
     }
 
@@ -167,32 +128,20 @@ final class UploadEventDispatchFacadeService {
         if (uploadState == null) {
             return;
         }
-        Predicate<String> refreshAttempt = token -> hooks != null && hooks.attemptRefresh(token);
+        Predicate<String> refreshAttempt = this::attemptRefresh;
         EventUploader.flushEvents(
             apiClient,
             config,
             maxBatchSize,
             new EventUploaderRuntimeHooks(
-                () -> hooks != null && hooks.isClientLoggedIn(),
+                this::isClientLoggedIn,
                 uploadState::getPendingUploadEvents,
                 uploadState::dequeueEvent,
-                batch -> {
-                    if (hooks != null) {
-                        hooks.requeue(batch);
-                    }
-                },
+                this::requeue,
                 refreshAttempt,
-                () -> {
-                    if (hooks != null) {
-                        hooks.clearSession();
-                    }
-                },
-                () -> hooks != null && hooks.isPanelVisible(),
-                () -> {
-                    if (hooks != null) {
-                        hooks.updateProfileHeader();
-                    }
-                },
+                this::clearSession,
+                this::isPanelVisible,
+                this::updateProfileHeader,
                 this::markBlocked,
                 this::markAttempt,
                 this::markSuccess,

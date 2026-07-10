@@ -32,119 +32,72 @@ import net.runelite.client.config.ConfigManager;
 
 @javax.inject.Singleton
 final class ProfileStorageFacadeService {
-    interface Hooks {
-        ProfileStore getProfileStore();
-        LegacyLocalTradesStore getLegacyLocalTradesStore();
-        boolean isLegacyReadEnabled();
-        boolean isWipeBarrierArmed(long accountHash);
-        String getLegacyNameKey(long accountHash);
-        String getProfileDisplayName(long accountHash);
-        void putLoadedProfileFileMs(long accountHash, long fileMs);
-    }
-
-    private final long accountwideKey;
-    private final int maxLocalTrades;
-    private final Hooks hooks;
+    private final long accountwideKey = GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
+    private final int maxLocalTrades = GeLifecyclePluginConstants.MAX_LOCAL_TRADES;
+    private final ConfigManager configManager;
+    private final Gson gson;
+    private final PluginState pluginState;
 
     @javax.inject.Inject
     ProfileStorageFacadeService(ConfigManager configManager, Gson gson, PluginState pluginState) {
-        this(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY,
-            GeLifecyclePluginConstants.MAX_LOCAL_TRADES,
-            new Hooks() {
-                @Override
-                public ProfileStore getProfileStore() {
-                    return PluginInjectorBridge.get(ProfileStore.class);
-                }
-
-                @Override
-                public LegacyLocalTradesStore getLegacyLocalTradesStore() {
-                    return PluginInjectorBridge.get(LegacyLocalTradesStore.class);
-                }
-
-                @Override
-                public boolean isLegacyReadEnabled() {
-                    return configManager != null && gson != null;
-                }
-
-                @Override
-                public boolean isWipeBarrierArmed(long accountHash) {
-                    GeHistoryWipeStateStore store = PluginInjectorBridge.get(GeHistoryWipeStateStore.class);
-                    return store != null && store.isWipeBarrierArmed(accountHash);
-                }
-
-                @Override
-                public String getLegacyNameKey(long accountHash) {
-                    return pluginState.getLegacyNameKeysByHash().get(accountHash);
-                }
-
-                @Override
-                public String getProfileDisplayName(long accountHash) {
-                    return pluginState.getProfileDisplayNames().get(accountHash);
-                }
-
-                @Override
-                public void putLoadedProfileFileMs(long accountHash, long fileMs) {
-                    pluginState.getLoadedProfileFileMs().put(accountHash, fileMs);
-                }
-            });
+        this.configManager = configManager;
+        this.gson = gson;
+        this.pluginState = pluginState;
     }
 
-    ProfileStorageFacadeService(long accountwideKey, int maxLocalTrades, Hooks hooks) {
-        this.accountwideKey = accountwideKey;
-        this.maxLocalTrades = maxLocalTrades;
-        this.hooks = hooks;
+    private ProfileStore profileStore() {
+        return PluginInjectorBridge.get(ProfileStore.class);
     }
 
     Path getProfilesDir() {
-        ProfileStore store = hooks != null ? hooks.getProfileStore() : null;
+        ProfileStore store = profileStore();
         return store != null ? store.getProfilesDir() : null;
     }
 
     Path getLegacyProfilesDir() {
-        ProfileStore store = hooks != null ? hooks.getProfileStore() : null;
+        ProfileStore store = profileStore();
         return store != null ? store.getLegacyProfilesDir() : null;
     }
 
     Path getProfileFile(long accountHash) {
-        ProfileStore store = hooks != null ? hooks.getProfileStore() : null;
+        ProfileStore store = profileStore();
         return store != null ? store.getProfileFile(accountHash, accountwideKey) : null;
     }
 
     ProfileData readProfileData(long accountHash) {
-        ProfileStore store = hooks != null ? hooks.getProfileStore() : null;
+        ProfileStore store = profileStore();
         return store != null ? store.readProfileData(accountHash, accountwideKey) : null;
     }
 
     ProfileData readProfileData(Path file) {
-        ProfileStore store = hooks != null ? hooks.getProfileStore() : null;
+        ProfileStore store = profileStore();
         return store != null ? store.readProfileData(file) : null;
     }
 
     void writeProfileData(long accountHash, List<LocalTradeDelta> deltas) {
-        if (hooks == null) {
-            return;
-        }
-        ProfileStore store = hooks.getProfileStore();
+        ProfileStore store = profileStore();
         if (store == null) {
             return;
         }
-        String displayName = accountHash == accountwideKey ? "Accountwide" : hooks.getProfileDisplayName(accountHash);
+        String displayName = accountHash == accountwideKey
+            ? "Accountwide" : pluginState.getProfileDisplayNames().get(accountHash);
         List<LocalTradeDelta> snapshot = deltas != null ? deltas : new ArrayList<>();
         long fileMs = store.writeProfileData(accountHash, accountwideKey, displayName, snapshot);
         if (fileMs > 0) {
-            hooks.putLoadedProfileFileMs(accountHash, fileMs);
+            pluginState.getLoadedProfileFileMs().put(accountHash, fileMs);
         }
     }
 
     List<LocalTradeDelta> readLegacyLocalTrades(long accountHash) {
-        if (hooks == null || !hooks.isLegacyReadEnabled() || accountHash <= 0) {
+        if (configManager == null || gson == null || accountHash <= 0) {
             return null;
         }
-        if (hooks.isWipeBarrierArmed(accountHash)) {
+        GeHistoryWipeStateStore wipeStore = PluginInjectorBridge.get(GeHistoryWipeStateStore.class);
+        if (wipeStore != null && wipeStore.isWipeBarrierArmed(accountHash)) {
             return null;
         }
         List<LocalTradeDelta> byName = null;
-        String legacyNameKey = hooks.getLegacyNameKey(accountHash);
+        String legacyNameKey = pluginState.getLegacyNameKeysByHash().get(accountHash);
         if (legacyNameKey != null) {
             byName = readLegacyLocalTrades(legacyNameKey);
         }
@@ -176,7 +129,7 @@ final class ProfileStorageFacadeService {
     }
 
     private List<LocalTradeDelta> readLegacyLocalTrades(String key) {
-        LegacyLocalTradesStore store = hooks != null ? hooks.getLegacyLocalTradesStore() : null;
+        LegacyLocalTradesStore store = PluginInjectorBridge.get(LegacyLocalTradesStore.class);
         return store != null ? store.readLocalTrades(key) : null;
     }
 
