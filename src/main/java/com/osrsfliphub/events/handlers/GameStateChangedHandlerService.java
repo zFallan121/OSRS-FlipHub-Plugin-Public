@@ -30,45 +30,11 @@ import net.runelite.api.GameState;
 
 @Singleton
 final class GameStateChangedHandlerService {
-    interface Hooks {
-        void persistOfferUpdateTimes();
-        void resetOfferUpdateStamps();
-        void clearSnapshots();
-        void disarmGeHistoryAutoSync();
-        void clearRecentTradeDeduper();
-        boolean isPanelAvailable();
-        void updateProfileOptionsUI();
-        void updateProfileHeader();
-        void armGeHistoryAutoSync();
-        void setLastLoginNow();
-        void loadOfferUpdateTimesForCurrentAccount();
-        void updateLocalAccountSessionStart();
-        void updateProfileForLogin();
-        void primeOfferSnapshots();
-        boolean hasSessionToken();
-        void resetLocalTradesLoadState();
-        void scheduleLocalTradesLoad();
-        void refreshWikiLatestPrices();
-        String getLinkInput();
-        void attemptLink(String linkInput);
-        boolean isPanelVisible();
-        void setPanelVisible(boolean visible);
-        void triggerPanelRefresh();
-        void triggerStatsRefresh();
-        boolean hasScheduler();
-        boolean isLinked();
-        void requestBackfillAttempt(int delaySeconds, boolean forceRefresh);
-    }
-
-    private final Hooks hooks;
+    private final PluginConfig config;
 
     @Inject
     GameStateChangedHandlerService(PluginConfig config) {
-        this(productionHooks(config));
-    }
-
-    GameStateChangedHandlerService(Hooks hooks) {
-        this.hooks = hooks;
+        this.config = config;
     }
 
     private static GeLifecycleOfferStampStateServices offerStampState() {
@@ -83,223 +49,72 @@ final class GameStateChangedHandlerService {
         return PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
     }
 
-    private static Hooks productionHooks(PluginConfig config) {
-        return new Hooks() {
-            @Override
-            public void persistOfferUpdateTimes() {
-                offerStampState().persistOfferUpdateTimes();
-            }
-
-            @Override
-            public void resetOfferUpdateStamps() {
-                offerStampState().resetOfferUpdateStampsOnLogout();
-            }
-
-            @Override
-            public void clearSnapshots() {
-                PluginAccess.plugin().snapshots.clear();
-            }
-
-            @Override
-            public void disarmGeHistoryAutoSync() {
-                PluginInjectorBridge.get(GeHistoryAutoSyncStateService.class).disarm();
-            }
-
-            @Override
-            public void clearRecentTradeDeduper() {
-                RecentTradeDeduper deduper =
-                    PluginInjectorBridge.get(RecentTradeDeduper.class);
-                if (deduper != null) {
-                    deduper.clearAll();
-                }
-            }
-
-            @Override
-            public boolean isPanelAvailable() {
-                return PluginAccess.plugin().panel != null;
-            }
-
-            @Override
-            public void updateProfileOptionsUI() {
-                profileWorkflow().updateProfileOptionsUI();
-            }
-
-            @Override
-            public void updateProfileHeader() {
-                profileWorkflow().updateProfileHeader();
-            }
-
-            @Override
-            public void armGeHistoryAutoSync() {
-                PluginInjectorBridge.get(GeHistoryAutoSyncStateService.class).arm();
-            }
-
-            @Override
-            public void setLastLoginNow() {
-                offerStampState().setLastLoginNow();
-            }
-
-            @Override
-            public void loadOfferUpdateTimesForCurrentAccount() {
-                offerStampState().loadOfferUpdateTimesForCurrentAccount();
-            }
-
-            @Override
-            public void updateLocalAccountSessionStart() {
-                LocalTradeSessionFacadeService service =
-                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
-                if (service != null) {
-                    service.updateLocalAccountSessionStart();
-                }
-            }
-
-            @Override
-            public void updateProfileForLogin() {
-                profileWorkflow().updateProfileForLogin();
-            }
-
-            @Override
-            public void primeOfferSnapshots() {
-                profileWorkflow().primeOfferSnapshots();
-            }
-
-            @Override
-            public boolean hasSessionToken() {
-                ProfileSelectionPresentationFacadeService service = profileSelectionFacade();
-                return service != null && service.hasSessionToken();
-            }
-
-            @Override
-            public void resetLocalTradesLoadState() {
-                GeLifecyclePlugin plugin = PluginAccess.plugin();
-                plugin.localTradesLoadedThisLogin = false;
-                plugin.localTradesLoadState.setLastAttemptMs(0L);
-            }
-
-            @Override
-            public void scheduleLocalTradesLoad() {
-                PluginAccess.plugin().getLocalTradesRuntimeService().scheduleLocalTradesLoad();
-            }
-
-            @Override
-            public void refreshWikiLatestPrices() {
-                WikiPriceService service = PluginInjectorBridge.get(WikiPriceService.class);
-                if (service != null) {
-                    service.refreshPrices();
-                }
-            }
-
-            @Override
-            public String getLinkInput() {
-                LinkAttemptService linkAttemptService = PluginInjectorBridge.get(LinkAttemptService.class);
-                if (linkAttemptService == null || config == null) {
-                    return null;
-                }
-                return linkAttemptService.resolveLinkInput(config.licenseKey(), config.linkCode());
-            }
-
-            @Override
-            public void attemptLink(String linkInput) {
-                PluginInjectorBridge.get(LinkAttemptService.class).attemptLink(linkInput);
-            }
-
-            @Override
-            public boolean isPanelVisible() {
-                GeLifecyclePlugin plugin = PluginAccess.plugin();
-                return plugin.runtimeUtilityServices.isPanelVisible(plugin.panel);
-            }
-
-            @Override
-            public void setPanelVisible(boolean visible) {
-                PluginAccess.plugin().panelVisible = visible;
-            }
-
-            @Override
-            public void triggerPanelRefresh() {
-                GeLifecyclePlugin plugin = PluginAccess.plugin();
-                PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
-                if (coordinator != null) {
-                    coordinator.triggerPanelRefresh(plugin.scheduler);
-                }
-            }
-
-            @Override
-            public void triggerStatsRefresh() {
-                GeLifecyclePlugin plugin = PluginAccess.plugin();
-                PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
-                if (coordinator != null) {
-                    coordinator.triggerStatsRefresh(plugin.scheduler);
-                }
-            }
-
-            @Override
-            public boolean hasScheduler() {
-                return PluginAccess.plugin().scheduler != null;
-            }
-
-            @Override
-            public boolean isLinked() {
-                ProfileSelectionPresentationFacadeService service = profileSelectionFacade();
-                return service != null && service.isLinked();
-            }
-
-            @Override
-            public void requestBackfillAttempt(int delaySeconds, boolean forceRefresh) {
-                GeLifecyclePlugin plugin = PluginAccess.plugin();
-                UploadBackfillDispatchService dispatch =
-                    PluginInjectorBridge.get(UploadBackfillDispatchService.class);
-                if (dispatch != null && plugin.scheduler != null) {
-                    dispatch.requestBackfillAttempt(plugin.scheduler, delaySeconds, forceRefresh);
-                }
-            }
-        };
-    }
-
     void handle(GameState gameState) {
-        if (hooks == null || gameState == null) {
+        if (gameState == null) {
             return;
         }
+        GeLifecyclePlugin plugin = PluginAccess.plugin();
 
         if (gameState != GameState.LOGGED_IN) {
-            hooks.persistOfferUpdateTimes();
-            hooks.resetOfferUpdateStamps();
-            hooks.clearSnapshots();
-            hooks.disarmGeHistoryAutoSync();
-            hooks.clearRecentTradeDeduper();
-            if (hooks.isPanelAvailable()) {
-                hooks.updateProfileOptionsUI();
-                hooks.updateProfileHeader();
+            offerStampState().persistOfferUpdateTimes();
+            offerStampState().resetOfferUpdateStampsOnLogout();
+            plugin.snapshots.clear();
+            PluginInjectorBridge.get(GeHistoryAutoSyncStateService.class).disarm();
+            RecentTradeDeduper deduper = PluginInjectorBridge.get(RecentTradeDeduper.class);
+            if (deduper != null) {
+                deduper.clearAll();
+            }
+            if (plugin.panel != null) {
+                profileWorkflow().updateProfileOptionsUI();
+                profileWorkflow().updateProfileHeader();
             }
             return;
         }
 
-        hooks.armGeHistoryAutoSync();
-        hooks.setLastLoginNow();
-        hooks.loadOfferUpdateTimesForCurrentAccount();
-        hooks.updateLocalAccountSessionStart();
-        hooks.updateProfileForLogin();
-        hooks.primeOfferSnapshots();
+        PluginInjectorBridge.get(GeHistoryAutoSyncStateService.class).arm();
+        offerStampState().setLastLoginNow();
+        offerStampState().loadOfferUpdateTimesForCurrentAccount();
+        LocalTradeSessionFacadeService tradeSession = PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+        if (tradeSession != null) {
+            tradeSession.updateLocalAccountSessionStart();
+        }
+        profileWorkflow().updateProfileForLogin();
+        profileWorkflow().primeOfferSnapshots();
 
-        if (!hooks.hasSessionToken()) {
-            hooks.resetLocalTradesLoadState();
-            hooks.scheduleLocalTradesLoad();
-            hooks.refreshWikiLatestPrices();
+        ProfileSelectionPresentationFacadeService selectionFacade = profileSelectionFacade();
+        if (selectionFacade == null || !selectionFacade.hasSessionToken()) {
+            plugin.localTradesLoadedThisLogin = false;
+            plugin.localTradesLoadState.setLastAttemptMs(0L);
+            plugin.getLocalTradesRuntimeService().scheduleLocalTradesLoad();
+            WikiPriceService wikiPrices = PluginInjectorBridge.get(WikiPriceService.class);
+            if (wikiPrices != null) {
+                wikiPrices.refreshPrices();
+            }
         }
 
-        String linkInput = hooks.getLinkInput();
+        LinkAttemptService linkAttemptService = PluginInjectorBridge.get(LinkAttemptService.class);
+        String linkInput = linkAttemptService != null && config != null
+            ? linkAttemptService.resolveLinkInput(config.licenseKey(), config.linkCode())
+            : null;
         if (linkInput != null && !linkInput.trim().isEmpty()) {
-            hooks.attemptLink(linkInput.trim());
+            linkAttemptService.attemptLink(linkInput.trim());
         }
 
-        boolean visible = hooks.isPanelVisible();
-        hooks.setPanelVisible(visible);
+        boolean visible = plugin.runtimeUtilityServices.isPanelVisible(plugin.panel);
+        plugin.panelVisible = visible;
         if (visible) {
-            hooks.triggerPanelRefresh();
-            hooks.triggerStatsRefresh();
+            PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
+            if (coordinator != null) {
+                coordinator.triggerPanelRefresh(plugin.scheduler);
+                coordinator.triggerStatsRefresh(plugin.scheduler);
+            }
         }
 
-        if (hooks.hasScheduler() && hooks.isLinked()) {
-            hooks.requestBackfillAttempt(8, true);
+        if (plugin.scheduler != null && selectionFacade != null && selectionFacade.isLinked()) {
+            UploadBackfillDispatchService dispatch = PluginInjectorBridge.get(UploadBackfillDispatchService.class);
+            if (dispatch != null) {
+                dispatch.requestBackfillAttempt(plugin.scheduler, 8, true);
+            }
         }
     }
 }
