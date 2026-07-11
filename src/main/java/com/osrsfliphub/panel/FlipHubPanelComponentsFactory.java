@@ -91,30 +91,15 @@ final class FlipHubPanelComponentsFactory {
 
         FlipHubItemCardBuilder itemCardBuilder = new FlipHubItemCardBuilder(
             valueFormatService,
-            new FlipHubItemCardBuilderPluginHooks(
-                uiStyler::font,
-                uiStyler::fontBold,
-                uiStyler::fontSemiBold,
-                uiStyler::fontSymbol,
-                itemIconResolver::setItemIcon,
-                externalLinkCoordinator::attachOpenItemPageHandler,
-                itemId -> bookmarkStore != null && bookmarkStore.isBookmarked(itemId),
-                itemId -> {
-                    if (bookmarkStore != null) {
-                        bookmarkStore.toggleBookmark(itemId);
-                    }
-                },
-                () -> panelState.showBookmarkedOnly,
-                renderItems,
-                itemId -> {
-                    if (hiddenItemStore != null && itemId > 0) {
-                        hiddenItemStore.hideItem(itemId);
-                    }
-                },
-                ageTooltipCoordinator::registerAgePair,
-                ageTooltipCoordinator::registerCountdownLabel,
-                wheelScrollCoordinator::installWheelForwarder
-            )
+            uiStyler,
+            itemIconResolver,
+            externalLinkCoordinator,
+            bookmarkStore,
+            hiddenItemStore,
+            panelState,
+            renderItems,
+            ageTooltipCoordinator,
+            wheelScrollCoordinator
         );
 
         FlipHubItemListContentRenderer itemListContentRenderer = new FlipHubItemListContentRenderer(

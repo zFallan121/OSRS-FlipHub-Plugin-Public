@@ -47,29 +47,47 @@ import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 
 final class FlipHubItemCardBuilder {
-    interface Hooks {
-        Font font(float size);
-        Font fontBold(float size);
-        Font fontSemiBold(float size);
-        Font fontSymbol(float size);
-        void setItemIcon(JLabel label, int itemId);
-        void attachOpenItemPageHandler(JComponent component, int itemId, String itemName);
-        boolean isBookmarked(int itemId);
-        void toggleBookmark(int itemId);
-        boolean isShowBookmarkedOnly();
-        void renderItems();
-        void hideItem(int itemId);
-        void registerAgePair(Long buyTimestampMs, Long sellTimestampMs, LineComponents buyLine, LineComponents sellLine);
-        void registerCountdownLabel(JLabel label, Long remainingMs, long asOfMs);
-        void installWheelForwarder(Component component);
+    private final FlipHubPanelValueFormatService valueFormatService;
+    private final FlipHubUiStyler uiStyler;
+    private final FlipHubItemIconResolver itemIconResolver;
+    private final FlipHubExternalLinkCoordinator externalLinkCoordinator;
+    private final FlipHubPanelBookmarkStore bookmarkStore;
+    private final FlipHubPanelHiddenItemStore hiddenItemStore;
+    private final FlipHubPanelMutableState panelState;
+    private final Runnable renderItems;
+    private final FlipHubAgeTooltipCoordinator ageTooltipCoordinator;
+    private final FlipHubWheelScrollCoordinator wheelScrollCoordinator;
+
+    FlipHubItemCardBuilder(FlipHubPanelValueFormatService valueFormatService,
+                           FlipHubUiStyler uiStyler,
+                           FlipHubItemIconResolver itemIconResolver,
+                           FlipHubExternalLinkCoordinator externalLinkCoordinator,
+                           FlipHubPanelBookmarkStore bookmarkStore,
+                           FlipHubPanelHiddenItemStore hiddenItemStore,
+                           FlipHubPanelMutableState panelState,
+                           Runnable renderItems,
+                           FlipHubAgeTooltipCoordinator ageTooltipCoordinator,
+                           FlipHubWheelScrollCoordinator wheelScrollCoordinator) {
+        this.valueFormatService = valueFormatService;
+        this.uiStyler = uiStyler;
+        this.itemIconResolver = itemIconResolver;
+        this.externalLinkCoordinator = externalLinkCoordinator;
+        this.bookmarkStore = bookmarkStore;
+        this.hiddenItemStore = hiddenItemStore;
+        this.panelState = panelState;
+        this.renderItems = renderItems;
+        this.ageTooltipCoordinator = ageTooltipCoordinator;
+        this.wheelScrollCoordinator = wheelScrollCoordinator;
     }
 
-    private final FlipHubPanelValueFormatService valueFormatService;
-    private final Hooks hooks;
+    private boolean isBookmarked(int itemId) {
+        return bookmarkStore != null && bookmarkStore.isBookmarked(itemId);
+    }
 
-    FlipHubItemCardBuilder(FlipHubPanelValueFormatService valueFormatService, Hooks hooks) {
-        this.valueFormatService = valueFormatService;
-        this.hooks = hooks;
+    private void renderItems() {
+        if (renderItems != null) {
+            renderItems.run();
+        }
     }
 
     JPanel buildItemCard(FlipHubItem item, long asOfMs, boolean compactRightPadding) {
@@ -84,8 +102,8 @@ final class FlipHubItemCardBuilder {
 
         JLabel iconLabel = new JLabel();
         iconLabel.setPreferredSize(new Dimension(32, 32));
-        if (hooks != null) {
-            hooks.setItemIcon(iconLabel, item.item_id);
+        if (itemIconResolver != null) {
+            itemIconResolver.setItemIcon(iconLabel, item.item_id);
         }
 
         JLayeredPane iconLayer = new JLayeredPane();
@@ -109,14 +127,14 @@ final class FlipHubItemCardBuilder {
         EllipsisLabel nameLabel = new EllipsisLabel(resolvedName);
         nameLabel.setForeground(TEXT);
         nameLabel.setFont(fontBold(13f));
-        if (hooks != null) {
-            hooks.attachOpenItemPageHandler(nameLabel, item.item_id, resolvedName);
+        if (externalLinkCoordinator != null) {
+            externalLinkCoordinator.attachOpenItemPageHandler(nameLabel, item.item_id, resolvedName);
         }
 
         header.add(iconLayer, BorderLayout.WEST);
         header.add(nameLabel, BorderLayout.CENTER);
 
-        boolean bookmarked = hooks != null && hooks.isBookmarked(item.item_id);
+        boolean bookmarked = isBookmarked(item.item_id);
         JButton bookmarkButton = new JButton(bookmarked ? "\u2605" : "\u2606");
         bookmarkButton.setFocusPainted(false);
         bookmarkButton.setBorder(BorderFactory.createEmptyBorder(2, 6, 2, 6));
@@ -128,13 +146,13 @@ final class FlipHubItemCardBuilder {
         bookmarkButton.setPreferredSize(new Dimension(30, 24));
         bookmarkButton.setToolTipText("Bookmark");
         bookmarkButton.addActionListener(e -> {
-            if (hooks != null) {
-                hooks.toggleBookmark(item.item_id);
-                boolean nowBookmarked = hooks.isBookmarked(item.item_id);
+            if (bookmarkStore != null) {
+                bookmarkStore.toggleBookmark(item.item_id);
+                boolean nowBookmarked = isBookmarked(item.item_id);
                 bookmarkButton.setText(nowBookmarked ? "\u2605" : "\u2606");
                 bookmarkButton.setForeground(nowBookmarked ? WARNING : MUTED);
-                if (hooks.isShowBookmarkedOnly() && !nowBookmarked) {
-                    hooks.renderItems();
+                if (panelState != null && panelState.showBookmarkedOnly && !nowBookmarked) {
+                    renderItems();
                 }
             }
         });
@@ -158,8 +176,8 @@ final class FlipHubItemCardBuilder {
         );
         card.add(instaSellLine.row);
         card.add(instaBuyLine.row);
-        if (hooks != null) {
-            hooks.registerAgePair(item.instabuy_ts_ms, item.instasell_ts_ms, instaBuyLine, instaSellLine);
+        if (ageTooltipCoordinator != null) {
+            ageTooltipCoordinator.registerAgePair(item.instabuy_ts_ms, item.instasell_ts_ms, instaBuyLine, instaSellLine);
         }
         Color roiColor = item.roi_percent != null && item.roi_percent < 0 ? DANGER : TEXT;
         Object[][] lines = new Object[][]{
@@ -182,8 +200,8 @@ final class FlipHubItemCardBuilder {
         card.add(buildCountdownLine("GE limit reset", resetMs, asOfMs, SUCCESS, rightPadding));
 
         card.setMaximumSize(new Dimension(Integer.MAX_VALUE, card.getPreferredSize().height));
-        if (hooks != null) {
-            hooks.installWheelForwarder(card);
+        if (wheelScrollCoordinator != null) {
+            wheelScrollCoordinator.installWheelForwarder(card);
         }
         return card;
     }
@@ -222,9 +240,9 @@ final class FlipHubItemCardBuilder {
         removeButton.setToolTipText("Remove item");
         removeButton.setVisible(false);
         removeButton.addActionListener(e -> {
-            if (hooks != null && item != null && item.item_id > 0) {
-                hooks.hideItem(item.item_id);
-                hooks.renderItems();
+            if (hiddenItemStore != null && item != null && item.item_id > 0) {
+                hiddenItemStore.hideItem(item.item_id);
+                renderItems();
             }
         });
         return removeButton;
@@ -278,25 +296,25 @@ final class FlipHubItemCardBuilder {
         row.add(left, BorderLayout.WEST);
         row.add(right, BorderLayout.EAST);
 
-        if (hooks != null) {
-            hooks.registerCountdownLabel(right, remainingMs, asOfMs);
+        if (ageTooltipCoordinator != null) {
+            ageTooltipCoordinator.registerCountdownLabel(right, remainingMs, asOfMs);
         }
         return row;
     }
 
     private Font font(float size) {
-        return hooks != null ? hooks.font(size) : new Font("Dialog", Font.PLAIN, Math.max(10, Math.round(size)));
+        return uiStyler.font(size);
     }
 
     private Font fontBold(float size) {
-        return hooks != null ? hooks.fontBold(size) : new Font("Dialog", Font.BOLD, Math.max(10, Math.round(size)));
+        return uiStyler.fontBold(size);
     }
 
     private Font fontSemiBold(float size) {
-        return hooks != null ? hooks.fontSemiBold(size) : fontBold(size);
+        return uiStyler.fontSemiBold(size);
     }
 
     private Font fontSymbol(float size) {
-        return hooks != null ? hooks.fontSymbol(size) : fontBold(size);
+        return uiStyler.fontSymbol(size);
     }
 }
