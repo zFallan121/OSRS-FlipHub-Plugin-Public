@@ -110,18 +110,13 @@ final class FlipHubPanelComponentsFactory {
         );
 
         FlipHubFlippingPanelBuilder flippingPanelBuilder = new FlipHubFlippingPanelBuilder(
-            new FlipHubFlippingPanelBuilderPluginHooks(
-                uiStyler::font,
-                uiStyler::fontSemiBold,
-                uiStyler::fontSymbol,
-                uiStyler::roundedBorder,
-                uiStyler::styleTextField,
-                enabled -> panelStateService.onBookmarkFilterChanged(panelState, enabled, listener, renderItems),
-                () -> panelStateService.onPrevPageRequested(panelState, listener),
-                () -> panelStateService.onNextPageRequested(panelState, listener),
-                () -> panelStateService.hookSearchListener(searchCoordinator, searchField, listener),
-                () -> wheelForwarder
-            )
+            uiStyler,
+            panelStateService,
+            panelState,
+            listener,
+            renderItems,
+            searchCoordinator,
+            wheelForwarder
         );
 
         FlipHubStatsPanelBuilder statsPanelBuilder = new FlipHubStatsPanelBuilder(

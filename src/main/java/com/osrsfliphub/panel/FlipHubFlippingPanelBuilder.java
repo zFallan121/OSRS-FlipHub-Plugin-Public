@@ -45,19 +45,6 @@ import javax.swing.JToggleButton;
 import javax.swing.border.Border;
 
 final class FlipHubFlippingPanelBuilder {
-    interface Hooks {
-        Font font(float size);
-        Font fontSemiBold(float size);
-        Font fontSymbol(float size);
-        Border roundedBorder(int arc, Color color, Insets padding);
-        void styleTextField(JTextField field);
-        void onBookmarkFilterChanged(boolean enabled);
-        void onPrevPageRequested();
-        void onNextPageRequested();
-        void hookSearchListener();
-        MouseWheelListener wheelForwarder();
-    }
-
     static final class BuildResult {
         final JPanel panel;
         final JPanel footerPanel;
@@ -68,10 +55,28 @@ final class FlipHubFlippingPanelBuilder {
         }
     }
 
-    private final Hooks hooks;
+    private final FlipHubUiStyler uiStyler;
+    private final FlipHubPanelStateService panelStateService;
+    private final FlipHubPanelMutableState panelState;
+    private final FlipHubPanelListener listener;
+    private final Runnable renderItems;
+    private final FlipHubSearchCoordinator searchCoordinator;
+    private final MouseWheelListener wheelForwarder;
 
-    FlipHubFlippingPanelBuilder(Hooks hooks) {
-        this.hooks = hooks;
+    FlipHubFlippingPanelBuilder(FlipHubUiStyler uiStyler,
+                                FlipHubPanelStateService panelStateService,
+                                FlipHubPanelMutableState panelState,
+                                FlipHubPanelListener listener,
+                                Runnable renderItems,
+                                FlipHubSearchCoordinator searchCoordinator,
+                                MouseWheelListener wheelForwarder) {
+        this.uiStyler = uiStyler;
+        this.panelStateService = panelStateService;
+        this.panelState = panelState;
+        this.listener = listener;
+        this.renderItems = renderItems;
+        this.searchCoordinator = searchCoordinator;
+        this.wheelForwarder = wheelForwarder;
     }
 
     BuildResult build(
@@ -92,8 +97,8 @@ final class FlipHubFlippingPanelBuilder {
         JPanel searchRow = new JPanel(new BorderLayout(8, 0));
         searchRow.setBackground(BG);
 
-        if (hooks != null) {
-            hooks.styleTextField(searchField);
+        if (uiStyler != null) {
+            uiStyler.styleTextField(searchField);
         }
 
         bookmarkFilterButton.setFocusPainted(false);
@@ -107,8 +112,8 @@ final class FlipHubFlippingPanelBuilder {
             boolean enabled = bookmarkFilterButton.isSelected();
             bookmarkFilterButton.setBackground(BG_ALT);
             bookmarkFilterButton.setForeground(enabled ? WARNING : ACCENT);
-            if (hooks != null) {
-                hooks.onBookmarkFilterChanged(enabled);
+            if (panelStateService != null) {
+                panelStateService.onBookmarkFilterChanged(panelState, enabled, listener, renderItems);
             }
         });
 
@@ -135,10 +140,10 @@ final class FlipHubFlippingPanelBuilder {
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.setWheelScrollingEnabled(true);
-        if (hooks != null) {
-            scrollPane.addMouseWheelListener(hooks.wheelForwarder());
-            scrollPane.getViewport().addMouseWheelListener(hooks.wheelForwarder());
-            listPanel.addMouseWheelListener(hooks.wheelForwarder());
+        if (wheelForwarder != null) {
+            scrollPane.addMouseWheelListener(wheelForwarder);
+            scrollPane.getViewport().addMouseWheelListener(wheelForwarder);
+            listPanel.addMouseWheelListener(wheelForwarder);
         }
         JScrollBar vBar = scrollPane.getVerticalScrollBar();
         vBar.setUnitIncrement(SCROLL_UNIT_INCREMENT);
@@ -156,13 +161,13 @@ final class FlipHubFlippingPanelBuilder {
         stylePagerButton(nextButton);
 
         prevButton.addActionListener(e -> {
-            if (hooks != null) {
-                hooks.onPrevPageRequested();
+            if (panelStateService != null) {
+                panelStateService.onPrevPageRequested(panelState, listener);
             }
         });
         nextButton.addActionListener(e -> {
-            if (hooks != null) {
-                hooks.onNextPageRequested();
+            if (panelStateService != null) {
+                panelStateService.onNextPageRequested(panelState, listener);
             }
         });
 
@@ -178,8 +183,8 @@ final class FlipHubFlippingPanelBuilder {
         panel.add(scrollPane, BorderLayout.CENTER);
         panel.add(footerPanel, BorderLayout.SOUTH);
 
-        if (hooks != null) {
-            hooks.hookSearchListener();
+        if (panelStateService != null) {
+            panelStateService.hookSearchListener(searchCoordinator, searchField, listener);
         }
         return new BuildResult(panel, footerPanel);
     }
@@ -194,18 +199,18 @@ final class FlipHubFlippingPanelBuilder {
     }
 
     private Font font(float size) {
-        return hooks != null ? hooks.font(size) : new Font("Dialog", Font.PLAIN, Math.max(10, Math.round(size)));
+        return uiStyler.font(size);
     }
 
     private Font fontSemiBold(float size) {
-        return hooks != null ? hooks.fontSemiBold(size) : new Font("Dialog", Font.BOLD, Math.max(10, Math.round(size)));
+        return uiStyler.fontSemiBold(size);
     }
 
     private Font fontSymbol(float size) {
-        return hooks != null ? hooks.fontSymbol(size) : fontSemiBold(size);
+        return uiStyler.fontSymbol(size);
     }
 
     private Border roundedBorder(int arc, Color color, Insets padding) {
-        return hooks != null ? hooks.roundedBorder(arc, color, padding) : BorderFactory.createEmptyBorder();
+        return uiStyler.roundedBorder(arc, color, padding);
     }
 }
