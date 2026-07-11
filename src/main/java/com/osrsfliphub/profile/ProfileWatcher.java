@@ -43,18 +43,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 final class ProfileWatcher {
     private static final long SCAN_INTERVAL_MS = 2_000L;
 
-    interface Hooks {
-        Path getProfilesDir();
-        Path getLegacyProfilesDir();
-        long parseAccountKey(Path file);
-        long getProfileFileModifiedMs(Path file);
-        Long getLoadedProfileFileMs(long accountKey);
-        void reloadProfile(long accountKey);
-    }
-
     private final ScheduledExecutorService scheduler;
     private final long debounceMs;
-    private final Hooks hooks;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final Map<Long, ScheduledFuture<?>> pendingReloads = new ConcurrentHashMap<>();
     private final Map<WatchKey, Path> watchRoots = new ConcurrentHashMap<>();
@@ -62,18 +52,52 @@ final class ProfileWatcher {
     private volatile Thread watchThread;
     private volatile ScheduledFuture<?> scanTask;
 
-    ProfileWatcher(ScheduledExecutorService scheduler, long debounceMs, Hooks hooks) {
+    ProfileWatcher(ScheduledExecutorService scheduler, long debounceMs) {
         this.scheduler = scheduler;
         this.debounceMs = debounceMs;
-        this.hooks = hooks;
+    }
+
+    private Path getProfilesDir() {
+        ProfileStorageFacadeService service = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
+        return service != null ? service.getProfilesDir() : null;
+    }
+
+    private Path getLegacyProfilesDir() {
+        ProfileStorageFacadeService service = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
+        return service != null ? service.getLegacyProfilesDir() : null;
+    }
+
+    private long parseAccountKey(Path file) {
+        if (file != null) {
+            Path fileName = file.getFileName();
+            if (fileName != null && "accountwide.json".equalsIgnoreCase(fileName.toString())) {
+                return GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
+            }
+        }
+        ProfileStore store = PluginInjectorBridge.get(ProfileStore.class);
+        return store != null ? store.parseAccountKeyFromProfileFile(file) : -1L;
+    }
+
+    private long getProfileFileModifiedMs(Path file) {
+        ProfileStore store = PluginInjectorBridge.get(ProfileStore.class);
+        return store != null ? store.getProfileFileModifiedMs(file) : 0L;
+    }
+
+    private Long getLoadedProfileFileMs(long accountKey) {
+        GeLifecyclePlugin plugin = PluginAccess.pluginOrNull();
+        return plugin != null ? plugin.loadedProfileFileMs.get(accountKey) : null;
+    }
+
+    private void reloadProfile(long accountKey) {
+        PluginAccess.plugin().getProfileWorkflowService().reloadProfileFromDisk(accountKey);
     }
 
     void start() {
-        if (running.get() || hooks == null) {
+        if (running.get()) {
             return;
         }
-        Path profilesDir = hooks.getProfilesDir();
-        Path legacyDir = hooks.getLegacyProfilesDir();
+        Path profilesDir = getProfilesDir();
+        Path legacyDir = getLegacyProfilesDir();
         if (profilesDir == null && legacyDir == null) {
             return;
         }
@@ -151,7 +175,7 @@ final class ProfileWatcher {
                         continue;
                     }
                     Path file = root.resolve((Path) context);
-                    long accountKey = hooks.parseAccountKey(file);
+                    long accountKey = parseAccountKey(file);
                     if (accountKey >= 0) {
                         scheduleReload(accountKey, file, true);
                     }
@@ -167,8 +191,8 @@ final class ProfileWatcher {
         if (scheduler == null || accountKey < 0) {
             return;
         }
-        long fileMs = hooks.getProfileFileModifiedMs(file);
-        Long loadedMs = hooks.getLoadedProfileFileMs(accountKey);
+        long fileMs = getProfileFileModifiedMs(file);
+        Long loadedMs = getLoadedProfileFileMs(accountKey);
         if (fileMs > 0 && loadedMs != null) {
             // Watch events can arrive with equal-millisecond mtimes; allow those.
             if (allowEqualTimestamp ? fileMs < loadedMs : fileMs <= loadedMs) {
@@ -184,7 +208,7 @@ final class ProfileWatcher {
         }
         ScheduledFuture<?> future = scheduler.schedule(() -> {
             pendingReloads.remove(accountKey);
-            hooks.reloadProfile(accountKey);
+            reloadProfile(accountKey);
         }, debounceMs, TimeUnit.MILLISECONDS);
         pendingReloads.put(accountKey, future);
     }
@@ -218,8 +242,8 @@ final class ProfileWatcher {
         if (!running.get()) {
             return;
         }
-        scanDirectory(hooks.getProfilesDir());
-        scanDirectory(hooks.getLegacyProfilesDir());
+        scanDirectory(getProfilesDir());
+        scanDirectory(getLegacyProfilesDir());
     }
 
     private void scanDirectory(Path dir) {
@@ -231,7 +255,7 @@ final class ProfileWatcher {
                 if (file == null) {
                     continue;
                 }
-                long accountKey = hooks.parseAccountKey(file);
+                long accountKey = parseAccountKey(file);
                 if (accountKey < 0) {
                     continue;
                 }

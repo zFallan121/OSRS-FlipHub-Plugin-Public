@@ -107,7 +107,7 @@ public class GeLifecyclePlugin extends Plugin {
     final GeLifecyclePanelBootstrapService panelBootstrapService = new GeLifecyclePanelBootstrapService();
     final GeLifecycleRuntimeSchedulerServices runtimeSchedulerServices = new GeLifecycleRuntimeSchedulerServices();
     final GeLifecycleRuntimeUtilityServices runtimeUtilityServices = new GeLifecycleRuntimeUtilityServices();
-    final GeLifecycleProfileWatcherService profileWatcherService = new GeLifecycleProfileWatcherService();
+    private ProfileWatcher profileWatcher;
     final ProfileSelectionState profileSelection = new ProfileSelectionState(ACCOUNTWIDE_KEY_STRING);
     final BookmarkConfigStore bookmarkConfigStore = new BookmarkConfigStore(ACCOUNTWIDE_KEY);
     final HiddenItemConfigStore hiddenItemConfigStore = new HiddenItemConfigStore();
@@ -291,18 +291,19 @@ public class GeLifecyclePlugin extends Plugin {
     }
 
     void startProfileWatcher() {
-        profileWatcherService.start(
-            scheduler,
-            PROFILE_WATCH_DEBOUNCE_MS,
-            () -> PluginInjectorBridge.get(ProfileStorageFacadeService.class),
-            () -> PluginInjectorBridge.get(ProfileStore.class),
-            loadedProfileFileMs::get,
-            getProfileWorkflowService()::reloadProfileFromDisk
-        );
+        if (scheduler == null || scheduler.isShutdown()) {
+            return;
+        }
+        stopProfileWatcher();
+        profileWatcher = new ProfileWatcher(scheduler, PROFILE_WATCH_DEBOUNCE_MS);
+        profileWatcher.start();
     }
 
     void stopProfileWatcher() {
-        profileWatcherService.stop();
+        if (profileWatcher != null) {
+            profileWatcher.stop();
+            profileWatcher = null;
+        }
     }
 
     GeLifecycleProfileWorkflowService getProfileWorkflowService() {
