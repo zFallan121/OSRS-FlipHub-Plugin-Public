@@ -46,18 +46,19 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 final class FlipHubItemListContentRenderer {
-    interface Hooks {
-        Font font(float size);
-        Font fontSemiBold(float size);
-        boolean isHidden(int itemId);
-        boolean isBookmarked(int itemId);
-        JComponent buildItemCard(FlipHubItem item, long asOfMs, boolean compactRightPadding);
-    }
+    private final FlipHubUiStyler uiStyler;
+    private final FlipHubPanelHiddenItemStore hiddenItemStore;
+    private final FlipHubPanelBookmarkStore bookmarkStore;
+    private final FlipHubItemCardBuilder itemCardBuilder;
 
-    private final Hooks hooks;
-
-    FlipHubItemListContentRenderer(Hooks hooks) {
-        this.hooks = hooks;
+    FlipHubItemListContentRenderer(FlipHubUiStyler uiStyler,
+                                   FlipHubPanelHiddenItemStore hiddenItemStore,
+                                   FlipHubPanelBookmarkStore bookmarkStore,
+                                   FlipHubItemCardBuilder itemCardBuilder) {
+        this.uiStyler = uiStyler;
+        this.hiddenItemStore = hiddenItemStore;
+        this.bookmarkStore = bookmarkStore;
+        this.itemCardBuilder = itemCardBuilder;
     }
 
     void renderList(JPanel listPanel,
@@ -154,24 +155,24 @@ final class FlipHubItemListContentRenderer {
     }
 
     private boolean isHidden(int itemId) {
-        return hooks != null && hooks.isHidden(itemId);
+        return hiddenItemStore != null && hiddenItemStore.isHidden(itemId);
     }
 
     private boolean isBookmarked(int itemId) {
-        return hooks != null && hooks.isBookmarked(itemId);
+        return bookmarkStore != null && bookmarkStore.isBookmarked(itemId);
     }
 
     private JComponent buildItemCard(FlipHubItem item, long asOfMs, boolean compactRightPadding) {
-        return hooks != null
-            ? hooks.buildItemCard(item, asOfMs, compactRightPadding)
+        return itemCardBuilder != null
+            ? itemCardBuilder.buildItemCard(item, asOfMs, compactRightPadding)
             : new JPanel();
     }
 
     private Font font(float size) {
-        return hooks != null ? hooks.font(size) : new Font("Dialog", Font.PLAIN, Math.max(10, Math.round(size)));
+        return uiStyler.font(size);
     }
 
     private Font fontSemiBold(float size) {
-        return hooks != null ? hooks.fontSemiBold(size) : new Font("Dialog", Font.BOLD, Math.max(10, Math.round(size)));
+        return uiStyler.fontSemiBold(size);
     }
 }

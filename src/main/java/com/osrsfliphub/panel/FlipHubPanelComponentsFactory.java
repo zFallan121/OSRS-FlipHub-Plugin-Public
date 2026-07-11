@@ -103,13 +103,10 @@ final class FlipHubPanelComponentsFactory {
         );
 
         FlipHubItemListContentRenderer itemListContentRenderer = new FlipHubItemListContentRenderer(
-            new FlipHubItemListContentRendererPluginHooks(
-                uiStyler::font,
-                uiStyler::fontSemiBold,
-                itemId -> hiddenItemStore != null && hiddenItemStore.isHidden(itemId),
-                itemId -> bookmarkStore != null && bookmarkStore.isBookmarked(itemId),
-                itemCardBuilder::buildItemCard
-            )
+            uiStyler,
+            hiddenItemStore,
+            bookmarkStore,
+            itemCardBuilder
         );
 
         FlipHubFlippingPanelBuilder flippingPanelBuilder = new FlipHubFlippingPanelBuilder(
