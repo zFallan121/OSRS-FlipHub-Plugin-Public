@@ -37,22 +37,6 @@ import net.runelite.api.Client;
 
 @Singleton
 final class GeHistoryAutoSyncService {
-    interface Hooks {
-        void ensureProfileLoaded(long accountKey);
-        void ensureLocalSessionStart(long accountKey, long tsClientMs);
-        List<LocalTradeDelta> snapshotLocalTradeDeltas(long accountKey);
-        void cacheItemName(int itemId);
-        void appendTradeDeltaPair(long accountKey, long accountwideKey, LocalTradeDelta delta);
-        void applyDeltaToStatsCache(long accountKey, LocalTradeDelta delta);
-        GeEvent buildUploadEvent(long profileKey, LocalTradeDelta delta);
-        void enqueueUploadEvent(GeEvent event);
-        void requestEventFlush();
-        void persistLocalTrades(long accountKey);
-        void triggerStatsRefresh();
-        void triggerPanelRefresh();
-        long nowMs();
-    }
-
     static final class SyncResult {
         final int parsedTrades;
         final int addedTrades;
@@ -66,128 +50,72 @@ final class GeHistoryAutoSyncService {
     private static final int SYNTHETIC_SLOT_START = 10_000;
     private static final long SYNTHETIC_EVENT_SPACING_MS = 4L;
 
-    private final long accountwideKey;
-    private final Hooks hooks;
+    private final long accountwideKey = GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
+    private final Client client;
 
     @Inject
     GeHistoryAutoSyncService(Client client) {
-        this(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY, productionHooks(client));
-    }
-
-    GeHistoryAutoSyncService(long accountwideKey, Hooks hooks) {
-        this.accountwideKey = accountwideKey;
-        this.hooks = hooks;
+        this.client = client;
     }
 
     private static GeLifecyclePlugin plugin() {
         return PluginAccess.plugin();
     }
 
-    private static Hooks productionHooks(Client client) {
-        return new Hooks() {
-            @Override
-            public void ensureProfileLoaded(long accountKey) {
-                plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
-            }
+    private void ensureProfileLoaded(long accountKey) {
+        plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
+    }
 
-            @Override
-            public void ensureLocalSessionStart(long accountKey, long tsClientMs) {
-                LocalTradeSessionFacadeService service =
-                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
-                if (service != null) {
-                    service.ensureLocalSessionStart(accountKey, tsClientMs);
-                }
-            }
+    private void ensureLocalSessionStart(long accountKey, long tsClientMs) {
+        LocalTradeSessionFacadeService service = PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+        if (service != null) {
+            service.ensureLocalSessionStart(accountKey, tsClientMs);
+        }
+    }
 
-            @Override
-            public List<LocalTradeDelta> snapshotLocalTradeDeltas(long accountKey) {
-                LocalTradeSessionFacadeService service =
-                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
-                return service != null ? service.snapshotLocalTradeDeltas(accountKey) : null;
-            }
+    private void appendTradeDeltaPair(long accountKey, long accountwideKey, LocalTradeDelta delta) {
+        plugin().getLocalTradesRuntimeService().appendTradeDeltaPair(accountKey, accountwideKey, delta);
+    }
 
-            @Override
-            public void cacheItemName(int itemId) {
-                ItemLookupService lookup =
-                    PluginInjectorBridge.get(ItemLookupService.class);
-                if (lookup != null) {
-                    lookup.cacheItemName(itemId);
-                }
-            }
+    private void applyDeltaToStatsCache(long accountKey, LocalTradeDelta delta) {
+        LocalStatsCacheService cacheService = PluginInjectorBridge.get(LocalStatsCacheService.class);
+        if (cacheService != null) {
+            cacheService.applyDelta(accountKey, delta);
+        }
+    }
 
-            @Override
-            public void appendTradeDeltaPair(long accountKey, long accountwideKey, LocalTradeDelta delta) {
-                plugin().getLocalTradesRuntimeService().appendTradeDeltaPair(accountKey, accountwideKey, delta);
-            }
+    private GeEvent buildUploadEvent(long profileKey, LocalTradeDelta delta) {
+        BackfillUploader uploader = PluginInjectorBridge.get(BackfillUploader.class);
+        if (uploader == null || delta == null) {
+            return null;
+        }
+        return uploader.buildBackfillEvent(profileKey, delta, client != null ? client.getWorld() : null);
+    }
 
-            @Override
-            public void applyDeltaToStatsCache(long accountKey, LocalTradeDelta delta) {
-                LocalStatsCacheService cacheService = PluginInjectorBridge.get(LocalStatsCacheService.class);
-                if (cacheService != null) {
-                    cacheService.applyDelta(accountKey, delta);
-                }
-            }
+    private void enqueueUploadEvent(GeEvent event) {
+        if (event == null) {
+            return;
+        }
+        UploadEventDispatchFacadeService service = PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
+        if (service != null) {
+            service.enqueueEvent(event);
+        }
+    }
 
-            @Override
-            public GeEvent buildUploadEvent(long profileKey, LocalTradeDelta delta) {
-                BackfillUploader uploader = PluginInjectorBridge.get(BackfillUploader.class);
-                if (uploader == null || delta == null) {
-                    return null;
-                }
-                return uploader.buildBackfillEvent(profileKey, delta, client != null ? client.getWorld() : null);
-            }
+    private void cacheItemName(int itemId) {
+        ItemLookupService lookup = PluginInjectorBridge.get(ItemLookupService.class);
+        if (lookup != null) {
+            lookup.cacheItemName(itemId);
+        }
+    }
 
-            @Override
-            public void enqueueUploadEvent(GeEvent event) {
-                if (event == null) {
-                    return;
-                }
-                UploadEventDispatchFacadeService service =
-                    PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
-                if (service != null) {
-                    service.enqueueEvent(event);
-                }
-            }
-
-            @Override
-            public void requestEventFlush() {
-                UploadBackfillDispatchService service =
-                    PluginInjectorBridge.get(UploadBackfillDispatchService.class);
-                if (service != null) {
-                    service.requestEventFlush();
-                }
-            }
-
-            @Override
-            public void persistLocalTrades(long accountKey) {
-                plugin().getLocalTradesRuntimeService().persistLocalTrades(accountKey);
-            }
-
-            @Override
-            public void triggerStatsRefresh() {
-                PanelRefreshCoordinator coordinator = plugin().getPanelRefreshCoordinator();
-                if (coordinator != null) {
-                    coordinator.triggerStatsRefresh(plugin().scheduler);
-                }
-            }
-
-            @Override
-            public void triggerPanelRefresh() {
-                PanelRefreshCoordinator coordinator = plugin().getPanelRefreshCoordinator();
-                if (coordinator != null) {
-                    coordinator.triggerPanelRefresh(plugin().scheduler);
-                }
-            }
-
-            @Override
-            public long nowMs() {
-                return System.currentTimeMillis();
-            }
-        };
+    private List<LocalTradeDelta> snapshotLocalTradeDeltas(long accountKey) {
+        LocalTradeSessionFacadeService service = PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+        return service != null ? service.snapshotLocalTradeDeltas(accountKey) : null;
     }
 
     SyncResult sync(long accountKey, List<GeHistoryTrade> historyTrades) {
-        if (hooks == null || accountKey <= 0 || historyTrades == null || historyTrades.isEmpty()) {
+        if (accountKey <= 0 || historyTrades == null || historyTrades.isEmpty()) {
             return new SyncResult(historyTrades != null ? historyTrades.size() : 0, 0);
         }
 
@@ -201,10 +129,10 @@ final class GeHistoryAutoSyncService {
             return new SyncResult(historyTrades.size(), 0);
         }
 
-        hooks.ensureProfileLoaded(accountKey);
-        hooks.ensureProfileLoaded(accountwideKey);
+        ensureProfileLoaded(accountKey);
+        ensureProfileLoaded(accountwideKey);
 
-        List<LocalTradeDelta> existingDeltas = hooks.snapshotLocalTradeDeltas(accountKey);
+        List<LocalTradeDelta> existingDeltas = snapshotLocalTradeDeltas(accountKey);
         Map<GeHistoryAutoSyncTradeMatcher.TradeSignature, Integer> existingCounts =
             GeHistoryAutoSyncTradeMatcher.buildObservedTradeCounts(existingDeltas);
         Map<GeHistoryAutoSyncTradeMatcher.BaseSignature, Integer> observedQtyByBase =
@@ -219,7 +147,7 @@ final class GeHistoryAutoSyncService {
             return new SyncResult(validTrades.size(), 0);
         }
 
-        long nowMs = hooks.nowMs();
+        long nowMs = System.currentTimeMillis();
         long[] plannedUpdateTs = planSyntheticUpdateTimestamps(
             validTrades,
             selectionPlan,
@@ -227,8 +155,8 @@ final class GeHistoryAutoSyncService {
             nowMs
         );
         long firstSyntheticTs = findFirstSyntheticTs(validTrades, selectionPlan, plannedUpdateTs, nowMs);
-        hooks.ensureLocalSessionStart(accountKey, firstSyntheticTs);
-        hooks.ensureLocalSessionStart(accountwideKey, firstSyntheticTs);
+        ensureLocalSessionStart(accountKey, firstSyntheticTs);
+        ensureLocalSessionStart(accountwideKey, firstSyntheticTs);
 
         int addedTrades = 0;
         for (int i = validTrades.size() - 1; i >= 0; i--) {
@@ -263,35 +191,41 @@ final class GeHistoryAutoSyncService {
                 trade.price,
                 false
             );
-            hooks.cacheItemName(trade.itemId);
-            hooks.appendTradeDeltaPair(accountKey, accountwideKey, updateDelta);
-            hooks.applyDeltaToStatsCache(accountKey, updateDelta);
+            cacheItemName(trade.itemId);
+            appendTradeDeltaPair(accountKey, accountwideKey, updateDelta);
+            applyDeltaToStatsCache(accountKey, updateDelta);
             if (accountwideKey != accountKey) {
-                hooks.applyDeltaToStatsCache(accountwideKey, updateDelta);
+                applyDeltaToStatsCache(accountwideKey, updateDelta);
             }
-            hooks.appendTradeDeltaPair(accountKey, accountwideKey, completionDelta);
-            hooks.applyDeltaToStatsCache(accountKey, completionDelta);
+            appendTradeDeltaPair(accountKey, accountwideKey, completionDelta);
+            applyDeltaToStatsCache(accountKey, completionDelta);
             if (accountwideKey != accountKey) {
-                hooks.applyDeltaToStatsCache(accountwideKey, completionDelta);
+                applyDeltaToStatsCache(accountwideKey, completionDelta);
             }
 
             // Ensure GE-history-synced trades also flow through website event ingestion/flip pairing.
-            GeEvent uploadUpdate = hooks.buildUploadEvent(accountKey, updateDelta);
+            GeEvent uploadUpdate = buildUploadEvent(accountKey, updateDelta);
             if (uploadUpdate != null) {
-                hooks.enqueueUploadEvent(uploadUpdate);
+                enqueueUploadEvent(uploadUpdate);
             }
-            GeEvent uploadCompletion = hooks.buildUploadEvent(accountKey, completionDelta);
+            GeEvent uploadCompletion = buildUploadEvent(accountKey, completionDelta);
             if (uploadCompletion != null) {
-                hooks.enqueueUploadEvent(uploadCompletion);
+                enqueueUploadEvent(uploadCompletion);
             }
             addedTrades++;
         }
 
-        hooks.persistLocalTrades(accountKey);
-        hooks.persistLocalTrades(accountwideKey);
-        hooks.requestEventFlush();
-        hooks.triggerStatsRefresh();
-        hooks.triggerPanelRefresh();
+        plugin().getLocalTradesRuntimeService().persistLocalTrades(accountKey);
+        plugin().getLocalTradesRuntimeService().persistLocalTrades(accountwideKey);
+        UploadBackfillDispatchService dispatch = PluginInjectorBridge.get(UploadBackfillDispatchService.class);
+        if (dispatch != null) {
+            dispatch.requestEventFlush();
+        }
+        PanelRefreshCoordinator coordinator = plugin().getPanelRefreshCoordinator();
+        if (coordinator != null) {
+            coordinator.triggerStatsRefresh(plugin().scheduler);
+            coordinator.triggerPanelRefresh(plugin().scheduler);
+        }
         return new SyncResult(validTrades.size(), addedTrades);
     }
 
