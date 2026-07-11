@@ -39,156 +39,19 @@ import net.runelite.api.GrandExchangeOffer;
 
 @Singleton
 final class LocalItemsResponseBuilder {
-    interface Hooks {
-        long resolveSelectedProfileKey();
-        long resolveLimitAccountKey(long tradeAccountKey);
-        Map<Integer, LocalTradeInfo> buildLocalTradeInfo(long accountKey);
-        Map<Integer, LocalLimitInfo> buildLocalLimitInfo(long accountKey, long nowMs);
-        GrandExchangeOffer[] getGrandExchangeOffers();
-        LocalItemsAssembler.Result assemble(GrandExchangeOffer[] offers,
-                                           Map<Integer, LocalTradeInfo> tradeInfo,
-                                           Map<Integer, LocalLimitInfo> limitInfo,
-                                           String currentQuery,
-                                           boolean bookmarkFilterEnabled,
-                                           Set<Integer> bookmarkedItems);
-        boolean isHidden(int itemId);
-        void requestGeLimits(Set<Integer> itemIds);
-        ApiClient.ItemsResponse buildOfferStampFallback();
-        ApiClient.ItemsResponse buildOfferStatusFallback();
-        ApiClient.ItemsResponse buildPagedItemsResponse(List<FlipHubItem> items,
-                                                        int page,
-                                                        int pageSize,
-                                                        int totalItems,
-                                                        int totalPages,
-                                                        long asOfMs,
-                                                        Long priceCacheMs);
-        ApiClient.ItemsResponse emptyItemsResponse(long asOfMs, Long priceCacheMs);
-        long nowMs();
-    }
-
-    private final int defaultItemsPageSize;
-    private final Hooks hooks;
+    private final int defaultItemsPageSize = Math.max(1, DEFAULT_ITEMS_PAGE_SIZE);
 
     @Inject
     LocalItemsResponseBuilder() {
-        this(DEFAULT_ITEMS_PAGE_SIZE, productionHooks());
     }
 
-    LocalItemsResponseBuilder(int defaultItemsPageSize, Hooks hooks) {
-        this.defaultItemsPageSize = Math.max(1, defaultItemsPageSize);
-        this.hooks = hooks;
+    private GeLifecyclePanelDataRuntimeService panelData() {
+        return PluginInjectorBridge.get(GeLifecyclePanelDataRuntimeService.class);
     }
 
-    private static Hooks productionHooks() {
-        return new Hooks() {
-            @Override
-            public long resolveSelectedProfileKey() {
-                ProfileSelectionPresentationFacadeService service =
-                    PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
-                return service != null ? service.resolveSelectedProfileKey() : 0L;
-            }
-
-            @Override
-            public long resolveLimitAccountKey(long tradeAccountKey) {
-                LocalAccountSessionService service =
-                    PluginInjectorBridge.get(LocalAccountSessionService.class);
-                return service != null ? service.resolveLimitAccountKey(tradeAccountKey) : tradeAccountKey;
-            }
-
-            @Override
-            public Map<Integer, LocalTradeInfo> buildLocalTradeInfo(long accountKey) {
-                LocalTradeSessionFacadeService service =
-                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
-                return service != null ? service.buildLocalTradeInfo(accountKey) : null;
-            }
-
-            @Override
-            public Map<Integer, LocalLimitInfo> buildLocalLimitInfo(long accountKey, long nowMs) {
-                LocalTradeSessionFacadeService service =
-                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
-                return service != null ? service.buildLocalLimitInfo(accountKey, nowMs) : null;
-            }
-
-            @Override
-            public GrandExchangeOffer[] getGrandExchangeOffers() {
-                Client client = PluginAccess.plugin().client;
-                if (client == null) {
-                    return null;
-                }
-                GrandExchangeOffer[] offers = client.getGrandExchangeOffers();
-                return offers != null && offers.length > 0 ? offers : new GrandExchangeOffer[0];
-            }
-
-            @Override
-            public LocalItemsAssembler.Result assemble(GrandExchangeOffer[] offers,
-                                                       Map<Integer, LocalTradeInfo> tradeInfo,
-                                                       Map<Integer, LocalLimitInfo> limitInfo,
-                                                       String currentQuery,
-                                                       boolean bookmarkFilterEnabled,
-                                                       Set<Integer> bookmarkedItems) {
-                LocalItemsAssembler assembler = PluginInjectorBridge.get(LocalItemsAssembler.class);
-                if (assembler == null) {
-                    return new LocalItemsAssembler.Result(new ArrayList<>(), new HashSet<>());
-                }
-                return assembler.assemble(
-                    offers, tradeInfo, limitInfo, currentQuery, bookmarkFilterEnabled, bookmarkedItems);
-            }
-
-            @Override
-            public boolean isHidden(int itemId) {
-                PluginState state = PluginInjectorBridge.get(PluginState.class);
-                return state != null && state.getHiddenItems().contains(itemId);
-            }
-
-            @Override
-            public void requestGeLimits(Set<Integer> itemIds) {
-                GeLimitService service = PluginInjectorBridge.get(GeLimitService.class);
-                if (service != null) {
-                    service.requestGeLimits(itemIds);
-                }
-            }
-
-            @Override
-            public ApiClient.ItemsResponse buildOfferStampFallback() {
-                GeLifecyclePanelDataRuntimeService service =
-                    PluginInjectorBridge.get(GeLifecyclePanelDataRuntimeService.class);
-                return service != null ? service.buildOfferStampFallback() : null;
-            }
-
-            @Override
-            public ApiClient.ItemsResponse buildOfferStatusFallback() {
-                GeLifecyclePanelDataRuntimeService service =
-                    PluginInjectorBridge.get(GeLifecyclePanelDataRuntimeService.class);
-                return service != null ? service.buildOfferStatusFallback() : null;
-            }
-
-            @Override
-            public ApiClient.ItemsResponse buildPagedItemsResponse(List<FlipHubItem> items,
-                                                                   int page,
-                                                                   int pageSize,
-                                                                   int totalItems,
-                                                                   int totalPages,
-                                                                   long asOfMs,
-                                                                   Long priceCacheMs) {
-                GeLifecyclePanelDataRuntimeService service =
-                    PluginInjectorBridge.get(GeLifecyclePanelDataRuntimeService.class);
-                return service != null
-                    ? service.buildPagedItemsResponse(items, page, pageSize, totalItems, totalPages, asOfMs, priceCacheMs)
-                    : null;
-            }
-
-            @Override
-            public ApiClient.ItemsResponse emptyItemsResponse(long asOfMs, Long priceCacheMs) {
-                GeLifecyclePanelDataRuntimeService service =
-                    PluginInjectorBridge.get(GeLifecyclePanelDataRuntimeService.class);
-                return service != null ? service.emptyItemsResponse(asOfMs, priceCacheMs) : null;
-            }
-
-            @Override
-            public long nowMs() {
-                return System.currentTimeMillis();
-            }
-        };
+    private ApiClient.ItemsResponse emptyItemsResponse(long asOfMs, Long priceCacheMs) {
+        GeLifecyclePanelDataRuntimeService service = panelData();
+        return service != null ? service.emptyItemsResponse(asOfMs, priceCacheMs) : null;
     }
 
     ApiClient.ItemsResponse build(boolean includeEmptyFallback,
@@ -196,34 +59,39 @@ final class LocalItemsResponseBuilder {
                                   boolean bookmarkFilterEnabled,
                                   Set<Integer> bookmarkedItems,
                                   int currentPage) {
-        if (hooks == null) {
-            return null;
+        Client client = PluginAccess.plugin().client;
+        if (client == null) {
+            return emptyItemsResponse(System.currentTimeMillis(), null);
         }
+        GrandExchangeOffer[] rawOffers = client.getGrandExchangeOffers();
+        GrandExchangeOffer[] offers = rawOffers != null && rawOffers.length > 0
+            ? rawOffers : new GrandExchangeOffer[0];
 
-        GrandExchangeOffer[] offers = hooks.getGrandExchangeOffers();
-        if (offers == null) {
-            return hooks.emptyItemsResponse(hooks.nowMs(), null);
-        }
+        ProfileSelectionPresentationFacadeService selection =
+            PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
+        long tradeAccountKey = selection != null ? selection.resolveSelectedProfileKey() : 0L;
+        LocalAccountSessionService session = PluginInjectorBridge.get(LocalAccountSessionService.class);
+        long limitAccountKey = session != null ? session.resolveLimitAccountKey(tradeAccountKey) : tradeAccountKey;
+        long nowMs = System.currentTimeMillis();
 
-        long tradeAccountKey = hooks.resolveSelectedProfileKey();
-        long limitAccountKey = hooks.resolveLimitAccountKey(tradeAccountKey);
-        long nowMs = hooks.nowMs();
-
-        Map<Integer, LocalTradeInfo> tradeInfo = tradeAccountKey >= 0
-            ? hooks.buildLocalTradeInfo(tradeAccountKey)
+        LocalTradeSessionFacadeService tradeSession = PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+        Map<Integer, LocalTradeInfo> tradeInfo = tradeAccountKey >= 0 && tradeSession != null
+            ? tradeSession.buildLocalTradeInfo(tradeAccountKey)
             : new HashMap<>();
-        Map<Integer, LocalLimitInfo> limitInfo = limitAccountKey >= 0
-            ? hooks.buildLocalLimitInfo(limitAccountKey, nowMs)
+        Map<Integer, LocalLimitInfo> limitInfo = limitAccountKey >= 0 && tradeSession != null
+            ? tradeSession.buildLocalLimitInfo(limitAccountKey, nowMs)
             : new HashMap<>();
 
-        LocalItemsAssembler.Result assembled = hooks.assemble(
-            offers,
-            tradeInfo != null ? tradeInfo : new HashMap<>(),
-            limitInfo != null ? limitInfo : new HashMap<>(),
-            currentQuery,
-            bookmarkFilterEnabled,
-            bookmarkedItems
-        );
+        LocalItemsAssembler assembler = PluginInjectorBridge.get(LocalItemsAssembler.class);
+        LocalItemsAssembler.Result assembled = assembler != null
+            ? assembler.assemble(
+                offers,
+                tradeInfo != null ? tradeInfo : new HashMap<>(),
+                limitInfo != null ? limitInfo : new HashMap<>(),
+                currentQuery,
+                bookmarkFilterEnabled,
+                bookmarkedItems)
+            : new LocalItemsAssembler.Result(new ArrayList<>(), new HashSet<>());
         List<FlipHubItem> items = assembled != null && assembled.items != null ? assembled.items : new ArrayList<>();
         Set<Integer> itemsNeedingLimits = assembled != null && assembled.itemsNeedingLimits != null
             ? assembled.itemsNeedingLimits
@@ -231,13 +99,14 @@ final class LocalItemsResponseBuilder {
 
         // Filter hidden items before pagination so each page has consistent visible card counts.
         if (!items.isEmpty()) {
+            PluginState state = PluginInjectorBridge.get(PluginState.class);
             List<FlipHubItem> visibleItems = new ArrayList<>(items.size());
             Set<Integer> visibleLimitIds = new HashSet<>();
             for (FlipHubItem item : items) {
                 if (item == null || item.item_id <= 0) {
                     continue;
                 }
-                if (hooks.isHidden(item.item_id)) {
+                if (state != null && state.getHiddenItems().contains(item.item_id)) {
                     continue;
                 }
                 visibleItems.add(item);
@@ -250,27 +119,32 @@ final class LocalItemsResponseBuilder {
         }
 
         if (!itemsNeedingLimits.isEmpty()) {
-            hooks.requestGeLimits(itemsNeedingLimits);
+            GeLimitService geLimitService = PluginInjectorBridge.get(GeLimitService.class);
+            if (geLimitService != null) {
+                geLimitService.requestGeLimits(itemsNeedingLimits);
+            }
         }
 
+        GeLifecyclePanelDataRuntimeService panelData = panelData();
         if (items.isEmpty() && includeEmptyFallback) {
-            ApiClient.ItemsResponse stampFallback = hooks.buildOfferStampFallback();
+            ApiClient.ItemsResponse stampFallback = panelData != null ? panelData.buildOfferStampFallback() : null;
             if (stampFallback != null && stampFallback.items != null && !stampFallback.items.isEmpty()) {
                 return stampFallback;
             }
-            return hooks.buildOfferStatusFallback();
+            return panelData != null ? panelData.buildOfferStatusFallback() : null;
         }
 
         LocalItemsPager.sortByRecentTradeThenName(items);
         LocalItemsPager.Page page = LocalItemsPager.paginate(items, currentPage, defaultItemsPageSize);
-        return hooks.buildPagedItemsResponse(
-            page.pageItems,
-            page.page,
-            page.pageSize,
-            page.totalItems,
-            page.totalPages,
-            hooks.nowMs(),
-            null
-        );
+        return panelData != null
+            ? panelData.buildPagedItemsResponse(
+                page.pageItems,
+                page.page,
+                page.pageSize,
+                page.totalItems,
+                page.totalPages,
+                System.currentTimeMillis(),
+                null)
+            : null;
     }
 }
