@@ -76,8 +76,9 @@ final class FlipHubPanelPluginListener implements FlipHubPanelListener {
             return;
         }
         GeLifecyclePlugin plugin = plugin();
-        if (plugin.profileSelection != null) {
-            plugin.profileSelection.selectManual(profileKey);
+        PluginState state = PluginInjectorBridge.get(PluginState.class);
+        if (state != null) {
+            state.getProfileSelection().selectManual(profileKey);
         }
         workflow().persistProfileSelectionState();
 

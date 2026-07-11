@@ -108,7 +108,6 @@ public class GeLifecyclePlugin extends Plugin {
     final GeLifecycleRuntimeSchedulerServices runtimeSchedulerServices = new GeLifecycleRuntimeSchedulerServices();
     final GeLifecycleRuntimeUtilityServices runtimeUtilityServices = new GeLifecycleRuntimeUtilityServices();
     private ProfileWatcher profileWatcher;
-    final ProfileSelectionState profileSelection = new ProfileSelectionState(ACCOUNTWIDE_KEY_STRING);
     final BookmarkConfigStore bookmarkConfigStore = new BookmarkConfigStore(ACCOUNTWIDE_KEY);
     final HiddenItemConfigStore hiddenItemConfigStore = new HiddenItemConfigStore();
     final OfferUpdateStampConfigStore offerUpdateStampConfigStore = new OfferUpdateStampConfigStore();
