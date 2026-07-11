@@ -34,28 +34,29 @@ public class AffordableLimitSuggestionServiceTest {
 
     @Test
     public void computeUsesEnteredPriceBeforeSelectedOfferPrice() {
-        assertEquals(Integer.valueOf(100), service.computeAffordableLimit(null, 100, 200, 10_000L));
+        assertEquals(Integer.valueOf(100), service.computeAffordableLimit(100, 200, 10_000L));
     }
 
     @Test
     public void computeFallsBackToSelectedOfferPrice() {
-        assertEquals(Integer.valueOf(11), service.computeAffordableLimit(null, 0, 250, 2_750L));
+        assertEquals(Integer.valueOf(11), service.computeAffordableLimit(0, 250, 2_750L));
     }
 
     @Test
-    public void computeClampsToRemainingLimitWhenPresent() {
-        assertEquals(Integer.valueOf(25), service.computeAffordableLimit(25, 100, null, 10_000L));
+    public void computeIgnoresGeLimitAndUsesCashOnly() {
+        // 10k coins at 100 gp each affords 100, even when the GE limit would be lower.
+        assertEquals(Integer.valueOf(100), service.computeAffordableLimit(100, null, 10_000L));
     }
 
     @Test
     public void computeReturnsNullWithoutUsablePriceOrCoins() {
-        assertNull(service.computeAffordableLimit(10, null, null, 0L));
-        assertNull(service.computeAffordableLimit(10, 100, null, 0L));
+        assertNull(service.computeAffordableLimit(null, null, 0L));
+        assertNull(service.computeAffordableLimit(100, null, 0L));
     }
 
     @Test
     public void computeCapsAtIntegerMaxValue() {
         assertEquals(Integer.valueOf(Integer.MAX_VALUE),
-            service.computeAffordableLimit(null, 1, null, (long) Integer.MAX_VALUE + 1000L));
+            service.computeAffordableLimit(1, null, (long) Integer.MAX_VALUE + 1000L));
     }
 }

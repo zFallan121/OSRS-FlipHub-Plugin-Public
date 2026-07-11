@@ -44,12 +44,14 @@ final class AffordableLimitSuggestionService {
         this.facade = facade;
     }
 
-    Integer computeAffordableLimit(Integer remainingLimit) {
-        return computeAffordableLimit(remainingLimit, enteredOfferPrice(), selectedOfferPrice(), inventoryCoins());
+    Integer computeAffordableLimit() {
+        return computeAffordableLimit(enteredOfferPrice(), selectedOfferPrice(), inventoryCoins());
     }
 
     // Pure computation, split out so it stays unit-testable without a client.
-    Integer computeAffordableLimit(Integer remainingLimit, Integer enteredPrice, Integer selectedPrice, long coins) {
+    // Deliberately NOT capped by the remaining GE limit: the cash limit shows how
+    // many the player's coins cover, even past the 4-hour buy limit.
+    Integer computeAffordableLimit(Integer enteredPrice, Integer selectedPrice, long coins) {
         Integer offerPrice = enteredPrice != null && enteredPrice > 0
             ? enteredPrice
             : (selectedPrice != null && selectedPrice > 0 ? selectedPrice : null);
@@ -60,9 +62,6 @@ final class AffordableLimitSuggestionService {
             return null;
         }
         long affordable = coins / offerPrice;
-        if (remainingLimit != null && remainingLimit > 0) {
-            affordable = Math.min(affordable, remainingLimit.longValue());
-        }
         if (affordable <= 0) {
             return null;
         }

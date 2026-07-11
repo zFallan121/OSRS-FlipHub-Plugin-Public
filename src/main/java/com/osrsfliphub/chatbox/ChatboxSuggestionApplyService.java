@@ -89,15 +89,9 @@ final class ChatboxSuggestionApplyService {
         if (isBuy == null || !isBuy || previewItem == null) {
             return;
         }
-        Integer remaining = previewItem.ge_limit_remaining;
-        if (remaining == null || remaining <= 0) {
-            RemainingLimitSuggestionService remainingService =
-                PluginInjectorBridge.get(RemainingLimitSuggestionService.class);
-            remaining = remainingService != null ? remainingService.computeSuggestion(previewItem.item_id) : null;
-        }
         AffordableLimitSuggestionService affordableService =
             PluginInjectorBridge.get(AffordableLimitSuggestionService.class);
-        Integer affordable = affordableService != null ? affordableService.computeAffordableLimit(remaining) : null;
+        Integer affordable = affordableService != null ? affordableService.computeAffordableLimit() : null;
         if (affordable == null || affordable <= 0) {
             return;
         }

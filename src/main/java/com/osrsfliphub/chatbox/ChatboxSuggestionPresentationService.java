@@ -156,9 +156,9 @@ final class ChatboxSuggestionPresentationService {
         }
     }
 
-    private Integer computeAffordableLimitSuggestion(Integer remainingLimit) {
+    private Integer computeAffordableLimitSuggestion() {
         AffordableLimitSuggestionService service = PluginInjectorBridge.get(AffordableLimitSuggestionService.class);
-        return service != null ? service.computeAffordableLimit(remainingLimit) : null;
+        return service != null ? service.computeAffordableLimit() : null;
     }
 
     private void clearRemainingLimitSuggestionCache() {
@@ -255,7 +255,7 @@ final class ChatboxSuggestionPresentationService {
         } else {
             cacheRemainingLimitSuggestion(previewItemId, remaining);
         }
-        Integer affordable = computeAffordableLimitSuggestion(remaining);
+        Integer affordable = computeAffordableLimitSuggestion();
         boolean hasRemainingSuggestion = remaining != null && remaining > 0;
         boolean hasAffordableSuggestion = affordable != null && affordable > 0;
 
