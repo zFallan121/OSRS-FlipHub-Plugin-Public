@@ -53,31 +53,10 @@ final class GeLifecyclePluginLifecycleCoordinator {
         GeLifecyclePanelBootstrapService.UiState uiState = plugin.panelBootstrapService.initialize(
             plugin.itemManager,
             plugin.config,
-            plugin.configManager,
             plugin.client,
             plugin.clientToolbar,
             plugin.overlayManager,
-            plugin,
-            plugin.profileSelection,
-            plugin.bookmarkedItems,
-            plugin.hiddenItems,
-            plugin.hiddenItemConfigStore,
-            query -> plugin.currentQuery = query,
-            page -> plugin.currentPage = page,
-            enabled -> plugin.bookmarkFilterEnabled = enabled,
-            range -> plugin.currentStatsRange = range,
-            sort -> plugin.currentStatsSort = sort,
-            plugin::refreshPanelData,
-            plugin::refreshStatsData,
-            plugin.getProfileWorkflowService()::persistProfileSelectionState,
-            () -> PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class),
-            () -> PluginInjectorBridge.get(BookmarkStateService.class),
-            plugin.getLocalTradesRuntimeService()::ensureProfileLoaded,
-            plugin.getProfileWorkflowService()::updateProfileOptionsUI,
-            plugin.getProfileWorkflowService()::updateProfileHeader,
-            () -> plugin.runtimeUtilityServices.triggerPanelRefresh(plugin.getPanelRefreshCoordinator(), plugin.scheduler),
-            () -> plugin.runtimeUtilityServices.triggerStatsRefresh(plugin.getPanelRefreshCoordinator(), plugin.scheduler),
-            () -> PluginInjectorBridge.get(ManageDataDialogService.class).showManageDataDialog()
+            plugin
         );
         plugin.panel = uiState.getPanel();
         plugin.navButton = uiState.getNavButton();

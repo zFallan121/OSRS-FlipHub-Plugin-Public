@@ -25,13 +25,7 @@
 package com.osrsfliphub;
 
 import java.awt.image.BufferedImage;
-import java.util.Set;
-import java.util.function.Consumer;
-import java.util.function.IntConsumer;
-import java.util.function.LongConsumer;
-import java.util.function.Supplier;
 import net.runelite.api.Client;
-import net.runelite.client.config.ConfigManager;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
@@ -65,87 +59,21 @@ final class GeLifecyclePanelBootstrapService {
     UiState initialize(
         ItemManager itemManager,
         PluginConfig config,
-        ConfigManager configManager,
         Client client,
         ClientToolbar clientToolbar,
         OverlayManager overlayManager,
-        GeLifecyclePlugin plugin,
-        ProfileSelectionState profileSelection,
-        Set<Integer> bookmarkedItems,
-        Set<Integer> hiddenItems,
-        HiddenItemConfigStore hiddenItemConfigStore,
-        Consumer<String> querySetter,
-        IntConsumer pageSetter,
-        Consumer<Boolean> bookmarkFilterSetter,
-        Consumer<StatsRange> statsRangeSetter,
-        Consumer<StatsItemSort> statsSortSetter,
-        Runnable refreshPanelData,
-        Runnable refreshStatsData,
-        Runnable persistProfileSelectionState,
-        Supplier<ProfileSelectionPresentationFacadeService> profileSelectionPresentationFacadeServiceSupplier,
-        Supplier<BookmarkStateService> bookmarkStateServiceSupplier,
-        LongConsumer ensureProfileLoaded,
-        Runnable updateProfileOptionsUi,
-        Runnable updateProfileHeader,
-        Runnable triggerPanelRefresh,
-        Runnable triggerStatsRefresh,
-        Runnable showManageDataDialog
+        GeLifecyclePlugin plugin
     ) {
-        final FlipHubPanel[] panelRef = new FlipHubPanel[1];
         FlipHubPanel panel = new FlipHubPanel(
             itemManager,
-            new FlipHubPanelListenerPluginHooks(
-                query -> {
-                    if (querySetter != null) {
-                        querySetter.accept(query);
-                    }
-                },
-                page -> {
-                    if (pageSetter != null) {
-                        pageSetter.accept(page);
-                    }
-                },
-                enabled -> {
-                    if (bookmarkFilterSetter != null) {
-                        bookmarkFilterSetter.accept(enabled);
-                    }
-                },
-                range -> {
-                    if (statsRangeSetter != null) {
-                        statsRangeSetter.accept(range);
-                    }
-                },
-                sort -> {
-                    if (statsSortSetter != null) {
-                        statsSortSetter.accept(sort);
-                    }
-                },
-                refreshPanelData,
-                refreshStatsData,
-                profileSelection,
-                persistProfileSelectionState,
-                profileSelectionPresentationFacadeServiceSupplier,
-                bookmarkStateServiceSupplier,
-                bookmarkedItems,
-                ensureProfileLoaded,
-                updateProfileOptionsUi,
-                updateProfileHeader,
-                triggerPanelRefresh,
-                triggerStatsRefresh,
-                showManageDataDialog
-            ),
+            new FlipHubPanelPluginListener(),
             PluginInjectorBridge.get(FlipHubPanelBookmarkStoreImpl.class),
             PluginInjectorBridge.get(FlipHubPanelHiddenItemStoreImpl.class),
             config
         );
-        panelRef[0] = panel;
 
-        if (updateProfileOptionsUi != null) {
-            updateProfileOptionsUi.run();
-        }
-        if (updateProfileHeader != null) {
-            updateProfileHeader.run();
-        }
+        plugin.getProfileWorkflowService().updateProfileOptionsUI();
+        plugin.getProfileWorkflowService().updateProfileHeader();
 
         BufferedImage icon = panel.buildNavIcon();
         NavigationButton navButton = NavigationButton.builder()
