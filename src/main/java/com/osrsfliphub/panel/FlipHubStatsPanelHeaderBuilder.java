@@ -43,10 +43,22 @@ import javax.swing.JTextField;
 import javax.swing.border.Border;
 
 final class FlipHubStatsPanelHeaderBuilder {
-    private final FlipHubStatsPanelBuilder.Hooks hooks;
+    private final FlipHubUiStyler uiStyler;
+    private final FlipHubPanelStateService panelStateService;
+    private final FlipHubPanelMutableState panelState;
+    private final FlipHubPanelListener listener;
+    private final Runnable renderStatsItems;
 
-    FlipHubStatsPanelHeaderBuilder(FlipHubStatsPanelBuilder.Hooks hooks) {
-        this.hooks = hooks;
+    FlipHubStatsPanelHeaderBuilder(FlipHubUiStyler uiStyler,
+                                   FlipHubPanelStateService panelStateService,
+                                   FlipHubPanelMutableState panelState,
+                                   FlipHubPanelListener listener,
+                                   Runnable renderStatsItems) {
+        this.uiStyler = uiStyler;
+        this.panelStateService = panelStateService;
+        this.panelState = panelState;
+        this.listener = listener;
+        this.renderStatsItems = renderStatsItems;
     }
 
     JPanel buildHeader(
@@ -63,14 +75,14 @@ final class FlipHubStatsPanelHeaderBuilder {
         rangeRow.setBackground(BG);
         rangeRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         rangeRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
-        if (hooks != null) {
-            hooks.styleComboBox(statsRangeCombo);
+        if (uiStyler != null) {
+            uiStyler.styleComboBox(statsRangeCombo);
         }
         statsRangeCombo.setSelectedItem(StatsRange.SESSION);
         statsRangeCombo.addActionListener(e -> {
             StatsRange range = (StatsRange) statsRangeCombo.getSelectedItem();
-            if (hooks != null && range != null) {
-                hooks.onStatsRangeChanged(range);
+            if (panelStateService != null && range != null) {
+                panelStateService.onStatsRangeSelectionChanged(listener, range);
             }
         });
         rangeRow.add(statsRangeCombo, BorderLayout.WEST);
@@ -79,13 +91,13 @@ final class FlipHubStatsPanelHeaderBuilder {
         searchRow.setBackground(BG);
         searchRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         searchRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-        if (hooks != null) {
-            hooks.styleTextField(statsSearchField);
+        if (uiStyler != null) {
+            uiStyler.styleTextField(statsSearchField);
         }
         statsSearchField.setToolTipText("Filter items");
         installDocumentListener(statsSearchField, () -> {
-            if (hooks != null) {
-                hooks.onStatsSearchChanged(statsSearchField.getText());
+            if (panelStateService != null) {
+                panelStateService.onStatsSearchQueryChanged(panelState, statsSearchField.getText(), renderStatsItems);
             }
         });
 
@@ -131,14 +143,14 @@ final class FlipHubStatsPanelHeaderBuilder {
     }
 
     private Font font(float size) {
-        return hooks != null ? hooks.font(size) : new Font("Dialog", Font.PLAIN, Math.max(10, Math.round(size)));
+        return uiStyler.font(size);
     }
 
     private Font fontSemiBold(float size) {
-        return hooks != null ? hooks.fontSemiBold(size) : new Font("Dialog", Font.BOLD, Math.max(10, Math.round(size)));
+        return uiStyler.fontSemiBold(size);
     }
 
     private Border roundedBorder(int arc, Color color, Insets padding) {
-        return hooks != null ? hooks.roundedBorder(arc, color, padding) : BorderFactory.createEmptyBorder();
+        return uiStyler.roundedBorder(arc, color, padding);
     }
 }

@@ -27,10 +27,6 @@ package com.osrsfliphub;
 import static com.osrsfliphub.FlipHubPanelConstants.*;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Font;
-import java.awt.Insets;
 import java.awt.event.MouseWheelListener;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -38,27 +34,8 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
-import javax.swing.border.Border;
 
 final class FlipHubStatsPanelBuilder {
-    interface Hooks {
-        Font font(float size);
-        Font fontBold(float size);
-        Font fontSemiBold(float size);
-        Border roundedBorder(int arc, Color color, Insets padding);
-        void styleComboBox(JComboBox<?> combo);
-        void styleTextField(JTextField field);
-        void installWheelForwarder(Component component);
-        MouseWheelListener wheelForwarder();
-        boolean isStatsSortAscending();
-        void onStatsRangeChanged(StatsRange range);
-        void onStatsSortChanged(StatsItemSort sort);
-        void onStatsSortDirectionToggled();
-        void onStatsSearchChanged(String query);
-        void renderStatsItems();
-        void updateStatsSummary();
-    }
-
     static final class BuildResult {
         final JPanel panel;
         final JScrollPane scrollPane;
@@ -91,9 +68,19 @@ final class FlipHubStatsPanelBuilder {
     private final FlipHubStatsPanelHeaderBuilder headerBuilder;
     private final FlipHubStatsPanelContentBuilder contentBuilder;
 
-    FlipHubStatsPanelBuilder(Hooks hooks) {
-        this.headerBuilder = new FlipHubStatsPanelHeaderBuilder(hooks);
-        this.contentBuilder = new FlipHubStatsPanelContentBuilder(hooks);
+    FlipHubStatsPanelBuilder(FlipHubUiStyler uiStyler,
+                             FlipHubPanelStateService panelStateService,
+                             FlipHubPanelMutableState panelState,
+                             FlipHubPanelListener listener,
+                             Runnable renderStatsItems,
+                             Runnable updateStatsSummary,
+                             FlipHubWheelScrollCoordinator wheelScrollCoordinator,
+                             MouseWheelListener wheelForwarder) {
+        this.headerBuilder = new FlipHubStatsPanelHeaderBuilder(
+            uiStyler, panelStateService, panelState, listener, renderStatsItems);
+        this.contentBuilder = new FlipHubStatsPanelContentBuilder(
+            uiStyler, panelStateService, panelState, listener,
+            renderStatsItems, updateStatsSummary, wheelScrollCoordinator, wheelForwarder);
     }
 
     BuildResult build(

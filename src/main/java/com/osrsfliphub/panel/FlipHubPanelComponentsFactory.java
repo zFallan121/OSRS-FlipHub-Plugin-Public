@@ -120,23 +120,14 @@ final class FlipHubPanelComponentsFactory {
         );
 
         FlipHubStatsPanelBuilder statsPanelBuilder = new FlipHubStatsPanelBuilder(
-            new FlipHubStatsPanelBuilderPluginHooks(
-                uiStyler::font,
-                uiStyler::fontBold,
-                uiStyler::fontSemiBold,
-                uiStyler::roundedBorder,
-                uiStyler::styleComboBox,
-                uiStyler::styleTextField,
-                wheelScrollCoordinator::installWheelForwarder,
-                () -> wheelForwarder,
-                () -> panelState.statsSortAscending,
-                range -> panelStateService.onStatsRangeSelectionChanged(listener, range),
-                sort -> panelStateService.onStatsSortSelectionChanged(listener, sort, renderStatsItems),
-                () -> panelStateService.onStatsSortDirectionToggled(panelState, renderStatsItems),
-                query -> panelStateService.onStatsSearchQueryChanged(panelState, query, renderStatsItems),
-                renderStatsItems,
-                updateStatsSummary
-            )
+            uiStyler,
+            panelStateService,
+            panelState,
+            listener,
+            renderStatsItems,
+            updateStatsSummary,
+            wheelScrollCoordinator,
+            wheelForwarder
         );
 
         FlipHubStatsItemCardBuilder statsItemCardBuilder = new FlipHubStatsItemCardBuilder(

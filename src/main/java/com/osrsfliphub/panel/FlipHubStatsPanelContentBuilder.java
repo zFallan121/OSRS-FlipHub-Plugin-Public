@@ -32,6 +32,7 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Insets;
+import java.awt.event.MouseWheelListener;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -73,10 +74,31 @@ final class FlipHubStatsPanelContentBuilder {
         }
     }
 
-    private final FlipHubStatsPanelBuilder.Hooks hooks;
+    private final FlipHubUiStyler uiStyler;
+    private final FlipHubPanelStateService panelStateService;
+    private final FlipHubPanelMutableState panelState;
+    private final FlipHubPanelListener listener;
+    private final Runnable renderStatsItems;
+    private final Runnable updateStatsSummary;
+    private final FlipHubWheelScrollCoordinator wheelScrollCoordinator;
+    private final MouseWheelListener wheelForwarder;
 
-    FlipHubStatsPanelContentBuilder(FlipHubStatsPanelBuilder.Hooks hooks) {
-        this.hooks = hooks;
+    FlipHubStatsPanelContentBuilder(FlipHubUiStyler uiStyler,
+                                    FlipHubPanelStateService panelStateService,
+                                    FlipHubPanelMutableState panelState,
+                                    FlipHubPanelListener listener,
+                                    Runnable renderStatsItems,
+                                    Runnable updateStatsSummary,
+                                    FlipHubWheelScrollCoordinator wheelScrollCoordinator,
+                                    MouseWheelListener wheelForwarder) {
+        this.uiStyler = uiStyler;
+        this.panelStateService = panelStateService;
+        this.panelState = panelState;
+        this.listener = listener;
+        this.renderStatsItems = renderStatsItems;
+        this.updateStatsSummary = updateStatsSummary;
+        this.wheelScrollCoordinator = wheelScrollCoordinator;
+        this.wheelForwarder = wheelForwarder;
     }
 
     ContentResult buildContent(
@@ -126,18 +148,22 @@ final class FlipHubStatsPanelContentBuilder {
         statsScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
         statsScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         statsScrollPane.setWheelScrollingEnabled(true);
-        if (hooks != null) {
-            statsScrollPane.addMouseWheelListener(hooks.wheelForwarder());
-            statsScrollPane.getViewport().addMouseWheelListener(hooks.wheelForwarder());
+        if (wheelForwarder != null) {
+            statsScrollPane.addMouseWheelListener(wheelForwarder);
+            statsScrollPane.getViewport().addMouseWheelListener(wheelForwarder);
         }
         JScrollBar statsBar = statsScrollPane.getVerticalScrollBar();
         statsBar.setUnitIncrement(SCROLL_UNIT_INCREMENT);
         statsBar.setBlockIncrement(SCROLL_BLOCK_INCREMENT);
 
-        if (hooks != null) {
-            hooks.installWheelForwarder(statsContentPanel);
-            hooks.renderStatsItems();
-            hooks.updateStatsSummary();
+        if (wheelScrollCoordinator != null) {
+            wheelScrollCoordinator.installWheelForwarder(statsContentPanel);
+        }
+        if (renderStatsItems != null) {
+            renderStatsItems.run();
+        }
+        if (updateStatsSummary != null) {
+            updateStatsSummary.run();
         }
 
         return new ContentResult(
@@ -163,8 +189,8 @@ final class FlipHubStatsPanelContentBuilder {
         JLabel sortLabel = new JLabel("Sort");
         sortLabel.setForeground(MUTED);
         sortLabel.setFont(font(10.5f));
-        if (hooks != null) {
-            hooks.styleComboBox(statsSortCombo);
+        if (uiStyler != null) {
+            uiStyler.styleComboBox(statsSortCombo);
         }
         statsSortCombo.setFont(font(10.5f));
         statsSortCombo.setBorder(roundedBorder(INPUT_ARC, SOFT_BORDER, new Insets(2, 6, 2, 6)));
@@ -176,8 +202,8 @@ final class FlipHubStatsPanelContentBuilder {
         }
         statsSortCombo.addActionListener(e -> {
             StatsItemSort sort = (StatsItemSort) statsSortCombo.getSelectedItem();
-            if (hooks != null && sort != null) {
-                hooks.onStatsSortChanged(sort);
+            if (panelStateService != null && sort != null) {
+                panelStateService.onStatsSortSelectionChanged(listener, sort, renderStatsItems);
             }
         });
         statsSortDirectionButton.setFocusPainted(false);
@@ -188,12 +214,14 @@ final class FlipHubStatsPanelContentBuilder {
         statsSortDirectionButton.setPreferredSize(new Dimension(34, 24));
         statsSortDirectionButton.setMaximumSize(new Dimension(34, 24));
         statsSortDirectionButton.addActionListener(e -> {
-            if (hooks != null) {
-                hooks.onStatsSortDirectionToggled();
-                updateStatsSortDirectionButton(statsSortDirectionButton, hooks.isStatsSortAscending());
+            if (panelStateService != null) {
+                panelStateService.onStatsSortDirectionToggled(panelState, renderStatsItems);
+                updateStatsSortDirectionButton(statsSortDirectionButton,
+                    panelState != null && panelState.statsSortAscending);
             }
         });
-        updateStatsSortDirectionButton(statsSortDirectionButton, hooks != null && hooks.isStatsSortAscending());
+        updateStatsSortDirectionButton(statsSortDirectionButton,
+            panelState != null && panelState.statsSortAscending);
         left.add(sortLabel);
         left.add(statsSortCombo);
         left.add(statsSortDirectionButton);
@@ -250,18 +278,18 @@ final class FlipHubStatsPanelContentBuilder {
     }
 
     private Font font(float size) {
-        return hooks != null ? hooks.font(size) : new Font("Dialog", Font.PLAIN, Math.max(10, Math.round(size)));
+        return uiStyler.font(size);
     }
 
     private Font fontBold(float size) {
-        return hooks != null ? hooks.fontBold(size) : new Font("Dialog", Font.BOLD, Math.max(10, Math.round(size)));
+        return uiStyler.fontBold(size);
     }
 
     private Font fontSemiBold(float size) {
-        return hooks != null ? hooks.fontSemiBold(size) : fontBold(size);
+        return uiStyler.fontSemiBold(size);
     }
 
     private Border roundedBorder(int arc, Color color, Insets padding) {
-        return hooks != null ? hooks.roundedBorder(arc, color, padding) : BorderFactory.createEmptyBorder();
+        return uiStyler.roundedBorder(arc, color, padding);
     }
 }
