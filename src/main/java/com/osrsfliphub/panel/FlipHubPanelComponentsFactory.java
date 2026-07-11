@@ -149,23 +149,13 @@ final class FlipHubPanelComponentsFactory {
 
         FlipHubStatsItemCardBuilder statsItemCardBuilder = new FlipHubStatsItemCardBuilder(
             valueFormatService,
-            new FlipHubStatsItemCardBuilderPluginHooks(
-                uiStyler::font,
-                uiStyler::fontBold,
-                uiStyler::fontSemiBold,
-                itemIconResolver::setItemIcon,
-                itemId -> expandedStatsItemIdSupplier.get() != null && expandedStatsItemIdSupplier.get() == itemId,
-                expandedStatsHistoryItems::contains,
-                itemId -> {
-                    if (panelState.statsFlipHistoryByItem == null) {
-                        return new ArrayList<>();
-                    }
-                    List<StatsFlipInstance> history = panelState.statsFlipHistoryByItem.get(itemId);
-                    return history != null ? history : new ArrayList<>();
-                },
-                toggleStatsItemExpanded,
-                toggleStatsHistoryExpanded
-            )
+            uiStyler,
+            itemIconResolver,
+            expandedStatsItemIdSupplier,
+            expandedStatsHistoryItems,
+            panelState,
+            toggleStatsItemExpanded,
+            toggleStatsHistoryExpanded
         );
 
         return new FlipHubPanelComponentBundle(

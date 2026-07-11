@@ -32,26 +32,25 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Cursor;
 import java.awt.event.MouseAdapter;
+import java.util.function.IntConsumer;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 final class FlipHubStatsCardInteractionInstaller {
-    interface Hooks {
-        void toggleStatsItemExpanded(int itemId);
-        void toggleStatsHistoryExpanded(int itemId);
-    }
+    private final IntConsumer toggleStatsItemExpanded;
+    private final IntConsumer toggleStatsHistoryExpanded;
 
-    private final Hooks hooks;
-
-    FlipHubStatsCardInteractionInstaller(Hooks hooks) {
-        this.hooks = hooks;
+    FlipHubStatsCardInteractionInstaller(IntConsumer toggleStatsItemExpanded,
+                                         IntConsumer toggleStatsHistoryExpanded) {
+        this.toggleStatsItemExpanded = toggleStatsItemExpanded;
+        this.toggleStatsHistoryExpanded = toggleStatsHistoryExpanded;
     }
 
     void installStatsCardToggle(JComponent root, int itemId) {
         MouseAdapter clickHandler = new FlipHubStatsClickMouseAdapter(() -> {
-            if (hooks != null) {
-                hooks.toggleStatsItemExpanded(itemId);
+            if (toggleStatsItemExpanded != null) {
+                toggleStatsItemExpanded.accept(itemId);
             }
         });
         installStatsCardToggleRecursive(root, clickHandler);
@@ -79,8 +78,8 @@ final class FlipHubStatsCardInteractionInstaller {
             return;
         }
         MouseAdapter clickHandler = new FlipHubStatsClickMouseAdapter(() -> {
-            if (hooks != null) {
-                hooks.toggleStatsHistoryExpanded(itemId);
+            if (toggleStatsHistoryExpanded != null) {
+                toggleStatsHistoryExpanded.accept(itemId);
             }
         });
         installStatsHistoryToggleRecursive(component, clickHandler);

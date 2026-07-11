@@ -34,6 +34,9 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.function.IntConsumer;
+import java.util.function.Supplier;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -43,48 +46,53 @@ import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 
 final class FlipHubStatsItemCardBuilder {
-    interface Hooks {
-        Font font(float size);
-        Font fontBold(float size);
-        Font fontSemiBold(float size);
-        void setItemIcon(JLabel label, int itemId);
-        boolean isStatsItemExpanded(int itemId);
-        boolean isStatsHistoryExpanded(int itemId);
-        List<StatsFlipInstance> getStatsFlipHistory(int itemId);
-        void toggleStatsItemExpanded(int itemId);
-        void toggleStatsHistoryExpanded(int itemId);
-    }
-
     private final FlipHubPanelValueFormatService valueFormatService;
     private final FlipHubStatsItemFormattingService formattingService;
     private final FlipHubStatsCardInteractionInstaller interactionInstaller;
-    private final Hooks hooks;
+    private final FlipHubUiStyler uiStyler;
+    private final FlipHubItemIconResolver itemIconResolver;
+    private final Supplier<Integer> expandedStatsItemIdSupplier;
+    private final Set<Integer> expandedStatsHistoryItems;
+    private final FlipHubPanelMutableState panelState;
 
-    FlipHubStatsItemCardBuilder(FlipHubPanelValueFormatService valueFormatService, Hooks hooks) {
+    FlipHubStatsItemCardBuilder(FlipHubPanelValueFormatService valueFormatService,
+                                FlipHubUiStyler uiStyler,
+                                FlipHubItemIconResolver itemIconResolver,
+                                Supplier<Integer> expandedStatsItemIdSupplier,
+                                Set<Integer> expandedStatsHistoryItems,
+                                FlipHubPanelMutableState panelState,
+                                IntConsumer toggleStatsItemExpanded,
+                                IntConsumer toggleStatsHistoryExpanded) {
         this.valueFormatService = valueFormatService;
         this.formattingService = new FlipHubStatsItemFormattingService(valueFormatService);
-        this.interactionInstaller = new FlipHubStatsCardInteractionInstaller(
-            new FlipHubStatsCardInteractionInstaller.Hooks() {
-                @Override
-                public void toggleStatsItemExpanded(int itemId) {
-                    if (hooks != null) {
-                        hooks.toggleStatsItemExpanded(itemId);
-                    }
-                }
+        this.interactionInstaller =
+            new FlipHubStatsCardInteractionInstaller(toggleStatsItemExpanded, toggleStatsHistoryExpanded);
+        this.uiStyler = uiStyler;
+        this.itemIconResolver = itemIconResolver;
+        this.expandedStatsItemIdSupplier = expandedStatsItemIdSupplier;
+        this.expandedStatsHistoryItems = expandedStatsHistoryItems;
+        this.panelState = panelState;
+    }
 
-                @Override
-                public void toggleStatsHistoryExpanded(int itemId) {
-                    if (hooks != null) {
-                        hooks.toggleStatsHistoryExpanded(itemId);
-                    }
-                }
-            }
-        );
-        this.hooks = hooks;
+    private boolean isStatsItemExpanded(int itemId) {
+        Integer expandedId = expandedStatsItemIdSupplier != null ? expandedStatsItemIdSupplier.get() : null;
+        return expandedId != null && expandedId == itemId;
+    }
+
+    private boolean isStatsHistoryExpanded(int itemId) {
+        return expandedStatsHistoryItems != null && expandedStatsHistoryItems.contains(itemId);
+    }
+
+    private List<StatsFlipInstance> getStatsFlipHistory(int itemId) {
+        if (panelState == null || panelState.statsFlipHistoryByItem == null) {
+            return new ArrayList<>();
+        }
+        List<StatsFlipInstance> history = panelState.statsFlipHistoryByItem.get(itemId);
+        return history != null ? history : new ArrayList<>();
     }
 
     JPanel buildStatsItemCard(StatsItem item) {
-        boolean expanded = hooks != null && hooks.isStatsItemExpanded(item.item_id);
+        boolean expanded = isStatsItemExpanded(item.item_id);
         JPanel card = new RoundedPanel(CARD_ARC, CARD, SOFT_BORDER);
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
@@ -94,8 +102,8 @@ final class FlipHubStatsItemCardBuilder {
 
         JLabel iconLabel = new JLabel();
         iconLabel.setPreferredSize(new Dimension(32, 32));
-        if (hooks != null) {
-            hooks.setItemIcon(iconLabel, item.item_id);
+        if (itemIconResolver != null) {
+            itemIconResolver.setItemIcon(iconLabel, item.item_id);
         }
 
         JPanel header = new JPanel(new BorderLayout(8, 0));
@@ -180,13 +188,11 @@ final class FlipHubStatsItemCardBuilder {
         section.setOpaque(false);
         section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
 
-        List<StatsFlipInstance> history = hooks != null
-            ? hooks.getStatsFlipHistory(itemId)
-            : new ArrayList<>();
+        List<StatsFlipInstance> history = getStatsFlipHistory(itemId);
         if (history == null) {
             history = new ArrayList<>();
         }
-        boolean expanded = hooks != null && hooks.isStatsHistoryExpanded(itemId);
+        boolean expanded = isStatsHistoryExpanded(itemId);
 
         JPanel header = new JPanel(new BorderLayout(6, 0));
         header.setOpaque(false);
@@ -289,14 +295,14 @@ final class FlipHubStatsItemCardBuilder {
     }
 
     private Font font(float size) {
-        return hooks != null ? hooks.font(size) : new Font("Dialog", Font.PLAIN, Math.max(10, Math.round(size)));
+        return uiStyler.font(size);
     }
 
     private Font fontBold(float size) {
-        return hooks != null ? hooks.fontBold(size) : new Font("Dialog", Font.BOLD, Math.max(10, Math.round(size)));
+        return uiStyler.fontBold(size);
     }
 
     private Font fontSemiBold(float size) {
-        return hooks != null ? hooks.fontSemiBold(size) : fontBold(size);
+        return uiStyler.fontSemiBold(size);
     }
 }
