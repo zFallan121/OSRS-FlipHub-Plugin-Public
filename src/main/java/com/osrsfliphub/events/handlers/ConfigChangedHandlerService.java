@@ -30,204 +30,91 @@ import net.runelite.client.events.ConfigChanged;
 
 @Singleton
 final class ConfigChangedHandlerService {
-    interface Hooks {
-        String configGroup();
-        boolean isLinkInputConfigKey(String key);
-        String getLinkInput();
-        void attemptLink(String linkInput);
-        boolean isUnlinkConfigKey(String key);
-        boolean unlinkRequested();
-        void clearLinkState();
-        void resetUploadSnapshot();
-        void setUploadBlocked(String message);
-        boolean isPanelAvailable();
-        void updateProfileHeader();
-        void triggerStatsRefresh();
-        boolean isBookmarksConfigKey(String key);
-        void reloadBookmarkState(String key);
-        void loadBookmarks();
-        void refreshBookmarksUi();
-        boolean isHiddenItemsConfigKey(String key);
-        void loadHiddenItems();
-    }
-
-    private final Hooks hooks;
+    private final PluginConfig config;
+    private final PluginState state;
 
     @Inject
     ConfigChangedHandlerService(PluginConfig config, PluginState state) {
-        this(productionHooks(config, state));
+        this.config = config;
+        this.state = state;
     }
 
-    ConfigChangedHandlerService(Hooks hooks) {
-        this.hooks = hooks;
+    private boolean isPanelAvailable() {
+        return PluginAccess.plugin().panel != null;
     }
 
-    private static Hooks productionHooks(PluginConfig config, PluginState state) {
-        return new Hooks() {
-            @Override
-            public String configGroup() {
-                return FliphubConfigGroups.CONFIG_GROUP;
-            }
-
-            @Override
-            public boolean isLinkInputConfigKey(String key) {
-                return "licenseKey".equals(key) || "linkCode".equals(key);
-            }
-
-            @Override
-            public String getLinkInput() {
-                LinkAttemptService linkAttemptService = PluginInjectorBridge.get(LinkAttemptService.class);
-                if (linkAttemptService == null || config == null) {
-                    return null;
-                }
-                return linkAttemptService.resolveLinkInput(config.licenseKey(), config.linkCode());
-            }
-
-            @Override
-            public void attemptLink(String linkInput) {
-                PluginInjectorBridge.get(LinkAttemptService.class).attemptLink(linkInput);
-            }
-
-            @Override
-            public boolean isUnlinkConfigKey(String key) {
-                return "unlinkNow".equals(key);
-            }
-
-            @Override
-            public boolean unlinkRequested() {
-                return config != null && config.unlinkNow();
-            }
-
-            @Override
-            public void clearLinkState() {
-                PluginInjectorBridge.get(LinkSessionConfigStore.class).clearLinkState();
-            }
-
-            @Override
-            public void resetUploadSnapshot() {
-                AccountwideSummaryUploader uploader =
-                    PluginInjectorBridge.get(AccountwideSummaryUploader.class);
-                if (uploader != null) {
-                    uploader.resetUploadSnapshot();
-                }
-            }
-
-            @Override
-            public void setUploadBlocked(String message) {
-                UploadEventDispatchFacadeService service =
-                    PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
-                if (service != null) {
-                    service.markBlocked(message);
-                }
-            }
-
-            @Override
-            public boolean isPanelAvailable() {
-                return PluginAccess.plugin().panel != null;
-            }
-
-            @Override
-            public void updateProfileHeader() {
-                PluginAccess.plugin().getProfileWorkflowService().updateProfileHeader();
-            }
-
-            @Override
-            public void triggerStatsRefresh() {
-                GeLifecyclePlugin plugin = PluginAccess.plugin();
-                PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
-                if (coordinator != null) {
-                    coordinator.triggerStatsRefresh(plugin.scheduler);
-                }
-            }
-
-            @Override
-            public boolean isBookmarksConfigKey(String key) {
-                BookmarkStateService bookmarkStateService = PluginInjectorBridge.get(BookmarkStateService.class);
-                return bookmarkStateService != null && bookmarkStateService.isBookmarksConfigKey(key);
-            }
-
-            @Override
-            public void reloadBookmarkState(String key) {
-                PluginInjectorBridge.get(BookmarkStateService.class).reloadFromConfigKey(key);
-            }
-
-            @Override
-            public void loadBookmarks() {
-                BookmarkStateService bookmarkStateService = PluginInjectorBridge.get(BookmarkStateService.class);
-                ProfileSelectionPresentationFacadeService profileSelectionService = PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
-                if (bookmarkStateService == null || profileSelectionService == null) {
-                    return;
-                }
-                bookmarkStateService.loadSelectedBookmarks(
-                    profileSelectionService.resolveSelectedProfileKey(), state.getBookmarkedItems());
-            }
-
-            @Override
-            public void refreshBookmarksUi() {
-                FlipHubPanel panel = PluginAccess.plugin().panel;
-                if (panel != null) {
-                    panel.refreshBookmarks();
-                }
-            }
-
-            @Override
-            public boolean isHiddenItemsConfigKey(String key) {
-                return state.getHiddenItemConfigStore().isHiddenItemsConfigKey(key);
-            }
-
-            @Override
-            public void loadHiddenItems() {
-                if (config == null) {
-                    return;
-                }
-                state.getHiddenItems().clear();
-                state.getHiddenItems().addAll(
-                    state.getHiddenItemConfigStore().parseItemIds(config.hiddenItems()));
-            }
-        };
+    private void refreshBookmarksUi() {
+        FlipHubPanel panel = PluginAccess.plugin().panel;
+        if (panel != null) {
+            panel.refreshBookmarks();
+        }
     }
 
     void handle(ConfigChanged event) {
-        if (hooks == null || event == null) {
+        if (event == null) {
             return;
         }
-        if (!hooks.configGroup().equals(event.getGroup())) {
+        if (!FliphubConfigGroups.CONFIG_GROUP.equals(event.getGroup())) {
             return;
         }
         String key = event.getKey();
 
-        if (hooks.isLinkInputConfigKey(key)) {
-            String linkInput = hooks.getLinkInput();
+        if ("licenseKey".equals(key) || "linkCode".equals(key)) {
+            LinkAttemptService linkAttemptService = PluginInjectorBridge.get(LinkAttemptService.class);
+            String linkInput = linkAttemptService != null && config != null
+                ? linkAttemptService.resolveLinkInput(config.licenseKey(), config.linkCode())
+                : null;
             if (linkInput != null && !linkInput.trim().isEmpty()) {
-                hooks.attemptLink(linkInput.trim());
+                linkAttemptService.attemptLink(linkInput.trim());
             }
         }
 
-        if (hooks.isUnlinkConfigKey(key)) {
-            if (!hooks.unlinkRequested()) {
+        if ("unlinkNow".equals(key)) {
+            if (config == null || !config.unlinkNow()) {
                 return;
             }
-            hooks.clearLinkState();
-            hooks.resetUploadSnapshot();
-            hooks.setUploadBlocked("Unlinked. Event uploads paused until relinked.");
-            if (hooks.isPanelAvailable()) {
-                hooks.updateProfileHeader();
+            PluginInjectorBridge.get(LinkSessionConfigStore.class).clearLinkState();
+            AccountwideSummaryUploader uploader = PluginInjectorBridge.get(AccountwideSummaryUploader.class);
+            if (uploader != null) {
+                uploader.resetUploadSnapshot();
             }
-            hooks.triggerStatsRefresh();
+            UploadEventDispatchFacadeService uploadFacade =
+                PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
+            if (uploadFacade != null) {
+                uploadFacade.markBlocked("Unlinked. Event uploads paused until relinked.");
+            }
+            if (isPanelAvailable()) {
+                PluginAccess.plugin().getProfileWorkflowService().updateProfileHeader();
+            }
+            GeLifecyclePlugin plugin = PluginAccess.plugin();
+            PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
+            if (coordinator != null) {
+                coordinator.triggerStatsRefresh(plugin.scheduler);
+            }
         }
 
-        if (hooks.isBookmarksConfigKey(key)) {
-            hooks.reloadBookmarkState(key);
-            hooks.loadBookmarks();
-            if (hooks.isPanelAvailable()) {
-                hooks.refreshBookmarksUi();
+        BookmarkStateService bookmarkStateService = PluginInjectorBridge.get(BookmarkStateService.class);
+        if (bookmarkStateService != null && bookmarkStateService.isBookmarksConfigKey(key)) {
+            bookmarkStateService.reloadFromConfigKey(key);
+            ProfileSelectionPresentationFacadeService profileSelectionService =
+                PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
+            if (profileSelectionService != null) {
+                bookmarkStateService.loadSelectedBookmarks(
+                    profileSelectionService.resolveSelectedProfileKey(), state.getBookmarkedItems());
+            }
+            if (isPanelAvailable()) {
+                refreshBookmarksUi();
             }
         }
 
-        if (hooks.isHiddenItemsConfigKey(key)) {
-            hooks.loadHiddenItems();
-            if (hooks.isPanelAvailable()) {
-                hooks.refreshBookmarksUi();
+        if (state.getHiddenItemConfigStore().isHiddenItemsConfigKey(key)) {
+            if (config != null) {
+                state.getHiddenItems().clear();
+                state.getHiddenItems().addAll(
+                    state.getHiddenItemConfigStore().parseItemIds(config.hiddenItems()));
+            }
+            if (isPanelAvailable()) {
+                refreshBookmarksUi();
             }
         }
     }
