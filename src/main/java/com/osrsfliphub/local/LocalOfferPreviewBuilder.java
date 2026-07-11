@@ -31,164 +31,76 @@ import javax.inject.Singleton;
 
 @Singleton
 final class LocalOfferPreviewBuilder {
-    interface Hooks {
-        void ensureSelectedProfileLoaded();
-        void requestGeLimit(int itemId);
-        String getItemName(int itemId);
-        void applyGuidePrices(FlipHubItem item, int itemId);
-        long resolveSelectedProfileKey();
-        long resolveLimitAccountKey(long fallbackAccountKey);
-        Map<Integer, LocalTradeInfo> buildLocalTradeInfo(long accountKey);
-        void applyLocalTradeInfo(FlipHubItem item, LocalTradeInfo info);
-        void ensureProfileLoaded(long accountKey);
-        Map<Integer, LocalLimitInfo> buildLocalLimitInfo(long accountKey, long nowMs);
-        void applyLocalLimitInfo(FlipHubItem item, int itemId, LocalLimitInfo info);
-        Integer lookupGeLimit(int itemId);
-        void applyMarginInfo(FlipHubItem item);
-        long nowMs();
-    }
-
     private static final long GE_LIMIT_WINDOW_MS = 4L * 60L * 60L * 1000L;
-    private final Hooks hooks;
 
     @Inject
     LocalOfferPreviewBuilder() {
-        this(new Hooks() {
-            @Override
-            public void ensureSelectedProfileLoaded() {
-                PluginAccess.plugin().getProfileWorkflowService().ensureSelectedProfileLoaded();
-            }
-
-            @Override
-            public void requestGeLimit(int itemId) {
-                if (itemId <= 0) {
-                    return;
-                }
-                GeLimitService service = PluginInjectorBridge.get(GeLimitService.class);
-                if (service != null) {
-                    service.requestGeLimits(Collections.singleton(itemId));
-                }
-            }
-
-            @Override
-            public String getItemName(int itemId) {
-                ItemLookupService service = PluginInjectorBridge.get(ItemLookupService.class);
-                return service != null ? service.lookupItemNameSafe(itemId) : null;
-            }
-
-            @Override
-            public void applyGuidePrices(FlipHubItem item, int itemId) {
-                LocalItemEnrichmentService service = PluginInjectorBridge.get(LocalItemEnrichmentService.class);
-                if (service != null) {
-                    service.applyGuidePrices(item, itemId, false);
-                }
-            }
-
-            @Override
-            public long resolveSelectedProfileKey() {
-                ProfileSelectionPresentationFacadeService service =
-                    PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
-                return service != null ? service.resolveSelectedProfileKey() : 0L;
-            }
-
-            @Override
-            public long resolveLimitAccountKey(long fallbackAccountKey) {
-                LocalAccountSessionService service = PluginInjectorBridge.get(LocalAccountSessionService.class);
-                return service != null ? service.resolveLimitAccountKey(fallbackAccountKey) : fallbackAccountKey;
-            }
-
-            @Override
-            public Map<Integer, LocalTradeInfo> buildLocalTradeInfo(long accountKey) {
-                LocalTradeSessionFacadeService service = PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
-                return service != null ? service.buildLocalTradeInfo(accountKey) : null;
-            }
-
-            @Override
-            public void applyLocalTradeInfo(FlipHubItem item, LocalTradeInfo info) {
-                LocalItemEnrichmentService service = PluginInjectorBridge.get(LocalItemEnrichmentService.class);
-                if (service != null) {
-                    service.applyLocalTradeInfo(item, info);
-                }
-            }
-
-            @Override
-            public void ensureProfileLoaded(long accountKey) {
-                PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
-            }
-
-            @Override
-            public Map<Integer, LocalLimitInfo> buildLocalLimitInfo(long accountKey, long atMs) {
-                LocalTradeSessionFacadeService service = PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
-                return service != null ? service.buildLocalLimitInfo(accountKey, atMs) : null;
-            }
-
-            @Override
-            public void applyLocalLimitInfo(FlipHubItem item, int itemId, LocalLimitInfo info) {
-                LocalItemEnrichmentService service = PluginInjectorBridge.get(LocalItemEnrichmentService.class);
-                if (service != null) {
-                    service.applyLocalLimitInfo(item, itemId, info);
-                }
-            }
-
-            @Override
-            public Integer lookupGeLimit(int itemId) {
-                ItemLookupService service = PluginInjectorBridge.get(ItemLookupService.class);
-                return service != null ? service.lookupGeLimitSafe(itemId) : null;
-            }
-
-            @Override
-            public void applyMarginInfo(FlipHubItem item) {
-                LocalItemEnrichmentService service = PluginInjectorBridge.get(LocalItemEnrichmentService.class);
-                if (service != null) {
-                    service.applyMarginInfo(item);
-                }
-            }
-
-            @Override
-            public long nowMs() {
-                return System.currentTimeMillis();
-            }
-        });
     }
 
-    LocalOfferPreviewBuilder(Hooks hooks) {
-        this.hooks = hooks;
+    private LocalItemEnrichmentService enrichment() {
+        return PluginInjectorBridge.get(LocalItemEnrichmentService.class);
+    }
+
+    private LocalTradeSessionFacadeService tradeSession() {
+        return PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+    }
+
+    private ItemLookupService itemLookup() {
+        return PluginInjectorBridge.get(ItemLookupService.class);
     }
 
     FlipHubItem build(int itemId) {
-        if (hooks == null || itemId <= 0) {
+        if (itemId <= 0) {
             return null;
         }
 
-        hooks.ensureSelectedProfileLoaded();
-        hooks.requestGeLimit(itemId);
+        PluginAccess.plugin().getProfileWorkflowService().ensureSelectedProfileLoaded();
+        GeLimitService geLimitService = PluginInjectorBridge.get(GeLimitService.class);
+        if (geLimitService != null) {
+            geLimitService.requestGeLimits(Collections.singleton(itemId));
+        }
 
         FlipHubItem item = new FlipHubItem();
         item.item_id = itemId;
-        String itemName = hooks.getItemName(itemId);
+        ItemLookupService itemLookup = itemLookup();
+        String itemName = itemLookup != null ? itemLookup.lookupItemNameSafe(itemId) : null;
         if (itemName != null && !itemName.trim().isEmpty()) {
             item.item_name = itemName;
         }
-        hooks.applyGuidePrices(item, itemId);
+        LocalItemEnrichmentService enrichment = enrichment();
+        if (enrichment != null) {
+            enrichment.applyGuidePrices(item, itemId, false);
+        }
 
-        long tradeAccountKey = hooks.resolveSelectedProfileKey();
-        long limitAccountKey = hooks.resolveLimitAccountKey(tradeAccountKey);
-        long nowMs = hooks.nowMs();
+        ProfileSelectionPresentationFacadeService selection =
+            PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
+        long tradeAccountKey = selection != null ? selection.resolveSelectedProfileKey() : 0L;
+        LocalAccountSessionService session = PluginInjectorBridge.get(LocalAccountSessionService.class);
+        long limitAccountKey = session != null ? session.resolveLimitAccountKey(tradeAccountKey) : tradeAccountKey;
+        long nowMs = System.currentTimeMillis();
 
         LocalLimitInfo limitInfoForItem = null;
         if (tradeAccountKey >= 0) {
-            Map<Integer, LocalTradeInfo> tradeInfo = hooks.buildLocalTradeInfo(tradeAccountKey);
-            hooks.applyLocalTradeInfo(item, tradeInfo != null ? tradeInfo.get(itemId) : null);
+            LocalTradeSessionFacadeService tradeSession = tradeSession();
+            Map<Integer, LocalTradeInfo> tradeInfo =
+                tradeSession != null ? tradeSession.buildLocalTradeInfo(tradeAccountKey) : null;
+            if (enrichment != null) {
+                enrichment.applyLocalTradeInfo(item, tradeInfo != null ? tradeInfo.get(itemId) : null);
+            }
         }
         if (limitAccountKey >= 0) {
-            hooks.ensureProfileLoaded(limitAccountKey);
-            Map<Integer, LocalLimitInfo> limitInfo = hooks.buildLocalLimitInfo(limitAccountKey, nowMs);
+            PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(limitAccountKey);
+            LocalTradeSessionFacadeService tradeSession = tradeSession();
+            Map<Integer, LocalLimitInfo> limitInfo =
+                tradeSession != null ? tradeSession.buildLocalLimitInfo(limitAccountKey, nowMs) : null;
             limitInfoForItem = limitInfo != null ? limitInfo.get(itemId) : null;
-            hooks.applyLocalLimitInfo(item, itemId, limitInfoForItem);
+            if (enrichment != null) {
+                enrichment.applyLocalLimitInfo(item, itemId, limitInfoForItem);
+            }
         }
 
         if (item.ge_limit_total == null || item.ge_limit_total <= 0) {
-            Integer geLimit = hooks.lookupGeLimit(itemId);
+            Integer geLimit = itemLookup != null ? itemLookup.lookupGeLimitSafe(itemId) : null;
             if (geLimit != null && geLimit > 0) {
                 item.ge_limit_total = geLimit;
                 if (limitInfoForItem != null && limitInfoForItem.buyQty > 0) {
@@ -208,7 +120,9 @@ final class LocalOfferPreviewBuilder {
             }
         }
 
-        hooks.applyMarginInfo(item);
+        if (enrichment != null) {
+            enrichment.applyMarginInfo(item);
+        }
         return item;
     }
 }
