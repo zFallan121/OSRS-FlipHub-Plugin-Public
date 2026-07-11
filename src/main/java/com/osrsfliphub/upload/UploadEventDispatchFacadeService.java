@@ -24,8 +24,9 @@
  */
 package com.osrsfliphub;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Predicate;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import org.slf4j.Logger;
@@ -125,30 +126,140 @@ final class UploadEventDispatchFacadeService {
     }
 
     void flushEvents(ApiClient apiClient, PluginConfig config, Logger log) {
-        if (uploadState == null) {
+        if (uploadState == null || apiClient == null || config == null || log == null) {
             return;
         }
-        Predicate<String> refreshAttempt = this::attemptRefresh;
-        EventUploader.flushEvents(
-            apiClient,
-            config,
-            maxBatchSize,
-            new EventUploaderRuntimeHooks(
-                this::isClientLoggedIn,
-                uploadState::getPendingUploadEvents,
-                uploadState::dequeueEvent,
-                this::requeue,
-                refreshAttempt,
-                this::clearSession,
-                this::isPanelVisible,
-                this::updateProfileHeader,
-                this::markBlocked,
-                this::markAttempt,
-                this::markSuccess,
-                this::markFailure,
-                this::updateUploadDiagnosticsUi
-            ),
-            log
+        if (!isClientLoggedIn()) {
+            return;
+        }
+        String sessionToken = config.sessionToken();
+        String signingSecret = config.signingSecret();
+        if (!ApiStatusPolicy.hasCredentials(sessionToken, signingSecret)) {
+            updateProfileHeader();
+            if (uploadState.getPendingUploadEvents() > 0) {
+                markBlocked("Not linked. Pending uploads are buffered locally.");
+            } else {
+                updateUploadDiagnosticsUi();
+            }
+            return;
+        }
+
+        List<GeEvent> batch = dequeueBatch();
+        if (batch.isEmpty()) {
+            updateUploadDiagnosticsUi();
+            return;
+        }
+
+        markAttempt();
+        try {
+            int status = apiClient.sendEvents(sessionToken, signingSecret, batch);
+            if (ApiStatusPolicy.isAuthStatus(status)) {
+                handleAuthFailure(apiClient, config, log, batch, sessionToken, status);
+                return;
+            }
+            handlePrimaryStatus(status, log, batch);
+        } catch (IOException | RuntimeException ex) {
+            requeue(batch);
+            String message = ex.getMessage() != null ? ex.getMessage() : "Unknown upload exception";
+            markFailure(-1, "Upload exception: " + message + ". Events queued for retry.", false, 0);
+        }
+    }
+
+    private void handleAuthFailure(ApiClient apiClient,
+                                   PluginConfig config,
+                                   Logger log,
+                                   List<GeEvent> batch,
+                                   String currentToken,
+                                   int initialStatus) throws IOException {
+        boolean refreshed = attemptRefresh(currentToken);
+        if (refreshed) {
+            String refreshedToken = config.sessionToken();
+            String refreshedSecret = config.signingSecret();
+            if (ApiStatusPolicy.hasCredentials(refreshedToken, refreshedSecret)) {
+                int retryStatus = apiClient.sendEvents(refreshedToken, refreshedSecret, batch);
+                handleRetryStatus(retryStatus, log, batch);
+                return;
+            }
+        }
+
+        requeue(batch);
+        markFailure(initialStatus, "Session refresh did not recover auth. Events queued for retry.", false, 0);
+        if (refreshed) {
+            log.warn("FlipHub refresh did not recover event upload auth; clearing session to force relink");
+        }
+        clearSession();
+        if (isPanelVisible()) {
+            updateProfileHeader();
+        }
+    }
+
+    private void handleRetryStatus(int retryStatus, Logger log, List<GeEvent> batch) {
+        if (retryStatus < 400) {
+            updateProfileHeader();
+            markSuccess(batch.size(), retryStatus);
+            return;
+        }
+        if (ApiStatusPolicy.isAuthStatus(retryStatus)) {
+            log.warn("FlipHub event upload unauthorized after refresh; clearing session to force relink");
+            clearSession();
+            if (isPanelVisible()) {
+                updateProfileHeader();
+            }
+        }
+        if (ApiStatusPolicy.isRetryableUploadStatus(retryStatus) || ApiStatusPolicy.isAuthStatus(retryStatus)) {
+            requeue(batch);
+            markFailure(
+                retryStatus,
+                "Upload rejected with status " + retryStatus + ". Events queued for retry.",
+                false,
+                0
+            );
+            return;
+        }
+        log.warn("FlipHub event upload failed after refresh with status {} (dropping {} events)",
+            retryStatus, batch.size());
+        markFailure(
+            retryStatus,
+            "Upload failed with status " + retryStatus + ". Events were dropped.",
+            true,
+            batch.size()
         );
+    }
+
+    private void handlePrimaryStatus(int status, Logger log, List<GeEvent> batch) {
+        if (ApiStatusPolicy.isRetryableUploadStatus(status)) {
+            requeue(batch);
+            markFailure(
+                status,
+                "Upload failed with status " + status + ". Events queued for retry.",
+                false,
+                0
+            );
+            return;
+        }
+        if (status >= 400) {
+            log.warn("FlipHub event upload failed with status {} (dropping {} events)", status, batch.size());
+            markFailure(
+                status,
+                "Upload failed with status " + status + ". Events were dropped.",
+                true,
+                batch.size()
+            );
+            return;
+        }
+        updateProfileHeader();
+        markSuccess(batch.size(), status);
+    }
+
+    private List<GeEvent> dequeueBatch() {
+        List<GeEvent> batch = new ArrayList<>(maxBatchSize);
+        while (batch.size() < maxBatchSize) {
+            GeEvent event = uploadState.dequeueEvent();
+            if (event == null) {
+                break;
+            }
+            batch.add(event);
+        }
+        return batch;
     }
 }
