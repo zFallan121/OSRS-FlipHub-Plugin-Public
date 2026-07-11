@@ -31,148 +31,58 @@ import javax.swing.SwingUtilities;
 
 @Singleton
 final class ManageDataDialogService {
-    interface Hooks {
-        boolean hasPanel();
-        void invokeOnUiThread(Runnable task);
-        long resolveSelectedProfileKey();
-        String resolveSelectedProfileLabel();
-        boolean isLinked();
-        ManageDataCommandService getManageDataCommandService();
-        int showOptionDialog(String body, Object[] options, Object defaultOption);
-        String showInputDialog(String body, String title);
-        void showError(String message);
-        void invokeOnClientThread(Runnable task);
-        void wipeSingleLocalProfile(long accountKey, String label);
-        void wipeAllLocalProfiles();
-        void wipeWebsiteStatsAsync();
-    }
-
-    private final long accountwideKey;
-    private final Hooks hooks;
+    private final long accountwideKey = GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
 
     @Inject
     ManageDataDialogService() {
-        this(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY, productionHooks());
-    }
-
-    ManageDataDialogService(long accountwideKey, Hooks hooks) {
-        this.accountwideKey = accountwideKey;
-        this.hooks = hooks;
     }
 
     private static ProfileSelectionPresentationFacadeService profileSelectionFacade() {
         return PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
     }
 
-    private static Hooks productionHooks() {
-        return new Hooks() {
-            @Override
-            public boolean hasPanel() {
-                return PluginAccess.plugin().panel != null;
-            }
+    private int showOptionDialog(String body, Object[] options, Object defaultOption) {
+        return JOptionPane.showOptionDialog(
+            PluginAccess.plugin().panel,
+            body,
+            "FlipHub Manage Data",
+            JOptionPane.DEFAULT_OPTION,
+            JOptionPane.WARNING_MESSAGE,
+            null,
+            options,
+            defaultOption);
+    }
 
-            @Override
-            public void invokeOnUiThread(Runnable task) {
-                if (task != null) {
-                    SwingUtilities.invokeLater(task);
-                }
-            }
+    private String showInputDialog(String body, String title) {
+        return JOptionPane.showInputDialog(PluginAccess.plugin().panel, body, title, JOptionPane.WARNING_MESSAGE);
+    }
 
-            @Override
-            public long resolveSelectedProfileKey() {
-                ProfileSelectionPresentationFacadeService service = profileSelectionFacade();
-                return service != null ? service.resolveSelectedProfileKey() : -1L;
-            }
+    private void showError(String message) {
+        PluginAccess.plugin().getProfileWorkflowService().showManageDataError(message);
+    }
 
-            @Override
-            public String resolveSelectedProfileLabel() {
-                ProfileSelectionPresentationFacadeService service = profileSelectionFacade();
-                return service != null ? service.resolveSelectedProfileLabel() : "";
-            }
-
-            @Override
-            public boolean isLinked() {
-                ProfileSelectionPresentationFacadeService service = profileSelectionFacade();
-                return service != null && service.isLinked();
-            }
-
-            @Override
-            public ManageDataCommandService getManageDataCommandService() {
-                return PluginInjectorBridge.get(ManageDataCommandService.class);
-            }
-
-            @Override
-            public int showOptionDialog(String body, Object[] options, Object defaultOption) {
-                return JOptionPane.showOptionDialog(
-                    PluginAccess.plugin().panel,
-                    body,
-                    "FlipHub Manage Data",
-                    JOptionPane.DEFAULT_OPTION,
-                    JOptionPane.WARNING_MESSAGE,
-                    null,
-                    options,
-                    defaultOption);
-            }
-
-            @Override
-            public String showInputDialog(String body, String title) {
-                return JOptionPane.showInputDialog(
-                    PluginAccess.plugin().panel, body, title, JOptionPane.WARNING_MESSAGE);
-            }
-
-            @Override
-            public void showError(String message) {
-                PluginAccess.plugin().getProfileWorkflowService().showManageDataError(message);
-            }
-
-            @Override
-            public void invokeOnClientThread(Runnable task) {
-                PluginAccess.plugin().invokeOnClientThread(task);
-            }
-
-            @Override
-            public void wipeSingleLocalProfile(long accountKey, String label) {
-                LocalProfileWipeService service = PluginInjectorBridge.get(LocalProfileWipeService.class);
-                if (service != null) {
-                    service.wipeSingleLocalProfile(accountKey, label);
-                }
-            }
-
-            @Override
-            public void wipeAllLocalProfiles() {
-                LocalProfileWipeService service = PluginInjectorBridge.get(LocalProfileWipeService.class);
-                if (service != null) {
-                    service.wipeAllLocalProfiles();
-                }
-            }
-
-            @Override
-            public void wipeWebsiteStatsAsync() {
-                WebsiteStatsWipeService service = PluginInjectorBridge.get(WebsiteStatsWipeService.class);
-                if (service != null) {
-                    service.wipeWebsiteStatsAsync();
-                }
-            }
-        };
+    private LocalProfileWipeService wipeService() {
+        return PluginInjectorBridge.get(LocalProfileWipeService.class);
     }
 
     void showManageDataDialog() {
-        if (hooks == null || !hooks.hasPanel()) {
+        if (PluginAccess.plugin().panel == null) {
             return;
         }
-        hooks.invokeOnUiThread(() -> {
-            long selectedKey = hooks.resolveSelectedProfileKey();
-            String selectedLabel = hooks.resolveSelectedProfileLabel();
-            boolean linked = hooks.isLinked();
-            ManageDataCommandService commandService = hooks.getManageDataCommandService();
+        SwingUtilities.invokeLater(() -> {
+            ProfileSelectionPresentationFacadeService facade = profileSelectionFacade();
+            long selectedKey = facade != null ? facade.resolveSelectedProfileKey() : -1L;
+            String selectedLabel = facade != null ? facade.resolveSelectedProfileLabel() : "";
+            boolean linked = facade != null && facade.isLinked();
+            ManageDataCommandService commandService = PluginInjectorBridge.get(ManageDataCommandService.class);
             if (commandService == null) {
-                hooks.showError("Manage Data is unavailable right now.");
+                showError("Manage Data is unavailable right now.");
                 return;
             }
 
             ManageDataCommandService.DialogModel dialogModel = commandService.buildDialog(selectedLabel, linked);
             Object[] options = dialogModel.options.toArray();
-            int choice = hooks.showOptionDialog(dialogModel.body, options, dialogModel.defaultOption);
+            int choice = showOptionDialog(dialogModel.body, options, dialogModel.defaultOption);
             if (choice < 0 || choice >= options.length) {
                 return;
             }
@@ -191,46 +101,59 @@ final class ManageDataDialogService {
     private void handleWipeSelectedProfile(ManageDataCommandService commandService, long selectedKey, String selectedLabel) {
         String validationError = commandService.validateSelectedProfileSelection(selectedKey, accountwideKey);
         if (validationError != null) {
-            hooks.showError(validationError);
+            showError(validationError);
             return;
         }
         String label = commandService.resolveProfileLabel(selectedKey, selectedLabel);
         ManageDataCommandService.ConfirmationRequest confirmation =
             commandService.confirmationForSelectedProfile(label);
-        String input = hooks.showInputDialog(confirmation.promptBody, confirmation.title);
+        String input = showInputDialog(confirmation.promptBody, confirmation.title);
         if (input == null) {
             return;
         }
         if (!commandService.confirmationMatches(input, confirmation.expectedPhrase)) {
-            hooks.showError("Confirmation did not match. No data was wiped.");
+            showError("Confirmation did not match. No data was wiped.");
             return;
         }
-        hooks.invokeOnClientThread(() -> hooks.wipeSingleLocalProfile(selectedKey, label));
+        PluginAccess.plugin().invokeOnClientThread(() -> {
+            LocalProfileWipeService service = wipeService();
+            if (service != null) {
+                service.wipeSingleLocalProfile(selectedKey, label);
+            }
+        });
     }
 
     private void handleWipeAllProfiles(ManageDataCommandService commandService) {
         ManageDataCommandService.ConfirmationRequest confirmation = commandService.confirmationForAllProfiles();
-        String input = hooks.showInputDialog(confirmation.promptBody, confirmation.title);
+        String input = showInputDialog(confirmation.promptBody, confirmation.title);
         if (input == null) {
             return;
         }
         if (!commandService.confirmationMatches(input, confirmation.expectedPhrase)) {
-            hooks.showError("Confirmation did not match. No data was wiped.");
+            showError("Confirmation did not match. No data was wiped.");
             return;
         }
-        hooks.invokeOnClientThread(hooks::wipeAllLocalProfiles);
+        PluginAccess.plugin().invokeOnClientThread(() -> {
+            LocalProfileWipeService service = wipeService();
+            if (service != null) {
+                service.wipeAllLocalProfiles();
+            }
+        });
     }
 
     private void handleWipeWebsiteStats(ManageDataCommandService commandService) {
         ManageDataCommandService.ConfirmationRequest confirmation = commandService.confirmationForWebsite();
-        String input = hooks.showInputDialog(confirmation.promptBody, confirmation.title);
+        String input = showInputDialog(confirmation.promptBody, confirmation.title);
         if (input == null) {
             return;
         }
         if (!commandService.confirmationMatches(input, confirmation.expectedPhrase)) {
-            hooks.showError("Confirmation did not match. No data was wiped.");
+            showError("Confirmation did not match. No data was wiped.");
             return;
         }
-        hooks.wipeWebsiteStatsAsync();
+        WebsiteStatsWipeService service = PluginInjectorBridge.get(WebsiteStatsWipeService.class);
+        if (service != null) {
+            service.wipeWebsiteStatsAsync();
+        }
     }
 }
