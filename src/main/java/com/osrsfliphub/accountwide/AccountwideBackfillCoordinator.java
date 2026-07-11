@@ -40,24 +40,6 @@ import org.slf4j.LoggerFactory;
 final class AccountwideBackfillCoordinator {
     private static final Logger log = LoggerFactory.getLogger(AccountwideBackfillCoordinator.class);
 
-    interface Hooks {
-        Set<Long> collectAccountwideProfileKeys();
-        Set<Long> loadBackfilledProfileKeys();
-        void ensureProfileLoaded(long key);
-        LocalStatsSnapshot buildLocalStatsSnapshot(long key);
-        String getSessionToken();
-        ApiClient.StatsSummaryResponse fetchRemoteStatsSummary(String token);
-        Set<Long> inferLikelySyncedProfiles(Set<Long> profileKeys, Map<Long, StatsSummary> localSummaries,
-                                            StatsSummary remoteSummary);
-        boolean backfillProfileTrades(long profileKey);
-        void persistBackfilledProfileKeys(Set<Long> keys);
-        void triggerStatsRefresh();
-        void triggerPanelRefresh();
-        void resetBackfillRetryState();
-        void logWarn(String message);
-        void logWarn(String message, Throwable error);
-    }
-
     static final class Result {
         final boolean shouldRetry;
 
@@ -66,179 +48,143 @@ final class AccountwideBackfillCoordinator {
         }
     }
 
-    private final int maxBackfillProfileCount;
-    private final Hooks hooks;
+    private final int maxBackfillProfileCount =
+        Math.max(1, GeLifecyclePluginConstants.MAX_BACKFILL_PROFILE_COUNT);
+    private final ApiClient apiClient;
+    private final PluginConfig config;
+    private final PluginState state;
 
     @Inject
     AccountwideBackfillCoordinator(ApiClient apiClient, PluginConfig config, PluginState state) {
-        this(GeLifecyclePluginConstants.MAX_BACKFILL_PROFILE_COUNT, productionHooks(apiClient, config, state));
-    }
-
-    AccountwideBackfillCoordinator(int maxBackfillProfileCount, Hooks hooks) {
-        this.maxBackfillProfileCount = Math.max(1, maxBackfillProfileCount);
-        this.hooks = hooks;
+        this.apiClient = apiClient;
+        this.config = config;
+        this.state = state;
     }
 
     private static BackfilledProfilesStore backfilledProfilesStore() {
         return PluginInjectorBridge.get(BackfilledProfilesStore.class);
     }
 
-    private static Hooks productionHooks(ApiClient apiClient, PluginConfig config, PluginState state) {
-        return new Hooks() {
-            @Override
-            public Set<Long> collectAccountwideProfileKeys() {
-                AccountwideProfileKeyCollector collector =
-                    PluginInjectorBridge.get(AccountwideProfileKeyCollector.class);
-                ProfileStorageFacadeService storage =
-                    PluginInjectorBridge.get(ProfileStorageFacadeService.class);
-                ProfileSelectionPresentationFacadeService profileSelection = PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
-                if (collector == null || storage == null || profileSelection == null) {
-                    return null;
-                }
-                return collector.collect(
-                    storage.getProfilesDir(),
-                    storage.getLegacyProfilesDir(),
-                    state.getLocalTradeDeltasByAccount(),
-                    state.getLocalStatsLock(),
-                    profileSelection::loadProfilesFromDisk);
-            }
+    private Set<Long> collectAccountwideProfileKeys() {
+        AccountwideProfileKeyCollector collector = PluginInjectorBridge.get(AccountwideProfileKeyCollector.class);
+        ProfileStorageFacadeService storage = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
+        ProfileSelectionPresentationFacadeService profileSelection =
+            PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
+        if (collector == null || storage == null || profileSelection == null) {
+            return null;
+        }
+        return collector.collect(
+            storage.getProfilesDir(),
+            storage.getLegacyProfilesDir(),
+            state.getLocalTradeDeltasByAccount(),
+            state.getLocalStatsLock(),
+            profileSelection::loadProfilesFromDisk);
+    }
 
-            @Override
-            public Set<Long> loadBackfilledProfileKeys() {
-                BackfilledProfilesStore store = backfilledProfilesStore();
-                return store != null ? store.load() : null;
-            }
+    private Set<Long> loadBackfilledProfileKeys() {
+        BackfilledProfilesStore store = backfilledProfilesStore();
+        return store != null ? store.load() : null;
+    }
 
-            @Override
-            public void ensureProfileLoaded(long key) {
-                PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(key);
-            }
+    private void ensureProfileLoaded(long key) {
+        PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(key);
+    }
 
-            @Override
-            public LocalStatsSnapshot buildLocalStatsSnapshot(long key) {
-                LocalStatsSnapshotService service =
-                    PluginInjectorBridge.get(LocalStatsSnapshotService.class);
-                return service != null ? service.buildSnapshot(key, null, StatsItemSort.COMPLETION) : null;
-            }
+    private LocalStatsSnapshot buildLocalStatsSnapshot(long key) {
+        LocalStatsSnapshotService service = PluginInjectorBridge.get(LocalStatsSnapshotService.class);
+        return service != null ? service.buildSnapshot(key, null, StatsItemSort.COMPLETION) : null;
+    }
 
-            @Override
-            public String getSessionToken() {
-                return config != null ? config.sessionToken() : null;
-            }
+    private ApiClient.StatsSummaryResponse fetchRemoteStatsSummary(String token) {
+        GeLifecyclePlugin plugin = PluginAccess.plugin();
+        SessionRefreshService sessionRefresh = PluginInjectorBridge.get(SessionRefreshService.class);
+        return plugin.runtimeUtilityServices.fetchRemoteStatsSummary(
+            apiClient, config, sessionRefresh, token, null, true);
+    }
 
-            @Override
-            public ApiClient.StatsSummaryResponse fetchRemoteStatsSummary(String token) {
-                GeLifecyclePlugin plugin = PluginAccess.plugin();
-                SessionRefreshService sessionRefresh = PluginInjectorBridge.get(SessionRefreshService.class);
-                return plugin.runtimeUtilityServices.fetchRemoteStatsSummary(
-                    apiClient, config, sessionRefresh, token, null, true);
-            }
+    private Set<Long> inferLikelySyncedProfiles(Set<Long> profileKeys,
+                                                Map<Long, StatsSummary> localSummaries,
+                                                StatsSummary remoteSummary) {
+        BackfillSyncMatcher matcher = PluginInjectorBridge.get(BackfillSyncMatcher.class);
+        return matcher != null
+            ? matcher.inferLikelySyncedProfiles(profileKeys, localSummaries, remoteSummary) : null;
+    }
 
-            @Override
-            public Set<Long> inferLikelySyncedProfiles(Set<Long> profileKeys,
-                                                       Map<Long, StatsSummary> localSummaries,
-                                                       StatsSummary remoteSummary) {
-                BackfillSyncMatcher matcher = PluginInjectorBridge.get(BackfillSyncMatcher.class);
-                return matcher != null
-                    ? matcher.inferLikelySyncedProfiles(profileKeys, localSummaries, remoteSummary) : null;
-            }
+    private boolean backfillProfileTrades(long profileKey) {
+        AccountwideProfileBackfillService runner = PluginInjectorBridge.get(AccountwideProfileBackfillService.class);
+        BackfillUploader uploader = PluginInjectorBridge.get(BackfillUploader.class);
+        if (runner == null || apiClient == null || config == null || uploader == null) {
+            return false;
+        }
+        return runner.backfillProfileTrades(profileKey, apiClient, config, uploader);
+    }
 
-            @Override
-            public boolean backfillProfileTrades(long profileKey) {
-                AccountwideProfileBackfillService runner =
-                    PluginInjectorBridge.get(AccountwideProfileBackfillService.class);
-                BackfillUploader uploader = PluginInjectorBridge.get(BackfillUploader.class);
-                if (runner == null || apiClient == null || config == null || uploader == null) {
-                    return false;
-                }
-                return runner.backfillProfileTrades(profileKey, apiClient, config, uploader);
-            }
+    private void persistBackfilledProfileKeys(Set<Long> keys) {
+        BackfilledProfilesStore store = backfilledProfilesStore();
+        if (store != null) {
+            store.persist(keys);
+        }
+    }
 
-            @Override
-            public void persistBackfilledProfileKeys(Set<Long> keys) {
-                BackfilledProfilesStore store = backfilledProfilesStore();
-                if (store != null) {
-                    store.persist(keys);
-                }
-            }
+    private void triggerRefreshes() {
+        GeLifecyclePlugin plugin = PluginAccess.plugin();
+        PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
+        if (coordinator != null) {
+            coordinator.triggerStatsRefresh(plugin.scheduler);
+            coordinator.triggerPanelRefresh(plugin.scheduler);
+        }
+    }
 
-            @Override
-            public void triggerStatsRefresh() {
-                GeLifecyclePlugin plugin = PluginAccess.plugin();
-                PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
-                if (coordinator != null) {
-                    coordinator.triggerStatsRefresh(plugin.scheduler);
-                }
-            }
+    private void resetBackfillRetryState() {
+        UploadBackfillDispatchService service = PluginInjectorBridge.get(UploadBackfillDispatchService.class);
+        if (service != null) {
+            service.resetBackfillRetryState();
+        }
+    }
 
-            @Override
-            public void triggerPanelRefresh() {
-                GeLifecyclePlugin plugin = PluginAccess.plugin();
-                PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
-                if (coordinator != null) {
-                    coordinator.triggerPanelRefresh(plugin.scheduler);
-                }
-            }
+    private void logWarn(String message) {
+        if (message != null) {
+            log.warn(message);
+        }
+    }
 
-            @Override
-            public void resetBackfillRetryState() {
-                UploadBackfillDispatchService service =
-                    PluginInjectorBridge.get(UploadBackfillDispatchService.class);
-                if (service != null) {
-                    service.resetBackfillRetryState();
-                }
-            }
-
-            @Override
-            public void logWarn(String message) {
-                if (message != null) {
-                    log.warn(message);
-                }
-            }
-
-            @Override
-            public void logWarn(String message, Throwable error) {
-                if (message == null) {
-                    return;
-                }
-                if (error != null) {
-                    log.warn(message, error);
-                } else {
-                    log.warn(message);
-                }
-            }
-        };
+    private void logWarn(String message, Throwable error) {
+        if (message == null) {
+            return;
+        }
+        if (error != null) {
+            log.warn(message, error);
+        } else {
+            log.warn(message);
+        }
     }
 
     Result runCycle() {
         boolean shouldRetry = false;
-        if (hooks == null) {
-            return new Result(false);
-        }
         try {
-            Set<Long> collectedProfileKeys = hooks.collectAccountwideProfileKeys();
+            Set<Long> collectedProfileKeys = collectAccountwideProfileKeys();
             if (collectedProfileKeys == null) {
-                hooks.resetBackfillRetryState();
+                resetBackfillRetryState();
                 return new Result(false);
             }
             Set<Long> profileKeys = new HashSet<>(collectedProfileKeys);
             profileKeys.removeIf(key -> key == null || key <= 0);
             if (profileKeys.isEmpty()) {
-                hooks.resetBackfillRetryState();
+                resetBackfillRetryState();
                 return new Result(false);
             }
             if (profileKeys.size() > maxBackfillProfileCount) {
-                hooks.logWarn(
+                logWarn(
                     "FlipHub backfill skipped: " + profileKeys.size() + " profiles exceeds safe cap "
                         + maxBackfillProfileCount
                 );
-                hooks.resetBackfillRetryState();
+                resetBackfillRetryState();
                 return new Result(false);
             }
 
-            Set<Long> loadedBackfilled = hooks.loadBackfilledProfileKeys();
+            Set<Long> loadedBackfilled = loadBackfilledProfileKeys();
             if (loadedBackfilled != null && loadedBackfilled.containsAll(profileKeys)) {
-                hooks.resetBackfillRetryState();
+                resetBackfillRetryState();
                 return new Result(false);
             }
             Set<Long> alreadyBackfilled = loadedBackfilled != null
@@ -250,18 +196,18 @@ final class AccountwideBackfillCoordinator {
                 if (key == null || key <= 0) {
                     continue;
                 }
-                hooks.ensureProfileLoaded(key);
-                LocalStatsSnapshot snapshot = hooks.buildLocalStatsSnapshot(key);
+                ensureProfileLoaded(key);
+                LocalStatsSnapshot snapshot = buildLocalStatsSnapshot(key);
                 localSummaries.put(key, snapshot != null && snapshot.summary != null ? snapshot.summary : new StatsSummary());
             }
 
-            String token = hooks.getSessionToken();
-            ApiClient.StatsSummaryResponse remoteResponse = hooks.fetchRemoteStatsSummary(token);
+            String token = (config != null ? config.sessionToken() : null);
+            ApiClient.StatsSummaryResponse remoteResponse = fetchRemoteStatsSummary(token);
             if (remoteResponse == null || remoteResponse.summary == null) {
                 return new Result(true);
             }
 
-            Set<Long> likelySyncedProfiles = hooks.inferLikelySyncedProfiles(
+            Set<Long> likelySyncedProfiles = inferLikelySyncedProfiles(
                 profileKeys,
                 localSummaries,
                 remoteResponse.summary
@@ -276,7 +222,7 @@ final class AccountwideBackfillCoordinator {
                 .sorted()
                 .collect(Collectors.toList());
             if (missingProfiles.isEmpty()) {
-                hooks.resetBackfillRetryState();
+                resetBackfillRetryState();
                 return new Result(false);
             }
 
@@ -286,9 +232,9 @@ final class AccountwideBackfillCoordinator {
                 if (profileKey == null || profileKey <= 0) {
                     continue;
                 }
-                boolean synced = hooks.backfillProfileTrades(profileKey);
+                boolean synced = backfillProfileTrades(profileKey);
                 if (!synced) {
-                    hooks.logWarn("FlipHub backfill stopped: profile " + profileKey + " upload failed");
+                    logWarn("FlipHub backfill stopped: profile " + profileKey + " upload failed");
                     fullySynced = false;
                     break;
                 }
@@ -296,17 +242,16 @@ final class AccountwideBackfillCoordinator {
                 changed = true;
             }
             if (changed) {
-                hooks.persistBackfilledProfileKeys(alreadyBackfilled);
-                hooks.triggerStatsRefresh();
-                hooks.triggerPanelRefresh();
+                persistBackfilledProfileKeys(alreadyBackfilled);
+                triggerRefreshes();
             }
             if (fullySynced) {
-                hooks.resetBackfillRetryState();
+                resetBackfillRetryState();
             } else {
                 shouldRetry = true;
             }
         } catch (RuntimeException ex) {
-            hooks.logWarn("FlipHub accountwide backfill failed", ex);
+            logWarn("FlipHub accountwide backfill failed", ex);
             shouldRetry = true;
         }
         return new Result(shouldRetry);
