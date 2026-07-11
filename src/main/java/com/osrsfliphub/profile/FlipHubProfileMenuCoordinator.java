@@ -37,21 +37,16 @@ import javax.swing.JPopupMenu;
 import javax.swing.JButton;
 
 final class FlipHubProfileMenuCoordinator {
-    interface Hooks {
-        Font font(float size);
-        Font fontSemiBold(float size);
-        void onProfileSelected(String key);
-        void onManageData();
-    }
-
     private final JButton profileButton;
-    private final Hooks hooks;
+    private final FlipHubUiStyler uiStyler;
+    private final FlipHubPanelListener listener;
     private JPopupMenu profileMenu;
     private String selectedProfileKey;
 
-    FlipHubProfileMenuCoordinator(JButton profileButton, Hooks hooks) {
+    FlipHubProfileMenuCoordinator(JButton profileButton, FlipHubUiStyler uiStyler, FlipHubPanelListener listener) {
         this.profileButton = profileButton;
-        this.hooks = hooks;
+        this.uiStyler = uiStyler;
+        this.listener = listener;
     }
 
     void showProfileMenu() {
@@ -109,8 +104,8 @@ final class FlipHubProfileMenuCoordinator {
             }
             item.addActionListener(e -> {
                 selectedProfileKey = key;
-                if (hooks != null) {
-                    hooks.onProfileSelected(key);
+                if (listener != null) {
+                    listener.onProfileSelected(key);
                 }
             });
             profileMenu.add(item);
@@ -122,19 +117,19 @@ final class FlipHubProfileMenuCoordinator {
         manageData.setBackground(BG_ALT);
         manageData.setOpaque(true);
         manageData.addActionListener(e -> {
-            if (hooks != null) {
-                hooks.onManageData();
+            if (listener != null) {
+                listener.onManageData();
             }
         });
         profileMenu.add(manageData);
     }
 
     private Font font(float size) {
-        return hooks != null ? hooks.font(size) : new Font("Dialog", Font.PLAIN, Math.max(10, Math.round(size)));
+        return uiStyler.font(size);
     }
 
     private Font fontSemiBold(float size) {
-        return hooks != null ? hooks.fontSemiBold(size) : new Font("Dialog", Font.BOLD, Math.max(10, Math.round(size)));
+        return uiStyler.fontSemiBold(size);
     }
 }
 

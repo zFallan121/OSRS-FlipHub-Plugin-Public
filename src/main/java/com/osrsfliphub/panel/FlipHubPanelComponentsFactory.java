@@ -69,23 +69,8 @@ final class FlipHubPanelComponentsFactory {
             hostComponent
         );
         java.awt.event.MouseWheelListener wheelForwarder = wheelScrollCoordinator.wheelForwarder();
-        FlipHubProfileMenuCoordinator profileMenuCoordinator = new FlipHubProfileMenuCoordinator(
-            profileButton,
-            new FlipHubProfileMenuPluginHooks(
-                uiStyler::font,
-                uiStyler::fontSemiBold,
-                key -> {
-                    if (listener != null) {
-                        listener.onProfileSelected(key);
-                    }
-                },
-                () -> {
-                    if (listener != null) {
-                        listener.onManageData();
-                    }
-                }
-            )
-        );
+        FlipHubProfileMenuCoordinator profileMenuCoordinator =
+            new FlipHubProfileMenuCoordinator(profileButton, uiStyler, listener);
 
         FlipHubAgeTooltipCoordinator ageTooltipCoordinator = new FlipHubAgeTooltipCoordinator(valueFormatService);
 
