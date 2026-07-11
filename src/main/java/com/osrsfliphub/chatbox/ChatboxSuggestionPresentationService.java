@@ -37,31 +37,7 @@ final class ChatboxSuggestionPresentationService {
     private static final int SUGGESTION_TEXT_CHAR_PX = 7;
     private static final int SUGGESTION_TEXT_PADDING_PX = 8;
 
-    interface Hooks {
-        boolean isClientLoggedIn();
-        Widget getChatboxContainer();
-        Integer getOfferPreviewItemId();
-        FlipHubItem getOfferPreviewItem();
-        Widget ensurePriceSuggestionWidget(Widget container);
-        Widget ensureLimitSuggestionWidget(Widget container);
-        Widget ensureAffordableLimitSuggestionWidget(Widget container);
-        Widget getPriceSuggestionWidget();
-        void setPriceSuggestionWidget(Widget widget);
-        Widget getLimitSuggestionWidget();
-        void setLimitSuggestionWidget(Widget widget);
-        Widget getAffordableLimitSuggestionWidget();
-        void setAffordableLimitSuggestionWidget(Widget widget);
-        boolean isSuggestionWidgetValid(Widget container);
-        boolean isLimitWidgetValid(Widget container);
-        boolean isAffordableLimitWidgetValid(Widget container);
-        String formatPrice(int price);
-        Integer getThrottledRemainingLimitSuggestion(int itemId);
-        void cacheRemainingLimitSuggestion(int itemId, Integer remaining);
-        Integer computeAffordableLimitSuggestion(Integer remainingLimit);
-        void clearRemainingLimitSuggestionCache();
-    }
-
-    private final Hooks hooks;
+    private final Client client;
     private Integer lastSuggestedPrice;
     private Boolean lastSuggestedIsBuy;
     private Integer lastSuggestedLimit;
@@ -69,7 +45,7 @@ final class ChatboxSuggestionPresentationService {
 
     @Inject
     ChatboxSuggestionPresentationService(Client client) {
-        this(productionHooks(client));
+        this.client = client;
     }
 
     private static ChatboxSuggestionRuntimeStateService runtimeState() {
@@ -80,150 +56,120 @@ final class ChatboxSuggestionPresentationService {
         return PluginInjectorBridge.get(RemainingLimitSuggestionService.class);
     }
 
-    private static Hooks productionHooks(Client client) {
-        return new Hooks() {
-            @Override
-            public boolean isClientLoggedIn() {
-                return client != null && client.getGameState() == GameState.LOGGED_IN;
-            }
-
-            @Override
-            public Widget getChatboxContainer() {
-                ChatboxSuggestionRuntimeStateService service = runtimeState();
-                return service != null ? service.getChatboxContainer() : null;
-            }
-
-            @Override
-            public Integer getOfferPreviewItemId() {
-                return PluginAccess.plugin().offerPreviewItemId;
-            }
-
-            @Override
-            public FlipHubItem getOfferPreviewItem() {
-                return PluginAccess.plugin().offerPreviewItem;
-            }
-
-            @Override
-            public Widget ensurePriceSuggestionWidget(Widget container) {
-                ChatboxSuggestionRuntimeStateService service = runtimeState();
-                return service != null ? service.ensurePriceSuggestionWidget(container) : null;
-            }
-
-            @Override
-            public Widget ensureLimitSuggestionWidget(Widget container) {
-                ChatboxSuggestionRuntimeStateService service = runtimeState();
-                return service != null ? service.ensureLimitSuggestionWidget(container) : null;
-            }
-
-            @Override
-            public Widget ensureAffordableLimitSuggestionWidget(Widget container) {
-                ChatboxSuggestionRuntimeStateService service = runtimeState();
-                return service != null ? service.ensureAffordableLimitSuggestionWidget(container) : null;
-            }
-
-            @Override
-            public Widget getPriceSuggestionWidget() {
-                ChatboxSuggestionRuntimeStateService service = runtimeState();
-                return service != null ? service.getPriceSuggestionWidget() : null;
-            }
-
-            @Override
-            public void setPriceSuggestionWidget(Widget widget) {
-                ChatboxSuggestionRuntimeStateService service = runtimeState();
-                if (service != null) {
-                    service.setPriceSuggestionWidget(widget);
-                }
-            }
-
-            @Override
-            public Widget getLimitSuggestionWidget() {
-                ChatboxSuggestionRuntimeStateService service = runtimeState();
-                return service != null ? service.getLimitSuggestionWidget() : null;
-            }
-
-            @Override
-            public void setLimitSuggestionWidget(Widget widget) {
-                ChatboxSuggestionRuntimeStateService service = runtimeState();
-                if (service != null) {
-                    service.setLimitSuggestionWidget(widget);
-                }
-            }
-
-            @Override
-            public Widget getAffordableLimitSuggestionWidget() {
-                ChatboxSuggestionRuntimeStateService service = runtimeState();
-                return service != null ? service.getAffordableLimitSuggestionWidget() : null;
-            }
-
-            @Override
-            public void setAffordableLimitSuggestionWidget(Widget widget) {
-                ChatboxSuggestionRuntimeStateService service = runtimeState();
-                if (service != null) {
-                    service.setAffordableLimitSuggestionWidget(widget);
-                }
-            }
-
-            @Override
-            public boolean isSuggestionWidgetValid(Widget container) {
-                ChatboxSuggestionRuntimeStateService service = runtimeState();
-                return service != null && service.isSuggestionWidgetValid(container);
-            }
-
-            @Override
-            public boolean isLimitWidgetValid(Widget container) {
-                ChatboxSuggestionRuntimeStateService service = runtimeState();
-                return service != null && service.isLimitWidgetValid(container);
-            }
-
-            @Override
-            public boolean isAffordableLimitWidgetValid(Widget container) {
-                ChatboxSuggestionRuntimeStateService service = runtimeState();
-                return service != null && service.isAffordableLimitWidgetValid(container);
-            }
-
-            @Override
-            public String formatPrice(int price) {
-                ChatboxSuggestionRuntimeStateService service = runtimeState();
-                return service != null ? service.formatPrice(price) : String.valueOf(price);
-            }
-
-            @Override
-            public Integer getThrottledRemainingLimitSuggestion(int itemId) {
-                RemainingLimitSuggestionService service = remaining();
-                return service != null ? service.getThrottledSuggestion(itemId) : null;
-            }
-
-            @Override
-            public void cacheRemainingLimitSuggestion(int itemId, Integer remainingLimit) {
-                RemainingLimitSuggestionService service = remaining();
-                if (service != null) {
-                    service.cacheSuggestion(itemId, remainingLimit);
-                }
-            }
-
-            @Override
-            public Integer computeAffordableLimitSuggestion(Integer remainingLimit) {
-                AffordableLimitSuggestionService service =
-                    PluginInjectorBridge.get(AffordableLimitSuggestionService.class);
-                return service != null ? service.computeAffordableLimit(remainingLimit) : null;
-            }
-
-            @Override
-            public void clearRemainingLimitSuggestionCache() {
-                RemainingLimitSuggestionService service = remaining();
-                if (service != null) {
-                    service.clearCache();
-                }
-            }
-        };
+    private boolean isClientLoggedIn() {
+        return client != null && client.getGameState() == GameState.LOGGED_IN;
     }
 
-    ChatboxSuggestionPresentationService(Hooks hooks) {
-        this.hooks = hooks;
+    private Widget getChatboxContainer() {
+        ChatboxSuggestionRuntimeStateService service = runtimeState();
+        return service != null ? service.getChatboxContainer() : null;
+    }
+
+    private Integer getOfferPreviewItemId() {
+        return PluginAccess.plugin().offerPreviewItemId;
+    }
+
+    private FlipHubItem getOfferPreviewItem() {
+        return PluginAccess.plugin().offerPreviewItem;
+    }
+
+    private Widget ensurePriceSuggestionWidget(Widget container) {
+        ChatboxSuggestionRuntimeStateService service = runtimeState();
+        return service != null ? service.ensurePriceSuggestionWidget(container) : null;
+    }
+
+    private Widget ensureLimitSuggestionWidget(Widget container) {
+        ChatboxSuggestionRuntimeStateService service = runtimeState();
+        return service != null ? service.ensureLimitSuggestionWidget(container) : null;
+    }
+
+    private Widget ensureAffordableLimitSuggestionWidget(Widget container) {
+        ChatboxSuggestionRuntimeStateService service = runtimeState();
+        return service != null ? service.ensureAffordableLimitSuggestionWidget(container) : null;
+    }
+
+    private Widget getPriceSuggestionWidget() {
+        ChatboxSuggestionRuntimeStateService service = runtimeState();
+        return service != null ? service.getPriceSuggestionWidget() : null;
+    }
+
+    private void setPriceSuggestionWidget(Widget widget) {
+        ChatboxSuggestionRuntimeStateService service = runtimeState();
+        if (service != null) {
+            service.setPriceSuggestionWidget(widget);
+        }
+    }
+
+    private Widget getLimitSuggestionWidget() {
+        ChatboxSuggestionRuntimeStateService service = runtimeState();
+        return service != null ? service.getLimitSuggestionWidget() : null;
+    }
+
+    private void setLimitSuggestionWidget(Widget widget) {
+        ChatboxSuggestionRuntimeStateService service = runtimeState();
+        if (service != null) {
+            service.setLimitSuggestionWidget(widget);
+        }
+    }
+
+    private Widget getAffordableLimitSuggestionWidget() {
+        ChatboxSuggestionRuntimeStateService service = runtimeState();
+        return service != null ? service.getAffordableLimitSuggestionWidget() : null;
+    }
+
+    private void setAffordableLimitSuggestionWidget(Widget widget) {
+        ChatboxSuggestionRuntimeStateService service = runtimeState();
+        if (service != null) {
+            service.setAffordableLimitSuggestionWidget(widget);
+        }
+    }
+
+    private boolean isSuggestionWidgetValid(Widget container) {
+        ChatboxSuggestionRuntimeStateService service = runtimeState();
+        return service != null && service.isSuggestionWidgetValid(container);
+    }
+
+    private boolean isLimitWidgetValid(Widget container) {
+        ChatboxSuggestionRuntimeStateService service = runtimeState();
+        return service != null && service.isLimitWidgetValid(container);
+    }
+
+    private boolean isAffordableLimitWidgetValid(Widget container) {
+        ChatboxSuggestionRuntimeStateService service = runtimeState();
+        return service != null && service.isAffordableLimitWidgetValid(container);
+    }
+
+    private String formatPrice(int price) {
+        ChatboxSuggestionRuntimeStateService service = runtimeState();
+        return service != null ? service.formatPrice(price) : String.valueOf(price);
+    }
+
+    private Integer getThrottledRemainingLimitSuggestion(int itemId) {
+        RemainingLimitSuggestionService service = remaining();
+        return service != null ? service.getThrottledSuggestion(itemId) : null;
+    }
+
+    private void cacheRemainingLimitSuggestion(int itemId, Integer remainingLimit) {
+        RemainingLimitSuggestionService service = remaining();
+        if (service != null) {
+            service.cacheSuggestion(itemId, remainingLimit);
+        }
+    }
+
+    private Integer computeAffordableLimitSuggestion(Integer remainingLimit) {
+        AffordableLimitSuggestionService service = PluginInjectorBridge.get(AffordableLimitSuggestionService.class);
+        return service != null ? service.computeAffordableLimit(remainingLimit) : null;
+    }
+
+    private void clearRemainingLimitSuggestionCache() {
+        RemainingLimitSuggestionService service = remaining();
+        if (service != null) {
+            service.clearCache();
+        }
     }
 
     void updatePriceSuggestion(Widget promptWidget, Boolean isBuy) {
-        if (hooks == null || !hooks.isClientLoggedIn()) {
+        if (!isClientLoggedIn()) {
             clearPriceSuggestion();
             return;
         }
@@ -231,7 +177,7 @@ final class ChatboxSuggestionPresentationService {
             clearPriceSuggestion();
             return;
         }
-        Widget container = hooks.getChatboxContainer();
+        Widget container = getChatboxContainer();
         if (container == null || container.isHidden()) {
             clearPriceSuggestion();
             return;
@@ -240,8 +186,8 @@ final class ChatboxSuggestionPresentationService {
             clearPriceSuggestion();
             return;
         }
-        Integer previewItemId = hooks.getOfferPreviewItemId();
-        FlipHubItem previewItem = hooks.getOfferPreviewItem();
+        Integer previewItemId = getOfferPreviewItemId();
+        FlipHubItem previewItem = getOfferPreviewItem();
         if (previewItem == null || previewItemId == null || previewItem.item_id != previewItemId) {
             clearPriceSuggestion();
             return;
@@ -253,12 +199,12 @@ final class ChatboxSuggestionPresentationService {
             return;
         }
 
-        Widget suggestion = hooks.ensurePriceSuggestionWidget(container);
+        Widget suggestion = ensurePriceSuggestionWidget(container);
         boolean changed = false;
         if (lastSuggestedPrice == null || !lastSuggestedPrice.equals(price)
             || lastSuggestedIsBuy == null || !lastSuggestedIsBuy.equals(isBuy)) {
             String label = isBuy ? "Current Buy Price:" : "Current Sell Price:";
-            suggestion.setText(label + " " + hooks.formatPrice(price) + " gp");
+            suggestion.setText(label + " " + formatPrice(price) + " gp");
             lastSuggestedPrice = price;
             lastSuggestedIsBuy = isBuy;
             changed = true;
@@ -273,7 +219,7 @@ final class ChatboxSuggestionPresentationService {
     }
 
     void updateLimitSuggestion(Widget promptWidget, Boolean isBuy) {
-        if (hooks == null || !hooks.isClientLoggedIn()) {
+        if (!isClientLoggedIn()) {
             clearLimitSuggestion();
             clearAffordableLimitSuggestion();
             return;
@@ -283,7 +229,7 @@ final class ChatboxSuggestionPresentationService {
             clearAffordableLimitSuggestion();
             return;
         }
-        Widget container = hooks.getChatboxContainer();
+        Widget container = getChatboxContainer();
         if (container == null || container.isHidden()) {
             clearLimitSuggestion();
             clearAffordableLimitSuggestion();
@@ -295,8 +241,8 @@ final class ChatboxSuggestionPresentationService {
             return;
         }
 
-        Integer previewItemId = hooks.getOfferPreviewItemId();
-        FlipHubItem previewItem = hooks.getOfferPreviewItem();
+        Integer previewItemId = getOfferPreviewItemId();
+        FlipHubItem previewItem = getOfferPreviewItem();
         if (previewItem == null || previewItemId == null || previewItem.item_id != previewItemId) {
             clearLimitSuggestion();
             clearAffordableLimitSuggestion();
@@ -305,11 +251,11 @@ final class ChatboxSuggestionPresentationService {
 
         Integer remaining = previewItem.ge_limit_remaining;
         if (remaining == null || remaining <= 0) {
-            remaining = hooks.getThrottledRemainingLimitSuggestion(previewItemId);
+            remaining = getThrottledRemainingLimitSuggestion(previewItemId);
         } else {
-            hooks.cacheRemainingLimitSuggestion(previewItemId, remaining);
+            cacheRemainingLimitSuggestion(previewItemId, remaining);
         }
-        Integer affordable = hooks.computeAffordableLimitSuggestion(remaining);
+        Integer affordable = computeAffordableLimitSuggestion(remaining);
         boolean hasRemainingSuggestion = remaining != null && remaining > 0;
         boolean hasAffordableSuggestion = affordable != null && affordable > 0;
 
@@ -320,8 +266,8 @@ final class ChatboxSuggestionPresentationService {
         }
 
         if (hasRemainingSuggestion) {
-            Widget suggestion = hooks.ensureLimitSuggestionWidget(container);
-            String text = "Remaining GE limit: " + hooks.formatPrice(remaining);
+            Widget suggestion = ensureLimitSuggestionWidget(container);
+            String text = "Remaining GE limit: " + formatPrice(remaining);
             boolean changed = applySuggestionTextAndWidth(suggestion, text);
             lastSuggestedLimit = remaining;
             if (suggestion.isHidden()) {
@@ -336,8 +282,8 @@ final class ChatboxSuggestionPresentationService {
         }
 
         if (hasAffordableSuggestion) {
-            Widget suggestion = hooks.ensureAffordableLimitSuggestionWidget(container);
-            String text = "Cash limit: " + hooks.formatPrice(affordable);
+            Widget suggestion = ensureAffordableLimitSuggestionWidget(container);
+            String text = "Cash limit: " + formatPrice(affordable);
             boolean changed = applySuggestionTextAndWidth(suggestion, text);
             lastSuggestedAffordableLimit = affordable;
             if (suggestion.isHidden()) {
@@ -353,15 +299,15 @@ final class ChatboxSuggestionPresentationService {
     }
 
     void clearPriceSuggestion() {
-        Widget suggestion = hooks != null ? hooks.getPriceSuggestionWidget() : null;
+        Widget suggestion = getPriceSuggestionWidget();
         if (suggestion != null) {
             if (!suggestion.isHidden()) {
                 suggestion.setHidden(true);
                 suggestion.revalidate();
             }
-            Widget container = hooks.getChatboxContainer();
-            if (!hooks.isSuggestionWidgetValid(container)) {
-                hooks.setPriceSuggestionWidget(null);
+            Widget container = getChatboxContainer();
+            if (!isSuggestionWidgetValid(container)) {
+                setPriceSuggestionWidget(null);
             }
         }
         lastSuggestedPrice = null;
@@ -369,33 +315,31 @@ final class ChatboxSuggestionPresentationService {
     }
 
     void clearLimitSuggestion() {
-        Widget suggestion = hooks != null ? hooks.getLimitSuggestionWidget() : null;
+        Widget suggestion = getLimitSuggestionWidget();
         if (suggestion != null) {
             if (!suggestion.isHidden()) {
                 suggestion.setHidden(true);
                 suggestion.revalidate();
             }
-            Widget container = hooks.getChatboxContainer();
-            if (!hooks.isLimitWidgetValid(container)) {
-                hooks.setLimitSuggestionWidget(null);
+            Widget container = getChatboxContainer();
+            if (!isLimitWidgetValid(container)) {
+                setLimitSuggestionWidget(null);
             }
         }
         lastSuggestedLimit = null;
-        if (hooks != null) {
-            hooks.clearRemainingLimitSuggestionCache();
-        }
+        clearRemainingLimitSuggestionCache();
     }
 
     void clearAffordableLimitSuggestion() {
-        Widget suggestion = hooks != null ? hooks.getAffordableLimitSuggestionWidget() : null;
+        Widget suggestion = getAffordableLimitSuggestionWidget();
         if (suggestion != null) {
             if (!suggestion.isHidden()) {
                 suggestion.setHidden(true);
                 suggestion.revalidate();
             }
-            Widget container = hooks.getChatboxContainer();
-            if (!hooks.isAffordableLimitWidgetValid(container)) {
-                hooks.setAffordableLimitSuggestionWidget(null);
+            Widget container = getChatboxContainer();
+            if (!isAffordableLimitWidgetValid(container)) {
+                setAffordableLimitSuggestionWidget(null);
             }
         }
         lastSuggestedAffordableLimit = null;
