@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -79,7 +80,11 @@ final class GeLifecycleRuntimeSchedulerServices {
         Supplier<PluginConfig> configSupplier
     ) {
         ApiClient apiClient = new ApiClient(httpClient, gson);
-        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        // Graceful shutdown() must not leave queued delayed tasks to fire later
+        // (thread interruption is not allowed), so drop them at shutdown instead.
+        ScheduledThreadPoolExecutor schedulerImpl = new ScheduledThreadPoolExecutor(1);
+        schedulerImpl.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
+        ScheduledExecutorService scheduler = schedulerImpl;
         ExecutorService ioExecutor = Executors.newFixedThreadPool(2);
 
         scheduler.scheduleAtFixedRate(
@@ -206,10 +211,10 @@ final class GeLifecycleRuntimeSchedulerServices {
             backfillDispatch.resetBackfillRetryState();
         }
         if (scheduler != null) {
-            scheduler.shutdownNow();
+            scheduler.shutdown();
         }
         if (ioExecutor != null) {
-            ioExecutor.shutdownNow();
+            ioExecutor.shutdown();
         }
 
         UploadEventDispatchFacadeService uploadDispatch = resolve(uploadEventDispatchFacadeServiceSupplier);

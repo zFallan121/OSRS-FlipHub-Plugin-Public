@@ -170,7 +170,7 @@ final class WikiPriceService {
 
     void stop() {
         if (wikiFetchTask != null) {
-            wikiFetchTask.cancel(true);
+            wikiFetchTask.cancel(false);
             wikiFetchTask = null;
         }
         wikiFetchInFlight.set(false);

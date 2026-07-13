@@ -129,20 +129,18 @@ final class ProfileWatcher {
 
     void stop() {
         running.set(false);
-        Thread thread = watchThread;
-        if (thread != null) {
-            thread.interrupt();
-            watchThread = null;
-        }
+        // Closing the watch service unblocks the watch thread's take() with a
+        // ClosedWatchServiceException; interrupting threads is not allowed.
+        closeWatchService();
+        watchThread = null;
         ScheduledFuture<?> task = scanTask;
         if (task != null) {
-            task.cancel(true);
+            task.cancel(false);
             scanTask = null;
         }
-        closeWatchService();
         for (ScheduledFuture<?> future : pendingReloads.values()) {
             if (future != null) {
-                future.cancel(true);
+                future.cancel(false);
             }
         }
         pendingReloads.clear();
@@ -158,10 +156,8 @@ final class ProfileWatcher {
             WatchKey key;
             try {
                 key = service.take();
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-                return;
-            } catch (RuntimeException ex) {
+            } catch (InterruptedException | RuntimeException ex) {
+                // ClosedWatchServiceException lands here when stop() closes the service.
                 return;
             }
             Path root = watchRoots.get(key);
