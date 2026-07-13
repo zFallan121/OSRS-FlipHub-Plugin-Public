@@ -169,6 +169,13 @@ final class LinkAttemptService {
     }
 
     void attemptLink(String licenseKey) {
+        if (config == null || !config.enableFlipHubSync()) {
+            if (log.isDebugEnabled()) {
+                log.debug("FlipHub link skipped: FlipHub sync is disabled in the plugin settings");
+            }
+            updateProfileHeader();
+            return;
+        }
         String normalized = normalize(licenseKey);
         if (isBlank(normalized)) {
             return;

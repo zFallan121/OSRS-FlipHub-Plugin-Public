@@ -33,21 +33,39 @@ import net.runelite.client.config.ConfigSection;
 public interface PluginConfig extends Config {
     @ConfigSection(
         name = "FlipHub account (optional cloud sync)",
-        description = "Optional. Link a FlipHub account to sync your flips to the FlipHub online dashboard. "
-            + "While linked, your Grand Exchange offer events (item, quantity, price, time) are uploaded to "
-            + "FlipHub's servers (osrsfliphub.com). Leave the License Key blank to keep all data local on your "
-            + "computer — nothing is uploaded until you link.",
+        description = "Optional. Turn on 'Enable FlipHub sync' and link a FlipHub account to sync your flips to "
+            + "the FlipHub online dashboard. While enabled and linked, your Grand Exchange offer events (item, "
+            + "quantity, price, time) are uploaded to FlipHub's servers (osrsfliphub.com). While 'Enable FlipHub "
+            + "sync' is off, the plugin never connects to FlipHub's servers and all data stays local on your "
+            + "computer.",
         position = 0
     )
     String accountSection = "accountSection";
+
+    @ConfigItem(
+        keyName = "enableFlipHubSync",
+        name = "Enable FlipHub sync",
+        description = "Opt in to FlipHub cloud sync. While enabled and linked, your Grand Exchange offer events "
+            + "(item, quantity, price, time) are uploaded to FlipHub's servers (osrsfliphub.com) and flip data "
+            + "is fetched from them. While disabled, the plugin never connects to FlipHub's servers and all "
+            + "data stays local on your computer.",
+        warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by Runelite developers.",
+        section = accountSection,
+        position = 0
+    )
+    default boolean enableFlipHubSync() {
+        return false;
+    }
 
     @ConfigItem(
         keyName = "licenseKey",
         name = "License Key",
         description = "Optional. Paste a FlipHub license key to link your account. While linked, your Grand "
             + "Exchange offer events are uploaded to FlipHub's servers (osrsfliphub.com) to power your online "
-            + "dashboard. Leave blank to keep all data local — nothing is uploaded until you link.",
-        section = accountSection
+            + "dashboard. Leave blank to keep all data local — nothing is uploaded until you enable FlipHub "
+            + "sync and link.",
+        section = accountSection,
+        position = 1
     )
     default String licenseKey() {
         return "";
@@ -58,7 +76,7 @@ public interface PluginConfig extends Config {
         name = "Unlink (click)",
         description = "Clear link state, stop all uploads, and use local-only stats",
         section = accountSection,
-        position = 1
+        position = 2
     )
     default boolean unlinkNow() {
         return false;

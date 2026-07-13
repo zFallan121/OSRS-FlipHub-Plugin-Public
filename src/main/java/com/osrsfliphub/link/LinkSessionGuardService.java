@@ -46,15 +46,22 @@ final class LinkSessionGuardService {
         this.config = config;
     }
 
+    boolean isSyncEnabled() {
+        return config != null && config.enableFlipHubSync();
+    }
+
     boolean hasSessionToken() {
-        return !isBlank(readSessionToken());
+        return isSyncEnabled() && !isBlank(readSessionToken());
     }
 
     boolean isLinked() {
-        return !isBlank(readSessionToken()) && !isBlank(readSigningSecret());
+        return isSyncEnabled() && !isBlank(readSessionToken()) && !isBlank(readSigningSecret());
     }
 
     Credentials resolveLinkedCredentials() {
+        if (!isSyncEnabled()) {
+            return null;
+        }
         String token = normalize(readSessionToken());
         String secret = normalize(readSigningSecret());
         if (isBlank(token) || isBlank(secret)) {

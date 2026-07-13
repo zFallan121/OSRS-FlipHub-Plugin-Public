@@ -122,6 +122,10 @@ final class BackfillUploader {
         if (batch == null || batch.isEmpty() || apiClient == null || config == null) {
             return false;
         }
+        if (!config.enableFlipHubSync()) {
+            setUploadBlocked("Backfill paused: FlipHub sync is disabled in the plugin settings.");
+            return false;
+        }
         String sessionToken = config.sessionToken();
         String signingSecret = config.signingSecret();
         if (!ApiStatusPolicy.hasCredentials(sessionToken, signingSecret)) {

@@ -244,7 +244,7 @@ public class GeLifecyclePlugin extends Plugin {
 
     ApiClient.WipeStatsResponse wipeWebsiteStats(String sessionToken, String signingSecret) throws Exception {
         if (apiClient == null) {
-            apiClient = new ApiClient(httpClient, gson);
+            apiClient = new ApiClient(httpClient, gson, config);
         }
         return apiClient.wipeWebsiteStats(sessionToken, signingSecret);
     }

@@ -53,16 +53,32 @@ final class ApiClientCore {
 
     private final OkHttpClient httpClient;
     private final Gson gson;
+    private final PluginConfig config;
     private final ApiClientRequestFactory requestFactory;
 
-    ApiClientCore(OkHttpClient httpClient, Gson gson) {
+    ApiClientCore(OkHttpClient httpClient, Gson gson, PluginConfig config) {
         this.httpClient = httpClient;
         this.gson = gson;
+        this.config = config;
         this.requestFactory = new ApiClientRequestFactory(API_BASE_URL, JSON);
+    }
+
+    /**
+     * All traffic to FlipHub's server is opt-in. Every method that performs an
+     * OkHttp call to {@link #API_BASE_URL} must call this first so no request
+     * can leave the client while the 'Enable FlipHub sync' config is off.
+     */
+    private void ensureSyncEnabled() {
+        if (config == null || !config.enableFlipHubSync()) {
+            throw new IllegalStateException(
+                "FlipHub sync is disabled. Turn on 'Enable FlipHub sync' in the FlipHub plugin "
+                    + "settings to allow connections to FlipHub's server.");
+        }
     }
 
     ApiClient.LinkResponse linkDevice(String licenseKey, String deviceId, String deviceName, String pluginVersion)
         throws IOException {
+        ensureSyncEnabled();
         Map<String, Object> body = new HashMap<>();
         body.put("license_key", licenseKey);
         body.put("code", licenseKey);
@@ -94,6 +110,7 @@ final class ApiClientCore {
     }
 
     ApiClient.LinkResponse refreshSession(String sessionToken, String signingSecret, String deviceId) throws IOException {
+        ensureSyncEnabled();
         Map<String, Object> payload = new HashMap<>();
         if (requestFactory.hasText(deviceId)) {
             payload.put("device_id", deviceId.trim());
@@ -126,6 +143,7 @@ final class ApiClientCore {
     ApiClient.EventUploadResponse sendEventsDetailed(String sessionToken,
                                                      String signingSecret,
                                                      List<GeEvent> events) throws IOException {
+        ensureSyncEnabled();
         ApiClient.EventUploadResponse result = new ApiClient.EventUploadResponse();
         if (events == null || events.isEmpty()) {
             result.status_code = 0;
@@ -173,6 +191,7 @@ final class ApiClientCore {
                                String signingSecret,
                                StatsSummary summary,
                                List<StatsItem> items) throws IOException {
+        ensureSyncEnabled();
         Map<String, Object> payload = new HashMap<>();
         payload.put("schema_version", 1);
         payload.put("sent_at_ms", System.currentTimeMillis());
@@ -188,6 +207,7 @@ final class ApiClientCore {
     }
 
     ApiClient.WipeStatsResponse wipeWebsiteStats(String sessionToken, String signingSecret) throws IOException {
+        ensureSyncEnabled();
         Map<String, Object> payload = new HashMap<>();
         payload.put("schema_version", 1);
         payload.put("sent_at_ms", System.currentTimeMillis());
@@ -210,6 +230,7 @@ final class ApiClientCore {
     }
 
     ApiClient.ItemsResponse fetchItems(String sessionToken, String query, int page, int pageSize) throws IOException {
+        ensureSyncEnabled();
         StringBuilder urlBuilder = new StringBuilder();
         urlBuilder.append(requestFactory.apiUrl(PATH_ITEMS));
         urlBuilder.append("?page=").append(page).append("&page_size=").append(pageSize);
@@ -229,6 +250,7 @@ final class ApiClientCore {
     }
 
     ApiClient.ItemResponse fetchItem(String sessionToken, int itemId) throws IOException {
+        ensureSyncEnabled();
         String url = requestFactory.apiUrl(PATH_ITEM) + "?item_id=" + itemId;
         Request request = requestFactory.newGetRequest(url, sessionToken);
 
@@ -242,6 +264,7 @@ final class ApiClientCore {
     }
 
     ApiClient.StatsSummaryResponse fetchStatsSummary(String sessionToken, Long sinceMs, Long untilMs) throws IOException {
+        ensureSyncEnabled();
         StringBuilder urlBuilder = new StringBuilder();
         urlBuilder.append(requestFactory.apiUrl(PATH_STATS_SUMMARY));
         requestFactory.appendStatsQuery(urlBuilder, sinceMs, untilMs);
@@ -262,6 +285,7 @@ final class ApiClientCore {
                                                  Long untilMs,
                                                  Integer limit,
                                                  StatsItemSort sort) throws IOException {
+        ensureSyncEnabled();
         StringBuilder urlBuilder = new StringBuilder();
         urlBuilder.append(requestFactory.apiUrl(PATH_STATS_ITEMS));
         boolean hasQuery = requestFactory.appendStatsQuery(urlBuilder, sinceMs, untilMs);

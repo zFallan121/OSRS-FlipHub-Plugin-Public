@@ -84,6 +84,9 @@ final class AccountwideSummaryUploader {
         if (apiClient == null || config == null || !isClientFullyReady()) {
             return;
         }
+        if (!config.enableFlipHubSync()) {
+            return;
+        }
         String sessionToken = config.sessionToken();
         String signingSecret = config.signingSecret();
         if (!ApiStatusPolicy.hasCredentials(sessionToken, signingSecret)) {

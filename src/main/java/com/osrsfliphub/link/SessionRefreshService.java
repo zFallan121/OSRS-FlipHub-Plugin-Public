@@ -49,6 +49,9 @@ final class SessionRefreshService {
     }
 
     boolean attemptRefresh(String currentToken) {
+        if (config == null || !config.enableFlipHubSync()) {
+            return false;
+        }
         try {
             String signingSecret = config != null ? config.signingSecret() : null;
             String deviceId = config != null ? config.deviceId() : null;

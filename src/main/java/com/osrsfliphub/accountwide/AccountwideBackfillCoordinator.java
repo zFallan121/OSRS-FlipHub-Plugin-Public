@@ -162,6 +162,10 @@ final class AccountwideBackfillCoordinator {
     Result runCycle() {
         boolean shouldRetry = false;
         try {
+            if (config == null || !config.enableFlipHubSync()) {
+                resetBackfillRetryState();
+                return new Result(false);
+            }
             Set<Long> collectedProfileKeys = collectAccountwideProfileKeys();
             if (collectedProfileKeys == null) {
                 resetBackfillRetryState();

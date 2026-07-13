@@ -132,6 +132,15 @@ final class UploadEventDispatchFacadeService {
         if (!isClientLoggedIn()) {
             return;
         }
+        if (!config.enableFlipHubSync()) {
+            updateProfileHeader();
+            if (uploadState.getPendingUploadEvents() > 0) {
+                markBlocked("FlipHub sync is disabled in the plugin settings. Pending uploads are buffered locally.");
+            } else {
+                updateUploadDiagnosticsUi();
+            }
+            return;
+        }
         String sessionToken = config.sessionToken();
         String signingSecret = config.signingSecret();
         if (!ApiStatusPolicy.hasCredentials(sessionToken, signingSecret)) {

@@ -40,6 +40,7 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 public class ApiClientTest
@@ -137,9 +138,68 @@ public class ApiClientTest
         assertTrue(body.contains("\"item_id\":4151"));
     }
 
+    @Test
+    public void networkCallsAreBlockedWhenSyncDisabled()
+    {
+        AtomicInteger callCount = new AtomicInteger(0);
+        ApiClient client = newApiClient(200, "{}", callCount, null, null, syncDisabledConfig());
+
+        assertThrows(IllegalStateException.class,
+            () -> client.linkDevice("key", "device", "name", "1.0.0"));
+        assertThrows(IllegalStateException.class,
+            () -> client.refreshSession("token"));
+        assertThrows(IllegalStateException.class,
+            () -> client.refreshSession("token", "secret", "device"));
+        assertThrows(IllegalStateException.class,
+            () -> client.sendEvents("token", "secret", Arrays.asList(sampleEvent())));
+        assertThrows(IllegalStateException.class,
+            () -> client.sendEventsDetailed("token", "secret", Arrays.asList(sampleEvent())));
+        assertThrows(IllegalStateException.class,
+            () -> client.sendAccountwideSummary("token", "secret", new StatsSummary()));
+        assertThrows(IllegalStateException.class,
+            () -> client.wipeWebsiteStats("token", "secret"));
+        assertThrows(IllegalStateException.class,
+            () -> client.fetchItems("token", null, 1, 10));
+        assertThrows(IllegalStateException.class,
+            () -> client.fetchItem("token", 4151));
+        assertThrows(IllegalStateException.class,
+            () -> client.fetchStatsSummary("token", null, null));
+        assertThrows(IllegalStateException.class,
+            () -> client.fetchStatsItems("token", null, null, null, null));
+
+        assertEquals(0, callCount.get());
+    }
+
+    private PluginConfig syncEnabledConfig()
+    {
+        return new PluginConfig()
+        {
+            @Override
+            public boolean enableFlipHubSync()
+            {
+                return true;
+            }
+        };
+    }
+
+    private PluginConfig syncDisabledConfig()
+    {
+        return new PluginConfig()
+        {
+        };
+    }
+
     private ApiClient newApiClient(int statusCode, String responseBody, AtomicInteger callCount,
                                    AtomicReference<String> pathRef,
                                    AtomicReference<String> bodyRef)
+    {
+        return newApiClient(statusCode, responseBody, callCount, pathRef, bodyRef, syncEnabledConfig());
+    }
+
+    private ApiClient newApiClient(int statusCode, String responseBody, AtomicInteger callCount,
+                                   AtomicReference<String> pathRef,
+                                   AtomicReference<String> bodyRef,
+                                   PluginConfig config)
     {
         OkHttpClient httpClient = new OkHttpClient.Builder()
             .addInterceptor(chain -> {
@@ -163,7 +223,7 @@ public class ApiClientTest
                     .build();
             })
             .build();
-        return new ApiClient(httpClient, new Gson());
+        return new ApiClient(httpClient, new Gson(), config);
     }
 
     private GeEvent sampleEvent()

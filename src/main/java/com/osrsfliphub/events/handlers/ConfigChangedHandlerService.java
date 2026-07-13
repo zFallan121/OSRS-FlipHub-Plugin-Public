@@ -59,6 +59,38 @@ final class ConfigChangedHandlerService {
         }
         String key = event.getKey();
 
+        if ("enableFlipHubSync".equals(key)) {
+            if (config != null && config.enableFlipHubSync()) {
+                LinkAttemptService linkAttemptService = PluginInjectorBridge.get(LinkAttemptService.class);
+                String linkInput = linkAttemptService != null
+                    ? linkAttemptService.resolveLinkInput(config.licenseKey(), config.linkCode())
+                    : null;
+                if (linkInput != null && !linkInput.trim().isEmpty()) {
+                    linkAttemptService.attemptLink(linkInput.trim());
+                }
+                UploadEventDispatchFacadeService uploadFacade =
+                    PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
+                if (uploadFacade != null) {
+                    uploadFacade.resetStatus();
+                }
+            } else {
+                UploadEventDispatchFacadeService uploadFacade =
+                    PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
+                if (uploadFacade != null) {
+                    uploadFacade.markBlocked("FlipHub sync is disabled in the plugin settings.");
+                }
+            }
+            if (isPanelAvailable()) {
+                PluginAccess.plugin().getProfileWorkflowService().updateProfileHeader();
+            }
+            GeLifecyclePlugin plugin = PluginAccess.plugin();
+            plugin.refreshPanelData();
+            PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
+            if (coordinator != null) {
+                coordinator.triggerStatsRefresh(plugin.scheduler);
+            }
+        }
+
         if ("licenseKey".equals(key) || "linkCode".equals(key)) {
             LinkAttemptService linkAttemptService = PluginInjectorBridge.get(LinkAttemptService.class);
             String linkInput = linkAttemptService != null && config != null

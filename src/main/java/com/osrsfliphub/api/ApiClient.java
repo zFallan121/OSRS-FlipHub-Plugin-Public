@@ -36,8 +36,8 @@ public class ApiClient {
     private final ApiClientCore core;
 
     @Inject
-    public ApiClient(OkHttpClient httpClient, Gson gson) {
-        this.core = new ApiClientCore(httpClient, gson);
+    public ApiClient(OkHttpClient httpClient, Gson gson, PluginConfig config) {
+        this.core = new ApiClientCore(httpClient, gson, config);
     }
 
     public LinkResponse linkDevice(String licenseKey, String deviceId, String deviceName, String pluginVersion)

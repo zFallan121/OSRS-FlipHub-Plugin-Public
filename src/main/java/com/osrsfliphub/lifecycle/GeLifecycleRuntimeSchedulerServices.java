@@ -79,7 +79,7 @@ final class GeLifecycleRuntimeSchedulerServices {
         Supplier<LinkAttemptService> linkAttemptServiceSupplier,
         Supplier<PluginConfig> configSupplier
     ) {
-        ApiClient apiClient = new ApiClient(httpClient, gson);
+        ApiClient apiClient = new ApiClient(httpClient, gson, resolve(configSupplier));
         // Graceful shutdown() must not leave queued delayed tasks to fire later
         // (thread interruption is not allowed), so drop them at shutdown instead.
         ScheduledThreadPoolExecutor schedulerImpl = new ScheduledThreadPoolExecutor(1);
