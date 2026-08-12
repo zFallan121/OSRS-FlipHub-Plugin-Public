@@ -45,16 +45,6 @@ final class ProfilePresentationService {
         return PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
     }
 
-    private String resolveLegacyDisplayNameForHash(long hash) {
-        ProfileSelectionPresentationFacadeService service = facade();
-        return service != null ? service.resolveLegacyDisplayNameForHash(hash) : null;
-    }
-
-    private String displayNameFromLegacyKey(String legacyKey) {
-        ProfileSelectionPresentationFacadeService service = facade();
-        return service != null ? service.displayNameFromLegacyKey(legacyKey) : null;
-    }
-
     private String buildProfileKey(long accountHash) {
         ProfileSelectionPresentationFacadeService service = facade();
         return service != null ? service.buildProfileKey(accountHash) : String.valueOf(accountHash);
@@ -67,26 +57,11 @@ final class ProfilePresentationService {
     }
 
     String resolveSelectedProfileLabel(long key,
-                                       Map<Long, String> profileDisplayNames,
-                                       Map<Long, String> legacyNameKeysByHash) {
+                                       Map<Long, String> profileDisplayNames) {
         if (key == accountwideKey) {
             return "Accountwide";
         }
         String displayName = profileDisplayNames != null ? profileDisplayNames.get(key) : null;
-        if (displayName != null && !displayName.trim().isEmpty() && !isPlaceholderDisplayName(displayName)) {
-            return displayName;
-        }
-        String legacyKey = legacyNameKeysByHash != null ? legacyNameKeysByHash.get(key) : null;
-        String legacyDisplay = displayNameFromLegacyKey(legacyKey);
-        if (legacyDisplay == null) {
-            legacyDisplay = resolveLegacyDisplayNameForHash(key);
-        }
-        if (legacyDisplay != null) {
-            if (profileDisplayNames != null) {
-                profileDisplayNames.put(key, legacyDisplay);
-            }
-            return legacyDisplay;
-        }
         if (displayName != null && !displayName.trim().isEmpty()) {
             return displayName;
         }
@@ -94,7 +69,6 @@ final class ProfilePresentationService {
     }
 
     List<FlipHubProfileOption> buildProfileOptions(Map<Long, String> profileDisplayNames,
-                                                         Map<Long, String> legacyNameKeysByHash,
                                                          Map<Long, String> diskProfiles,
                                                          long currentHash,
                                                          String currentDisplayName) {
@@ -123,16 +97,6 @@ final class ProfilePresentationService {
             String label = entry.getValue();
             if (label == null || label.trim().isEmpty()) {
                 label = "Profile " + hash;
-            }
-            if (label.startsWith("Profile ")) {
-                String legacyKey = legacyNameKeysByHash != null ? legacyNameKeysByHash.get(hash) : null;
-                String legacyDisplay = displayNameFromLegacyKey(legacyKey);
-                if (legacyDisplay == null) {
-                    legacyDisplay = resolveLegacyDisplayNameForHash(hash);
-                }
-                if (legacyDisplay != null) {
-                    label = legacyDisplay;
-                }
             }
             if (profileDisplayNames != null && label != null && !label.trim().isEmpty()
                 && !isPlaceholderDisplayName(label)) {

@@ -43,8 +43,7 @@ public class ProfileCatalogServiceTest {
             Gson gson = new Gson();
             Path runeliteDir = Path.of(System.getProperty("user.home"), ".runelite");
             ProfileStore profileStore = new ProfileStore(gson, "fliphub-dev", "fliphub", runeliteDir);
-            LegacyLocalTradesStore legacyStore = new LegacyLocalTradesStore(null, gson, "fliphub", runeliteDir);
-            ProfileCatalogService service = new ProfileCatalogService(profileStore, legacyStore);
+            ProfileCatalogService service = new ProfileCatalogService(profileStore);
 
             Path devDir = profileStore.getProfilesDir();
             Path legacyDir = profileStore.getLegacyProfilesDir();
@@ -54,27 +53,15 @@ public class ProfileCatalogServiceTest {
             writeProfile(gson, devDir.resolve("hash_222.json"), 222L, null);
             writeProfile(gson, legacyDir.resolve("hash_333.json"), 333L, "Legacy File");
 
-            Path settingsFile = Path.of(System.getProperty("user.home"), ".runelite", "settings.properties");
-            Files.writeString(
-                settingsFile,
-                "fliphub.localTrades.name_notari=shared\n"
-                    + "fliphub.localTrades.hash_444=shared\n",
-                StandardCharsets.UTF_8
-            );
-
             Map<Long, String> displayNames = new HashMap<>();
             displayNames.put(555L, "Existing");
-            Map<Long, String> legacyNameKeys = new HashMap<>();
 
-            Map<Long, String> profiles = service.loadProfiles(displayNames, legacyNameKeys);
+            Map<Long, String> profiles = service.loadProfiles(displayNames);
 
             assertEquals("Main Profile", profiles.get(111L));
             assertEquals("Profile 222", profiles.get(222L));
             assertEquals("Legacy File", profiles.get(333L));
-            assertEquals("notari", profiles.get(444L));
             assertEquals("Existing", profiles.get(555L));
-            assertEquals("notari", displayNames.get(444L));
-            assertEquals("name_notari", legacyNameKeys.get(444L));
         });
     }
 

@@ -24,24 +24,17 @@
  */
 package com.osrsfliphub;
 
-import com.google.gson.Gson;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import net.runelite.client.config.ConfigManager;
 
 @javax.inject.Singleton
 final class ProfileStorageFacadeService {
     private final long accountwideKey = GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
-    private final int maxLocalTrades = GeLifecyclePluginConstants.MAX_LOCAL_TRADES;
-    private final ConfigManager configManager;
-    private final Gson gson;
     private final PluginState pluginState;
 
     @javax.inject.Inject
-    ProfileStorageFacadeService(ConfigManager configManager, Gson gson, PluginState pluginState) {
-        this.configManager = configManager;
-        this.gson = gson;
+    ProfileStorageFacadeService(PluginState pluginState) {
         this.pluginState = pluginState;
     }
 
@@ -88,68 +81,4 @@ final class ProfileStorageFacadeService {
         }
     }
 
-    List<LocalTradeDelta> readLegacyLocalTrades(long accountHash) {
-        if (configManager == null || gson == null || accountHash <= 0) {
-            return null;
-        }
-        GeHistoryWipeStateStore wipeStore = PluginInjectorBridge.get(GeHistoryWipeStateStore.class);
-        if (wipeStore != null && wipeStore.isWipeBarrierArmed(accountHash)) {
-            return null;
-        }
-        List<LocalTradeDelta> byName = null;
-        String legacyNameKey = pluginState.getLegacyNameKeysByHash().get(accountHash);
-        if (legacyNameKey != null) {
-            byName = readLegacyLocalTrades(legacyNameKey);
-        }
-        String primaryKey = "hash_" + accountHash;
-        List<String> keys = buildLegacyLocalTradesKeys(primaryKey, accountHash);
-        if (byName != null && !byName.isEmpty()) {
-            return LocalTradeDeltaUtils.mergeLocalTrades(
-                byName,
-                readLegacyLocalTrades(keys, 0),
-                readLegacyLocalTrades(keys, 1),
-                readLegacyLocalTrades(keys, 2),
-                maxLocalTrades
-            );
-        }
-        return LocalTradeDeltaUtils.mergeLocalTrades(
-            readLegacyLocalTrades(keys, 0),
-            readLegacyLocalTrades(keys, 1),
-            readLegacyLocalTrades(keys, 2),
-            readLegacyLocalTrades(keys, 3),
-            maxLocalTrades
-        );
-    }
-
-    private List<LocalTradeDelta> readLegacyLocalTrades(List<String> keys, int index) {
-        if (keys == null || index < 0 || index >= keys.size()) {
-            return null;
-        }
-        return readLegacyLocalTrades(keys.get(index));
-    }
-
-    private List<LocalTradeDelta> readLegacyLocalTrades(String key) {
-        LegacyLocalTradesStore store = PluginInjectorBridge.get(LegacyLocalTradesStore.class);
-        return store != null ? store.readLocalTrades(key) : null;
-    }
-
-    private List<String> buildLegacyLocalTradesKeys(String primaryKey, long accountHash) {
-        List<String> keys = new ArrayList<>();
-        addLocalTradesKey(keys, primaryKey);
-        if (accountHash > 0) {
-            addLocalTradesKey(keys, "hash_" + accountHash);
-            addLocalTradesKey(keys, String.valueOf(accountHash));
-        }
-        return keys;
-    }
-
-    private void addLocalTradesKey(List<String> keys, String key) {
-        if (key == null || key.trim().isEmpty()) {
-            return;
-        }
-        String trimmed = key.trim();
-        if (!keys.contains(trimmed)) {
-            keys.add(trimmed);
-        }
-    }
 }

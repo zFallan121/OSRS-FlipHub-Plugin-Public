@@ -24,42 +24,26 @@
  */
 package com.osrsfliphub;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonParseException;
-import com.google.gson.reflect.TypeToken;
-import java.lang.reflect.Type;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
 @Singleton
 final class AccountwideTradesMergeService {
-    private final Gson gson;
     private final int maxLocalTrades;
 
     @Inject
-    AccountwideTradesMergeService(Gson gson) {
-        this.gson = gson;
+    AccountwideTradesMergeService() {
         this.maxLocalTrades = GeLifecyclePluginConstants.MAX_LOCAL_TRADES;
     }
 
     private static ProfileStorageFacadeService profileStorage() {
         return PluginInjectorBridge.get(ProfileStorageFacadeService.class);
-    }
-
-    private static Map<String, String> legacyLocalTradesCache() {
-        LegacyLocalTradesFilterService filterService = PluginAccess.plugin().getLegacyLocalTradesFilterService();
-        LegacyLocalTradesStore store = PluginInjectorBridge.get(LegacyLocalTradesStore.class);
-        if (filterService == null || store == null) {
-            return null;
-        }
-        return filterService.filter(store.getEntries());
     }
 
     List<LocalTradeDelta> buildAccountwideFromDisk() {
@@ -68,7 +52,6 @@ final class AccountwideTradesMergeService {
         ProfileStorageFacadeService storage = profileStorage();
         mergeAccountwideFromDir(merged, seen, storage != null ? storage.getProfilesDir() : null);
         mergeAccountwideFromDir(merged, seen, storage != null ? storage.getLegacyProfilesDir() : null);
-        mergeAccountwideFromLegacyConfig(merged, seen);
         if (merged.isEmpty()) {
             return null;
         }
@@ -78,37 +61,6 @@ final class AccountwideTradesMergeService {
             merged.subList(0, trim).clear();
         }
         return merged;
-    }
-
-    private void mergeAccountwideFromLegacyConfig(List<LocalTradeDelta> merged, Set<String> seen) {
-        if (gson == null) {
-            return;
-        }
-        Map<String, String> entries = legacyLocalTradesCache();
-        if (entries == null || entries.isEmpty()) {
-            return;
-        }
-        Type type = new TypeToken<List<LocalTradeDelta>>() {}.getType();
-        for (String raw : entries.values()) {
-            if (raw == null || raw.trim().isEmpty()) {
-                continue;
-            }
-            try {
-                List<LocalTradeDelta> deltas = gson.fromJson(raw, type);
-                if (deltas == null || deltas.isEmpty()) {
-                    continue;
-                }
-                for (LocalTradeDelta delta : deltas) {
-                    if (delta == null) {
-                        continue;
-                    }
-                    if (seen.add(LocalTradeDeltaUtils.buildLocalTradeSignature(delta))) {
-                        merged.add(delta);
-                    }
-                }
-            } catch (JsonParseException ignored) {
-            }
-        }
     }
 
     private void mergeAccountwideFromDir(List<LocalTradeDelta> merged, Set<String> seen, Path dir) {

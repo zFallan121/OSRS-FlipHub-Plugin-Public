@@ -50,7 +50,6 @@ final class PluginState {
     private final Map<Long, Long> loadedProfileFileMs = new ConcurrentHashMap<>();
     private final Map<Long, String> profileDisplayNames = new ConcurrentHashMap<>();
     private final Map<Long, LocalStatsCache> statsCacheByAccount = new ConcurrentHashMap<>();
-    private final Map<Long, String> legacyNameKeysByHash = new ConcurrentHashMap<>();
     private final Object localStatsLock = new Object();
     private final Map<Long, List<LocalTradeDelta>> localTradeDeltasByAccount = new HashMap<>();
     private final Map<Long, Long> localSessionStartByAccount = new HashMap<>();
@@ -107,10 +106,6 @@ final class PluginState {
 
     Map<Long, LocalStatsCache> getStatsCacheByAccount() {
         return statsCacheByAccount;
-    }
-
-    Map<Long, String> getLegacyNameKeysByHash() {
-        return legacyNameKeysByHash;
     }
 
     Object getLocalStatsLock() {

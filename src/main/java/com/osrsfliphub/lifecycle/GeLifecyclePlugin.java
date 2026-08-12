@@ -309,10 +309,6 @@ public class GeLifecyclePlugin extends Plugin {
         return PluginInjectorBridge.get(GeLifecycleProfileWorkflowService.class);
     }
 
-    LegacyLocalTradesFilterService getLegacyLocalTradesFilterService() {
-        return PluginInjectorBridge.get(LegacyLocalTradesFilterService.class);
-    }
-
 }
 
 

@@ -27,7 +27,6 @@ package com.osrsfliphub;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
@@ -55,17 +54,12 @@ final class ProfileTradesLoader {
         return PluginInjectorBridge.get(ProfileStorageFacadeService.class);
     }
 
-    private ProfileSelectionPresentationFacadeService presentation() {
-        return PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
-    }
-
     private boolean isPlaceholderDisplayName(String displayName) {
         GeLifecycleLocalTradesRuntimeService runtime = PluginAccess.plugin().getLocalTradesRuntimeService();
         return runtime != null && runtime.isPlaceholderDisplayName(displayName);
     }
 
     Result load(long accountHash,
-                Map<Long, String> legacyNameKeysByHash,
                 int maxLocalTrades,
                 long localEventBucketMs,
                 long duplicateTradeWindowMs) {
@@ -88,16 +82,6 @@ final class ProfileTradesLoader {
                 PluginInjectorBridge.get(AccountwideTradesMergeService.class);
             merged = mergeService != null ? mergeService.buildAccountwideFromDisk() : null;
         }
-        if (accountHash != accountwideKey) {
-            if (merged == null || merged.isEmpty()) {
-                merged = storage != null ? storage.readLegacyLocalTrades(accountHash) : null;
-            } else if (placeholderName) {
-                List<LocalTradeDelta> legacy = storage != null ? storage.readLegacyLocalTrades(accountHash) : null;
-                if (legacy != null && !legacy.isEmpty()) {
-                    merged = legacy;
-                }
-            }
-        }
         merged = LocalTradeDeltaUtils.dedupeLocalTrades(
             merged,
             maxLocalTrades,
@@ -112,18 +96,6 @@ final class ProfileTradesLoader {
         if (profileName != null && !profileName.trim().isEmpty() && !placeholderName) {
             resolvedName = profileName.trim();
         }
-        if (resolvedName == null) {
-            ProfileSelectionPresentationFacadeService presentation = presentation();
-            String legacyKey = legacyNameKeysByHash != null ? legacyNameKeysByHash.get(accountHash) : null;
-            String legacyDisplay = presentation != null ? presentation.displayNameFromLegacyKey(legacyKey) : null;
-            if (legacyDisplay == null && presentation != null) {
-                legacyDisplay = presentation.resolveLegacyDisplayNameForHash(accountHash);
-            }
-            if (legacyDisplay != null && !legacyDisplay.trim().isEmpty()) {
-                resolvedName = legacyDisplay.trim();
-            }
-        }
-
         return new Result(merged, resolvedName, Math.max(0L, fileMs));
     }
 }

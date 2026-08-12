@@ -35,7 +35,6 @@ import java.util.Map;
 import java.util.Set;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import net.runelite.client.config.ConfigManager;
 
 @Singleton
 final class ProfileWipeDataService {
@@ -46,42 +45,28 @@ final class ProfileWipeDataService {
     private final Map<Long, LocalStatsCache> statsCacheByAccount;
     private final Set<Long> loadedProfiles;
     private final Map<Long, Long> loadedProfileFileMs;
-    private final Map<Long, String> legacyNameKeysByHash;
     private final Gson gson;
-    private final ConfigManager configManager;
 
     @Inject
-    ProfileWipeDataService(PluginState pluginState, Gson gson, ConfigManager configManager) {
+    ProfileWipeDataService(PluginState pluginState, Gson gson) {
         this.localStatsLock = pluginState.getLocalStatsLock();
         this.localTradeDeltasByAccount = pluginState.getLocalTradeDeltasByAccount();
         this.localSessionStartByAccount = pluginState.getLocalSessionStartByAccount();
         this.statsCacheByAccount = pluginState.getStatsCacheByAccount();
         this.loadedProfiles = pluginState.getLoadedProfiles();
         this.loadedProfileFileMs = pluginState.getLoadedProfileFileMs();
-        this.legacyNameKeysByHash = pluginState.getLegacyNameKeysByHash();
         this.gson = gson;
-        this.configManager = configManager;
     }
 
     private void writeProfileData(long accountKey, List<LocalTradeDelta> deltas) {
         PluginInjectorBridge.get(ProfileStorageFacadeService.class).writeProfileData(accountKey, deltas);
     }
 
-    private void clearLegacyLocalTradesConfigEntry(String suffix) {
-        if (configManager == null || suffix == null || suffix.trim().isEmpty()) {
-            return;
-        }
-        configManager.setConfiguration(FliphubConfigGroups.CONFIG_GROUP, "localTrades." + suffix.trim(), "");
-    }
-
-    void clearProfileDataForWipe(long accountKey, String displayName, boolean clearLegacyTradeCache) {
+    void clearProfileDataForWipe(long accountKey, String displayName) {
         resetInMemoryProfileData(accountKey);
         List<LocalTradeDelta> emptyDeltas = new ArrayList<>();
         writeProfileData(accountKey, emptyDeltas);
         writeLegacyProfileDataIfPresent(accountKey, displayName, emptyDeltas);
-        if (clearLegacyTradeCache) {
-            clearLegacyLocalTradesForProfile(accountKey);
-        }
     }
 
     void clearAccountwideDataForWipe() {
@@ -113,41 +98,6 @@ final class ProfileWipeDataService {
         try {
             Files.writeString(file, gson.toJson(data), StandardCharsets.UTF_8);
         } catch (IOException ignored) {
-        }
-    }
-
-    void clearLegacyLocalTradesForProfile(long accountKey) {
-        if (configManager == null || accountKey <= 0) {
-            return;
-        }
-        List<String> suffixes = new ArrayList<>();
-        suffixes.add("hash_" + accountKey);
-        suffixes.add(String.valueOf(accountKey));
-        String legacyNameKey = legacyNameKeysByHash.get(accountKey);
-        if (legacyNameKey != null && !legacyNameKey.trim().isEmpty()) {
-            suffixes.add(legacyNameKey.trim());
-        }
-        for (String suffix : suffixes) {
-            if (suffix == null || suffix.trim().isEmpty()) {
-                continue;
-            }
-            clearLegacyLocalTradesConfigEntry(suffix.trim());
-        }
-    }
-
-    void clearAllLegacyLocalTrades() {
-        if (configManager == null) {
-            return;
-        }
-        Map<String, String> entries = PluginInjectorBridge.get(LegacyLocalTradesStore.class).getEntries();
-        if (entries == null || entries.isEmpty()) {
-            return;
-        }
-        for (String suffix : entries.keySet()) {
-            if (suffix == null || suffix.trim().isEmpty()) {
-                continue;
-            }
-            clearLegacyLocalTradesConfigEntry(suffix.trim());
         }
     }
 

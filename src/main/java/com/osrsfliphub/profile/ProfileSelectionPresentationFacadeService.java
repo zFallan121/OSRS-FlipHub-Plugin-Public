@@ -33,13 +33,11 @@ import javax.inject.Singleton;
 final class ProfileSelectionPresentationFacadeService {
     private final ProfileSelectionState profileSelection;
     private final Map<Long, String> profileDisplayNames;
-    private final Map<Long, String> legacyNameKeysByHash;
 
     @Inject
     ProfileSelectionPresentationFacadeService(PluginState pluginState) {
         this.profileSelection = pluginState.getProfileSelection();
         this.profileDisplayNames = pluginState.getProfileDisplayNames();
-        this.legacyNameKeysByHash = pluginState.getLegacyNameKeysByHash();
     }
 
     private ProfileSelectionResolverService getProfileSelectionResolverService() {
@@ -52,10 +50,6 @@ final class ProfileSelectionPresentationFacadeService {
 
     private ProfileCatalogService getProfileCatalogService() {
         return PluginInjectorBridge.get(ProfileCatalogService.class);
-    }
-
-    private LegacyLocalTradesStore getLegacyLocalTradesStore() {
-        return PluginInjectorBridge.get(LegacyLocalTradesStore.class);
     }
 
     private LocalAccountSessionService getLocalAccountSessionService() {
@@ -108,8 +102,7 @@ final class ProfileSelectionPresentationFacadeService {
         return getProfilePresentationService() != null
             ? getProfilePresentationService().resolveSelectedProfileLabel(
                 key,
-                profileDisplayNames,
-                legacyNameKeysByHash
+                profileDisplayNames
             )
             : "Accountwide";
     }
@@ -133,7 +126,6 @@ final class ProfileSelectionPresentationFacadeService {
         return getProfilePresentationService() != null
             ? getProfilePresentationService().buildProfileOptions(
                 profileDisplayNames,
-                legacyNameKeysByHash,
                 diskProfiles,
                 currentHash,
                 display
@@ -141,19 +133,9 @@ final class ProfileSelectionPresentationFacadeService {
             : java.util.Collections.emptyList();
     }
 
-    String resolveLegacyDisplayNameForHash(long hash) {
-        return getLegacyLocalTradesStore() != null
-            ? getLegacyLocalTradesStore().resolveDisplayNameForHash(hash)
-            : null;
-    }
-
-    String displayNameFromLegacyKey(String legacyKey) {
-        return LegacyLocalTradesStore.displayNameFromLegacyKey(legacyKey);
-    }
-
     Map<Long, String> loadProfilesFromDisk() {
         return getProfileCatalogService() != null
-            ? getProfileCatalogService().loadProfiles(profileDisplayNames, legacyNameKeysByHash)
+            ? getProfileCatalogService().loadProfiles(profileDisplayNames)
             : java.util.Collections.emptyMap();
     }
 }

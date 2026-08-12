@@ -33,24 +33,19 @@ import javax.inject.Singleton;
 @Singleton
 final class ProfileCatalogService {
     private final ProfileStore profileStore;
-    private final LegacyLocalTradesStore legacyLocalTradesStore;
 
     @Inject
-    ProfileCatalogService(ProfileStore profileStore, LegacyLocalTradesStore legacyLocalTradesStore) {
+    ProfileCatalogService(ProfileStore profileStore) {
         this.profileStore = profileStore;
-        this.legacyLocalTradesStore = legacyLocalTradesStore;
     }
 
-    Map<Long, String> loadProfiles(Map<Long, String> profileDisplayNames, Map<Long, String> legacyNameKeysByHash) {
+    Map<Long, String> loadProfiles(Map<Long, String> profileDisplayNames) {
         Map<Long, String> profiles = new HashMap<>();
         if (profileDisplayNames != null) {
             profiles.putAll(profileDisplayNames);
         }
         mergeProfilesFromDir(profiles, profileStore != null ? profileStore.getProfilesDir() : null);
         mergeProfilesFromDir(profiles, profileStore != null ? profileStore.getLegacyProfilesDir() : null);
-        if (legacyLocalTradesStore != null) {
-            legacyLocalTradesStore.mergeProfiles(profiles, legacyNameKeysByHash);
-        }
         if (profileDisplayNames != null) {
             profileDisplayNames.putAll(profiles);
         }

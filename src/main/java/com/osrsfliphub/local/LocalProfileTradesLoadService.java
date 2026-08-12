@@ -49,7 +49,6 @@ final class LocalProfileTradesLoadService {
         }
         return loader.load(
             accountHash,
-            pluginState.getLegacyNameKeysByHash(),
             GeLifecyclePluginConstants.MAX_LOCAL_TRADES,
             GeLifecyclePluginConstants.LOCAL_EVENT_BUCKET_MS,
             GeLifecyclePluginConstants.DUPLICATE_TRADE_WINDOW_MS);

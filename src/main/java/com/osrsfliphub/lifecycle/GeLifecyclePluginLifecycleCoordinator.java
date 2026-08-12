@@ -43,7 +43,6 @@ final class GeLifecyclePluginLifecycleCoordinator {
         plugin.hiddenItems.addAll(plugin.hiddenItemConfigStore.parseItemIds(plugin.config.hiddenItems()));
         plugin.getOfferStampStateServices().resetForStartup();
         PluginInjectorBridge.get(ProfileStore.class);
-        PluginInjectorBridge.get(LegacyLocalTradesStore.class);
         plugin.getLocalTradesRuntimeService().ensureProfileLoaded(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY);
         if (plugin.client != null && plugin.client.getGameState() == GameState.LOGGED_IN) {
             plugin.getOfferStampStateServices().setLastLoginNow();

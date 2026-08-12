@@ -106,10 +106,10 @@ final class LocalProfileWipeService {
         }
     }
 
-    private void clearProfileData(long accountKey, String displayName, boolean clearLegacyTradeCache) {
+    private void clearProfileData(long accountKey, String displayName) {
         ProfileWipeDataService service = PluginInjectorBridge.get(ProfileWipeDataService.class);
         if (service != null) {
-            service.clearProfileDataForWipe(accountKey, displayName, clearLegacyTradeCache);
+            service.clearProfileDataForWipe(accountKey, displayName);
         }
     }
 
@@ -117,13 +117,6 @@ final class LocalProfileWipeService {
         ProfileWipeDataService service = PluginInjectorBridge.get(ProfileWipeDataService.class);
         if (service != null) {
             service.clearAccountwideDataForWipe();
-        }
-    }
-
-    private void clearAllLegacyLocalTrades() {
-        ProfileWipeDataService service = PluginInjectorBridge.get(ProfileWipeDataService.class);
-        if (service != null) {
-            service.clearAllLegacyLocalTrades();
         }
     }
 
@@ -190,7 +183,7 @@ final class LocalProfileWipeService {
             setProfileDisplayName(accountKey, trimmedDisplayName);
         }
 
-        clearProfileData(accountKey, displayName, true);
+        clearProfileData(accountKey, displayName);
 
         // Ensure accountwide view reflects the wipe immediately.
         loadLocalTradesForAccount(accountKey, false);
@@ -236,11 +229,10 @@ final class LocalProfileWipeService {
                 persistGeHistoryCursor(key, new ArrayList<>());
             }
 
-            clearProfileData(key, resolveProfileDisplayName(key), false);
+            clearProfileData(key, resolveProfileDisplayName(key));
         }
 
         clearAccountwideData();
-        clearAllLegacyLocalTrades();
 
         // Reload accountwide after the wipe so the UI updates immediately.
         loadLocalTradesForAccount(accountwideKey, true);
