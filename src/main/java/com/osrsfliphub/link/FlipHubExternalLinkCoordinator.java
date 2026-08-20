@@ -25,8 +25,6 @@
 package com.osrsfliphub;
 
 import java.awt.Cursor;
-import java.awt.Desktop;
-import java.net.URI;
 import javax.swing.JComponent;
 import net.runelite.client.util.LinkBrowser;
 
@@ -60,15 +58,6 @@ final class FlipHubExternalLinkCoordinator {
         if (url == null || url.trim().isEmpty()) {
             return;
         }
-        try {
-            LinkBrowser.browse(url);
-        } catch (Exception ex) {
-            try {
-                if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-                    Desktop.getDesktop().browse(new URI(url));
-                }
-            } catch (Exception ignored) {
-            }
-        }
+        LinkBrowser.browse(url);
     }
 }
