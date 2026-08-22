@@ -76,14 +76,13 @@ final class ApiClientCore {
         }
     }
 
-    ApiClient.LinkResponse linkDevice(String licenseKey, String deviceId, String deviceName, String pluginVersion)
+    ApiClient.LinkResponse linkDevice(String licenseKey, String deviceId, String pluginVersion)
         throws IOException {
         ensureSyncEnabled();
         Map<String, Object> body = new HashMap<>();
         body.put("license_key", licenseKey);
         body.put("code", licenseKey);
         body.put("device_id", deviceId);
-        body.put("device_name", deviceName);
         body.put("plugin_version", pluginVersion);
 
         String json = gson.toJson(body);

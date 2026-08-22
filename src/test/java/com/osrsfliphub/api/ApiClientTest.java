@@ -145,7 +145,7 @@ public class ApiClientTest
         ApiClient client = newApiClient(200, "{}", callCount, null, null, syncDisabledConfig());
 
         assertThrows(IllegalStateException.class,
-            () -> client.linkDevice("key", "device", "name", "1.0.0"));
+            () -> client.linkDevice("key", "device", "1.0.0"));
         assertThrows(IllegalStateException.class,
             () -> client.refreshSession("token"));
         assertThrows(IllegalStateException.class,

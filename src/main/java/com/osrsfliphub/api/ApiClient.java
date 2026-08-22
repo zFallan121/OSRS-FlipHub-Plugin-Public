@@ -40,9 +40,9 @@ public class ApiClient {
         this.core = new ApiClientCore(httpClient, gson, config);
     }
 
-    public LinkResponse linkDevice(String licenseKey, String deviceId, String deviceName, String pluginVersion)
+    public LinkResponse linkDevice(String licenseKey, String deviceId, String pluginVersion)
         throws IOException {
-        return core.linkDevice(licenseKey, deviceId, deviceName, pluginVersion);
+        return core.linkDevice(licenseKey, deviceId, pluginVersion);
     }
 
     public LinkResponse refreshSession(String sessionToken) throws IOException {

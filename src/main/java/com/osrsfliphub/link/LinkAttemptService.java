@@ -38,7 +38,6 @@ import org.slf4j.LoggerFactory;
 @Singleton
 final class LinkAttemptService {
     private static final Logger log = LoggerFactory.getLogger(LinkAttemptService.class);
-    private static final String USERNAME = System.getProperty("user.name");
     private static final String PLUGIN_VERSION = "1.0.0";
 
     private static final long RETRY_DELAY_SECONDS = 5L;
@@ -77,7 +76,7 @@ final class LinkAttemptService {
     }
 
     private ApiClient.LinkResponse linkDevice(String licenseKey, String deviceId) throws IOException {
-        return apiClient != null ? apiClient.linkDevice(licenseKey, deviceId, USERNAME, PLUGIN_VERSION) : null;
+        return apiClient != null ? apiClient.linkDevice(licenseKey, deviceId, PLUGIN_VERSION) : null;
     }
 
     private void persistLinkedSession(String sessionToken, String signingSecret) {
