@@ -27,7 +27,6 @@ package com.osrsfliphub;
 import static com.osrsfliphub.FlipHubPanelConstants.AGE_ENTRY_KEY;
 import static com.osrsfliphub.FlipHubPanelConstants.AGE_TOOLTIP_LEFT_GAP;
 import static com.osrsfliphub.FlipHubPanelConstants.AGE_TOOLTIP_MIN_WIDTH;
-import static com.osrsfliphub.FlipHubPanelConstants.AGE_TOOLTIP_OFFSET_Y;
 import static com.osrsfliphub.FlipHubPanelConstants.BORDER;
 import static com.osrsfliphub.FlipHubPanelConstants.TEXT;
 
@@ -40,9 +39,6 @@ import java.awt.Point;
 import java.awt.PointerInfo;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseMotionAdapter;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.BorderFactory;
@@ -55,14 +51,14 @@ import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 final class FlipHubAgeTooltipCoordinator {
+    private static final int HOVER_POLL_INTERVAL_MS = 120;
+
     private final FlipHubPanelValueFormatService valueFormatService;
     private final List<CountdownEntry> countdownEntries = new ArrayList<>();
     private final List<AgePairEntry> ageEntries = new ArrayList<>();
     private Timer countdownTimer;
-    private JComponent hoveredAgeComponent;
+    private Timer hoverTimer;
     private AgePairEntry hoveredAgeEntry;
-    private int hoveredAgeX;
-    private int hoveredAgeY;
     private Popup ageTooltipPopup;
     private JToolTip ageTooltip;
 
@@ -73,13 +69,11 @@ final class FlipHubAgeTooltipCoordinator {
     void clearEntriesAndHide() {
         countdownEntries.clear();
         ageEntries.clear();
-        hoveredAgeComponent = null;
         hoveredAgeEntry = null;
         hideAgeTooltip();
     }
 
     void clearHoverAndHide() {
-        hoveredAgeComponent = null;
         hoveredAgeEntry = null;
         hideAgeTooltip();
     }
@@ -95,10 +89,9 @@ final class FlipHubAgeTooltipCoordinator {
         ageEntries.add(entry);
         for (JComponent component : components) {
             component.putClientProperty(AGE_ENTRY_KEY, entry);
+            // Swing's own ToolTipManager would fight the popup managed here.
             component.setToolTipText(null);
         }
-        installAgeHoverTracking(components);
-        updateAgeEntry(entry, System.currentTimeMillis());
     }
 
     void registerCountdownLabel(JLabel label, Long remainingMs, long asOfMs) {
@@ -113,12 +106,10 @@ final class FlipHubAgeTooltipCoordinator {
 
     void ensureCountdownTimer() {
         if (countdownEntries.isEmpty() && ageEntries.isEmpty()) {
-            hoveredAgeComponent = null;
             hoveredAgeEntry = null;
             hideAgeTooltip();
-            if (countdownTimer != null) {
-                countdownTimer.stop();
-            }
+            stopTimer(countdownTimer);
+            stopTimer(hoverTimer);
             return;
         }
         if (countdownTimer == null) {
@@ -128,16 +119,63 @@ final class FlipHubAgeTooltipCoordinator {
         if (!countdownTimer.isRunning()) {
             countdownTimer.start();
         }
+        if (hoverTimer == null) {
+            hoverTimer = new Timer(HOVER_POLL_INTERVAL_MS, e -> syncHoverFromPointer());
+            hoverTimer.setRepeats(true);
+        }
+        if (!hoverTimer.isRunning()) {
+            hoverTimer.start();
+        }
         updateCountdowns();
+        // renderItems() replaces every label, so the pointer can already be
+        // resting on a freshly built row that never saw a mouseEntered.
+        // Re-acquire it in the same pass as the rebuild so the tooltip does
+        // not blink out while the user is still hovering.
+        syncHoverFromPointer();
+    }
+
+    /**
+     * Visibility follows where the pointer actually is rather than mouse
+     * enter/exit events. Those events bind to label instances that
+     * renderItems() discards on every refresh, which previously left the
+     * tooltip hidden until the user moved off the row and back on.
+     */
+    private void syncHoverFromPointer() {
+        AgePairEntry entry = entryUnderPointer();
+        if (entry == null) {
+            if (hoveredAgeEntry != null || ageTooltipPopup != null) {
+                hoveredAgeEntry = null;
+                hideAgeTooltip();
+            }
+            return;
+        }
+        if (entry != hoveredAgeEntry || !isTooltipLive()) {
+            hoveredAgeEntry = entry;
+            showAgeTooltip(entry, System.currentTimeMillis());
+        }
+    }
+
+    private AgePairEntry entryUnderPointer() {
+        Point pointer = pointerLocation();
+        if (pointer == null) {
+            return null;
+        }
+        for (AgePairEntry entry : ageEntries) {
+            if (isPointerOverAny(entry, pointer)) {
+                return entry;
+            }
+        }
+        return null;
+    }
+
+    private boolean isTooltipLive() {
+        return ageTooltipPopup != null && ageTooltip != null && ageTooltip.isShowing();
     }
 
     private void updateCountdowns() {
         long now = System.currentTimeMillis();
         for (CountdownEntry entry : countdownEntries) {
             updateCountdownEntry(entry, now);
-        }
-        for (AgePairEntry entry : ageEntries) {
-            updateAgeEntry(entry, now);
         }
         refreshAgeTooltip(now);
     }
@@ -150,57 +188,6 @@ final class FlipHubAgeTooltipCoordinator {
         entry.label.setText(valueFormatService.formatDuration(remaining));
     }
 
-    private void updateAgeEntry(AgePairEntry entry, long now) {
-        if (entry == hoveredAgeEntry && ageTooltip != null) {
-            updateAgeTooltipText(entry, now);
-        }
-    }
-
-    private void installAgeHoverTracking(JComponent... components) {
-        for (JComponent component : components) {
-            component.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseEntered(MouseEvent e) {
-                    hoveredAgeComponent = component;
-                    hoveredAgeX = e.getX();
-                    hoveredAgeY = e.getY();
-                    AgePairEntry entry = (AgePairEntry) component.getClientProperty(AGE_ENTRY_KEY);
-                    if (entry == null) {
-                        return;
-                    }
-                    if (hoveredAgeEntry != entry || ageTooltipPopup == null) {
-                        hoveredAgeEntry = entry;
-                        showAgeTooltip(entry, component, hoveredAgeX, hoveredAgeY, System.currentTimeMillis());
-                    } else {
-                        hoveredAgeEntry = entry;
-                    }
-                }
-
-                @Override
-                public void mouseExited(MouseEvent e) {
-                    AgePairEntry entry = (AgePairEntry) component.getClientProperty(AGE_ENTRY_KEY);
-                    if (entry == null || entry != hoveredAgeEntry) {
-                        return;
-                    }
-                    if (isPointerOverAny(entry)) {
-                        return;
-                    }
-                    hoveredAgeComponent = null;
-                    hoveredAgeEntry = null;
-                    hideAgeTooltip();
-                }
-            });
-            component.addMouseMotionListener(new MouseMotionAdapter() {
-                @Override
-                public void mouseMoved(MouseEvent e) {
-                    hoveredAgeComponent = component;
-                    hoveredAgeX = e.getX();
-                    hoveredAgeY = e.getY();
-                }
-            });
-        }
-    }
-
     private void refreshAgeTooltip(long now) {
         if (hoveredAgeEntry == null || ageTooltip == null) {
             return;
@@ -208,12 +195,14 @@ final class FlipHubAgeTooltipCoordinator {
         updateAgeTooltipText(hoveredAgeEntry, now);
     }
 
-    private void showAgeTooltip(AgePairEntry entry, JComponent component, int x, int y, long now) {
-        if (entry == null || component == null || !component.isShowing()) {
+    private void showAgeTooltip(AgePairEntry entry, long now) {
+        JComponent owner = firstShowingComponent(entry);
+        Rectangle anchor = entryScreenBounds(entry);
+        if (owner == null || anchor == null) {
             return;
         }
         hideAgeTooltip();
-        ageTooltip = component.createToolTip();
+        ageTooltip = owner.createToolTip();
         ageTooltip.setOpaque(true);
         ageTooltip.setBackground(new Color(20, 24, 33));
         ageTooltip.setForeground(TEXT);
@@ -223,15 +212,44 @@ final class FlipHubAgeTooltipCoordinator {
         ));
         updateAgeTooltipText(entry, now);
         Dimension tooltipSize = ageTooltip.getPreferredSize();
-        Point componentTopLeft = new Point(0, 0);
-        SwingUtilities.convertPointToScreen(componentTopLeft, component);
-        int popupX = componentTopLeft.x - tooltipSize.width - AGE_TOOLTIP_LEFT_GAP;
-        int popupY = componentTopLeft.y + y + AGE_TOOLTIP_OFFSET_Y;
-        Rectangle screenBounds = getUsableScreenBounds(component);
+        // Centre against the Sell Price / Buy Price rows the ages describe.
+        // Anchoring to the pointer drifted the popup down onto later rows.
+        int popupX = anchor.x - tooltipSize.width - AGE_TOOLTIP_LEFT_GAP;
+        int popupY = anchor.y + (anchor.height - tooltipSize.height) / 2;
+        Rectangle screenBounds = getUsableScreenBounds(owner);
         popupX = clamp(popupX, screenBounds.x, screenBounds.x + screenBounds.width - tooltipSize.width);
         popupY = clamp(popupY, screenBounds.y, screenBounds.y + screenBounds.height - tooltipSize.height);
-        ageTooltipPopup = PopupFactory.getSharedInstance().getPopup(component, ageTooltip, popupX, popupY);
+        ageTooltipPopup = PopupFactory.getSharedInstance().getPopup(owner, ageTooltip, popupX, popupY);
         ageTooltipPopup.show();
+    }
+
+    private JComponent firstShowingComponent(AgePairEntry entry) {
+        if (entry == null) {
+            return null;
+        }
+        for (JComponent component : entry.components) {
+            if (component != null && component.isShowing()) {
+                return component;
+            }
+        }
+        return null;
+    }
+
+    private Rectangle entryScreenBounds(AgePairEntry entry) {
+        if (entry == null) {
+            return null;
+        }
+        Rectangle union = null;
+        for (JComponent component : entry.components) {
+            if (component == null || !component.isShowing()) {
+                continue;
+            }
+            Point topLeft = new Point(0, 0);
+            SwingUtilities.convertPointToScreen(topLeft, component);
+            Rectangle bounds = new Rectangle(topLeft.x, topLeft.y, component.getWidth(), component.getHeight());
+            union = union == null ? bounds : union.union(bounds);
+        }
+        return union;
     }
 
     private Rectangle getUsableScreenBounds(Component component) {
@@ -256,6 +274,12 @@ final class FlipHubAgeTooltipCoordinator {
         return Math.max(min, Math.min(max, value));
     }
 
+    private void stopTimer(Timer timer) {
+        if (timer != null) {
+            timer.stop();
+        }
+    }
+
     private void hideAgeTooltip() {
         if (ageTooltipPopup != null) {
             ageTooltipPopup.hide();
@@ -264,16 +288,30 @@ final class FlipHubAgeTooltipCoordinator {
         ageTooltip = null;
     }
 
-    private boolean isPointerOverAny(AgePairEntry entry) {
+    private Point pointerLocation() {
+        PointerInfo pointerInfo = MouseInfo.getPointerInfo();
+        return pointerInfo != null ? pointerInfo.getLocation() : null;
+    }
+
+    private boolean isPointerOverAny(AgePairEntry entry, Point screenPoint) {
         if (entry == null) {
             return false;
         }
         for (JComponent component : entry.components) {
-            if (isPointerOver(component)) {
+            if (isPointerOver(component, screenPoint)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private boolean isPointerOver(Component component, Point screenPoint) {
+        if (component == null || !component.isShowing()) {
+            return false;
+        }
+        Point location = new Point(screenPoint);
+        SwingUtilities.convertPointFromScreen(location, component);
+        return component.contains(location);
     }
 
     private void updateAgeTooltipText(AgePairEntry entry, long now) {
@@ -300,18 +338,5 @@ final class FlipHubAgeTooltipCoordinator {
             + "<span style='color:#22C55E;'>Sell price age:&nbsp;</span>" + sellAge
             + "<br><span style='color:#22C55E;'>Buy price age:&nbsp;</span>" + buyAge
             + "</div></html>";
-    }
-
-    private boolean isPointerOver(Component component) {
-        if (component == null || !component.isShowing()) {
-            return false;
-        }
-        PointerInfo pointerInfo = MouseInfo.getPointerInfo();
-        if (pointerInfo == null) {
-            return false;
-        }
-        Point location = pointerInfo.getLocation();
-        SwingUtilities.convertPointFromScreen(location, component);
-        return component.contains(location);
     }
 }

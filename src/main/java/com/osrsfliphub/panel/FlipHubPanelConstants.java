@@ -56,7 +56,6 @@ final class FlipHubPanelConstants {
     static final int CHIP_ARC = 10;
     static final String AGE_ENTRY_KEY = FliphubConfigGroups.CONFIG_GROUP + ".ageEntry";
     static final int AGE_TOOLTIP_LEFT_GAP = 8;
-    static final int AGE_TOOLTIP_OFFSET_Y = 18;
     static final int AGE_TOOLTIP_MIN_WIDTH = 150;
     static final String STATS_CARD_TOGGLE_SKIP_KEY = "fliphub.skipStatsCardToggle";
 
