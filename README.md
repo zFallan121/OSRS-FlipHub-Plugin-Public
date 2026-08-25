@@ -1,62 +1,104 @@
 # OSRS FlipHub
 
-A RuneLite plugin for tracking Grand Exchange flips. It records your GE offer
-history locally and shows margins, buy limits, and live Old School RuneScape
-Wiki prices while you trade.
+Track your Grand Exchange flips — margins, buy limits and live Wiki prices, right in the sidebar.
 
-Optionally, you can link a [FlipHub](https://www.osrsfliphub.com) account to sync
-your flips to the online dashboard. Linking is **off by default** — the plugin is
-fully usable as a local-only tracker and uploads nothing until you choose to link.
+Works entirely offline as a local flip tracker. Linking a [FlipHub](https://www.osrsfliphub.com)
+account is optional and **off by default**.
 
 ## Features
 
-- Local Grand Exchange offer history (buys, sells, completed, aborted)
-- Per-flip and rolling profit / margin tracking
-- GE buy-limit tracking with reset timers
-- Live item prices from the OSRS Wiki price API
-- Per-item bookmarks and price context
-- Optional account linking to sync flips to the FlipHub web dashboard
+#### Activity panel
 
-## Privacy & data
+Live prices for the items you care about, with everything you need to judge a flip at a glance:
+current sell and buy price, the last price each side actually traded at, margin, margin × buy
+limit, and ROI.
 
-This plugin is **local-first**. By default all data stays on your computer in your
-RuneLite profile and nothing is sent anywhere except anonymous price lookups to the
-public OSRS Wiki price API.
+Prices come from the Old School RuneScape Wiki price API and refresh continuously. Hover a
+Sell/Buy price to see exactly how old each side of the quote is — a five-minute-old buy price and
+a two-hour-old sell price are very different things.
 
-- **Without linking (default):** No account data and no trade data leave your
-  machine. The only network calls are read-only price lookups to
-  `prices.runescape.wiki`.
-- **If you link a FlipHub account** (by pasting a License Key in the plugin
-  settings): your Grand Exchange offer events — item, quantity, price, offer
-  state, and timestamps — are uploaded over HTTPS to FlipHub's servers
-  (`osrsfliphub.com`) to power your online dashboard. No RuneScape/Jagex
-  credentials are ever requested, read, or transmitted.
-- **To stop syncing:** clear the License Key or click **Unlink** in the plugin
-  settings. Uploads stop immediately and the plugin returns to local-only mode.
+#### GE buy limits
 
-The plugin is read-only and event-driven: it observes Grand Exchange events the
-game client already exposes. It performs no automation and sends no input to the
-game.
+Every item shows how much of your 4-hour buy limit is left and a live countdown to when it resets,
+so you stop guessing whether you can still buy in.
 
-## Build
+#### Offer preview
 
-This project builds with the Gradle wrapper against the RuneLite client API:
+Open a Grand Exchange offer in game and the panel jumps straight to that item, so the numbers you
+need are already on screen while you set your price.
+
+#### Grand Exchange suggestions
+
+While you're searching for an item in the GE, the chatbox shows the current buy and sell price,
+your remaining buy limit, and how many you can afford with the cash you're carrying.
+
+#### Flip Profile
+
+Your completed flips, totalled per item — profit and flip count over **Session**, **Last 1h**,
+**4h**, **24h**, **7d** or **All time**. Sort by completion, profit or ROI, and search to narrow it
+down.
+
+#### Bookmarks
+
+Star the items you flip regularly and filter the list to just those. Hide the ones you never trade.
+
+#### Optional cloud sync
+
+Link a FlipHub account to sync completed flips to the [osrsfliphub.com](https://www.osrsfliphub.com)
+dashboard and see your history across devices. Entirely optional — see below.
+
+## Getting started
+
+Install the plugin and open the FlipHub panel from the sidebar. That's it — offer tracking, buy
+limits and Wiki prices all work immediately with no account and no setup.
+
+To sync to the web dashboard as well:
+
+1. Tick **Enable FlipHub sync** in the plugin settings.
+2. Paste your license key from [osrsfliphub.com](https://www.osrsfliphub.com) into **License Key**.
+
+Your flips start syncing from that point. To stop, click **Unlink** or clear the license key —
+uploads stop immediately and the plugin returns to local-only mode.
+
+## Configuration
+
+##### FlipHub account (optional cloud sync)
+
+- **Enable FlipHub sync** — Off by default. While off, the plugin never connects to FlipHub's
+  servers and everything stays on your computer.
+- **License Key** — Links the plugin to your FlipHub account. Leave blank to stay local-only.
+- **Unlink (click)** — Clears the link, stops all uploads, and returns to local-only stats.
+
+##### General
+
+- **Show GE Offer Timers** — Show how long since each Grand Exchange offer last updated. On by
+  default.
+
+## Privacy
+
+The plugin is local-first and read-only. It watches Grand Exchange events the client already
+exposes, performs no automation, and never sends input to the game. No RuneScape or Jagex
+credentials are requested, read, or transmitted.
+
+- **Without linking (default)** — No trade data leaves your machine. The only network calls are
+  read-only price lookups to `prices.runescape.wiki`.
+- **With sync enabled and linked** — Your Grand Exchange offer events (item, quantity, price, offer
+  state, timestamps) are uploaded over HTTPS to `osrsfliphub.com` to power your dashboard. As with
+  any request to a third-party server, this exposes your IP address to it.
+
+## Support
+
+Found a bug or have a suggestion? Open an issue on
+[GitHub](https://github.com/zFallan121/OSRS-FlipHub-Plugin-Public/issues).
+
+## Building from source
 
 ```sh
 ./gradlew build
 ```
 
-The built jar is written to `build/libs/`.
-
-## Run in a development client
-
-```sh
-./gradlew run --no-daemon --console=plain
-```
-
-This launches the RuneLite developer client with the plugin on the classpath. See
-the [RuneLite Developer Guide](https://github.com/runelite/runelite/wiki/Developer-Guide)
-for details on dev logins.
+The jar is written to `build/libs/`. To launch a RuneLite developer client with the plugin loaded,
+run `./gradlew run`.
 
 ## License
 
