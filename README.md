@@ -55,7 +55,7 @@ limits and Wiki prices all work immediately with no account and no setup.
 To sync to the web dashboard as well:
 
 1. Tick **Enable FlipHub sync** in the plugin settings.
-2. Paste your license key from [osrsfliphub.com/profile/manage]([https://www.osrsfliphub.com](https://www.osrsfliphub.com/profile/manage) into **License Key**.
+2. Paste your license key from [osrsfliphub.com/profile/manage](https://www.osrsfliphub.com/profile/manage) into **License Key**.
 
 Your flips start syncing from that point. To stop, click **Unlink** or clear the license key —
 uploads stop immediately and the plugin returns to local-only mode.
