@@ -91,14 +91,14 @@ final class FlipHubItemCardBuilder {
     }
 
     JPanel buildItemCard(FlipHubItem item, long asOfMs, boolean compactRightPadding) {
-        JPanel card = new RoundedPanel(CARD_ARC, CARD, SOFT_BORDER);
+        JPanel card = RoundedPanel.glass(CARD_ARC);
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         int cardRightPadding = compactRightPadding ? OFFER_VALUE_RIGHT_PADDING : VALUE_RIGHT_PADDING;
         card.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, cardRightPadding));
         card.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JPanel header = new JPanel(new BorderLayout(7, 0));
-        header.setBackground(CARD);
+        header.setOpaque(false);
 
         JLabel iconLabel = new JLabel();
         iconLabel.setPreferredSize(new Dimension(32, 32));
@@ -141,7 +141,7 @@ final class FlipHubItemCardBuilder {
         bookmarkButton.setBorderPainted(false);
         bookmarkButton.setContentAreaFilled(false);
         bookmarkButton.setOpaque(false);
-        bookmarkButton.setForeground(bookmarked ? WARNING : MUTED);
+        bookmarkButton.setForeground(bookmarked ? WARNING : MUTED_2);
         bookmarkButton.setFont(fontSymbol(16f));
         bookmarkButton.setPreferredSize(new Dimension(30, 24));
         bookmarkButton.setToolTipText("Bookmark");
@@ -150,7 +150,7 @@ final class FlipHubItemCardBuilder {
                 bookmarkStore.toggleBookmark(item.item_id);
                 boolean nowBookmarked = isBookmarked(item.item_id);
                 bookmarkButton.setText(nowBookmarked ? "\u2605" : "\u2606");
-                bookmarkButton.setForeground(nowBookmarked ? WARNING : MUTED);
+                bookmarkButton.setForeground(nowBookmarked ? WARNING : MUTED_2);
                 if (panelState != null && panelState.showBookmarkedOnly && !nowBookmarked) {
                     renderItems();
                 }
@@ -162,16 +162,19 @@ final class FlipHubItemCardBuilder {
         card.add(header);
         card.add(Box.createVerticalStrut(6));
         int rightPadding = compactRightPadding ? OFFER_VALUE_RIGHT_PADDING : VALUE_RIGHT_PADDING;
+        // Prices are --text. Green means profit or live and a price is neither, so the money
+        // ramp below is spent on the three figures that actually are profit: margin, margin x
+        // limit and ROI, each coloured by its own sign rather than amber regardless of it.
         LineComponents instaSellLine = buildLineComponents(
-            "Sell Price",
+            "Sell price",
             valueFormatService.formatGp(item.instasell_price),
-            SUCCESS,
+            TEXT,
             rightPadding
         );
         LineComponents instaBuyLine = buildLineComponents(
-            "Buy Price",
+            "Buy price",
             valueFormatService.formatGp(item.instabuy_price),
-            MUTED,
+            TEXT,
             rightPadding
         );
         card.add(instaSellLine.row);
@@ -179,13 +182,12 @@ final class FlipHubItemCardBuilder {
         if (ageTooltipCoordinator != null) {
             ageTooltipCoordinator.registerAgePair(item.instabuy_ts_ms, item.instasell_ts_ms, instaBuyLine, instaSellLine);
         }
-        Color roiColor = item.roi_percent != null && item.roi_percent < 0 ? DANGER : TEXT;
         Object[][] lines = new Object[][]{
             {"Last sell price", valueFormatService.formatGp(item.last_sell_price), TEXT},
             {"Last buy price", valueFormatService.formatGp(item.last_buy_price), TEXT},
-            {"Margin", valueFormatService.formatGp(item.margin), WARNING},
-            {"Margin x limit", valueFormatService.formatGp(item.margin_x_limit), WARNING},
-            {"ROI", valueFormatService.formatPercent(item.roi_percent), roiColor},
+            {"Margin", valueFormatService.formatGp(item.margin), moneyColor(item.margin)},
+            {"Margin x limit", valueFormatService.formatGp(item.margin_x_limit), moneyColor(item.margin_x_limit)},
+            {"ROI", valueFormatService.formatPercent(item.roi_percent), moneyColor(item.roi_percent)},
             {"GE limit remaining", valueFormatService.formatLimit(item.ge_limit_remaining, item.ge_limit_total), TEXT}
         };
         for (Object[] line : lines) {
@@ -197,7 +199,7 @@ final class FlipHubItemCardBuilder {
             && item.ge_limit_remaining >= item.ge_limit_total) {
             resetMs = 0L;
         }
-        card.add(buildCountdownLine("GE limit reset", resetMs, asOfMs, SUCCESS, rightPadding));
+        card.add(buildCountdownLine("GE limit reset", resetMs, asOfMs, TEXT, rightPadding));
 
         card.setMaximumSize(new Dimension(Integer.MAX_VALUE, card.getPreferredSize().height));
         if (wheelScrollCoordinator != null) {
@@ -206,15 +208,23 @@ final class FlipHubItemCardBuilder {
         return card;
     }
 
+    /** The money ramp: green is a gain, red is a loss, and an absent figure stays on --text. */
+    private Color moneyColor(Number value) {
+        if (value == null) {
+            return TEXT;
+        }
+        return value.doubleValue() < 0 ? DANGER : SUCCESS;
+    }
+
     private JPanel buildLine(String label, String value, Color valueColor, int rightPadding) {
         return buildLineComponents(label, value, valueColor, rightPadding).row;
     }
 
     private LineComponents buildLineComponents(String label, String value, Color valueColor, int rightPadding) {
         JPanel row = new JPanel(new BorderLayout());
-        row.setBackground(CARD);
+        row.setOpaque(false);
 
-        JLabel left = new JLabel(label + ":");
+        JLabel left = new JLabel(label);
         left.setForeground(MUTED);
         left.setFont(font(10.5f));
 
@@ -282,9 +292,9 @@ final class FlipHubItemCardBuilder {
 
     private JPanel buildCountdownLine(String label, Long remainingMs, long asOfMs, Color valueColor, int rightPadding) {
         JPanel row = new JPanel(new BorderLayout());
-        row.setBackground(CARD);
+        row.setOpaque(false);
 
-        JLabel left = new JLabel(label + ":");
+        JLabel left = new JLabel(label);
         left.setForeground(MUTED);
         left.setFont(font(10.5f));
 

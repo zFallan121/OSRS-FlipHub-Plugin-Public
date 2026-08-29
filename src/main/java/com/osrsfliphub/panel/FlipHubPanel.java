@@ -27,6 +27,7 @@ package com.osrsfliphub;
 import static com.osrsfliphub.FlipHubPanelConstants.*;
 
 import java.awt.CardLayout;
+import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.awt.event.MouseWheelListener;
 import java.util.HashMap;
@@ -42,6 +43,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.ImageIcon;
+import javax.swing.SwingUtilities;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.ui.PluginPanel;
 
@@ -49,7 +51,8 @@ public class FlipHubPanel extends PluginPanel {
     private final CardLayout cardLayout = new CardLayout();
     private final JPanel cardPanel = new JPanel(cardLayout);
     private final JToggleButton flippingTab = new JToggleButton("Activity");
-    private final JToggleButton statsTab = new JToggleButton("Flip Profile");
+    private final JToggleButton statsTab = new JToggleButton("Profile");
+    private final JToggleButton linkTab = new JToggleButton("Link");
     private final JTextField searchField = new JTextField();
     private final JLabel refreshLabel = new JLabel("Updated: --");
     private final JButton profileButton = new JButton("Accountwide");
@@ -87,6 +90,7 @@ public class FlipHubPanel extends PluginPanel {
     private final FlipHubStatsItemCardBuilder statsItemCardBuilder;
     private final FlipHubItemsRenderCoordinator itemsRenderCoordinator = new FlipHubItemsRenderCoordinator();
     private final FlipHubStatsRenderCoordinator statsRenderCoordinator = new FlipHubStatsRenderCoordinator();
+    private final FlipHubStatsPagerBuilder statsPagerBuilder = new FlipHubStatsPagerBuilder(uiStyler);
     private final FlipHubStatsStateCoordinator statsStateCoordinator = new FlipHubStatsStateCoordinator();
     private final FlipHubPanelStateService panelStateService = new FlipHubPanelStateService();
     private final FlipHubPanelComponentsFactory componentsFactory = new FlipHubPanelComponentsFactory();
@@ -98,6 +102,7 @@ public class FlipHubPanel extends PluginPanel {
     private final FlipHubWheelScrollCoordinator wheelScrollCoordinator;
     private final FlipHubProfileMenuCoordinator profileMenuCoordinator;
     private final FlipHubExternalLinkCoordinator externalLinkCoordinator = new FlipHubExternalLinkCoordinator(DEFAULT_BASE_URL);
+    private final FlipHubAccountPanelBuilder.BuildResult accountView;
     private final FlipHubItemListContentRenderer itemListContentRenderer;
     private final FlipHubItemIconResolver itemIconResolver;
     private final MouseWheelListener wheelForwarder;
@@ -152,6 +157,7 @@ public class FlipHubPanel extends PluginPanel {
             cardPanel,
             flippingTab,
             statsTab,
+            linkTab,
             profileButton,
             chromeBuilder,
             bodyBuilder,
@@ -188,6 +194,11 @@ public class FlipHubPanel extends PluginPanel {
         statsTaxValue = layout.taxValue;
         statsSessionTimeValue = layout.sessionTimeValue;
         statsHourlyValue = layout.hourlyValue;
+        // Added straight onto the card stack rather than threaded through the layout builder:
+        // the account view shares none of the flipping/stats plumbing.
+        this.accountView = new FlipHubAccountPanelBuilder(
+            uiStyler, listener, externalLinkCoordinator).build();
+        cardPanel.add(accountView.panel, "account");
         addMouseWheelListener(wheelForwarder);
         cardPanel.addMouseWheelListener(wheelForwarder);
         wheelScrollCoordinator.installGlobalWheelListener();
@@ -266,6 +277,16 @@ public class FlipHubPanel extends PluginPanel {
         );
     }
 
+    /** Shows the account card. The tab buttons put the user back on flipping or stats. */
+    void showAccountView() {
+        SwingUtilities.invokeLater(() -> cardLayout.show(cardPanel, "account"));
+    }
+
+    void setAccountState(boolean linked, String keyHint, String message, java.awt.Color messageColor) {
+        SwingUtilities.invokeLater(
+            () -> FlipHubAccountPanelBuilder.applyState(accountView, linked, keyHint, message, messageColor));
+    }
+
     void setStatusMessage(String message) {
         asyncActions.setStatusMessageAsync(profileMenuCoordinator, message);
     }
@@ -325,8 +346,19 @@ public class FlipHubPanel extends PluginPanel {
             panelState,
             (StatsItemSort) statsSortCombo.getSelectedItem(),
             statsItemCardBuilder,
-            this::buildCard
+            this::buildCard,
+            statsPagerBuilder,
+            this::goToStatsPage
         );
+    }
+
+    /**
+     * The pager lives at the bottom of the list, so a page turn leaves the view parked on the last
+     * rows of the page that was just replaced - scroll back to the first card of the new page.
+     */
+    private void goToStatsPage(int page) {
+        panelStateService.onStatsPageRequested(panelState, page, this::renderStatsItems);
+        SwingUtilities.invokeLater(() -> statsItemsListPanel.scrollRectToVisible(new Rectangle(0, 0, 1, 1)));
     }
 
     private void toggleStatsItemExpanded(int itemId) {

@@ -33,8 +33,6 @@ final class LinkSessionConfigStore {
     static final String SESSION_TOKEN_KEY = "sessionToken";
     static final String SIGNING_SECRET_KEY = "signingSecret";
     static final String LICENSE_KEY = "licenseKey";
-    static final String LINK_CODE_KEY = "linkCode";
-    static final String UNLINK_NOW_KEY = "unlinkNow";
 
     private final ConfigManager configManager;
     private final String configGroup;
@@ -45,22 +43,52 @@ final class LinkSessionConfigStore {
         this.configGroup = FliphubConfigGroups.CONFIG_GROUP;
     }
 
+    /** The panel asks for its own consent, so it turns the sync opt-in on directly. */
+    void enableSync(String licenseKey) {
+        setString(LICENSE_KEY, safe(licenseKey));
+        setBoolean("enableFlipHubSync", true);
+    }
+
+    /**
+     * The panel turns the sync opt-in on when it links, so unlinking turns it back off. Without
+     * this the device keeps a live opt-in with no credentials, and every path that only checks
+     * isSyncEnabled stays armed after an explicit unlink.
+     */
+    void disableSync() {
+        setBoolean("enableFlipHubSync", false);
+    }
+
     void clearLinkState() {
         setString(SESSION_TOKEN_KEY, "");
         setString(SIGNING_SECRET_KEY, "");
         clearLinkInputs();
-        setBoolean(UNLINK_NOW_KEY, false);
+        clearKeyHint();
     }
 
     void persistLinkedSession(String sessionToken, String signingSecret) {
         setString(SESSION_TOKEN_KEY, safe(sessionToken));
         setString(SIGNING_SECRET_KEY, safe(signingSecret));
         clearLinkInputs();
+        flush();
+    }
+
+    /**
+     * RuneLite only writes config out periodically and on a clean shutdown, so a link or an unlink
+     * can be lost if the client is killed before that. Both are decisions the user made
+     * explicitly, so they are pushed to disk immediately rather than left in memory.
+     */
+    void flush() {
+        if (configManager != null) {
+            configManager.sendConfig();
+        }
     }
 
     private void clearLinkInputs() {
         setString(LICENSE_KEY, "");
-        setString(LINK_CODE_KEY, "");
+    }
+
+    private void clearKeyHint() {
+        setString(LinkStatusService.LICENSE_KEY_HINT_KEY, "");
     }
 
     private void setString(String key, String value) {

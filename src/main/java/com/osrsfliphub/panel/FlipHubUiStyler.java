@@ -25,25 +25,50 @@
 package com.osrsfliphub;
 
 import static com.osrsfliphub.FlipHubPanelConstants.ACCENT;
-import static com.osrsfliphub.FlipHubPanelConstants.BG;
-import static com.osrsfliphub.FlipHubPanelConstants.BG_ALT;
+import static com.osrsfliphub.FlipHubPanelConstants.CHIP_ARC;
+import static com.osrsfliphub.FlipHubPanelConstants.CONTROL_BORDER;
+import static com.osrsfliphub.FlipHubPanelConstants.CONTROL_FILL;
 import static com.osrsfliphub.FlipHubPanelConstants.INPUT_ARC;
+import static com.osrsfliphub.FlipHubPanelConstants.LINE;
 import static com.osrsfliphub.FlipHubPanelConstants.MUTED;
-import static com.osrsfliphub.FlipHubPanelConstants.SOFT_BORDER;
+import static com.osrsfliphub.FlipHubPanelConstants.MUTED_2;
+import static com.osrsfliphub.FlipHubPanelConstants.OVERLAY_BASE;
 import static com.osrsfliphub.FlipHubPanelConstants.TEXT;
 
 import java.awt.Color;
+import java.awt.Cursor;
+import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Insets;
+import java.awt.font.TextAttribute;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
 import javax.swing.JToggleButton;
 import javax.swing.JTextField;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 import net.runelite.client.ui.FontManager;
 
+/**
+ * Type and controls for the panel, following STYLEGUIDE.md §4 and §9.
+ *
+ * <p>Inter is the site's only text face, so it leads the family list; the rest of the list is the
+ * nearest thing each platform ships when the reader does not have it installed. The one thing the
+ * panel cannot borrow is tabular figures — Java2D exposes no OpenType feature toggles — so every
+ * numeric value is right-aligned instead, which is what the site's numeric columns do anyway and
+ * is what actually keeps magnitudes comparable down a column.
+ */
 final class FlipHubUiStyler {
+    private static final String[] TEXT_FAMILIES = new String[] {
+        "Inter", "Segoe UI Variable Text", "Segoe UI", "Avenir Next", "Trebuchet MS"
+    };
+
     Font font(float size) {
         return resolveFont(Font.PLAIN, size);
     }
@@ -60,32 +85,106 @@ final class FlipHubUiStyler {
         return FontManager.getDefaultBoldFont().deriveFont(size);
     }
 
+    /**
+     * The brand's signature: uppercase, 700, tracked out, and never below --muted-2. It goes above
+     * a number or over a section — never on a value, and never on a row label inside a ledger.
+     */
+    Font fontMicro(float size) {
+        Map<TextAttribute, Object> tracking = new HashMap<>();
+        tracking.put(TextAttribute.TRACKING, 0.06);
+        return resolveFont(Font.BOLD, size).deriveFont(tracking);
+    }
+
+    /** Applies the micro-label to a label wholesale: the case, the type and the colour. */
+    void styleMicroLabel(JLabel label, float size) {
+        label.setText(label.getText() != null ? label.getText().toUpperCase(Locale.US) : "");
+        label.setFont(fontMicro(size));
+        label.setForeground(MUTED_2);
+    }
+
     void styleTab(JToggleButton button, boolean active) {
         button.setFocusPainted(false);
         button.setFont(fontSemiBold(12f));
         button.setForeground(active ? TEXT : MUTED);
         button.setContentAreaFilled(false);
         button.setOpaque(false);
+        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         button.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createMatteBorder(0, 0, 2, 0, active ? ACCENT : BG),
+            // A marker, not a container: the inactive tab gets a transparent rule of the same
+            // height so the two never shift by a pixel as the selection moves.
+            BorderFactory.createMatteBorder(0, 0, 2, 0, active ? ACCENT : new Color(0, 0, 0, 0)),
             BorderFactory.createEmptyBorder(6, 10, 6, 10)
         ));
     }
 
-    void styleComboBox(JComboBox<?> combo) {
-        combo.setBackground(BG_ALT);
-        combo.setForeground(TEXT);
-        combo.setFont(font(11f));
-        combo.setBorder(roundedBorder(INPUT_ARC, SOFT_BORDER, new Insets(4, 8, 4, 8)));
-        combo.setFocusable(false);
-        combo.setOpaque(true);
+    /**
+     * A ghost control: a hairline, the text, and the backdrop showing through. The site's
+     * --control-bg is 4% white — at this size the fill is worth less than the artefacts an opaque
+     * square behind a rounded border would cost, so the panel keeps the rule and drops the fill.
+     * There is no filled control here because nothing in the panel commits anything.
+     */
+    void styleGhostControl(AbstractButton button, float size, Insets padding) {
+        styleGhostControl(button, size, padding, CHIP_ARC);
     }
 
+    /**
+     * The same ghost at a chosen radius. A control standing beside an input is part of that
+     * input's row rather than a pill in its own right, so it takes the input's radius and the
+     * input's height; a pill next to a ruled box reads as two different kinds of thing.
+     */
+    void styleGhostControl(AbstractButton button, float size, Insets padding, int arc) {
+        button.setFocusPainted(false);
+        button.setContentAreaFilled(false);
+        button.setBorderPainted(true);
+        button.setOpaque(false);
+        button.setFont(fontSemiBold(size));
+        button.setForeground(TEXT);
+        button.setBorder(roundedBorder(arc, CONTROL_BORDER, padding));
+        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+    }
+
+    /** Pins a control to the height of the field it sits next to, so the row reads as one bar. */
+    void matchFieldHeight(javax.swing.JComponent control, javax.swing.JComponent field) {
+        int height = field.getPreferredSize().height;
+        Dimension preferred = control.getPreferredSize();
+        control.setPreferredSize(new Dimension(preferred.width, height));
+        control.setMinimumSize(new Dimension(preferred.width, height));
+        control.setMaximumSize(new Dimension(preferred.width, height));
+    }
+
+    void styleComboBox(JComboBox<?> combo) {
+        // The whole delegate, not just the colours: this renders under whichever look-and-feel
+        // RuneLite has installed, so the arrow, the body and the popup are all drawn by us. The
+        // body is the one pre-blended fill in the panel - a combo cannot go transparent without
+        // its popup and arrow coming apart, and at 24px tall the washes lose nothing under it.
+        combo.setUI(new FlipHubComboBoxUI());
+        combo.setBackground(CONTROL_FILL);
+        combo.setForeground(TEXT);
+        combo.setFont(font(11f));
+        combo.setRenderer(new FlipHubComboRenderer(font(11f)));
+        combo.setBorder(roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(4, 8, 4, 8)));
+        combo.setFocusable(false);
+        combo.setOpaque(false);
+        combo.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+        // An overlay is a surface over the room: the popup takes the same opaque ground and the
+        // same hairline as the profile menu, rather than the look-and-feel's own list.
+        Object popup = combo.getUI().getAccessibleChild(combo, 0);
+        if (popup instanceof JComponent) {
+            ((JComponent) popup).setBorder(BorderFactory.createLineBorder(LINE));
+            ((JComponent) popup).setBackground(OVERLAY_BASE);
+        }
+    }
+
+    /** A ruled input rather than a boxed one: no fill, one hairline, the caret in --text. */
     void styleTextField(JTextField field) {
-        field.setBackground(BG_ALT);
+        field.setOpaque(false);
+        field.setBackground(new Color(0, 0, 0, 0));
         field.setForeground(TEXT);
         field.setCaretColor(TEXT);
-        field.setBorder(roundedBorder(INPUT_ARC, SOFT_BORDER, new Insets(6, 10, 6, 10)));
+        field.setSelectionColor(new Color(91, 159, 237, 70));
+        field.setSelectedTextColor(TEXT);
+        field.setBorder(roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(6, 10, 6, 10)));
         field.setFont(font(12f));
     }
 
@@ -99,9 +198,8 @@ final class FlipHubUiStyler {
     }
 
     private Font resolveFont(int style, float size) {
-        String[] families = new String[] { "Avenir Next", "Segoe UI", "Trebuchet MS" };
         int fontSize = Math.max(10, Math.round(size));
-        for (String family : families) {
+        for (String family : TEXT_FAMILIES) {
             Font candidate = new Font(family, style, fontSize);
             if (family.equalsIgnoreCase(candidate.getFamily())) {
                 return candidate;

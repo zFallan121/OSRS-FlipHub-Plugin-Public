@@ -34,6 +34,22 @@ final class FlipHubPanelPluginListener implements FlipHubPanelListener {
     }
 
     @Override
+    public void onLinkSubmitted(String licenseKey) {
+        LinkAttemptService linkService = PluginInjectorBridge.get(LinkAttemptService.class);
+        if (linkService != null) {
+            linkService.linkFromPanel(licenseKey);
+        }
+    }
+
+    @Override
+    public void onUnlinkRequested() {
+        LinkAttemptService linkService = PluginInjectorBridge.get(LinkAttemptService.class);
+        if (linkService != null) {
+            linkService.unlinkFromPanel();
+        }
+    }
+
+    @Override
     public void onSearchChanged(String query) {
         GeLifecyclePlugin plugin = plugin();
         plugin.currentQuery = query == null ? "" : query;

@@ -24,11 +24,9 @@
  */
 package com.osrsfliphub;
 
-import static com.osrsfliphub.FlipHubPanelConstants.BG_ALT;
-import static com.osrsfliphub.FlipHubPanelConstants.CARD;
+import static com.osrsfliphub.FlipHubPanelConstants.LINE;
 import static com.osrsfliphub.FlipHubPanelConstants.CARD_ARC;
 import static com.osrsfliphub.FlipHubPanelConstants.MUTED;
-import static com.osrsfliphub.FlipHubPanelConstants.SOFT_BORDER;
 import static com.osrsfliphub.FlipHubPanelConstants.TEXT;
 
 import java.awt.BorderLayout;
@@ -37,7 +35,6 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -122,19 +119,19 @@ final class FlipHubItemListContentRenderer {
 
     private JPanel buildSectionHeader(String text) {
         JPanel header = new JPanel(new BorderLayout());
-        header.setBackground(BG_ALT);
-        header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, SOFT_BORDER));
+        header.setOpaque(false);
+        // A hairline and a micro-label: the section is not a box, it is a rule with a name on it.
+        header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, LINE));
         header.setAlignmentX(Component.LEFT_ALIGNMENT);
-        header.setMaximumSize(new Dimension(Integer.MAX_VALUE, 20));
-        JLabel label = new JLabel((text != null ? text : "").toUpperCase(Locale.US));
-        label.setForeground(MUTED);
-        label.setFont(fontSemiBold(10.5f));
+        header.setMaximumSize(new Dimension(Integer.MAX_VALUE, 22));
+        JLabel label = new JLabel(text != null ? text : "");
+        uiStyler.styleMicroLabel(label, 9.5f);
         header.add(label, BorderLayout.WEST);
         return header;
     }
 
     private JPanel buildCard(String title, String body) {
-        JPanel card = new RoundedPanel(CARD_ARC, CARD, SOFT_BORDER);
+        JPanel card = RoundedPanel.glass(CARD_ARC);
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
         card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 100));

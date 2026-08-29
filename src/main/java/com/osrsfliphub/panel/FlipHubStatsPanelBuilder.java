@@ -94,7 +94,7 @@ final class FlipHubStatsPanelBuilder {
         JButton statsSortDirectionButton
     ) {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBackground(BG);
+        panel.setOpaque(false);
 
         JPanel header = headerBuilder.buildHeader(statsRangeCombo, statsSearchField, statsClearButton, statsUpdatedLabel);
         FlipHubStatsPanelContentBuilder.ContentResult content = contentBuilder.buildContent(

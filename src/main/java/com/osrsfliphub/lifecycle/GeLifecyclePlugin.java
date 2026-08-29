@@ -28,8 +28,6 @@ import static com.osrsfliphub.GeLifecyclePluginConstants.*;
 
 import com.google.gson.Gson;
 import com.google.inject.Provides;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,7 +37,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.nio.file.Path;
 import javax.inject.Inject;
 import net.runelite.api.Client;
-import net.runelite.api.GameState;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.ScriptID;
 import net.runelite.api.VarClientInt;
@@ -124,12 +121,17 @@ public class GeLifecyclePlugin extends Plugin {
     FlipHubPanel panel;
     NavigationButton navButton;
     final Map<Long, Long> loadedProfileFileMs = new ConcurrentHashMap<>();
-    final Map<Long, String> profileDisplayNames = new ConcurrentHashMap<>();
     volatile String currentQuery = "";
     volatile int currentPage = 1;
     volatile boolean bookmarkFilterEnabled = false;
     volatile boolean panelVisible;
     volatile StatsRange currentStatsRange = StatsRange.SESSION;
+    /**
+     * When the current play session began, or 0 when logged out. Set from the game state handler,
+     * which runs on the client thread; the panel only ever reads it, so the session clock never
+     * has to ask the client anything from the Swing thread. Local-only - never uploaded.
+     */
+    volatile long sessionStartMs;
     volatile StatsItemSort currentStatsSort = StatsItemSort.COMPLETION;
     final LocalTradesLoadCoordinator.State localTradesLoadState = new LocalTradesLoadCoordinator.State();
     boolean localTradesLoadedThisLogin = false;

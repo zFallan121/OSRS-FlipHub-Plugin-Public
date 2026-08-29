@@ -50,10 +50,10 @@ final class FlipHubPanelLayoutActions {
     BufferedImage buildNavIcon(FlipHubUiStyler uiStyler) {
         BufferedImage icon = null;
         try {
-            java.net.URL resource = getClass().getResource("/com/osrsfliphub/fliphub-icon.png");
-            if (resource != null) {
-                icon = javax.imageio.ImageIO.read(resource);
-            }
+            // getResourceAsStream via ImageUtil: on the hub the plugin runs from inside a jar,
+            // where a resource URL does not behave like the file URL seen in the IDE.
+            icon = net.runelite.client.util.ImageUtil.loadImageResource(
+                getClass(), "/com/osrsfliphub/fliphub-icon.png");
         } catch (Exception ignored) {
             // no-op; fallback icon below
         }
@@ -78,6 +78,7 @@ final class FlipHubPanelLayoutActions {
         JPanel cardPanel,
         JToggleButton flippingTab,
         JToggleButton statsTab,
+        JToggleButton linkTab,
         JButton profileButton,
         FlipHubPanelChromeBuilder chromeBuilder,
         FlipHubPanelBodyBuilder bodyBuilder,
@@ -106,22 +107,32 @@ final class FlipHubPanelLayoutActions {
         Runnable showProfileMenuAction,
         Runnable openDiscordAction
     ) {
+        // The backdrop is sacred: one panel paints the navy and the two washes, and every surface
+        // above it is transparent or translucent so the glow is never covered. The padding moves
+        // onto the backdrop rather than the host so the wash reaches the panel's own edges.
         hostPanel.setLayout(new BorderLayout());
         hostPanel.setBackground(BG);
-        hostPanel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        hostPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+
+        JPanel backdrop = new BackdropPanel(BG, GRAD_GREEN, GRAD_BLUE);
+        backdrop.setLayout(new BorderLayout());
+        backdrop.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        hostPanel.add(backdrop, BorderLayout.CENTER);
 
         JPanel header = chromeBuilder.buildHeader(profileButton, showProfileMenuAction);
         JButton discordButton = chromeBuilder.buildDiscordButton(openDiscordAction);
         JPanel tabs = chromeBuilder.buildTabs(
             flippingTab,
             statsTab,
+            linkTab,
             discordButton,
-            flippingSelected -> panelStateService.switchTab(
-                flippingSelected,
+            card -> panelStateService.switchTab(
+                card,
                 ageTooltipCoordinator,
                 uiStyler,
                 flippingTab,
                 statsTab,
+                linkTab,
                 cardLayout,
                 cardPanel,
                 listener,
@@ -153,14 +164,16 @@ final class FlipHubPanelLayoutActions {
 
         JPanel top = new JPanel();
         top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
-        top.setBackground(BG);
+        top.setOpaque(false);
         top.add(header);
         top.add(Box.createVerticalStrut(8));
         top.add(tabs);
-        top.add(Box.createVerticalStrut(6));
+        // The tab row's own 2px rule is the separator between the chrome and the body. A second
+        // divider here would be a box the chrome has not earned.
+        top.add(Box.createVerticalStrut(8));
 
-        hostPanel.add(top, BorderLayout.NORTH);
-        hostPanel.add(body.panel, BorderLayout.CENTER);
+        backdrop.add(top, BorderLayout.NORTH);
+        backdrop.add(body.panel, BorderLayout.CENTER);
 
         return new FlipHubPanelLayoutResult(
             body.footerPanel,
@@ -175,7 +188,7 @@ final class FlipHubPanelLayoutActions {
     }
 
     JPanel buildCard(String title, String body, FlipHubUiStyler uiStyler) {
-        JPanel card = new RoundedPanel(CARD_ARC, CARD, SOFT_BORDER);
+        JPanel card = RoundedPanel.glass(CARD_ARC);
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
         card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 100));

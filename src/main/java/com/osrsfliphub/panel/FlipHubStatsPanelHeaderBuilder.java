@@ -27,12 +27,10 @@ package com.osrsfliphub;
 import static com.osrsfliphub.FlipHubPanelConstants.*;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Insets;
-import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
@@ -40,7 +38,6 @@ import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
-import javax.swing.border.Border;
 
 final class FlipHubStatsPanelHeaderBuilder {
     private final FlipHubUiStyler uiStyler;
@@ -68,11 +65,11 @@ final class FlipHubStatsPanelHeaderBuilder {
         JLabel statsUpdatedLabel
     ) {
         JPanel header = new JPanel();
-        header.setBackground(BG);
+        header.setOpaque(false);
         header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
 
         JPanel rangeRow = new JPanel(new BorderLayout(8, 0));
-        rangeRow.setBackground(BG);
+        rangeRow.setOpaque(false);
         rangeRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         rangeRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
         if (uiStyler != null) {
@@ -82,13 +79,13 @@ final class FlipHubStatsPanelHeaderBuilder {
         statsRangeCombo.addActionListener(e -> {
             StatsRange range = (StatsRange) statsRangeCombo.getSelectedItem();
             if (panelStateService != null && range != null) {
-                panelStateService.onStatsRangeSelectionChanged(listener, range);
+                panelStateService.onStatsRangeSelectionChanged(listener, panelState, range);
             }
         });
         rangeRow.add(statsRangeCombo, BorderLayout.WEST);
 
         JPanel searchRow = new JPanel(new BorderLayout(8, 0));
-        searchRow.setBackground(BG);
+        searchRow.setOpaque(false);
         searchRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         searchRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
         if (uiStyler != null) {
@@ -101,18 +98,14 @@ final class FlipHubStatsPanelHeaderBuilder {
             }
         });
 
-        statsClearButton.setFocusPainted(false);
-        statsClearButton.setFont(fontSemiBold(10.5f));
-        statsClearButton.setBackground(CARD_ALT);
-        statsClearButton.setForeground(TEXT);
-        statsClearButton.setBorder(roundedBorder(CHIP_ARC, SOFT_BORDER, new Insets(4, 10, 4, 10)));
-        statsClearButton.setOpaque(true);
+        uiStyler.styleGhostControl(statsClearButton, 10.5f, new Insets(6, 12, 6, 12), INPUT_ARC);
+        uiStyler.matchFieldHeight(statsClearButton, statsSearchField);
         statsClearButton.addActionListener(e -> statsSearchField.setText(""));
 
         searchRow.add(statsSearchField, BorderLayout.CENTER);
         searchRow.add(statsClearButton, BorderLayout.EAST);
 
-        statsUpdatedLabel.setForeground(MUTED);
+        statsUpdatedLabel.setForeground(MUTED_2);
         statsUpdatedLabel.setFont(font(10.5f));
         statsUpdatedLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -150,7 +143,4 @@ final class FlipHubStatsPanelHeaderBuilder {
         return uiStyler.fontSemiBold(size);
     }
 
-    private Border roundedBorder(int arc, Color color, Insets padding) {
-        return uiStyler.roundedBorder(arc, color, padding);
-    }
 }

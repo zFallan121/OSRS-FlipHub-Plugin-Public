@@ -42,6 +42,7 @@ import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
+import javax.swing.JViewport;
 import javax.swing.border.Border;
 
 final class FlipHubFlippingPanelBuilder {
@@ -91,26 +92,26 @@ final class FlipHubFlippingPanelBuilder {
         JLabel pageLabel
     ) {
         JPanel panel = new JPanel();
-        panel.setBackground(BG);
+        panel.setOpaque(false);
         panel.setLayout(new BorderLayout());
 
         JPanel searchRow = new JPanel(new BorderLayout(8, 0));
-        searchRow.setBackground(BG);
+        searchRow.setOpaque(false);
 
         if (uiStyler != null) {
             uiStyler.styleTextField(searchField);
         }
 
-        bookmarkFilterButton.setFocusPainted(false);
+        uiStyler.styleGhostControl(bookmarkFilterButton, 14.5f, new Insets(6, 10, 6, 10), INPUT_ARC);
         bookmarkFilterButton.setFont(fontSymbol(14.5f));
-        bookmarkFilterButton.setBackground(BG_ALT);
         bookmarkFilterButton.setForeground(ACCENT);
-        bookmarkFilterButton.setBorder(roundedBorder(CHIP_ARC, SOFT_BORDER, new Insets(6, 10, 6, 10)));
-        bookmarkFilterButton.setOpaque(true);
         bookmarkFilterButton.setToolTipText("Show bookmarks only");
+        uiStyler.matchFieldHeight(bookmarkFilterButton, searchField);
         bookmarkFilterButton.addActionListener(e -> {
             boolean enabled = bookmarkFilterButton.isSelected();
-            bookmarkFilterButton.setBackground(BG_ALT);
+            // The filter is on or off, and the star already says which. Amber is the caution tint
+            // and this is not a caution, so the state moves the star onto the action colour's
+            // opposite number rather than repainting a chip that has no fill to repaint.
             bookmarkFilterButton.setForeground(enabled ? WARNING : ACCENT);
             if (panelStateService != null) {
                 panelStateService.onBookmarkFilterChanged(panelState, enabled, listener, renderItems);
@@ -120,23 +121,25 @@ final class FlipHubFlippingPanelBuilder {
         searchRow.add(searchField, BorderLayout.CENTER);
         searchRow.add(bookmarkFilterButton, BorderLayout.EAST);
 
-        refreshLabel.setForeground(MUTED);
+        refreshLabel.setForeground(MUTED_2);
         refreshLabel.setFont(font(10.5f));
 
-        profileButton.setForeground(MUTED);
-        profileButton.setFont(font(10.5f));
-
         JPanel top = new JPanel();
-        top.setBackground(BG);
+        top.setOpaque(false);
         top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
         top.add(searchRow);
         top.add(Box.createVerticalStrut(6));
 
-        listPanel.setBackground(BG_ALT);
+        listPanel.setOpaque(false);
         listPanel.setLayout(new BoxLayout(listPanel, BoxLayout.Y_AXIS));
 
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
-        scrollPane.getViewport().setBackground(BG_ALT);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        // A transparent viewport over a painted backdrop cannot be blitted: the blit copies the
+        // old pixels and the washes smear down the column as the list scrolls. SIMPLE repaints
+        // the exposed strip from the backdrop up, which is the price of keeping the glow.
+        scrollPane.getViewport().setScrollMode(JViewport.SIMPLE_SCROLL_MODE);
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.setWheelScrollingEnabled(true);
@@ -150,10 +153,10 @@ final class FlipHubFlippingPanelBuilder {
         vBar.setBlockIncrement(SCROLL_BLOCK_INCREMENT);
 
         JPanel footerPanel = new JPanel(new BorderLayout());
-        footerPanel.setBackground(BG);
+        footerPanel.setOpaque(false);
 
         JPanel pager = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
-        pager.setBackground(BG);
+        pager.setOpaque(false);
         pager.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
         prevButton.setFocusPainted(false);
         nextButton.setFocusPainted(false);
@@ -190,12 +193,7 @@ final class FlipHubFlippingPanelBuilder {
     }
 
     private void stylePagerButton(JButton button) {
-        button.setBackground(CARD_ALT);
-        button.setForeground(TEXT);
-        button.setBorder(roundedBorder(CHIP_ARC, SOFT_BORDER, new Insets(4, 10, 4, 10)));
-        button.setFont(fontSemiBold(11f));
-        button.setFocusPainted(false);
-        button.setOpaque(true);
+        uiStyler.styleGhostControl(button, 11f, new Insets(4, 12, 4, 12));
     }
 
     private Font font(float size) {

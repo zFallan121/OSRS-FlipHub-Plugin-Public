@@ -25,7 +25,8 @@
 package com.osrsfliphub;
 
 import static com.osrsfliphub.FlipHubPanelConstants.ACCENT;
-import static com.osrsfliphub.FlipHubPanelConstants.BG_ALT;
+import static com.osrsfliphub.FlipHubPanelConstants.LINE;
+import static com.osrsfliphub.FlipHubPanelConstants.OVERLAY_BASE;
 import static com.osrsfliphub.FlipHubPanelConstants.MUTED;
 import static com.osrsfliphub.FlipHubPanelConstants.SUCCESS;
 import static com.osrsfliphub.FlipHubPanelConstants.TEXT;
@@ -86,7 +87,11 @@ final class FlipHubProfileMenuCoordinator {
             profileMenu = null;
             return;
         }
+        // An overlay is a surface OVER the room, not a fifth surface: opaque ground, one
+        // hairline, and the same type as the panel it opens out of.
         profileMenu = new JPopupMenu();
+        profileMenu.setBackground(OVERLAY_BASE);
+        profileMenu.setBorder(javax.swing.BorderFactory.createLineBorder(LINE));
         for (FlipHubProfileOption option : options) {
             String label = option != null ? option.label : null;
             String key = option != null ? option.key : null;
@@ -96,7 +101,7 @@ final class FlipHubProfileMenuCoordinator {
             JMenuItem item = new JMenuItem(label);
             item.setFont(font(11f));
             item.setForeground(TEXT);
-            item.setBackground(BG_ALT);
+            item.setBackground(OVERLAY_BASE);
             item.setOpaque(true);
             if (selectedProfileKey != null && selectedProfileKey.equals(key)) {
                 item.setFont(fontSemiBold(11f));
@@ -114,7 +119,7 @@ final class FlipHubProfileMenuCoordinator {
         JMenuItem manageData = new JMenuItem("Manage data...");
         manageData.setFont(font(11f));
         manageData.setForeground(TEXT);
-        manageData.setBackground(BG_ALT);
+        manageData.setBackground(OVERLAY_BASE);
         manageData.setOpaque(true);
         manageData.addActionListener(e -> {
             if (listener != null) {

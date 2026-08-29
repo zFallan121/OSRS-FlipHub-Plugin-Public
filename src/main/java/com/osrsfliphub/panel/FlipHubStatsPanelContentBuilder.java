@@ -42,6 +42,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
+import javax.swing.JViewport;
 import javax.swing.SwingConstants;
 import javax.swing.border.Border;
 
@@ -107,44 +108,46 @@ final class FlipHubStatsPanelContentBuilder {
         JComboBox<StatsItemSort> statsSortCombo,
         JButton statsSortDirectionButton
     ) {
-        statsContentPanel.setBackground(BG_ALT);
+        statsContentPanel.setOpaque(false);
         statsContentPanel.setLayout(new BoxLayout(statsContentPanel, BoxLayout.Y_AXIS));
         statsContentPanel.setAlignmentX(JPanel.LEFT_ALIGNMENT);
 
         JLabel statsTotalProfitValue = new JLabel("0 gp");
-        JPanel totalBlock = buildStatsBlock("Total Profit", statsTotalProfitValue, WARNING);
-        statsContentPanel.add(totalBlock);
-        statsContentPanel.add(Box.createVerticalStrut(6));
-
         JLabel statsRoiValue = new JLabel("0.00%");
         JLabel statsFlipsValue = new JLabel("0");
         JLabel statsTaxValue = new JLabel("0 gp");
         JLabel statsSessionTimeValue = new JLabel("00:00:00");
         JLabel statsHourlyValue = new JLabel("0 gp/hr");
 
+        // The tab is one profile asked one question, so the profit takes the size and the five
+        // figures it is made of become the line under it - inside ONE card, ruled by hairlines.
+        // A card each would be six boxes enumerating a single answer, which is the outline that
+        // STYLEGUIDE.md section 3 says has to be earned.
         Object[][] rows = new Object[][]{
             {"ROI", statsRoiValue, TEXT},
-            {"Total Flips Made", statsFlipsValue, TEXT},
+            {"Total flips made", statsFlipsValue, TEXT},
             {"Tax paid", statsTaxValue, TEXT},
-            {"Session Time", statsSessionTimeValue, TEXT},
-            {"Hourly Profit", statsHourlyValue, SUCCESS}
+            {"Session time", statsSessionTimeValue, TEXT},
+            {"Hourly profit", statsHourlyValue, SUCCESS}
         };
-        for (Object[] row : rows) {
-            statsContentPanel.add(buildStatsRow((String) row[0], (JLabel) row[1], (Color) row[2]));
-        }
+        statsContentPanel.add(buildSummaryCard(statsTotalProfitValue, rows));
 
-        statsContentPanel.add(Box.createVerticalStrut(10));
+        statsContentPanel.add(Box.createVerticalStrut(12));
         statsContentPanel.add(buildStatsSortRow(statsSortCombo, statsSortDirectionButton));
-        statsContentPanel.add(Box.createVerticalStrut(6));
+        statsContentPanel.add(Box.createVerticalStrut(8));
 
-        statsItemsListPanel.setBackground(BG_ALT);
+        statsItemsListPanel.setOpaque(false);
         statsItemsListPanel.setLayout(new BoxLayout(statsItemsListPanel, BoxLayout.Y_AXIS));
         statsItemsListPanel.setAlignmentX(JPanel.LEFT_ALIGNMENT);
         statsContentPanel.add(statsItemsListPanel);
 
         JScrollPane statsScrollPane = new JScrollPane(statsContentPanel);
         statsScrollPane.setBorder(BorderFactory.createEmptyBorder());
-        statsScrollPane.getViewport().setBackground(BG_ALT);
+        statsScrollPane.setOpaque(false);
+        statsScrollPane.getViewport().setOpaque(false);
+        // See FlipHubFlippingPanelBuilder: a transparent viewport must not be blitted, or the
+        // backdrop's washes smear down the column as the list scrolls.
+        statsScrollPane.getViewport().setScrollMode(JViewport.SIMPLE_SCROLL_MODE);
         statsScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
         statsScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         statsScrollPane.setWheelScrollingEnabled(true);
@@ -179,21 +182,20 @@ final class FlipHubStatsPanelContentBuilder {
 
     private JPanel buildStatsSortRow(JComboBox<StatsItemSort> statsSortCombo, JButton statsSortDirectionButton) {
         JPanel row = new JPanel(new BorderLayout());
-        row.setBackground(BG_ALT);
+        row.setOpaque(false);
         row.setAlignmentX(JPanel.LEFT_ALIGNMENT);
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
         row.setPreferredSize(new Dimension(0, 28));
 
         JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-        left.setBackground(BG_ALT);
+        left.setOpaque(false);
         JLabel sortLabel = new JLabel("Sort");
-        sortLabel.setForeground(MUTED);
-        sortLabel.setFont(font(10.5f));
+        uiStyler.styleMicroLabel(sortLabel, 9.5f);
         if (uiStyler != null) {
             uiStyler.styleComboBox(statsSortCombo);
         }
         statsSortCombo.setFont(font(10.5f));
-        statsSortCombo.setBorder(roundedBorder(INPUT_ARC, SOFT_BORDER, new Insets(2, 6, 2, 6)));
+        statsSortCombo.setBorder(roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
         Dimension sortSize = statsSortCombo.getPreferredSize();
         statsSortCombo.setPreferredSize(new Dimension(sortSize.width, 24));
         statsSortCombo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
@@ -203,14 +205,10 @@ final class FlipHubStatsPanelContentBuilder {
         statsSortCombo.addActionListener(e -> {
             StatsItemSort sort = (StatsItemSort) statsSortCombo.getSelectedItem();
             if (panelStateService != null && sort != null) {
-                panelStateService.onStatsSortSelectionChanged(listener, sort, renderStatsItems);
+                panelStateService.onStatsSortSelectionChanged(listener, panelState, sort, renderStatsItems);
             }
         });
-        statsSortDirectionButton.setFocusPainted(false);
-        statsSortDirectionButton.setBorder(roundedBorder(INPUT_ARC, SOFT_BORDER, new Insets(2, 8, 2, 8)));
-        statsSortDirectionButton.setBackground(BG_ALT);
-        statsSortDirectionButton.setOpaque(true);
-        statsSortDirectionButton.setFont(fontSemiBold(11.5f));
+        uiStyler.styleGhostControl(statsSortDirectionButton, 11.5f, new Insets(2, 8, 2, 8));
         statsSortDirectionButton.setPreferredSize(new Dimension(34, 24));
         statsSortDirectionButton.setMaximumSize(new Dimension(34, 24));
         statsSortDirectionButton.addActionListener(e -> {
@@ -231,35 +229,47 @@ final class FlipHubStatsPanelContentBuilder {
 
     private void updateStatsSortDirectionButton(JButton statsSortDirectionButton, boolean ascending) {
         statsSortDirectionButton.setText(ascending ? "\u2191" : "\u2193");
-        statsSortDirectionButton.setForeground(ascending ? WARNING : MUTED);
+        statsSortDirectionButton.setForeground(ascending ? ACCENT : MUTED);
         statsSortDirectionButton.setToolTipText(ascending ? "Ascending order" : "Descending order");
     }
 
-    private JPanel buildStatsBlock(String label, JLabel valueView, Color valueColor) {
-        JPanel block = new RoundedPanel(CARD_ARC, CARD, SOFT_BORDER);
-        block.setLayout(new BorderLayout());
-        block.setBorder(BorderFactory.createEmptyBorder(12, 14, 12, 14));
-        block.setMaximumSize(new Dimension(Integer.MAX_VALUE, 64));
-        block.setPreferredSize(new Dimension(0, 64));
-        block.setAlignmentX(JPanel.LEFT_ALIGNMENT);
+    /**
+     * The one card on the tab: the answer at the top, then the figures it is made of as hairline
+     * rows under it. One separator per surface - the rows are ruled, not boxed.
+     */
+    private JPanel buildSummaryCard(JLabel totalProfitValue, Object[][] rows) {
+        JPanel card = RoundedPanel.glass(CARD_ARC);
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setBorder(BorderFactory.createEmptyBorder(12, 14, 8, 14));
+        card.setAlignmentX(JPanel.LEFT_ALIGNMENT);
 
-        JLabel labelView = new JLabel(label);
-        labelView.setForeground(MUTED);
-        labelView.setFont(font(10.5f));
+        JPanel answer = new JPanel(new BorderLayout());
+        answer.setOpaque(false);
+        answer.setAlignmentX(JPanel.LEFT_ALIGNMENT);
+        answer.setMaximumSize(new Dimension(Integer.MAX_VALUE, 46));
 
-        valueView.setForeground(valueColor);
-        valueView.setFont(fontBold(17f));
-        valueView.setAlignmentX(JPanel.LEFT_ALIGNMENT);
+        JLabel labelView = new JLabel("Total Profit");
+        uiStyler.styleMicroLabel(labelView, 9.5f);
 
-        block.add(labelView, BorderLayout.NORTH);
-        block.add(valueView, BorderLayout.CENTER);
-        return block;
+        totalProfitValue.setForeground(SUCCESS);
+        totalProfitValue.setFont(fontBold(20f));
+
+        answer.add(labelView, BorderLayout.NORTH);
+        answer.add(totalProfitValue, BorderLayout.CENTER);
+        card.add(answer);
+        card.add(Box.createVerticalStrut(8));
+
+        for (Object[] row : rows) {
+            card.add(buildStatsRow((String) row[0], (JLabel) row[1], (Color) row[2]));
+        }
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, card.getPreferredSize().height));
+        return card;
     }
 
     private JPanel buildStatsRow(String label, JLabel valueView, Color valueColor) {
-        JPanel row = new RoundedPanel(CARD_ARC, CARD_ALT, SOFT_BORDER);
-        row.setLayout(new BorderLayout());
-        row.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+        JPanel row = new JPanel(new BorderLayout());
+        row.setOpaque(false);
+        row.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, LINE));
         row.setAlignmentX(JPanel.LEFT_ALIGNMENT);
 
         JLabel labelView = new JLabel(label);
@@ -272,8 +282,8 @@ final class FlipHubStatsPanelContentBuilder {
 
         row.add(labelView, BorderLayout.WEST);
         row.add(valueView, BorderLayout.EAST);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
-        row.setPreferredSize(new Dimension(0, 32));
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
+        row.setPreferredSize(new Dimension(0, 28));
         return row;
     }
 

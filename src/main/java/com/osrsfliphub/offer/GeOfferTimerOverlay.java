@@ -58,9 +58,10 @@ public class GeOfferTimerOverlay extends Overlay {
     private static final long GREEN_THRESHOLD_MS = 5 * 60 * 1000L;
     private static final long YELLOW_THRESHOLD_MS = 30 * 60 * 1000L;
 
-    private static final Color GREEN = new Color(16, 185, 129);
-    private static final Color YELLOW = new Color(251, 191, 36);
-    private static final Color RED = new Color(239, 68, 68);
+    // The site's state ramp, so the overlay in the game window and the panel beside it agree.
+    private static final Color GREEN = new Color(0x34, 0xD3, 0x99);
+    private static final Color YELLOW = new Color(0xFB, 0xBF, 0x24);
+    private static final Color RED = new Color(0xEF, 0x44, 0x44);
 
     private final Client client;
     private final PluginConfig config;

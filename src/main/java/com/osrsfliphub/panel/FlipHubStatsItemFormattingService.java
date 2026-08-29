@@ -42,6 +42,17 @@ final class FlipHubStatsItemFormattingService {
         return "ROI " + roi + " | Flips " + flips + " | Qty " + qty;
     }
 
+    /**
+     * The collapsed card shares its second line with the profit, so the meta shown there is cut
+     * down to what fits: quantity is dropped and the flip count is abbreviated. Both are still in
+     * the full meta on the card tooltip and in the expanded rows.
+     */
+    String buildStatsItemMetaShort(StatsItem item) {
+        String roi = valueFormatService.formatPercent(item.roi_percent);
+        int flips = item.fill_count != null ? item.fill_count : 0;
+        return "ROI " + roi + " | x" + flips;
+    }
+
     String formatStatsTimestamp(Long timestampMs) {
         if (timestampMs == null || timestampMs <= 0) {
             return "N/A";

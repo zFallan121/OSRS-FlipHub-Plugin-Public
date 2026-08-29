@@ -50,6 +50,13 @@ final class ConfigChangedHandlerService {
         }
     }
 
+    private void refreshLinkStatus() {
+        LinkStatusService linkStatusService = PluginInjectorBridge.get(LinkStatusService.class);
+        if (linkStatusService != null) {
+            linkStatusService.refresh();
+        }
+    }
+
     void handle(ConfigChanged event) {
         if (event == null) {
             return;
@@ -62,11 +69,8 @@ final class ConfigChangedHandlerService {
         if ("enableFlipHubSync".equals(key)) {
             if (config != null && config.enableFlipHubSync()) {
                 LinkAttemptService linkAttemptService = PluginInjectorBridge.get(LinkAttemptService.class);
-                String linkInput = linkAttemptService != null
-                    ? linkAttemptService.resolveLinkInput(config.licenseKey(), config.linkCode())
-                    : null;
-                if (linkInput != null && !linkInput.trim().isEmpty()) {
-                    linkAttemptService.attemptLink(linkInput.trim());
+                if (linkAttemptService != null) {
+                    linkAttemptService.attemptLink(config.licenseKey());
                 }
                 UploadEventDispatchFacadeService uploadFacade =
                     PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
@@ -80,6 +84,7 @@ final class ConfigChangedHandlerService {
                     uploadFacade.markBlocked("FlipHub sync is disabled in the plugin settings.");
                 }
             }
+            refreshLinkStatus();
             if (isPanelAvailable()) {
                 PluginAccess.plugin().getProfileWorkflowService().updateProfileHeader();
             }
@@ -91,37 +96,10 @@ final class ConfigChangedHandlerService {
             }
         }
 
-        if ("licenseKey".equals(key) || "linkCode".equals(key)) {
+        if ("licenseKey".equals(key)) {
             LinkAttemptService linkAttemptService = PluginInjectorBridge.get(LinkAttemptService.class);
-            String linkInput = linkAttemptService != null && config != null
-                ? linkAttemptService.resolveLinkInput(config.licenseKey(), config.linkCode())
-                : null;
-            if (linkInput != null && !linkInput.trim().isEmpty()) {
-                linkAttemptService.attemptLink(linkInput.trim());
-            }
-        }
-
-        if ("unlinkNow".equals(key)) {
-            if (config == null || !config.unlinkNow()) {
-                return;
-            }
-            PluginInjectorBridge.get(LinkSessionConfigStore.class).clearLinkState();
-            AccountwideSummaryUploader uploader = PluginInjectorBridge.get(AccountwideSummaryUploader.class);
-            if (uploader != null) {
-                uploader.resetUploadSnapshot();
-            }
-            UploadEventDispatchFacadeService uploadFacade =
-                PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
-            if (uploadFacade != null) {
-                uploadFacade.markBlocked("Unlinked. Event uploads paused until relinked.");
-            }
-            if (isPanelAvailable()) {
-                PluginAccess.plugin().getProfileWorkflowService().updateProfileHeader();
-            }
-            GeLifecyclePlugin plugin = PluginAccess.plugin();
-            PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
-            if (coordinator != null) {
-                coordinator.triggerStatsRefresh(plugin.scheduler);
+            if (linkAttemptService != null && config != null) {
+                linkAttemptService.attemptLink(config.licenseKey());
             }
         }
 

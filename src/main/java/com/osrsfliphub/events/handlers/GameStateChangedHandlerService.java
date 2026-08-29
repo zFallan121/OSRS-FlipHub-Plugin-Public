@@ -56,6 +56,11 @@ final class GameStateChangedHandlerService {
         GeLifecyclePlugin plugin = PluginAccess.plugin();
 
         if (gameState != GameState.LOGGED_IN) {
+            // Only a real logout ends the session. LOADING and HOPPING also land here, and
+            // resetting on those would restart the clock every world hop.
+            if (gameState == GameState.LOGIN_SCREEN) {
+                plugin.sessionStartMs = 0L;
+            }
             offerStampState().persistOfferUpdateTimes();
             offerStampState().resetOfferUpdateStampsOnLogout();
             plugin.snapshots.clear();
@@ -71,6 +76,10 @@ final class GameStateChangedHandlerService {
             return;
         }
 
+        // Started once per session, not on every LOGGED_IN: that fires again after each world hop.
+        if (plugin.sessionStartMs <= 0L) {
+            plugin.sessionStartMs = System.currentTimeMillis();
+        }
         PluginInjectorBridge.get(GeHistoryAutoSyncStateService.class).arm();
         offerStampState().setLastLoginNow();
         offerStampState().loadOfferUpdateTimesForCurrentAccount();
@@ -92,12 +101,13 @@ final class GameStateChangedHandlerService {
             }
         }
 
+        LinkStatusService linkStatusService = PluginInjectorBridge.get(LinkStatusService.class);
+        if (linkStatusService != null) {
+            linkStatusService.refresh();
+        }
         LinkAttemptService linkAttemptService = PluginInjectorBridge.get(LinkAttemptService.class);
-        String linkInput = linkAttemptService != null && config != null
-            ? linkAttemptService.resolveLinkInput(config.licenseKey(), config.linkCode())
-            : null;
-        if (linkInput != null && !linkInput.trim().isEmpty()) {
-            linkAttemptService.attemptLink(linkInput.trim());
+        if (linkAttemptService != null && config != null) {
+            linkAttemptService.attemptLink(config.licenseKey());
         }
 
         boolean visible = plugin.runtimeUtilityServices.isPanelVisible(plugin.panel);

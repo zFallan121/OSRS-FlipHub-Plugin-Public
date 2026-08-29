@@ -42,6 +42,29 @@ final class FlipHubPanelValueFormatService {
         return formatGpValue(value);
     }
 
+    /**
+     * Abbreviated gp for places where the full number would crowd out the text beside it. The
+     * exact value is always still available somewhere - an expanded row, or a tooltip.
+     */
+    String formatGpCompact(Long value) {
+        if (value == null) {
+            return "N/A";
+        }
+        long abs = Math.abs(value);
+        // The thresholds sit just under the round number so a value that would render as
+        // "1000.0K" is promoted to "1.00M" instead.
+        if (abs >= 999_950_000L) {
+            return String.format(Locale.US, "%.2fB gp", value / 1_000_000_000.0);
+        }
+        if (abs >= 999_950L) {
+            return String.format(Locale.US, "%.2fM gp", value / 1_000_000.0);
+        }
+        if (abs >= 9_995L) {
+            return String.format(Locale.US, "%.1fK gp", value / 1_000.0);
+        }
+        return formatGpValue(value);
+    }
+
     String formatPercent(Double value) {
         if (value == null) {
             return "N/A";

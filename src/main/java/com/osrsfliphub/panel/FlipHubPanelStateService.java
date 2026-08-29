@@ -42,27 +42,37 @@ import javax.swing.JToggleButton;
 
 final class FlipHubPanelStateService {
     void switchTab(
-        boolean flippingSelected,
+        String card,
         FlipHubAgeTooltipCoordinator ageTooltipCoordinator,
         FlipHubUiStyler uiStyler,
         JToggleButton flippingTab,
         JToggleButton statsTab,
+        JToggleButton linkTab,
         CardLayout cardLayout,
         JPanel cardPanel,
         FlipHubPanelListener listener,
         JComboBox<StatsRange> statsRangeCombo
     ) {
+        String target = card != null ? card : "flipping";
+        boolean statsSelected = "stats".equals(target);
         if (ageTooltipCoordinator != null) {
             ageTooltipCoordinator.clearHoverAndHide();
         }
         if (uiStyler != null) {
-            uiStyler.styleTab(flippingTab, flippingSelected);
-            uiStyler.styleTab(statsTab, !flippingSelected);
+            uiStyler.styleTab(flippingTab, "flipping".equals(target));
+            uiStyler.styleTab(statsTab, statsSelected);
+            uiStyler.styleTab(linkTab, "account".equals(target));
         }
         if (cardLayout != null && cardPanel != null) {
-            cardLayout.show(cardPanel, flippingSelected ? "flipping" : "stats");
+            cardLayout.show(cardPanel, target);
         }
-        if (!flippingSelected && listener != null && statsRangeCombo != null) {
+        if ("account".equals(target)) {
+            LinkStatusService status = PluginInjectorBridge.get(LinkStatusService.class);
+            if (status != null) {
+                status.pushToPanel();
+            }
+        }
+        if (statsSelected && listener != null && statsRangeCombo != null) {
             StatsRange range = (StatsRange) statsRangeCombo.getSelectedItem();
             if (range != null) {
                 listener.onStatsRangeChanged(range);
@@ -101,7 +111,12 @@ final class FlipHubPanelStateService {
         }
     }
 
-    void onStatsRangeSelectionChanged(FlipHubPanelListener listener, StatsRange range) {
+    void onStatsRangeSelectionChanged(FlipHubPanelListener listener, FlipHubPanelMutableState state, StatsRange range) {
+        // A new range is a different set of items, so the page the user was on no longer refers to
+        // anything. Data refreshes within a range deliberately keep their page instead.
+        if (state != null) {
+            state.statsPage = 1;
+        }
         if (listener != null && range != null) {
             listener.onStatsRangeChanged(range);
         }
@@ -109,11 +124,17 @@ final class FlipHubPanelStateService {
 
     void onStatsSortSelectionChanged(
         FlipHubPanelListener listener,
+        FlipHubPanelMutableState state,
         StatsItemSort sort,
         Runnable renderStatsItems
     ) {
         if (listener != null && sort != null) {
             listener.onStatsSortChanged(sort);
+        }
+        // Re-sorting reshuffles which items land on which page, so page 3 of the old order says
+        // nothing about page 3 of the new one.
+        if (state != null) {
+            state.statsPage = 1;
         }
         if (renderStatsItems != null) {
             renderStatsItems.run();
@@ -125,6 +146,7 @@ final class FlipHubPanelStateService {
             return;
         }
         state.statsSortAscending = !state.statsSortAscending;
+        state.statsPage = 1;
         if (renderStatsItems != null) {
             renderStatsItems.run();
         }
@@ -134,7 +156,21 @@ final class FlipHubPanelStateService {
         if (state == null) {
             return;
         }
-        state.statsSearchQuery = query != null ? query.trim().toLowerCase(Locale.US) : "";
+        String normalizedQuery = query != null ? query.trim().toLowerCase(Locale.US) : "";
+        if (!normalizedQuery.equals(state.statsSearchQuery)) {
+            state.statsPage = 1;
+        }
+        state.statsSearchQuery = normalizedQuery;
+        if (renderStatsItems != null) {
+            renderStatsItems.run();
+        }
+    }
+
+    void onStatsPageRequested(FlipHubPanelMutableState state, int page, Runnable renderStatsItems) {
+        if (state == null || page < 1) {
+            return;
+        }
+        state.statsPage = page;
         if (renderStatsItems != null) {
             renderStatsItems.run();
         }

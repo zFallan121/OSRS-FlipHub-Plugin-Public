@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.Client;
@@ -47,6 +48,8 @@ final class LinkAttemptService {
     private final Client client;
     private final PluginConfig config;
     private final ApiClient apiClient;
+    /** Config writes fan out into several link triggers; only the first should reach the network. */
+    private final AtomicBoolean linkInFlight = new AtomicBoolean();
 
     @Inject
     LinkAttemptService(Client client, PluginConfig config, ApiClient apiClient) {
@@ -124,6 +127,17 @@ final class LinkAttemptService {
         PluginAccess.plugin().refreshPanelData();
     }
 
+    private static LinkStatusService linkStatus() {
+        return PluginInjectorBridge.get(LinkStatusService.class);
+    }
+
+    private void reportStatus(String status) {
+        LinkStatusService service = linkStatus();
+        if (service != null) {
+            service.markFailed(status);
+        }
+    }
+
     private void updateProfileHeader() {
         PluginAccess.plugin().getProfileWorkflowService().updateProfileHeader();
     }
@@ -160,11 +174,64 @@ final class LinkAttemptService {
         }
     }
 
-    String resolveLinkInput(String licenseKey, String linkCode) {
-        if (!isBlank(licenseKey)) {
-            return licenseKey;
+    /**
+     * Linking from the account panel. Consent was already given there, so this turns the sync
+     * opt-in on itself rather than leaving the user to find the settings checkbox.
+     */
+    void linkFromPanel(String licenseKey) {
+        String normalized = normalize(licenseKey);
+        LinkStatusService status = linkStatus();
+        if (isBlank(normalized)) {
+            if (status != null) {
+                status.markPanelMessage("Paste your license key first.");
+            }
+            return;
         }
-        return linkCode;
+        LinkSessionConfigStore store = PluginInjectorBridge.get(LinkSessionConfigStore.class);
+        if (store != null) {
+            store.enableSync(normalized);
+        }
+        if (!isClientLoggedIn()) {
+            reportStatus(LinkStatusService.NEEDS_LOGIN);
+            return;
+        }
+        if (status != null) {
+            status.markLinking();
+        }
+        if (!linkInFlight.compareAndSet(false, true)) {
+            return;
+        }
+        executeIo(() -> runLinkAttempt(normalized));
+    }
+
+    /**
+     * Clears the link outright rather than setting a config flag and waiting for the change event
+     * to come back round: an action the user just clicked should not depend on event delivery.
+     */
+    void performUnlink() {
+        LinkSessionConfigStore store = PluginInjectorBridge.get(LinkSessionConfigStore.class);
+        if (store != null) {
+            store.clearLinkState();
+            store.disableSync();
+            store.flush();
+        }
+        AccountwideSummaryUploader uploader = PluginInjectorBridge.get(AccountwideSummaryUploader.class);
+        if (uploader != null) {
+            uploader.resetUploadSnapshot();
+        }
+        UploadEventDispatchFacadeService uploadFacade = uploadEventDispatchFacade();
+        if (uploadFacade != null) {
+            uploadFacade.markBlocked("Unlinked. Event uploads paused until relinked.");
+        }
+        LinkStatusService status = linkStatus();
+        if (status != null) {
+            status.refresh();
+        }
+        updateProfileHeader();
+    }
+
+    void unlinkFromPanel() {
+        performUnlink();
     }
 
     void attemptLink(String licenseKey) {
@@ -180,10 +247,19 @@ final class LinkAttemptService {
             return;
         }
         if (!isClientLoggedIn()) {
+            // The login handler retries the stored key, so this is a wait rather than a failure.
+            reportStatus(LinkStatusService.NEEDS_LOGIN);
             updateProfileHeader();
             return;
         }
 
+        LinkStatusService status = linkStatus();
+        if (status != null) {
+            status.markLinking();
+        }
+        if (!linkInFlight.compareAndSet(false, true)) {
+            return;
+        }
         executeIo(() -> runLinkAttempt(normalized));
     }
 
@@ -199,17 +275,29 @@ final class LinkAttemptService {
                 requestBackfillAttempt(POST_LINK_BACKFILL_DELAY_SECONDS, true);
                 scheduleAccountwideSync(POST_LINK_SYNC_DELAY_SECONDS);
                 refreshPanelData();
+                LinkStatusService status = linkStatus();
+                if (status != null) {
+                    status.markLinked(licenseKey);
+                }
+            } else {
+                // The call went through and FlipHub declined it, so the key itself is the problem.
+                reportStatus(LinkStatusService.REJECTED);
             }
             updateProfileHeader();
         } catch (IOException | RuntimeException ex) {
             if (isTimeoutException(ex)) {
                 logTimeout();
+                reportStatus(LinkStatusService.UNREACHABLE);
                 updateProfileHeader();
+                linkInFlight.set(false);
                 scheduleRetry(licenseKey);
                 return;
             }
+            reportStatus(LinkStatusService.FAILED);
             updateProfileHeader();
             logFailure(ex);
+        } finally {
+            linkInFlight.set(false);
         }
     }
 

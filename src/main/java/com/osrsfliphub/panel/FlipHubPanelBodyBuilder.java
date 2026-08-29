@@ -24,8 +24,6 @@
  */
 package com.osrsfliphub;
 
-import static com.osrsfliphub.FlipHubPanelConstants.BG_ALT;
-
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
@@ -87,7 +85,7 @@ final class FlipHubPanelBodyBuilder {
                       JPanel statsItemsListPanel,
                       JComboBox<StatsItemSort> statsSortCombo,
                       JButton statsSortDirectionButton) {
-        cardPanel.setBackground(BG_ALT);
+        cardPanel.setOpaque(false);
 
         FlipHubFlippingPanelBuilder.BuildResult flipping = flippingPanelBuilder.build(
             searchField,

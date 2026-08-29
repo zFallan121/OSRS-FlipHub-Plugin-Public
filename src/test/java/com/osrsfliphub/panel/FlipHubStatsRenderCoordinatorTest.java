@@ -24,8 +24,12 @@
  */
 package com.osrsfliphub;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import javax.swing.BoxLayout;
+import javax.swing.JPanel;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -70,6 +74,96 @@ public class FlipHubStatsRenderCoordinatorTest {
 
         coordinator.toggleHistoryExpanded(expandedHistoryItems, 4151);
         assertFalse(expandedHistoryItems.contains(4151));
+    }
+
+    @Test
+    public void totalPagesRoundsPartialPagesUp() {
+        assertEquals(1, FlipHubStatsRenderCoordinator.totalPages(0));
+        assertEquals(1, FlipHubStatsRenderCoordinator.totalPages(10));
+        assertEquals(2, FlipHubStatsRenderCoordinator.totalPages(11));
+        assertEquals(3, FlipHubStatsRenderCoordinator.totalPages(25));
+    }
+
+    @Test
+    public void clampPageFallsBackToTheLastPageThatExists() {
+        assertEquals(1, FlipHubStatsRenderCoordinator.clampPage(0, 3));
+        assertEquals(2, FlipHubStatsRenderCoordinator.clampPage(2, 3));
+        assertEquals(3, FlipHubStatsRenderCoordinator.clampPage(9, 3));
+        assertEquals(1, FlipHubStatsRenderCoordinator.clampPage(4, 0));
+    }
+
+    @Test
+    public void renderItemsDrawsOnlyTheRequestedPageOfItems() {
+        FlipHubStatsRenderCoordinator coordinator = new FlipHubStatsRenderCoordinator();
+        List<StatsItem> rendered = new ArrayList<>();
+
+        int page = coordinator.renderItems(
+            newListPanel(),
+            buildItems(25),
+            "",
+            StatsItemSort.PROFIT,
+            false,
+            2,
+            item -> {
+                rendered.add(item);
+                return new JPanel();
+            },
+            null,
+            null,
+            null
+        );
+
+        assertEquals(2, page);
+        assertEquals(10, rendered.size());
+        assertEquals(14, rendered.get(0).item_id);
+        assertEquals(5, rendered.get(9).item_id);
+    }
+
+    @Test
+    public void renderItemsClampsAPageThatNoLongerExists() {
+        FlipHubStatsRenderCoordinator coordinator = new FlipHubStatsRenderCoordinator();
+        List<StatsItem> rendered = new ArrayList<>();
+
+        int page = coordinator.renderItems(
+            newListPanel(),
+            buildItems(12),
+            "",
+            StatsItemSort.PROFIT,
+            false,
+            7,
+            item -> {
+                rendered.add(item);
+                return new JPanel();
+            },
+            null,
+            null,
+            null
+        );
+
+        assertEquals(2, page);
+        assertEquals(2, rendered.size());
+    }
+
+    private JPanel newListPanel() {
+        JPanel listPanel = new JPanel();
+        listPanel.setLayout(new BoxLayout(listPanel, BoxLayout.Y_AXIS));
+        return listPanel;
+    }
+
+    /**
+     * Profit descends with the item id, so sorting by profit keeps the items in id order and the
+     * page slice stays readable in the assertions.
+     */
+    private List<StatsItem> buildItems(int count) {
+        List<StatsItem> items = new ArrayList<>();
+        for (int index = 0; index < count; index++) {
+            StatsItem item = new StatsItem();
+            item.item_id = count - index - 1;
+            item.item_name = "Item " + item.item_id;
+            item.total_profit_gp = (long) item.item_id;
+            items.add(item);
+        }
+        return items;
     }
 
     @Test

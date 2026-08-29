@@ -32,4 +32,6 @@ interface FlipHubPanelListener {
     void onStatsSortChanged(StatsItemSort sort);
     void onProfileSelected(String profileKey);
     void onManageData();
+    void onLinkSubmitted(String licenseKey);
+    void onUnlinkRequested();
 }

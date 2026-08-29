@@ -74,6 +74,15 @@ final class SessionRefreshService {
     void clearSession() {
         setConfiguration(DEFAULT_CONFIG_GROUP, SESSION_TOKEN_KEY, "");
         setConfiguration(DEFAULT_CONFIG_GROUP, SIGNING_SECRET_KEY, "");
+        // Otherwise the account card keeps claiming "Linked" until something else repaints it.
+        LinkStatusService linkStatus = PluginInjectorBridge.get(LinkStatusService.class);
+        if (linkStatus != null) {
+            linkStatus.refresh();
+        }
+        LinkSessionConfigStore store = PluginInjectorBridge.get(LinkSessionConfigStore.class);
+        if (store != null) {
+            store.flush();
+        }
         AccountwideSummaryUploader uploader = PluginInjectorBridge.get(AccountwideSummaryUploader.class);
         if (uploader != null) {
             uploader.resetUploadSnapshot();

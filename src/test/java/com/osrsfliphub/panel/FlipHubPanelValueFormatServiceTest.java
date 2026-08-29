@@ -40,6 +40,24 @@ public class FlipHubPanelValueFormatServiceTest {
     }
 
     @Test
+    public void formatGpCompactAbbreviatesLargeValues() {
+        assertEquals("N/A", service.formatGpCompact(null));
+        assertEquals("9,994 gp", service.formatGpCompact(9_994L));
+        assertEquals("10.0K gp", service.formatGpCompact(9_995L));
+        assertEquals("705.3K gp", service.formatGpCompact(705_263L));
+        assertEquals("11.04M gp", service.formatGpCompact(11_037_956L));
+        assertEquals("2.15B gp", service.formatGpCompact(2_147_483_647L));
+        assertEquals("-1.25M gp", service.formatGpCompact(-1_250_000L));
+    }
+
+    @Test
+    public void formatGpCompactPromotesValuesThatWouldRoundToTheNextUnit() {
+        assertEquals("1.00M gp", service.formatGpCompact(999_950L));
+        assertEquals("999.9K gp", service.formatGpCompact(999_949L));
+        assertEquals("1.00B gp", service.formatGpCompact(999_950_000L));
+    }
+
+    @Test
     public void formatPercentAndGpPerHourUseExpectedPrecision() {
         assertEquals("N/A", service.formatPercent(null));
         assertEquals("4.13%", service.formatPercent(4.125));

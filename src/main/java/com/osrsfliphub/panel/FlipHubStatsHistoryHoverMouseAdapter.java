@@ -25,6 +25,7 @@
 package com.osrsfliphub;
 
 import static com.osrsfliphub.FlipHubPanelConstants.MUTED;
+import static com.osrsfliphub.FlipHubPanelConstants.MUTED_2;
 import static com.osrsfliphub.FlipHubPanelConstants.TEXT;
 
 import java.awt.event.MouseAdapter;
@@ -52,8 +53,10 @@ final class FlipHubStatsHistoryHoverMouseAdapter extends MouseAdapter {
     public void mouseExited(MouseEvent e) {
         hoverDepth = Math.max(0, hoverDepth - 1);
         if (hoverDepth == 0) {
+            // Back to the ramp the two were built at, not to one shared tier: the chevron is
+            // ornament on --muted-2 and the title is a label on --muted.
             title.setForeground(MUTED);
-            chevron.setForeground(MUTED);
+            chevron.setForeground(MUTED_2);
         }
     }
 }

@@ -26,6 +26,7 @@ package com.osrsfliphub;
 
 import java.util.Set;
 import java.util.function.BiFunction;
+import java.util.function.IntConsumer;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -97,16 +98,21 @@ final class FlipHubPanelRenderActions {
         FlipHubPanelMutableState panelState,
         StatsItemSort sort,
         FlipHubStatsItemCardBuilder statsItemCardBuilder,
-        BiFunction<String, String, JPanel> cardBuilder
+        BiFunction<String, String, JPanel> cardBuilder,
+        FlipHubStatsPagerBuilder statsPagerBuilder,
+        IntConsumer onStatsPageSelected
     ) {
-        statsRenderCoordinator.renderItems(
+        panelState.statsPage = statsRenderCoordinator.renderItems(
             statsItemsListPanel,
             panelState.statsItems,
             panelState.statsSearchQuery,
             sort,
             panelState.statsSortAscending,
+            panelState.statsPage,
             statsItemCardBuilder::buildStatsItemCard,
-            cardBuilder
+            cardBuilder,
+            statsPagerBuilder,
+            onStatsPageSelected
         );
     }
 

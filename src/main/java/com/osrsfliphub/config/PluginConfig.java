@@ -32,23 +32,23 @@ import net.runelite.client.config.ConfigSection;
 @ConfigGroup(FliphubConfigGroups.CONFIG_GROUP)
 public interface PluginConfig extends Config {
     @ConfigSection(
-        name = "FlipHub account (optional cloud sync)",
-        description = "Optional. Turn on 'Enable FlipHub sync' and link a FlipHub account to sync your flips to "
-            + "the FlipHub online dashboard. While enabled and linked, your Grand Exchange offer events (item, "
-            + "quantity, price, time) are uploaded to FlipHub's servers (osrsfliphub.com). While 'Enable FlipHub "
-            + "sync' is off, the plugin never connects to FlipHub's servers and all data stays local on your "
-            + "computer.",
+        name = "FlipHub account",
+        description = "Optional. Link an account from the Link tab in the<br>"
+            + "FlipHub side panel. Leave this off and the plugin never<br>"
+            + "contacts FlipHub; every flip stays on this computer.",
         position = 0
     )
     String accountSection = "accountSection";
 
     @ConfigItem(
         keyName = "enableFlipHubSync",
-        name = "Enable FlipHub sync",
-        description = "Opt in to FlipHub cloud sync. While enabled and linked, your Grand Exchange offer events "
-            + "(item, quantity, price, time) are uploaded to FlipHub's servers (osrsfliphub.com) and flip data "
-            + "is fetched from them. While disabled, the plugin never connects to FlipHub's servers and all "
-            + "data stays local on your computer.",
+        name = "Sync flips to my FlipHub account",
+        description = "Uploads your Grand Exchange offers (item, quantity, price,<br>"
+            + "time) to your FlipHub dashboard at osrsfliphub.com and reads<br>"
+            + "your flip history back from it, so your stats follow<br>"
+            + "you between devices. While this is off the plugin never<br>"
+            + "connects to FlipHub's servers and every flip stays on this<br>"
+            + "computer. Linking is done in the side panel, not here.",
         warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by Runelite developers.",
         section = accountSection,
         position = 0
@@ -58,37 +58,22 @@ public interface PluginConfig extends Config {
     }
 
     @ConfigItem(
-        keyName = "licenseKey",
-        name = "License Key",
-        description = "Optional. Paste a FlipHub license key to link your account. While linked, your Grand "
-            + "Exchange offer events are uploaded to FlipHub's servers (osrsfliphub.com) to power your online "
-            + "dashboard. Leave blank to keep all data local — nothing is uploaded until you enable FlipHub "
-            + "sync and link.",
-        section = accountSection,
-        position = 1
+        keyName = "licenseKeyHint",
+        name = "License Key Hint",
+        description = "Last characters of the linked license key",
+        hidden = true
     )
-    default String licenseKey() {
+    default String licenseKeyHint() {
         return "";
     }
 
     @ConfigItem(
-        keyName = "unlinkNow",
-        name = "Unlink (click)",
-        description = "Clear link state, stop all uploads, and use local-only stats",
-        section = accountSection,
-        position = 2
-    )
-    default boolean unlinkNow() {
-        return false;
-    }
-
-    @ConfigItem(
-        keyName = "linkCode",
-        name = "Link Code (legacy)",
-        description = "Legacy link code field",
+        keyName = "licenseKey",
+        name = "License key",
+        description = "Stores the key while linking; cleared once accepted",
         hidden = true
     )
-    default String linkCode() {
+    default String licenseKey() {
         return "";
     }
 
@@ -154,8 +139,10 @@ public interface PluginConfig extends Config {
 
     @ConfigItem(
         keyName = "showGeOfferTimers",
-        name = "Show GE Offer Timers",
-        description = "Show how long since each GE offer last updated"
+        name = "Show GE offer timers",
+        description = "Draws a timer on each Grand Exchange slot showing how<br>"
+            + "long it has been since that offer last moved. Green<br>"
+            + "under 5 minutes, yellow under 30, red beyond that."
     )
     default boolean showGeOfferTimers() {
         return true;

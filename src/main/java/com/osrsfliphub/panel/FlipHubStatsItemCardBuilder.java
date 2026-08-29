@@ -40,7 +40,6 @@ import java.util.function.Supplier;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
-import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
@@ -93,12 +92,16 @@ final class FlipHubStatsItemCardBuilder {
 
     JPanel buildStatsItemCard(StatsItem item) {
         boolean expanded = isStatsItemExpanded(item.item_id);
-        JPanel card = new RoundedPanel(CARD_ARC, CARD, SOFT_BORDER);
+        JPanel card = RoundedPanel.glass(CARD_ARC);
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
         card.setAlignmentX(Component.LEFT_ALIGNMENT);
         card.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        card.setToolTipText(expanded ? "Click to collapse" : "Click to expand");
+
+        String name = item.item_name != null && !item.item_name.trim().isEmpty()
+            ? item.item_name
+            : "Item " + item.item_id;
+        card.setToolTipText(buildStatsCardTooltip(name, item, expanded));
 
         JLabel iconLabel = new JLabel();
         iconLabel.setPreferredSize(new Dimension(32, 32));
@@ -106,42 +109,45 @@ final class FlipHubStatsItemCardBuilder {
             itemIconResolver.setItemIcon(iconLabel, item.item_id);
         }
 
-        JPanel header = new JPanel(new BorderLayout(8, 0));
+        JPanel header = new JPanel(new BorderLayout(6, 0));
         header.setOpaque(false);
-        JPanel center = new JPanel();
+        // BorderLayout, not BoxLayout: a label in a Y-axis BoxLayout is capped at its preferred
+        // width, so the name would be squeezed again instead of taking the row.
+        JPanel center = new JPanel(new BorderLayout(0, 0));
         center.setOpaque(false);
-        center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
 
-        String name = item.item_name != null && !item.item_name.trim().isEmpty()
-            ? item.item_name
-            : "Item " + item.item_id;
+        // The name gets a row to itself: sharing one line with the profit left it barely half
+        // the panel width, which is not enough for most item names to survive.
         EllipsisLabel nameLabel = new EllipsisLabel(name);
         nameLabel.setForeground(TEXT);
         nameLabel.setFont(fontBold(12.5f));
 
-        JLabel metaLabel = new JLabel(formattingService.buildStatsItemMeta(item));
-        metaLabel.setForeground(MUTED);
-        metaLabel.setFont(font(10.5f));
-
-        center.add(nameLabel);
-        center.add(metaLabel);
-
         long profit = item.total_profit_gp != null ? item.total_profit_gp : 0;
-        JLabel profitLabel = new JLabel(valueFormatService.formatGp(profit), SwingConstants.RIGHT);
+        JLabel profitLabel = new JLabel(valueFormatService.formatGpCompact(profit), SwingConstants.RIGHT);
         profitLabel.setForeground(profit >= 0 ? SUCCESS : DANGER);
-        profitLabel.setFont(fontSemiBold(12f));
+        profitLabel.setFont(fontSemiBold(11.5f));
+
+        EllipsisLabel metaLabel = new EllipsisLabel(formattingService.buildStatsItemMetaShort(item));
+        metaLabel.setForeground(MUTED_2);
+        metaLabel.setFont(font(10f));
+
+        // Profit sits in EAST so it is always drawn in full; the meta takes whatever is left and
+        // clips itself, since every value in it is repeated in the expanded detail rows.
+        JPanel metaRow = new JPanel(new BorderLayout(6, 0));
+        metaRow.setOpaque(false);
+        metaRow.add(metaLabel, BorderLayout.CENTER);
+        metaRow.add(profitLabel, BorderLayout.EAST);
+
+        center.add(nameLabel, BorderLayout.NORTH);
+        center.add(metaRow, BorderLayout.CENTER);
+
         JLabel expandLabel = new JLabel(expanded ? "\u25B2" : "\u25BC", SwingConstants.RIGHT);
-        expandLabel.setForeground(MUTED);
+        expandLabel.setForeground(MUTED_2);
         expandLabel.setFont(font(10f));
-        JPanel right = new JPanel();
-        right.setOpaque(false);
-        right.setLayout(new BoxLayout(right, BoxLayout.Y_AXIS));
-        right.add(profitLabel);
-        right.add(expandLabel);
 
         header.add(iconLabel, BorderLayout.WEST);
         header.add(center, BorderLayout.CENTER);
-        header.add(right, BorderLayout.EAST);
+        header.add(expandLabel, BorderLayout.EAST);
         card.add(header);
         if (expanded) {
             card.add(Box.createVerticalStrut(6));
@@ -158,26 +164,45 @@ final class FlipHubStatsItemCardBuilder {
         return card;
     }
 
+    /**
+     * The collapsed card trades detail for width - the name is clipped to fit, the meta line is
+     * clipped before it and the profit is abbreviated - so the full values live here.
+     */
+    private String buildStatsCardTooltip(String name, StatsItem item, boolean expanded) {
+        return "<html><b>" + escapeHtml(name) + "</b><br>"
+            + escapeHtml(valueFormatService.formatGp(item.total_profit_gp)) + "<br>"
+            + escapeHtml(formattingService.buildStatsItemMeta(item)) + "<br>"
+            + (expanded ? "Click to collapse" : "Click to expand")
+            + "</html>";
+    }
+
+    private String escapeHtml(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    }
+
     private JPanel buildStatsItemDetails(StatsItem item) {
         JPanel details = new JPanel();
         details.setOpaque(false);
         details.setLayout(new BoxLayout(details, BoxLayout.Y_AXIS));
         long profit = item.total_profit_gp != null ? item.total_profit_gp : 0L;
         Color profitColor = profit >= 0 ? SUCCESS : DANGER;
-        details.add(buildStatsItemDetailLine("Total Profit", valueFormatService.formatGp(item.total_profit_gp), profitColor));
-        details.add(buildStatsItemDetailLine("Total Cost", valueFormatService.formatGp(item.total_cost_gp), TEXT));
-        details.add(buildStatsItemDetailLine("Avg Sell", formattingService.formatStatsAvgSell(item), TEXT));
-        details.add(buildStatsItemDetailLine("Avg Buy", formattingService.formatStatsAvgBuy(item), TEXT));
+        details.add(buildStatsItemDetailLine("Total profit", valueFormatService.formatGp(item.total_profit_gp), profitColor));
+        details.add(buildStatsItemDetailLine("Total cost", valueFormatService.formatGp(item.total_cost_gp), TEXT));
+        details.add(buildStatsItemDetailLine("Avg sell", formattingService.formatStatsAvgSell(item), TEXT));
+        details.add(buildStatsItemDetailLine("Avg buy", formattingService.formatStatsAvgBuy(item), TEXT));
         details.add(
             buildStatsItemDetailLine(
                 "ROI",
                 valueFormatService.formatPercent(item.roi_percent),
-                item.roi_percent != null && item.roi_percent < 0 ? DANGER : TEXT
+                item.roi_percent != null && item.roi_percent < 0 ? DANGER : SUCCESS
             )
         );
         details.add(buildStatsItemDetailLine("Flips", String.valueOf(item.fill_count != null ? item.fill_count : 0), TEXT));
         details.add(buildStatsItemDetailLine("Quantity", String.valueOf(item.total_qty != null ? item.total_qty : 0), TEXT));
-        details.add(buildStatsItemDetailLine("Last Completion", formattingService.formatStatsTimestamp(item.last_sell_ts_ms), MUTED));
+        details.add(buildStatsItemDetailLine("Last completion", formattingService.formatStatsTimestamp(item.last_sell_ts_ms), MUTED_2));
         details.add(Box.createVerticalStrut(6));
         details.add(buildStatsFlipHistorySection(item.item_id));
         return details;
@@ -197,11 +222,11 @@ final class FlipHubStatsItemCardBuilder {
         JPanel header = new JPanel(new BorderLayout(6, 0));
         header.setOpaque(false);
         header.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
-        JLabel title = new JLabel("Flip History (" + history.size() + ")");
+        JLabel title = new JLabel("Flip history (" + history.size() + ")");
         title.setForeground(MUTED);
         title.setFont(fontSemiBold(10f));
         JLabel chevron = new JLabel(expanded ? "\u25B2" : "\u25BC", SwingConstants.RIGHT);
-        chevron.setForeground(MUTED);
+        chevron.setForeground(MUTED_2);
         chevron.setFont(font(10f));
         header.add(title, BorderLayout.WEST);
         header.add(chevron, BorderLayout.EAST);
@@ -237,14 +262,14 @@ final class FlipHubStatsItemCardBuilder {
         entry.setOpaque(false);
         entry.setLayout(new BoxLayout(entry, BoxLayout.Y_AXIS));
         entry.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createMatteBorder(1, 0, 0, 0, SOFT_BORDER),
-            BorderFactory.createEmptyBorder(3, 0, 1, 0)
+            BorderFactory.createMatteBorder(1, 0, 0, 0, LINE),
+            BorderFactory.createEmptyBorder(4, 0, 2, 0)
         ));
 
         JPanel topRow = new JPanel(new BorderLayout(6, 0));
         topRow.setOpaque(false);
         JLabel flipLabel = new JLabel("#" + index);
-        flipLabel.setForeground(MUTED);
+        flipLabel.setForeground(MUTED_2);
         flipLabel.setFont(font(9.5f));
         Color profitColor = instance.profitGp >= 0 ? SUCCESS : DANGER;
         JLabel profitLabel = new JLabel("Profit: " + valueFormatService.formatGp(instance.profitGp), SwingConstants.RIGHT);
@@ -269,7 +294,7 @@ final class FlipHubStatsItemCardBuilder {
         qtyRow.setOpaque(false);
         qtyRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 14));
         JLabel qtyLabel = new JLabel("Qty: " + valueFormatService.formatNumber(instance.quantity), SwingConstants.RIGHT);
-        qtyLabel.setForeground(MUTED);
+        qtyLabel.setForeground(MUTED_2);
         qtyLabel.setFont(font(9.5f));
         qtyRow.add(qtyLabel, BorderLayout.EAST);
 
@@ -283,7 +308,7 @@ final class FlipHubStatsItemCardBuilder {
         JPanel row = new JPanel(new BorderLayout());
         row.setOpaque(false);
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
-        JLabel left = new JLabel(label + ":");
+        JLabel left = new JLabel(label);
         left.setForeground(MUTED);
         left.setFont(font(10f));
         JLabel right = new JLabel(value != null ? value : "N/A", SwingConstants.RIGHT);

@@ -167,10 +167,7 @@ final class GeLifecycleRuntimeSchedulerServices {
         LinkAttemptService linkAttemptService = resolve(linkAttemptServiceSupplier);
         PluginConfig config = resolve(configSupplier);
         if (linkAttemptService != null && config != null) {
-            String linkInput = linkAttemptService.resolveLinkInput(config.licenseKey(), config.linkCode());
-            if (linkInput != null && !linkInput.trim().isEmpty()) {
-                linkAttemptService.attemptLink(linkInput.trim());
-            }
+            linkAttemptService.attemptLink(config.licenseKey());
         }
 
         return new RuntimeState(apiClient, scheduler, ioExecutor);
