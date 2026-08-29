@@ -1,78 +1,72 @@
+<p align="center">
+  <img src="docs/01-hero-get-fliphub-on-runelite.png" alt="Get FlipHub on RuneLite — make smarter flips" width="100%">
+</p>
+
 # OSRS FlipHub
 
 Track your Grand Exchange flips — margins, buy limits and live Wiki prices, right in the sidebar.
 
-Works entirely offline as a local flip tracker. Linking a [FlipHub](https://www.osrsfliphub.com)
-account is optional and **off by default**.
+Works entirely offline. Linking a [FlipHub](https://www.osrsfliphub.com) account is optional and
+**off by default**.
 
 ## Features
 
 #### Activity panel
 
-Live prices for the items you care about, with everything you need to judge a flip at a glance:
-current sell and buy price, the last price each side actually traded at, margin, margin × buy
-limit, and ROI.
+Sell and buy price, the last price each side actually traded at, margin, margin × buy limit, ROI,
+and how much of your 4-hour buy limit is left with a countdown to the reset.
 
-Prices come from the Old School RuneScape Wiki price API and refresh continuously. Hover a
-Sell/Buy price to see exactly how old each side of the quote is — a five-minute-old buy price and
-a two-hour-old sell price are very different things.
-
-#### GE buy limits
-
-Every item shows how much of your 4-hour buy limit is left and a live countdown to when it resets,
-so you stop guessing whether you can still buy in.
-
-#### Offer preview
-
-Open a Grand Exchange offer in game and the panel jumps straight to that item, so the numbers you
-need are already on screen while you set your price.
+![The FlipHub Activity panel in the RuneLite sidebar, showing sell and buy price, last traded prices, margin, margin x limit, ROI and remaining GE buy limit](docs/panel-activity.png)
 
 #### Grand Exchange suggestions
 
-While you're searching for an item in the GE, the chatbox shows the current buy and sell price,
-your remaining buy limit, and how many you can afford with the cash you're carrying.
+Setting up an offer fills the prompts in with the numbers you'd otherwise alt-tab for.
 
-#### Flip Profile
+![The GE price prompt showing "Current Buy Price: 702 gp"](docs/ge-suggestion-buy-price.png)
 
-Your completed flips, totalled per item — profit and flip count over **Session**, **Last 1h**,
-**4h**, **24h**, **7d** or **All time**. Sort by completion, profit or ROI, and search to narrow it
-down.
+![The GE price prompt showing "Current Sell Price: 183,211 gp"](docs/ge-suggestion-sell-price.png)
 
-#### Bookmarks
+On a buy, the quantity prompt adds your remaining limit and how many you can afford.
 
-Star the items you flip regularly and filter the list to just those. Hide the ones you never trade.
+![The GE quantity prompt showing "Remaining GE limit: 3,000" and "Cash limit: 5,585"](docs/ge-suggestion-buy-limit.png)
 
-#### Optional cloud sync
+#### Profile
 
-Link a FlipHub account to sync completed flips to the [osrsfliphub.com](https://www.osrsfliphub.com)
-dashboard and see your history across devices. Entirely optional — see below.
+Completed flips totalled per item over **Session**, **1h**, **4h**, **24h**, **7d** or **All
+time**. Sort by completion, profit or ROI.
+
+![The Profile tab, showing total profit, ROI, flips made and tax paid over the selected range, above a sortable list of per-item totals](docs/panel-profile.png)
+
+#### Sync with FlipHub OSRS
+
+Link your plugin with your FlipHub OSRS account to sync flips and get personalised flip insights to
+start flipping smarter.
+
+Synced flips build your **My Statistics** page — profit over time, ranks as your total climbs, and
+the items worth going back to.
+
+![Cumulative profit climbing to 193M gp, with rank milestones along the way](docs/04-earn-ranks.png)
+
+![Flips worth revisiting, with profit, flip count and buy limit used](docs/08-flips-to-revisit.png)
+
+*The screenshots in this section are the FlipHub website, not the plugin.*
+
+![The FlipHub web dashboard: buy and sell price, margin, ROI, volume, buy limit and margin x limit](docs/10-web-dashboard.png)
+
+#### Also
+
+- **Offer preview** — open an offer in game and the panel jumps to that item.
+- **Bookmarks** — star the items you flip often, filter to just those, hide the rest.
 
 ## Getting started
 
-Install the plugin and open the FlipHub panel from the sidebar. That's it — offer tracking, buy
-limits and Wiki prices all work immediately with no account and no setup.
+Install the plugin and open the FlipHub panel from the sidebar. Offer tracking, buy limits and Wiki
+prices work immediately — no account, no setup.
 
-To sync to the web dashboard as well:
-
-1. Tick **Enable FlipHub sync** in the plugin settings.
-2. Paste your license key from [osrsfliphub.com/profile/manage](https://www.osrsfliphub.com/profile/manage) into **License Key**.
-
-Your flips start syncing from that point. To stop, click **Unlink** or clear the license key —
-uploads stop immediately and the plugin returns to local-only mode.
-
-## Configuration
-
-##### FlipHub account (optional cloud sync)
-
-- **Enable FlipHub sync** — Off by default. While off, the plugin never connects to FlipHub's
-  servers and everything stays on your computer.
-- **License Key** — Links the plugin to your FlipHub account. Leave blank to stay local-only.
-- **Unlink (click)** — Clears the link, stops all uploads, and returns to local-only stats.
-
-##### General
-
-- **Show GE Offer Timers** — Show how long since each Grand Exchange offer last updated. On by
-  default.
+To sync to the dashboard as well, open the **Link** tab in the FlipHub panel, paste your license
+key from [osrsfliphub.com/my-statistics](https://www.osrsfliphub.com/my-statistics) and click
+**Link account**. The tab shows whether the device is linked; **Unlink this device** stops it —
+uploads end immediately and the plugin returns to local-only.
 
 ## Privacy
 
@@ -88,17 +82,7 @@ credentials are requested, read, or transmitted.
 
 ## Support
 
-Found a bug or have a suggestion? Open an issue on
-[GitHub](https://github.com/zFallan121/OSRS-FlipHub-Plugin-Public/issues).
-
-## Building from source
-
-```sh
-./gradlew build
-```
-
-The jar is written to `build/libs/`. To launch a RuneLite developer client with the plugin loaded,
-run `./gradlew run`.
+[Contact support](https://www.osrsfliphub.com/support).
 
 ## License
 
