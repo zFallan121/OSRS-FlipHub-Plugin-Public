@@ -165,17 +165,6 @@ final class GeLifecycleLocalTradesRuntimeService {
         return service.load(accountHash, persistAfterLoad);
     }
 
-    boolean isPlaceholderDisplayName(String displayName) {
-        if (displayName == null) {
-            return true;
-        }
-        String trimmed = displayName.trim();
-        if (trimmed.isEmpty()) {
-            return true;
-        }
-        return trimmed.startsWith("Profile ");
-    }
-
     void persistLocalTrades(long accountKey) {
         if (accountKey < 0) {
             return;

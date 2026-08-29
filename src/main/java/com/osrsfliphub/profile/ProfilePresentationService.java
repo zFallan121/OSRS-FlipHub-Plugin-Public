@@ -50,12 +50,6 @@ final class ProfilePresentationService {
         return service != null ? service.buildProfileKey(accountHash) : String.valueOf(accountHash);
     }
 
-    private boolean isPlaceholderDisplayName(String displayName) {
-        GeLifecycleLocalTradesRuntimeService localTradesRuntime =
-            PluginAccess.plugin().getLocalTradesRuntimeService();
-        return localTradesRuntime != null && localTradesRuntime.isPlaceholderDisplayName(displayName);
-    }
-
     String resolveSelectedProfileLabel(long key,
                                        Map<Long, String> profileDisplayNames) {
         if (key == accountwideKey) {
@@ -65,7 +59,7 @@ final class ProfilePresentationService {
         if (displayName != null && !displayName.trim().isEmpty()) {
             return displayName;
         }
-        return "Profile " + key;
+        return ProfileDisplayNames.placeholderFor(key);
     }
 
     List<FlipHubProfileOption> buildProfileOptions(Map<Long, String> profileDisplayNames,
@@ -81,7 +75,7 @@ final class ProfilePresentationService {
             if (currentDisplayName != null && !currentDisplayName.trim().isEmpty()) {
                 diskProfiles.put(currentHash, currentDisplayName.trim());
             } else if (!diskProfiles.containsKey(currentHash)) {
-                diskProfiles.put(currentHash, "Profile " + currentHash);
+                diskProfiles.put(currentHash, ProfileDisplayNames.placeholderFor(currentHash));
             }
         }
         List<Map.Entry<Long, String>> entries = new ArrayList<>(diskProfiles.entrySet());
@@ -96,10 +90,9 @@ final class ProfilePresentationService {
             }
             String label = entry.getValue();
             if (label == null || label.trim().isEmpty()) {
-                label = "Profile " + hash;
+                label = ProfileDisplayNames.placeholderFor(hash);
             }
-            if (profileDisplayNames != null && label != null && !label.trim().isEmpty()
-                && !isPlaceholderDisplayName(label)) {
+            if (profileDisplayNames != null && !ProfileDisplayNames.isPlaceholder(label)) {
                 profileDisplayNames.put(hash, label.trim());
             }
             options.add(new FlipHubProfileOption(buildProfileKey(hash), label));

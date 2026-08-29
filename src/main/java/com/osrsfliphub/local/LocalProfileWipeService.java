@@ -42,9 +42,11 @@ import net.runelite.api.widgets.Widget;
 @Singleton
 final class LocalProfileWipeService {
     private final long accountwideKey = ACCOUNTWIDE_KEY;
+    private final PluginState pluginState;
 
     @Inject
-    LocalProfileWipeService() {
+    LocalProfileWipeService(PluginState pluginState) {
+        this.pluginState = pluginState;
     }
 
     private long resolveLocalAccountKey() {
@@ -77,12 +79,16 @@ final class LocalProfileWipeService {
     }
 
     private String resolveProfileDisplayName(long accountKey) {
-        Map<Long, String> names = PluginAccess.plugin().profileDisplayNames;
+        Map<Long, String> names = profileDisplayNames();
         return names != null ? names.get(accountKey) : null;
     }
 
+    private Map<Long, String> profileDisplayNames() {
+        return pluginState != null ? pluginState.getProfileDisplayNames() : null;
+    }
+
     private void setProfileDisplayName(long accountKey, String displayName) {
-        Map<Long, String> names = PluginAccess.plugin().profileDisplayNames;
+        Map<Long, String> names = profileDisplayNames();
         if (names == null || accountKey <= 0 || displayName == null) {
             return;
         }
@@ -191,7 +197,8 @@ final class LocalProfileWipeService {
         refreshUiAfterWipe();
         markAccountwideUploadDirty();
 
-        String label = !trimmedDisplayName.isEmpty() ? trimmedDisplayName : ("Profile " + accountKey);
+        String label = !trimmedDisplayName.isEmpty()
+            ? trimmedDisplayName : ProfileDisplayNames.placeholderFor(accountKey);
         pushGameMessage("FlipHub local wipe: cleared history for " + label + ".");
     }
 

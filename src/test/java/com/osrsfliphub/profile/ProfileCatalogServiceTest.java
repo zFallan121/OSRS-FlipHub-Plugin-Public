@@ -65,6 +65,30 @@ public class ProfileCatalogServiceTest {
         });
     }
 
+    @Test
+    public void persistedPlaceholderNamesNeverOverwriteRealDisplayNames() throws Exception {
+        withTemporaryHome(() -> {
+            Gson gson = new Gson();
+            Path runeliteDir = Path.of(System.getProperty("user.home"), ".runelite");
+            ProfileStore profileStore = new ProfileStore(gson, "fliphub-dev", "fliphub", runeliteDir);
+            ProfileCatalogService service = new ProfileCatalogService(profileStore);
+
+            Path devDir = profileStore.getProfilesDir();
+            assertTrue(devDir != null);
+
+            // Older builds baked the placeholder into displayName on disk.
+            writeProfile(gson, devDir.resolve("hash_444.json"), 444L, "Profile 444");
+
+            Map<Long, String> displayNames = new HashMap<>();
+            displayNames.put(444L, "Sips Potion");
+
+            Map<Long, String> profiles = service.loadProfiles(displayNames);
+
+            assertEquals("Sips Potion", profiles.get(444L));
+            assertEquals("Sips Potion", displayNames.get(444L));
+        });
+    }
+
     private static void writeProfile(Gson gson, Path file, long hash, String displayName) throws IOException {
         ProfileData data = new ProfileData();
         data.accountHash = hash;

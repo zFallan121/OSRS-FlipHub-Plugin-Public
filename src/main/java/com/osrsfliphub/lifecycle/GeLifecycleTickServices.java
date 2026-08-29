@@ -32,9 +32,11 @@ import net.runelite.api.GameState;
 
 @Singleton
 final class GeLifecycleTickServices {
+    private final PluginState pluginState;
 
     @Inject
-    GeLifecycleTickServices() {
+    GeLifecycleTickServices(PluginState pluginState) {
+        this.pluginState = pluginState;
     }
 
     boolean handlePostClientTick(boolean panelVisible) {
@@ -87,20 +89,19 @@ final class GeLifecycleTickServices {
         if (accountKey <= 0) {
             return;
         }
-        Map<Long, String> profileDisplayNames = plugin.profileDisplayNames;
-        String existing = profileDisplayNames != null ? profileDisplayNames.get(accountKey) : null;
-        GeLifecycleLocalTradesRuntimeService localTradesRuntime =
-            PluginInjectorBridge.get(GeLifecycleLocalTradesRuntimeService.class);
-        if (existing != null
-            && localTradesRuntime != null
-            && !localTradesRuntime.isPlaceholderDisplayName(existing)
-            && existing.trim().equalsIgnoreCase(trimmed)) {
+        Map<Long, String> profileDisplayNames =
+            pluginState != null ? pluginState.getProfileDisplayNames() : null;
+        if (profileDisplayNames == null) {
+            return;
+        }
+        String existing = profileDisplayNames.get(accountKey);
+        if (!ProfileDisplayNames.isPlaceholder(existing) && existing.trim().equalsIgnoreCase(trimmed)) {
             return;
         }
 
-        if (profileDisplayNames != null) {
-            profileDisplayNames.put(accountKey, trimmed);
-        }
+        profileDisplayNames.put(accountKey, trimmed);
+        GeLifecycleLocalTradesRuntimeService localTradesRuntime =
+            PluginInjectorBridge.get(GeLifecycleLocalTradesRuntimeService.class);
         if (localTradesRuntime != null) {
             localTradesRuntime.ensureProfileLoaded(accountKey);
         }

@@ -54,11 +54,6 @@ final class ProfileTradesLoader {
         return PluginInjectorBridge.get(ProfileStorageFacadeService.class);
     }
 
-    private boolean isPlaceholderDisplayName(String displayName) {
-        GeLifecycleLocalTradesRuntimeService runtime = PluginAccess.plugin().getLocalTradesRuntimeService();
-        return runtime != null && runtime.isPlaceholderDisplayName(displayName);
-    }
-
     Result load(long accountHash,
                 int maxLocalTrades,
                 long localEventBucketMs,
@@ -76,7 +71,7 @@ final class ProfileTradesLoader {
         ProfileData profile = storage != null ? storage.readProfileData(accountHash) : null;
         List<LocalTradeDelta> merged = profile != null ? profile.deltas : null;
         String profileName = profile != null ? profile.displayName : null;
-        boolean placeholderName = isPlaceholderDisplayName(profileName);
+        boolean placeholderName = ProfileDisplayNames.isPlaceholder(profileName);
         if (accountHash == accountwideKey) {
             AccountwideTradesMergeService mergeService =
                 PluginInjectorBridge.get(AccountwideTradesMergeService.class);

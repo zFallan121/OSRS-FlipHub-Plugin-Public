@@ -58,10 +58,13 @@ final class ProfileCatalogService {
         }
         ProfileHashFileWalker.walk(dir, (hash, path) -> {
             ProfileData data = profileStore.readProfileData(path);
-            if (data != null && data.displayName != null && !data.displayName.trim().isEmpty()) {
-                profiles.put(hash, data.displayName.trim());
+            String diskName = data != null ? data.displayName : null;
+            // Older builds persisted the "Profile <key>" placeholder into displayName; treat
+            // it as absent so it can never overwrite the real name already in memory.
+            if (!ProfileDisplayNames.isPlaceholder(diskName)) {
+                profiles.put(hash, diskName.trim());
             } else if (!profiles.containsKey(hash)) {
-                profiles.put(hash, "Profile " + hash);
+                profiles.put(hash, ProfileDisplayNames.placeholderFor(hash));
             }
         });
     }

@@ -74,6 +74,11 @@ final class ProfileStorageFacadeService {
         }
         String displayName = accountHash == accountwideKey
             ? "Accountwide" : pluginState.getProfileDisplayNames().get(accountHash);
+        if (ProfileDisplayNames.isPlaceholder(displayName)) {
+            // Persisting the placeholder would make it indistinguishable from a real name
+            // on the next load, permanently masking the account's display name.
+            displayName = null;
+        }
         List<LocalTradeDelta> snapshot = deltas != null ? deltas : new ArrayList<>();
         long fileMs = store.writeProfileData(accountHash, accountwideKey, displayName, snapshot);
         if (fileMs > 0) {

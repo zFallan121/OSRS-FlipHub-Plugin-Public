@@ -118,7 +118,7 @@ final class ManageDataCommandService {
         if (!label.isEmpty()) {
             return label;
         }
-        return "Profile " + selectedKey;
+        return ProfileDisplayNames.placeholderFor(selectedKey);
     }
 
     ConfirmationRequest confirmationForSelectedProfile(String profileLabel) {
