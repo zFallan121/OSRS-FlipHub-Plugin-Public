@@ -12,3 +12,5 @@ bin/
 .tmp_rlsrc/
 replay_pid*.log
 _legacy_untracked_backup_*/
+
+.vscode/
