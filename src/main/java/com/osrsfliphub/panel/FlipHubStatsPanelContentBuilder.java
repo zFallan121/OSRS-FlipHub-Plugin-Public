@@ -29,7 +29,6 @@ import static com.osrsfliphub.FlipHubPanelConstants.*;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Insets;
 import java.awt.event.MouseWheelListener;
@@ -181,24 +180,20 @@ final class FlipHubStatsPanelContentBuilder {
     }
 
     private JPanel buildStatsSortRow(JComboBox<StatsItemSort> statsSortCombo, JButton statsSortDirectionButton) {
-        JPanel row = new JPanel(new BorderLayout());
+        // The activity tab's shape: the label west, the dropdown taking the width between, and
+        // the direction button pinned east at the shared trailing width, so both tabs' sort rows
+        // span their panel and end on the same edge.
+        JPanel row = new JPanel(new BorderLayout(TRAILING_CONTROL_GAP, 0));
         row.setOpaque(false);
         row.setAlignmentX(JPanel.LEFT_ALIGNMENT);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
-        row.setPreferredSize(new Dimension(0, 28));
 
-        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-        left.setOpaque(false);
         JLabel sortLabel = new JLabel("Sort");
         uiStyler.styleMicroLabel(sortLabel, 9.5f);
-        if (uiStyler != null) {
-            uiStyler.styleComboBox(statsSortCombo);
-        }
+        sortLabel.setBorder(BorderFactory.createEmptyBorder(0, 2, 0, 4));
+
+        uiStyler.styleComboBox(statsSortCombo);
         statsSortCombo.setFont(font(10.5f));
         statsSortCombo.setBorder(roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
-        Dimension sortSize = statsSortCombo.getPreferredSize();
-        statsSortCombo.setPreferredSize(new Dimension(sortSize.width, 24));
-        statsSortCombo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         if (statsSortCombo.getSelectedItem() == null) {
             statsSortCombo.setSelectedItem(StatsItemSort.COMPLETION);
         }
@@ -208,9 +203,10 @@ final class FlipHubStatsPanelContentBuilder {
                 panelStateService.onStatsSortSelectionChanged(listener, panelState, sort, renderStatsItems);
             }
         });
-        uiStyler.styleGhostControl(statsSortDirectionButton, 11.5f, new Insets(2, 8, 2, 8));
-        statsSortDirectionButton.setPreferredSize(new Dimension(34, 24));
-        statsSortDirectionButton.setMaximumSize(new Dimension(34, 24));
+        // A rounded square, not the chip radius' oval, at the same width as the star toggle.
+        uiStyler.styleGhostControl(statsSortDirectionButton, 9f, new Insets(3, 6, 3, 6), INPUT_ARC);
+        uiStyler.matchFieldHeight(statsSortDirectionButton, statsSortCombo);
+        uiStyler.sizeTrailingControl(statsSortDirectionButton, statsSortCombo);
         statsSortDirectionButton.addActionListener(e -> {
             if (panelStateService != null) {
                 panelStateService.onStatsSortDirectionToggled(panelState, renderStatsItems);
@@ -220,15 +216,15 @@ final class FlipHubStatsPanelContentBuilder {
         });
         updateStatsSortDirectionButton(statsSortDirectionButton,
             panelState != null && panelState.statsSortAscending);
-        left.add(sortLabel);
-        left.add(statsSortCombo);
-        left.add(statsSortDirectionButton);
-        row.add(left, BorderLayout.WEST);
+        row.add(sortLabel, BorderLayout.WEST);
+        row.add(statsSortCombo, BorderLayout.CENTER);
+        row.add(statsSortDirectionButton, BorderLayout.EAST);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
         return row;
     }
 
     private void updateStatsSortDirectionButton(JButton statsSortDirectionButton, boolean ascending) {
-        statsSortDirectionButton.setText(ascending ? "\u2191" : "\u2193");
+        statsSortDirectionButton.setText(ascending ? "\u25b2" : "\u25bc");
         statsSortDirectionButton.setForeground(ascending ? ACCENT : MUTED);
         statsSortDirectionButton.setToolTipText(ascending ? "Ascending order" : "Descending order");
     }

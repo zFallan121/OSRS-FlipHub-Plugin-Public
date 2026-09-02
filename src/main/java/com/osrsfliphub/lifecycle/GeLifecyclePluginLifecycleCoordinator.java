@@ -34,13 +34,17 @@ final class GeLifecyclePluginLifecycleCoordinator {
         GeLifecyclePlugin.log.info("FlipHub OSRS plugin loaded");
         plugin.getOfferStampStateServices().migrateLegacyDevConfigIfNeeded();
         plugin.getProfileWorkflowService().loadProfileSelectionState();
+        PluginState pluginState = PluginInjectorBridge.get(PluginState.class);
         PluginInjectorBridge.get(BookmarkStateService.class).clearCache();
         PluginInjectorBridge.get(BookmarkStateService.class).loadSelectedBookmarks(
             PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class).resolveSelectedProfileKey(),
-            plugin.bookmarkedItems
+            pluginState.getBookmarkedItems()
         );
-        plugin.hiddenItems.clear();
-        plugin.hiddenItems.addAll(plugin.hiddenItemConfigStore.parseItemIds(plugin.config.hiddenItems()));
+        plugin.currentItemSort = StatsItemSort.fromName(plugin.config.itemSort());
+        plugin.currentItemSortAscending = plugin.config.itemSortAscending();
+        pluginState.getHiddenItems().clear();
+        pluginState.getHiddenItems().addAll(
+            pluginState.getHiddenItemConfigStore().parseItemIds(plugin.config.hiddenItems()));
         plugin.getOfferStampStateServices().resetForStartup();
         PluginInjectorBridge.get(ProfileStore.class);
         PluginInjectorBridge.get(LinkStatusService.class).refresh();

@@ -60,6 +60,7 @@ final class FlipHubAgeTooltipCoordinator {
     private final List<AgePairEntry> ageEntries = new ArrayList<>();
     private Timer countdownTimer;
     private AgePairEntry hoveredAgeEntry;
+    private boolean awaitingRebind;
     private JWindow ageTooltipWindow;
     private JToolTip ageTooltip;
     private Point ageTooltipPoint;
@@ -68,11 +69,23 @@ final class FlipHubAgeTooltipCoordinator {
         this.valueFormatService = valueFormatService;
     }
 
-    void clearEntriesAndHide() {
+    /**
+     * Drops the rows a rebuild is about to discard, and deliberately leaves any popup on screen.
+     * The data refresh replaces every label a few times a minute; the pointer has not moved and
+     * the rows coming back describe the same item, so disposing the window here and building a
+     * new one milliseconds later is exactly what the user sees as a blink. The
+     * {@link #syncHoverFromPointer()} at the end of the rebuild re-points it or, if the pointer
+     * has genuinely left, hides it.
+     */
+    void clearEntriesForRebuild() {
         countdownEntries.clear();
         ageEntries.clear();
+        // The components this pointed at are about to leave the panel; the popup itself stays.
         hoveredAgeEntry = null;
-        hideAgeTooltip();
+        // Every "is the pointer still over a row?" check is suspended until the replacement rows
+        // have been laid out. Asked before that, the answer is always no - the new labels have
+        // no bounds yet - and acting on that no is what closed the popup on each refresh.
+        awaitingRebind = isTooltipLive();
     }
 
     void clearHoverAndHide() {
@@ -155,6 +168,7 @@ final class FlipHubAgeTooltipCoordinator {
 
     void ensureCountdownTimer() {
         if (countdownEntries.isEmpty() && ageEntries.isEmpty()) {
+            awaitingRebind = false;
             hoveredAgeEntry = null;
             hideAgeTooltip();
             stopTimer(countdownTimer);
@@ -168,11 +182,18 @@ final class FlipHubAgeTooltipCoordinator {
             countdownTimer.start();
         }
         updateCountdowns();
-        // renderItems() replaces every label, so the pointer can already be
-        // resting on a freshly built row that never saw a mouseEntered.
-        // Re-acquire it in the same pass as the rebuild so the tooltip does
-        // not blink out while the user is still hovering.
-        syncHoverFromPointer();
+        // renderItems() replaces every label, so the pointer can already be resting on a freshly
+        // built row that never saw a mouseEntered, and it has to be re-acquired for it.
+        if (!awaitingRebind) {
+            syncHoverFromPointer();
+            return;
+        }
+        // The rows went in moments ago and are still unlaid-out: revalidate() only schedules the
+        // layout pass. Queue behind it so the question is asked of rows that have bounds.
+        SwingUtilities.invokeLater(() -> {
+            awaitingRebind = false;
+            syncHoverFromPointer();
+        });
     }
 
     /**
@@ -261,17 +282,29 @@ final class FlipHubAgeTooltipCoordinator {
         if (owner == null) {
             // Either nothing is hovered, or renderItems() swapped in fresh labels underneath a
             // stationary pointer. Re-derive from the pointer rather than waiting for a
-            // mouseEntered that will never arrive; the old code gave up here and left the
-            // tooltip hidden until the user moved the mouse.
-            syncHoverFromPointer();
+            // mouseEntered that will never arrive - unless a rebuild is still in flight, in
+            // which case the rows cannot answer yet and the deferred pass will do it.
+            if (!awaitingRebind) {
+                syncHoverFromPointer();
+            }
             return;
         }
         if (!isTooltipLive()) {
             showAgeTooltip(hoveredAgeEntry, now);
             return;
         }
-        updateAgeTooltipText(hoveredAgeEntry, now);
-        Point target = tooltipPointFor(hoveredAgeEntry, owner, ageTooltipWindow.getSize());
+        updateAgeTooltipContent(hoveredAgeEntry, now, owner);
+    }
+
+    /** Right text, right size, right place - without replacing the window that holds them. */
+    private void updateAgeTooltipContent(AgePairEntry entry, long now, JComponent owner) {
+        updateAgeTooltipText(entry, now);
+        // An age gains a digit as it counts up. Without the repack the window keeps the width it
+        // was first packed at and the longer text is clipped inside it.
+        if (!ageTooltip.getPreferredSize().equals(ageTooltipWindow.getSize())) {
+            ageTooltipWindow.pack();
+        }
+        Point target = tooltipPointFor(entry, owner, ageTooltipWindow.getSize());
         if (target != null && !target.equals(ageTooltipPoint)) {
             ageTooltipWindow.setLocation(target.x, target.y);
             ageTooltipPoint = target;
@@ -299,6 +332,13 @@ final class FlipHubAgeTooltipCoordinator {
         }
         Window ownerWindow = SwingUtilities.getWindowAncestor(owner);
         if (ownerWindow == null) {
+            return;
+        }
+        // A popup already up is re-pointed at the new rows rather than torn down: same window,
+        // new text and position. Only a first show, or one whose owner window has changed,
+        // builds anything.
+        if (isTooltipLive() && ageTooltipWindow.getOwner() == ownerWindow) {
+            updateAgeTooltipContent(entry, now, owner);
             return;
         }
         hideAgeTooltip();

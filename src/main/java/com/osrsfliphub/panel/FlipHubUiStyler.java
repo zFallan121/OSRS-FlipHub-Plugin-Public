@@ -34,6 +34,7 @@ import static com.osrsfliphub.FlipHubPanelConstants.MUTED;
 import static com.osrsfliphub.FlipHubPanelConstants.MUTED_2;
 import static com.osrsfliphub.FlipHubPanelConstants.OVERLAY_BASE;
 import static com.osrsfliphub.FlipHubPanelConstants.TEXT;
+import static com.osrsfliphub.FlipHubPanelConstants.TRAILING_CONTROL_WIDTH;
 
 import java.awt.Color;
 import java.awt.Cursor;
@@ -143,6 +144,36 @@ final class FlipHubUiStyler {
         button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
     }
 
+    /**
+     * A text field keeps the caret until something else takes focus, so a click on the panel
+     * itself has to be that something: without this the search box stays active - and keeps
+     * swallowing the keyboard - however far away the user clicks.
+     */
+    void installClickToDefocus(javax.swing.JComponent surface) {
+        if (surface == null) {
+            return;
+        }
+        surface.setFocusable(true);
+        surface.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+                surface.requestFocusInWindow();
+            }
+        });
+    }
+
+    /**
+     * Pins a row's trailing button to the shared width at the height of the control it follows,
+     * so every row that ends in one ends at the same x and they read as a single right edge.
+     */
+    void sizeTrailingControl(AbstractButton button, JComponent field) {
+        int height = Math.max(field.getPreferredSize().height, button.getPreferredSize().height);
+        Dimension size = new Dimension(TRAILING_CONTROL_WIDTH, height);
+        button.setPreferredSize(size);
+        button.setMinimumSize(size);
+        button.setMaximumSize(size);
+    }
+
     /** Pins a control to the height of the field it sits next to, so the row reads as one bar. */
     void matchFieldHeight(javax.swing.JComponent control, javax.swing.JComponent field) {
         int height = field.getPreferredSize().height;
@@ -184,8 +215,8 @@ final class FlipHubUiStyler {
         field.setCaretColor(TEXT);
         field.setSelectionColor(new Color(91, 159, 237, 70));
         field.setSelectedTextColor(TEXT);
-        field.setBorder(roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(6, 10, 6, 10)));
-        field.setFont(font(12f));
+        field.setBorder(roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(3, 8, 3, 8)));
+        field.setFont(font(11f));
     }
 
     Border roundedBorder(int arc, Color color, Insets padding) {

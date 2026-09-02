@@ -53,19 +53,21 @@ public class FlipHubPanel extends PluginPanel {
     private final JToggleButton flippingTab = new JToggleButton("Activity");
     private final JToggleButton statsTab = new JToggleButton("Profile");
     private final JToggleButton linkTab = new JToggleButton("Link");
-    private final JTextField searchField = new JTextField();
+    private final JTextField searchField = new PlaceholderTextField("GE search");
     private final JLabel refreshLabel = new JLabel("Updated: --");
     private final JButton profileButton = new JButton("Accountwide");
     private final JLabel pageLabel = new JLabel("Page 0 of 0");
     private final JButton prevButton = new JButton("<");
     private final JButton nextButton = new JButton(">");
     private JPanel footerPanel;
-    private final JToggleButton bookmarkFilterButton = new JToggleButton("\u2605");
+    private final JButton bookmarkFilterButton = new JButton("\u2605");
+    private final JComboBox<StatsItemSort> itemSortCombo = new JComboBox<>(StatsItemSort.values());
+    private final JButton itemSortDirectionButton = new JButton("\u25bc");
     private final JPanel listPanel = new TrackingPanel(SCROLL_UNIT_INCREMENT, SCROLL_BLOCK_INCREMENT);
     private final JScrollPane scrollPane = new JScrollPane(listPanel);
     private final JComboBox<StatsRange> statsRangeCombo = new JComboBox<>(StatsRange.values());
     private final JComboBox<StatsItemSort> statsSortCombo = new JComboBox<>(StatsItemSort.values());
-    private final JButton statsSortDirectionButton = new JButton("\u2193");
+    private final JButton statsSortDirectionButton = new JButton("\u25bc");
     private final JTextField statsSearchField = new JTextField();
     private final JButton statsClearButton = new JButton("Clear");
     private final JLabel statsUpdatedLabel = new JLabel("Updated: --");
@@ -165,6 +167,8 @@ public class FlipHubPanel extends PluginPanel {
             statsPanelBuilder,
             searchField,
             bookmarkFilterButton,
+            itemSortCombo,
+            itemSortDirectionButton,
             refreshLabel,
             listPanel,
             scrollPane,

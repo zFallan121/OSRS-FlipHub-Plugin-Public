@@ -118,6 +118,26 @@ public interface PluginConfig extends Config {
     }
 
     @ConfigItem(
+        keyName = "itemSort",
+        name = "Activity Sort",
+        description = "Sort applied to the activity list",
+        hidden = true
+    )
+    default String itemSort() {
+        return "";
+    }
+
+    @ConfigItem(
+        keyName = "itemSortAscending",
+        name = "Activity Sort Ascending",
+        description = "Whether the activity list sorts ascending",
+        hidden = true
+    )
+    default boolean itemSortAscending() {
+        return false;
+    }
+
+    @ConfigItem(
         keyName = "hiddenItems",
         name = "Hidden Items",
         description = "Comma-separated item ids hidden from view",

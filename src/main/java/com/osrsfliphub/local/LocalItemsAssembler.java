@@ -25,6 +25,7 @@
 package com.osrsfliphub;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -35,6 +36,7 @@ import javax.inject.Singleton;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
 import net.runelite.client.game.ItemManager;
+import net.runelite.http.api.item.ItemPrice;
 
 @Singleton
 final class LocalItemsAssembler {
@@ -148,7 +150,85 @@ final class LocalItemsAssembler {
             }
         }
 
+        if (needle != null) {
+            appendCatalogueMatches(items, seenItemIds, itemsNeedingLimits, needle,
+                limitInfo, bookmarkFilterEnabled, bookmarkedItems);
+        }
+
         return new Result(items, itemsNeedingLimits);
+    }
+
+    /**
+     * Everything the Grand Exchange sells, not only what this account has already flipped.
+     * Without this the search box can only narrow the list it is sitting on, which makes it a
+     * filter rather than a search: there is no way to look an item up before trading it once.
+     *
+     * <p>These carry no trade history, so their card shows the live prices, the margin and the
+     * limit, and leaves last buy/sell empty until the account actually trades one.</p>
+     */
+    private void appendCatalogueMatches(List<FlipHubItem> items,
+                                        Set<Integer> seenItemIds,
+                                        Set<Integer> itemsNeedingLimits,
+                                        String needle,
+                                        Map<Integer, LocalLimitInfo> limitInfo,
+                                        boolean bookmarkFilterEnabled,
+                                        Set<Integer> bookmarkedItems) {
+        if (itemManager == null) {
+            return;
+        }
+        List<ItemPrice> matches;
+        try {
+            matches = itemManager.search(needle);
+        } catch (RuntimeException ignored) {
+            return;
+        }
+        if (matches == null) {
+            return;
+        }
+        // The cap has to fall on the least useful matches, not on whichever ones the client
+        // happened to list last: "rune" matches hundreds of items, and the one actually named
+        // Rune has to survive that. Exact name first, then names that start with what was typed.
+        List<ItemPrice> ranked = new ArrayList<>(matches);
+        ranked.sort(Comparator
+            .comparingInt((ItemPrice match) -> matchRank(match, needle))
+            .thenComparing(match -> match.getName() != null ? match.getName() : "",
+                String.CASE_INSENSITIVE_ORDER));
+
+        int added = 0;
+        for (ItemPrice match : ranked) {
+            if (added >= GeLifecyclePluginConstants.MAX_SEARCH_CATALOGUE_RESULTS) {
+                break;
+            }
+            if (match == null) {
+                continue;
+            }
+            int itemId = match.getId();
+            if (itemId <= 0 || seenItemIds.contains(itemId)) {
+                continue;
+            }
+            String name = match.getName();
+            if (isFiltered(itemId, name, needle, bookmarkFilterEnabled, bookmarkedItems)) {
+                continue;
+            }
+            FlipHubItem item = new FlipHubItem();
+            item.item_id = itemId;
+            item.item_name = name;
+            applyItemInfo(item, itemId, null, limitInfo != null ? limitInfo.get(itemId) : null);
+            items.add(item);
+            seenItemIds.add(itemId);
+            itemsNeedingLimits.add(itemId);
+            added++;
+        }
+    }
+
+    private static int matchRank(ItemPrice match, String needle) {
+        String name = match != null && match.getName() != null
+            ? match.getName().toLowerCase(Locale.US)
+            : "";
+        if (name.equals(needle)) {
+            return 0;
+        }
+        return name.startsWith(needle) ? 1 : 2;
     }
 
     private String resolveName(int itemId) {

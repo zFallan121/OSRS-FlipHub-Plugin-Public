@@ -98,7 +98,7 @@ final class FlipHubStatsPanelHeaderBuilder {
             }
         });
 
-        uiStyler.styleGhostControl(statsClearButton, 10.5f, new Insets(6, 12, 6, 12), INPUT_ARC);
+        uiStyler.styleGhostControl(statsClearButton, 10f, new Insets(3, 8, 3, 8), INPUT_ARC);
         uiStyler.matchFieldHeight(statsClearButton, statsSearchField);
         statsClearButton.addActionListener(e -> statsSearchField.setText(""));
 

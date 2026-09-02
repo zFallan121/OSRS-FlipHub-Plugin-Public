@@ -28,6 +28,7 @@ interface FlipHubPanelListener {
     void onSearchChanged(String query);
     void onPageChanged(int page);
     void onBookmarkFilterChanged(boolean enabled);
+    void onItemSortChanged(StatsItemSort sort, boolean ascending);
     void onStatsRangeChanged(StatsRange range);
     void onStatsSortChanged(StatsItemSort sort);
     void onProfileSelected(String profileKey);

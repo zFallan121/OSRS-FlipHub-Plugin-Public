@@ -33,17 +33,61 @@ import static org.junit.Assert.assertEquals;
 
 public class LocalItemsPagerTest {
     @Test
-    public void sortByRecentTradeThenNameSortsByTimestampDescThenName() {
+    public void completionSortsByTimestampDescThenName() {
         FlipHubItem a = item("Zamorak brew", 1000L, null);
         FlipHubItem b = item("Abyssal whip", 1000L, null);
         FlipHubItem c = item("Rune knife", 2000L, null);
         List<FlipHubItem> items = new ArrayList<>(Arrays.asList(a, b, c));
 
-        LocalItemsPager.sortByRecentTradeThenName(items);
+        LocalItemsPager.sortItems(items, StatsItemSort.COMPLETION, false);
 
         assertEquals("Rune knife", items.get(0).item_name);
         assertEquals("Abyssal whip", items.get(1).item_name);
         assertEquals("Zamorak brew", items.get(2).item_name);
+    }
+
+    @Test
+    public void profitSortsByMarginTimesLimitDescending() {
+        FlipHubItem thin = item("Mahogany logs", 1000L, null);
+        thin.margin_x_limit = 13_000L;
+        FlipHubItem fat = item("Abyssal whip", 2000L, null);
+        fat.margin_x_limit = 400_000L;
+        List<FlipHubItem> items = new ArrayList<>(Arrays.asList(thin, fat));
+
+        LocalItemsPager.sortItems(items, StatsItemSort.PROFIT, false);
+
+        assertEquals("Abyssal whip", items.get(0).item_name);
+        assertEquals("Mahogany logs", items.get(1).item_name);
+    }
+
+    @Test
+    public void roiSortAscendingPutsWorstReturnFirst() {
+        FlipHubItem good = item("Abyssal whip", 1000L, null);
+        good.roi_percent = 12.5d;
+        FlipHubItem bad = item("Ring of wealth", 1000L, null);
+        bad.roi_percent = -1.62d;
+        List<FlipHubItem> items = new ArrayList<>(Arrays.asList(good, bad));
+
+        LocalItemsPager.sortItems(items, StatsItemSort.ROI, true);
+
+        assertEquals("Ring of wealth", items.get(0).item_name);
+        assertEquals("Abyssal whip", items.get(1).item_name);
+    }
+
+    /** A catalogue hit with no margin yet is unranked, not the best row on an ascending sort. */
+    @Test
+    public void itemsWithoutTheSortedFigureSinkInBothDirections() {
+        FlipHubItem ranked = item("Abyssal whip", 1000L, null);
+        ranked.margin_x_limit = 400_000L;
+        FlipHubItem unranked = item("Aaa untraded", 1000L, null);
+        List<FlipHubItem> items = new ArrayList<>(Arrays.asList(unranked, ranked));
+
+        LocalItemsPager.sortItems(items, StatsItemSort.PROFIT, false);
+        assertEquals("Abyssal whip", items.get(0).item_name);
+
+        LocalItemsPager.sortItems(items, StatsItemSort.PROFIT, true);
+        assertEquals("Abyssal whip", items.get(0).item_name);
+        assertEquals("Aaa untraded", items.get(1).item_name);
     }
 
     @Test

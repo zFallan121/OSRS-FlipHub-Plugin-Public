@@ -43,6 +43,7 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
+import javax.swing.JTextField;
 import javax.swing.Scrollable;
 import javax.swing.border.Border;
 import javax.swing.plaf.basic.BasicComboBoxUI;
@@ -382,6 +383,39 @@ final class RoundedBorder implements Border {
     @Override
     public boolean isBorderOpaque() {
         return false;
+    }
+}
+
+/**
+ * A field that says what it searches while it is empty. The hint is painted rather than typed
+ * into the document, so it never becomes the query and never has to be stripped back out.
+ */
+final class PlaceholderTextField extends JTextField {
+    private final String placeholder;
+
+    PlaceholderTextField(String placeholder) {
+        this.placeholder = placeholder != null ? placeholder : "";
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        if (placeholder.isEmpty() || !getText().isEmpty()) {
+            return;
+        }
+        Graphics2D g2 = (Graphics2D) g.create();
+        try {
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g2.setFont(getFont());
+            g2.setColor(FlipHubPanelConstants.MUTED_2);
+            FontMetrics metrics = g2.getFontMetrics();
+            Insets insets = getInsets();
+            int baseline = (getHeight() - metrics.getHeight()) / 2 + metrics.getAscent();
+            g2.drawString(placeholder, insets.left, baseline);
+        } finally {
+            g2.dispose();
+        }
     }
 }
 

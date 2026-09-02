@@ -38,7 +38,10 @@ final class FlipHubPanelMutableState {
     FlipHubItem offerPreviewItem;
     long offerAsOfMs;
     Long offerPriceCacheMs;
+    String searchQuery = "";
     boolean showBookmarkedOnly;
+    StatsItemSort itemSort = StatsItemSort.COMPLETION;
+    boolean itemSortAscending;
     boolean statsSortAscending;
     int statsPage = 1;
     String statsSearchQuery = "";

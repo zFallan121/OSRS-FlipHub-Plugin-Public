@@ -30,7 +30,6 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
-import javax.swing.JToggleButton;
 
 final class FlipHubPanelBodyBuilder {
     static final class BuildResult {
@@ -69,7 +68,9 @@ final class FlipHubPanelBodyBuilder {
                       FlipHubFlippingPanelBuilder flippingPanelBuilder,
                       FlipHubStatsPanelBuilder statsPanelBuilder,
                       JTextField searchField,
-                      JToggleButton bookmarkFilterButton,
+                      JButton bookmarkFilterButton,
+                      JComboBox<StatsItemSort> itemSortCombo,
+                      JButton itemSortDirectionButton,
                       JLabel refreshLabel,
                       JButton profileButton,
                       JPanel listPanel,
@@ -90,6 +91,8 @@ final class FlipHubPanelBodyBuilder {
         FlipHubFlippingPanelBuilder.BuildResult flipping = flippingPanelBuilder.build(
             searchField,
             bookmarkFilterButton,
+            itemSortCombo,
+            itemSortDirectionButton,
             refreshLabel,
             profileButton,
             listPanel,

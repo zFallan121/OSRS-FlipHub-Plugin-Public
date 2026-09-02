@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/01-hero-get-fliphub-on-runelite.png" alt="Get FlipHub on RuneLite — make smarter flips" width="100%">
+  <img src="docs/01-hero-get-fliphub-on-runelite-large.png" alt="Get FlipHub on RuneLite — make smarter flips" width="100%">
 </p>
 
 # OSRS FlipHub
@@ -15,6 +15,9 @@ Works entirely offline. Linking a [FlipHub](https://www.osrsfliphub.com) account
 
 Sell and buy price, the last price each side actually traded at, margin, margin × buy limit, ROI,
 and how much of your 4-hour buy limit is left with a countdown to the reset.
+
+Search the whole Grand Exchange, not only the items you have already flipped, and sort the list by
+completion, profit or ROI.
 
 ![The FlipHub Activity panel in the RuneLite sidebar, showing sell and buy price, last traded prices, margin, margin x limit, ROI and remaining GE buy limit](docs/panel-activity.png)
 
@@ -42,12 +45,16 @@ time**. Sort by completion, profit or ROI.
 Link your plugin with your FlipHub OSRS account to sync flips and get personalised flip insights to
 start flipping smarter.
 
-Synced flips build your **My Statistics** page — profit over time, ranks as your total climbs, and
-the items worth going back to.
+Synced flips build your **My Statistics** page — the items worth going back to, profit over time,
+and ranks as your total climbs.
+
+![Know what to flip next: items worth revisiting, with profit, flip count and buy limit used](docs/07-know-what-to-flip-next.png)
+
+![Flips worth revisiting, with profit, flip count and buy limit used](docs/08-flips-to-revisit.png)
 
 ![Cumulative profit climbing to 193M gp, with rank milestones along the way](docs/04-earn-ranks.png)
 
-![Flips worth revisiting, with profit, flip count and buy limit used](docs/08-flips-to-revisit.png)
+![From Beggar to The Elite — the rank ladder, topping out at Gielinor Elite](docs/06-gielinor-elite.png)
 
 *The screenshots in this section are the FlipHub website, not the plugin.*
 

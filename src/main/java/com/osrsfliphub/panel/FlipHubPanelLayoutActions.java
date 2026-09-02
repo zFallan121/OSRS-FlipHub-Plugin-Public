@@ -85,7 +85,9 @@ final class FlipHubPanelLayoutActions {
         FlipHubFlippingPanelBuilder flippingPanelBuilder,
         FlipHubStatsPanelBuilder statsPanelBuilder,
         JTextField searchField,
-        JToggleButton bookmarkFilterButton,
+        JButton bookmarkFilterButton,
+        JComboBox<StatsItemSort> itemSortCombo,
+        JButton itemSortDirectionButton,
         JLabel refreshLabel,
         JPanel listPanel,
         JScrollPane scrollPane,
@@ -116,7 +118,9 @@ final class FlipHubPanelLayoutActions {
 
         JPanel backdrop = new BackdropPanel(BG, GRAD_GREEN, GRAD_BLUE);
         backdrop.setLayout(new BorderLayout());
-        backdrop.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        // Two at the bottom, not twelve: the pager is meant to sit on the panel's edge.
+        backdrop.setBorder(BorderFactory.createEmptyBorder(12, 12, 2, 12));
+        uiStyler.installClickToDefocus(backdrop);
         hostPanel.add(backdrop, BorderLayout.CENTER);
 
         JPanel header = chromeBuilder.buildHeader(profileButton, showProfileMenuAction);
@@ -145,6 +149,8 @@ final class FlipHubPanelLayoutActions {
             statsPanelBuilder,
             searchField,
             bookmarkFilterButton,
+            itemSortCombo,
+            itemSortDirectionButton,
             refreshLabel,
             profileButton,
             listPanel,

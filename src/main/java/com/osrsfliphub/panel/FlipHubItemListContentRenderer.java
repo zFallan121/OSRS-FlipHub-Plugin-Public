@@ -63,7 +63,8 @@ final class FlipHubItemListContentRenderer {
                     long offerAsOfMs,
                     List<FlipHubItem> lastItems,
                     long lastAsOfMs,
-                    boolean showBookmarkedOnly) {
+                    boolean showBookmarkedOnly,
+                    String searchQuery) {
         if (listPanel == null) {
             return;
         }
@@ -73,7 +74,7 @@ final class FlipHubItemListContentRenderer {
             return;
         }
         if (lastItems == null || lastItems.isEmpty()) {
-            listPanel.add(buildEmptyStateCard(showBookmarkedOnly));
+            listPanel.add(buildEmptyStateCard(showBookmarkedOnly, searchQuery));
             return;
         }
         if (showBookmarkedOnly) {
@@ -87,7 +88,7 @@ final class FlipHubItemListContentRenderer {
                 }
             }
             if (itemsToShow.isEmpty()) {
-                listPanel.add(buildEmptyStateCard(true));
+                listPanel.add(buildEmptyStateCard(true, searchQuery));
             } else {
                 listPanel.add(buildSectionHeader("Bookmarked items"));
                 listPanel.add(Box.createVerticalStrut(6));
@@ -98,9 +99,17 @@ final class FlipHubItemListContentRenderer {
         addItemCards(listPanel, lastItems, lastAsOfMs);
     }
 
-    private JComponent buildEmptyStateCard(boolean showBookmarkedOnly) {
-        return showBookmarkedOnly
-            ? buildCard("No bookmarks", "Bookmark items to pin them here.")
+    private JComponent buildEmptyStateCard(boolean showBookmarkedOnly, String searchQuery) {
+        boolean searching = searchQuery != null && !searchQuery.trim().isEmpty();
+        if (showBookmarkedOnly) {
+            return searching
+                ? buildCard("No bookmarks match", "Nothing you have bookmarked goes by that name.")
+                : buildCard("No bookmarks", "Bookmark items to pin them here.");
+        }
+        // The search reaches the whole Grand Exchange now, so an empty result means the name is
+        // wrong, not that the account has never traded it.
+        return searching
+            ? buildCard("No matches", "No tradeable item goes by that name.")
             : buildCard("No flip history", "Make a trade to see your items here.");
     }
 

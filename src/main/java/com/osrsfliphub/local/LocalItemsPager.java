@@ -25,6 +25,7 @@
 package com.osrsfliphub;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 final class LocalItemsPager {
@@ -47,27 +48,47 @@ final class LocalItemsPager {
     private LocalItemsPager() {
     }
 
-    static void sortByRecentTradeThenName(List<FlipHubItem> items) {
+    /**
+     * Orders the list on one of the three figures the cards show. Descending is the useful
+     * direction for all three - the most recent flip, the fattest margin, the best return - so
+     * that is what the arrow points at until it is turned around.
+     */
+    static void sortItems(List<FlipHubItem> items, StatsItemSort sort, boolean ascending) {
         if (items == null || items.size() <= 1) {
             return;
         }
-        items.sort((a, b) -> {
-            long aTs = Math.max(
-                a != null && a.last_sell_ts_ms != null ? a.last_sell_ts_ms : 0L,
-                a != null && a.last_buy_ts_ms != null ? a.last_buy_ts_ms : 0L
-            );
-            long bTs = Math.max(
-                b != null && b.last_sell_ts_ms != null ? b.last_sell_ts_ms : 0L,
-                b != null && b.last_buy_ts_ms != null ? b.last_buy_ts_ms : 0L
-            );
-            int tsCompare = Long.compare(bTs, aTs);
-            if (tsCompare != 0) {
-                return tsCompare;
-            }
-            String aName = a != null && a.item_name != null ? a.item_name : "";
-            String bName = b != null && b.item_name != null ? b.item_name : "";
-            return aName.compareToIgnoreCase(bName);
+        StatsItemSort activeSort = sort != null ? sort : StatsItemSort.COMPLETION;
+        Comparator<FlipHubItem> byFigure = Comparator.comparingDouble(item -> {
+            Double figure = figureOf(item, activeSort);
+            return figure != null ? figure : 0d;
         });
+        Comparator<FlipHubItem> comparator = Comparator
+            // An item we have no figure for yet is not the worst one, it is unranked: it sits
+            // below everything ranked whichever way the arrow points, rather than winning the
+            // ascending order by being empty.
+            .comparingInt((FlipHubItem item) -> figureOf(item, activeSort) != null ? 0 : 1)
+            .thenComparing(ascending ? byFigure : byFigure.reversed())
+            // The name breaks ties the same way in both directions, so a screen of items that
+            // share a figure reads A-Z rather than mirroring when the arrow flips.
+            .thenComparing(item -> item.item_name != null ? item.item_name : "",
+                String.CASE_INSENSITIVE_ORDER);
+        items.sort(Comparator.nullsLast(comparator));
+    }
+
+    private static Double figureOf(FlipHubItem item, StatsItemSort sort) {
+        switch (sort) {
+            case PROFIT:
+                return item.margin_x_limit != null ? (double) item.margin_x_limit : null;
+            case ROI:
+                return item.roi_percent;
+            case COMPLETION:
+            default:
+                long lastTradeMs = Math.max(
+                    item.last_sell_ts_ms != null ? item.last_sell_ts_ms : 0L,
+                    item.last_buy_ts_ms != null ? item.last_buy_ts_ms : 0L
+                );
+                return lastTradeMs > 0 ? (double) lastTradeMs : null;
+        }
     }
 
     static Page paginate(List<FlipHubItem> items, int currentPage, int pageSize) {

@@ -37,6 +37,17 @@ public enum StatsItemSort {
         this.apiValue = apiValue;
     }
 
+    static StatsItemSort fromName(String name) {
+        if (name != null) {
+            for (StatsItemSort sort : values()) {
+                if (sort.name().equalsIgnoreCase(name.trim())) {
+                    return sort;
+                }
+            }
+        }
+        return COMPLETION;
+    }
+
     public String getApiValue() {
         return apiValue;
     }

@@ -44,6 +44,7 @@ final class FlipHubItemsRenderCoordinator {
                      List<FlipHubItem> lastItems,
                      long lastAsOfMs,
                      boolean showBookmarkedOnly,
+                     String searchQuery,
                      JLabel refreshLabel,
                      Long lastPriceCacheMs,
                      Long offerPriceCacheMs,
@@ -54,15 +55,18 @@ final class FlipHubItemsRenderCoordinator {
             return;
         }
 
+        // Before removeAll(): pulling the rows out from under the pointer synthesises a
+        // mouseExited on them, and the hover has to be stood down before that arrives.
+        ageTooltipCoordinator.clearEntriesForRebuild();
         listPanel.removeAll();
-        ageTooltipCoordinator.clearEntriesAndHide();
         itemListContentRenderer.renderList(
             listPanel,
             offerPreviewItem,
             offerAsOfMs,
             lastItems,
             lastAsOfMs,
-            showBookmarkedOnly
+            showBookmarkedOnly,
+            searchQuery
         );
 
         long refreshAsOf = lastAsOfMs > 0 ? lastAsOfMs : offerAsOfMs;
@@ -81,8 +85,8 @@ final class FlipHubItemsRenderCoordinator {
             }
         }
 
-        ageTooltipCoordinator.ensureCountdownTimer();
         listPanel.revalidate();
         listPanel.repaint();
+        ageTooltipCoordinator.ensureCountdownTimer();
     }
 }

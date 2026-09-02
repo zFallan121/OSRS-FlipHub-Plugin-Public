@@ -28,6 +28,7 @@ import static com.osrsfliphub.FlipHubPanelConstants.*;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Insets;
@@ -36,16 +37,17 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
-import javax.swing.JToggleButton;
 import javax.swing.JViewport;
 import javax.swing.border.Border;
 
 final class FlipHubFlippingPanelBuilder {
+
     static final class BuildResult {
         final JPanel panel;
         final JPanel footerPanel;
@@ -82,7 +84,9 @@ final class FlipHubFlippingPanelBuilder {
 
     BuildResult build(
         JTextField searchField,
-        JToggleButton bookmarkFilterButton,
+        JButton bookmarkFilterButton,
+        JComboBox<StatsItemSort> itemSortCombo,
+        JButton itemSortDirectionButton,
         JLabel refreshLabel,
         JButton profileButton,
         JPanel listPanel,
@@ -95,23 +99,26 @@ final class FlipHubFlippingPanelBuilder {
         panel.setOpaque(false);
         panel.setLayout(new BorderLayout());
 
-        JPanel searchRow = new JPanel(new BorderLayout(8, 0));
+        JPanel searchRow = new JPanel(new BorderLayout(TRAILING_CONTROL_GAP, 0));
         searchRow.setOpaque(false);
 
         if (uiStyler != null) {
             uiStyler.styleTextField(searchField);
         }
 
-        uiStyler.styleGhostControl(bookmarkFilterButton, 14.5f, new Insets(6, 10, 6, 10), INPUT_ARC);
-        bookmarkFilterButton.setFont(fontSymbol(14.5f));
+        uiStyler.styleGhostControl(bookmarkFilterButton, 12f, new Insets(3, 6, 3, 6), INPUT_ARC);
+        bookmarkFilterButton.setFont(fontSymbol(12f));
         bookmarkFilterButton.setForeground(ACCENT);
         bookmarkFilterButton.setToolTipText("Show bookmarks only");
         uiStyler.matchFieldHeight(bookmarkFilterButton, searchField);
+        // Pinned rather than left to the glyph, so the sort row underneath can take the same
+        // width and the two rows share a right edge instead of ending a few pixels apart.
+        uiStyler.sizeTrailingControl(bookmarkFilterButton, searchField);
         bookmarkFilterButton.addActionListener(e -> {
-            boolean enabled = bookmarkFilterButton.isSelected();
-            // The filter is on or off, and the star already says which. Amber is the caution tint
-            // and this is not a caution, so the state moves the star onto the action colour's
-            // opposite number rather than repainting a chip that has no fill to repaint.
+            boolean enabled = panelState == null || !panelState.showBookmarkedOnly;
+            // On, the star takes the same gold as the stars on the cards the filter is showing,
+            // so the control and the rows it selected read as one statement. Off, it drops back
+            // to the action colour: an offer to filter rather than a filter in force.
             bookmarkFilterButton.setForeground(enabled ? WARNING : ACCENT);
             if (panelStateService != null) {
                 panelStateService.onBookmarkFilterChanged(panelState, enabled, listener, renderItems);
@@ -128,6 +135,8 @@ final class FlipHubFlippingPanelBuilder {
         top.setOpaque(false);
         top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
         top.add(searchRow);
+        top.add(Box.createVerticalStrut(6));
+        top.add(buildSortRow(itemSortCombo, itemSortDirectionButton));
         top.add(Box.createVerticalStrut(6));
 
         listPanel.setOpaque(false);
@@ -148,6 +157,11 @@ final class FlipHubFlippingPanelBuilder {
             scrollPane.getViewport().addMouseWheelListener(wheelForwarder);
             listPanel.addMouseWheelListener(wheelForwarder);
         }
+        // The backdrop is almost entirely covered by the list, so the click that releases the
+        // search box has to be catchable on the list's own surfaces too.
+        uiStyler.installClickToDefocus(listPanel);
+        uiStyler.installClickToDefocus(scrollPane);
+
         JScrollBar vBar = scrollPane.getVerticalScrollBar();
         vBar.setUnitIncrement(SCROLL_UNIT_INCREMENT);
         vBar.setBlockIncrement(SCROLL_BLOCK_INCREMENT);
@@ -157,7 +171,9 @@ final class FlipHubFlippingPanelBuilder {
 
         JPanel pager = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
         pager.setOpaque(false);
-        pager.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+        // The pager is a footnote under the list, not a toolbar: two pixels clear of the last
+        // card, and the backdrop leaves two more below it before the panel edge.
+        pager.setBorder(BorderFactory.createEmptyBorder(2, 0, 0, 0));
         prevButton.setFocusPainted(false);
         nextButton.setFocusPainted(false);
         stylePagerButton(prevButton);
@@ -187,14 +203,86 @@ final class FlipHubFlippingPanelBuilder {
         panel.add(footerPanel, BorderLayout.SOUTH);
 
         if (panelStateService != null) {
-            panelStateService.hookSearchListener(searchCoordinator, searchField, listener);
+            panelStateService.hookSearchListener(searchCoordinator, searchField, panelState, listener);
         }
         return new BuildResult(panel, footerPanel);
     }
 
-    private void stylePagerButton(JButton button) {
-        uiStyler.styleGhostControl(button, 11f, new Insets(4, 12, 4, 12));
+    /**
+     * The same sort row the profile tab carries, kept to a 24px control height: this sits between
+     * the search box and the first card, so any weight it takes is weight the list loses.
+     */
+    private JPanel buildSortRow(JComboBox<StatsItemSort> itemSortCombo, JButton itemSortDirectionButton) {
+        // The same three-part shape as the search row above - a stretching control with a
+        // square button pinned east - so the two rows span one width and share both edges.
+        JPanel row = new JPanel(new BorderLayout(TRAILING_CONTROL_GAP, 0));
+        row.setOpaque(false);
+        // The search row takes the JPanel default alignment. A BoxLayout lines its children up
+        // on their alignment points, so a single child at LEFT_ALIGNMENT among centred siblings
+        // is pushed sideways by half the panel.
+        row.setAlignmentX(JPanel.CENTER_ALIGNMENT);
+
+        if (panelStateService != null) {
+            panelStateService.restoreItemSort(panelState);
+        }
+
+        JLabel sortLabel = new JLabel("Sort");
+        uiStyler.styleMicroLabel(sortLabel, 9.5f);
+        sortLabel.setBorder(BorderFactory.createEmptyBorder(0, 2, 0, 4));
+
+        uiStyler.styleComboBox(itemSortCombo);
+        itemSortCombo.setFont(font(10.5f));
+        itemSortCombo.setBorder(roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
+        itemSortCombo.setSelectedItem(panelState != null && panelState.itemSort != null
+            ? panelState.itemSort
+            : StatsItemSort.COMPLETION);
+        itemSortCombo.addActionListener(e -> {
+            StatsItemSort sort = (StatsItemSort) itemSortCombo.getSelectedItem();
+            if (panelStateService != null && sort != null) {
+                panelStateService.onItemSortChanged(
+                    panelState, sort, panelState != null && panelState.itemSortAscending, listener);
+            }
+        });
+
+        // INPUT_ARC, not the chip radius: at this height a 999 radius is a full oval, which
+        // reads as a pill beside the square-cornered dropdown it belongs to.
+        uiStyler.styleGhostControl(itemSortDirectionButton, 9f, new Insets(3, 6, 3, 6), INPUT_ARC);
+        uiStyler.matchFieldHeight(itemSortDirectionButton, itemSortCombo);
+        uiStyler.sizeTrailingControl(itemSortDirectionButton, itemSortCombo);
+        itemSortDirectionButton.addActionListener(e -> {
+            boolean ascending = panelState == null || !panelState.itemSortAscending;
+            if (panelStateService != null) {
+                panelStateService.onItemSortChanged(
+                    panelState,
+                    panelState != null ? panelState.itemSort : StatsItemSort.COMPLETION,
+                    ascending,
+                    listener);
+            }
+            updateSortDirectionButton(itemSortDirectionButton, ascending);
+        });
+        updateSortDirectionButton(itemSortDirectionButton,
+            panelState != null && panelState.itemSortAscending);
+
+        row.add(sortLabel, BorderLayout.WEST);
+        row.add(itemSortCombo, BorderLayout.CENTER);
+        row.add(itemSortDirectionButton, BorderLayout.EAST);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
+        return row;
     }
+
+    private void updateSortDirectionButton(JButton button, boolean ascending) {
+        button.setText(ascending ? "\u25b2" : "\u25bc");
+        button.setForeground(ascending ? ACCENT : MUTED);
+        button.setToolTipText(ascending ? "Ascending order" : "Descending order");
+    }
+
+    private void stylePagerButton(JButton button) {
+        uiStyler.styleGhostControl(button, 9f, new Insets(0, 8, 0, 8), INPUT_ARC);
+        Dimension size = new Dimension(button.getPreferredSize().width, 15);
+        button.setPreferredSize(size);
+        button.setMaximumSize(size);
+    }
+
 
     private Font font(float size) {
         return uiStyler.font(size);

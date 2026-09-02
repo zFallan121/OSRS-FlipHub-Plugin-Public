@@ -45,6 +45,8 @@ final class GeLifecyclePanelDataRuntimeService {
     private final Supplier<String> currentQuerySupplier;
     private final BooleanSupplier bookmarkFilterEnabledSupplier;
     private final Supplier<Set<Integer>> bookmarkedItemsSupplier;
+    private final Supplier<StatsItemSort> itemSortSupplier;
+    private final BooleanSupplier itemSortAscendingSupplier;
     private final IntSupplier currentPageSupplier;
     private final Supplier<FlipHubPanel> panelSupplier;
     private final Supplier<LocalStatsViewService> localStatsViewServiceSupplier;
@@ -61,7 +63,9 @@ final class GeLifecyclePanelDataRuntimeService {
             () -> PluginInjectorBridge.get(LocalItemsResponseBuilder.class),
             () -> PluginAccess.plugin().currentQuery,
             () -> PluginAccess.plugin().bookmarkFilterEnabled,
-            () -> PluginAccess.plugin().bookmarkedItems,
+            () -> PluginInjectorBridge.get(PluginState.class).getBookmarkedItems(),
+            () -> PluginAccess.plugin().currentItemSort,
+            () -> PluginAccess.plugin().currentItemSortAscending,
             () -> PluginAccess.plugin().currentPage,
             () -> PluginAccess.plugin().panel,
             () -> PluginInjectorBridge.get(LocalStatsViewService.class),
@@ -78,6 +82,8 @@ final class GeLifecyclePanelDataRuntimeService {
         Supplier<String> currentQuerySupplier,
         BooleanSupplier bookmarkFilterEnabledSupplier,
         Supplier<Set<Integer>> bookmarkedItemsSupplier,
+        Supplier<StatsItemSort> itemSortSupplier,
+        BooleanSupplier itemSortAscendingSupplier,
         IntSupplier currentPageSupplier,
         Supplier<FlipHubPanel> panelSupplier,
         Supplier<LocalStatsViewService> localStatsViewServiceSupplier,
@@ -92,6 +98,8 @@ final class GeLifecyclePanelDataRuntimeService {
         this.currentQuerySupplier = currentQuerySupplier;
         this.bookmarkFilterEnabledSupplier = bookmarkFilterEnabledSupplier;
         this.bookmarkedItemsSupplier = bookmarkedItemsSupplier;
+        this.itemSortSupplier = itemSortSupplier;
+        this.itemSortAscendingSupplier = itemSortAscendingSupplier;
         this.currentPageSupplier = currentPageSupplier;
         this.panelSupplier = panelSupplier;
         this.localStatsViewServiceSupplier = localStatsViewServiceSupplier;
@@ -120,6 +128,8 @@ final class GeLifecyclePanelDataRuntimeService {
             currentQuerySupplier.get(),
             bookmarkFilterEnabledSupplier.getAsBoolean(),
             bookmarkedItemsSupplier.get(),
+            itemSortSupplier.get(),
+            itemSortAscendingSupplier.getAsBoolean(),
             currentPageSupplier.getAsInt()
         );
     }

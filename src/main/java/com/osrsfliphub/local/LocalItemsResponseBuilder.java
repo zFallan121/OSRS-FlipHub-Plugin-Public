@@ -58,6 +58,8 @@ final class LocalItemsResponseBuilder {
                                   String currentQuery,
                                   boolean bookmarkFilterEnabled,
                                   Set<Integer> bookmarkedItems,
+                                  StatsItemSort itemSort,
+                                  boolean itemSortAscending,
                                   int currentPage) {
         Client client = PluginAccess.plugin().client;
         if (client == null) {
@@ -126,7 +128,12 @@ final class LocalItemsResponseBuilder {
         }
 
         GeLifecyclePanelDataRuntimeService panelData = panelData();
-        if (items.isEmpty() && includeEmptyFallback) {
+        // The fallbacks answer "the list is empty because nothing has been traded yet" with the
+        // offer on screen. Once a filter is in force an empty list means "nothing you asked for
+        // is here", and an item that was not asked for is not an answer to that.
+        boolean filtered = bookmarkFilterEnabled
+            || (currentQuery != null && !currentQuery.trim().isEmpty());
+        if (items.isEmpty() && includeEmptyFallback && !filtered) {
             ApiClient.ItemsResponse stampFallback = panelData != null ? panelData.buildOfferStampFallback() : null;
             if (stampFallback != null && stampFallback.items != null && !stampFallback.items.isEmpty()) {
                 return stampFallback;
@@ -134,7 +141,7 @@ final class LocalItemsResponseBuilder {
             return panelData != null ? panelData.buildOfferStatusFallback() : null;
         }
 
-        LocalItemsPager.sortByRecentTradeThenName(items);
+        LocalItemsPager.sortItems(items, itemSort, itemSortAscending);
         LocalItemsPager.Page page = LocalItemsPager.paginate(items, currentPage, defaultItemsPageSize);
         return panelData != null
             ? panelData.buildPagedItemsResponse(

@@ -60,6 +60,7 @@ final class FlipHubPanelRenderActions {
             panelState.lastItems,
             panelState.lastAsOfMs,
             panelState.showBookmarkedOnly,
+            panelState.searchQuery,
             refreshLabel,
             panelState.lastPriceCacheMs,
             panelState.offerPriceCacheMs,

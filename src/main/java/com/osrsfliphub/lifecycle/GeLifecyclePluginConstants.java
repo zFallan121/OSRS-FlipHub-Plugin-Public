@@ -37,6 +37,7 @@ final class GeLifecyclePluginConstants {
     static final long ACCOUNTWIDE_UPLOAD_RESYNC_INTERVAL_MS = 5 * 60_000L;
     static final String BACKFILLED_PROFILES_KEY = "backfilledProfilesV1";
     static final int DEFAULT_ITEMS_PAGE_SIZE = 10;
+    static final int MAX_SEARCH_CATALOGUE_RESULTS = 100;
     static final int SUGGESTION_TEXT_COLOR = 0x800000;
     static final int SUGGESTION_HOVER_TEXT_COLOR = 0xFFFFFF;
     static final int SUGGESTION_TOP_Y = 2;

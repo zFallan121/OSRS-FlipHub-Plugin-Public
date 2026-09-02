@@ -24,6 +24,8 @@
  */
 package com.osrsfliphub;
 
+import net.runelite.client.config.ConfigManager;
+
 final class FlipHubPanelPluginListener implements FlipHubPanelListener {
     private static GeLifecyclePlugin plugin() {
         return PluginAccess.plugin();
@@ -73,6 +75,22 @@ final class FlipHubPanelPluginListener implements FlipHubPanelListener {
     }
 
     @Override
+    public void onItemSortChanged(StatsItemSort sort, boolean ascending) {
+        GeLifecyclePlugin plugin = plugin();
+        plugin.currentItemSort = sort != null ? sort : StatsItemSort.COMPLETION;
+        plugin.currentItemSortAscending = ascending;
+        plugin.currentPage = 1;
+        ConfigManager configManager = PluginInjectorBridge.get(ConfigManager.class);
+        if (configManager != null) {
+            configManager.setConfiguration(
+                FliphubConfigGroups.CONFIG_GROUP, "itemSort", plugin.currentItemSort.name());
+            configManager.setConfiguration(
+                FliphubConfigGroups.CONFIG_GROUP, "itemSortAscending", ascending);
+        }
+        plugin.refreshPanelData();
+    }
+
+    @Override
     public void onStatsRangeChanged(StatsRange range) {
         GeLifecyclePlugin plugin = plugin();
         plugin.currentStatsRange = range != null ? range : StatsRange.SESSION;
@@ -108,8 +126,8 @@ final class FlipHubPanelPluginListener implements FlipHubPanelListener {
         }
 
         BookmarkStateService bookmarkStateService = PluginInjectorBridge.get(BookmarkStateService.class);
-        if (bookmarkStateService != null && profileSelectionService != null && plugin.bookmarkedItems != null) {
-            bookmarkStateService.loadSelectedBookmarks(selectedProfileKey, plugin.bookmarkedItems);
+        if (bookmarkStateService != null && profileSelectionService != null && state != null) {
+            bookmarkStateService.loadSelectedBookmarks(selectedProfileKey, state.getBookmarkedItems());
         }
 
         workflow().updateProfileOptionsUI();

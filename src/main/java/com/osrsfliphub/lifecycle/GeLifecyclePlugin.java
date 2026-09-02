@@ -29,7 +29,6 @@ import static com.osrsfliphub.GeLifecyclePluginConstants.*;
 import com.google.gson.Gson;
 import com.google.inject.Provides;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
@@ -105,8 +104,6 @@ public class GeLifecyclePlugin extends Plugin {
     final GeLifecycleRuntimeSchedulerServices runtimeSchedulerServices = new GeLifecycleRuntimeSchedulerServices();
     final GeLifecycleRuntimeUtilityServices runtimeUtilityServices = new GeLifecycleRuntimeUtilityServices();
     private ProfileWatcher profileWatcher;
-    final BookmarkConfigStore bookmarkConfigStore = new BookmarkConfigStore(ACCOUNTWIDE_KEY);
-    final HiddenItemConfigStore hiddenItemConfigStore = new HiddenItemConfigStore();
     final OfferUpdateStampConfigStore offerUpdateStampConfigStore = new OfferUpdateStampConfigStore();
     final OfferUpdateStampLegacyMatcher offerUpdateStampLegacyMatcher = new OfferUpdateStampLegacyMatcher();
     ScheduledExecutorService scheduler;
@@ -114,8 +111,6 @@ public class GeLifecyclePlugin extends Plugin {
     final UploadDiagnosticsState uploadState = new UploadDiagnosticsState();
     final Map<Integer, OfferSnapshot> snapshots = new ConcurrentHashMap<>();
     final Map<Integer, OfferUpdateStamp> offerUpdateStamps = new ConcurrentHashMap<>();
-    final Set<Integer> bookmarkedItems = ConcurrentHashMap.newKeySet();
-    final Set<Integer> hiddenItems = ConcurrentHashMap.newKeySet();
     volatile Integer offerPreviewItemId;
     volatile FlipHubItem offerPreviewItem;
     FlipHubPanel panel;
@@ -124,6 +119,8 @@ public class GeLifecyclePlugin extends Plugin {
     volatile String currentQuery = "";
     volatile int currentPage = 1;
     volatile boolean bookmarkFilterEnabled = false;
+    volatile StatsItemSort currentItemSort = StatsItemSort.COMPLETION;
+    volatile boolean currentItemSortAscending = false;
     volatile boolean panelVisible;
     volatile StatsRange currentStatsRange = StatsRange.SESSION;
     /**

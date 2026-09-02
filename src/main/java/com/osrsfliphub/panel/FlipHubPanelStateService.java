@@ -99,6 +99,33 @@ final class FlipHubPanelStateService {
         }
     }
 
+    /** Seeds the sort controls from the choice restored at start-up, before they are shown. */
+    void restoreItemSort(FlipHubPanelMutableState state) {
+        GeLifecyclePlugin plugin = PluginAccess.pluginOrNull();
+        if (state == null || plugin == null) {
+            return;
+        }
+        state.itemSort = plugin.currentItemSort != null ? plugin.currentItemSort : StatsItemSort.COMPLETION;
+        state.itemSortAscending = plugin.currentItemSortAscending;
+    }
+
+    void onItemSortChanged(
+        FlipHubPanelMutableState state,
+        StatsItemSort sort,
+        boolean ascending,
+        FlipHubPanelListener listener
+    ) {
+        if (state == null) {
+            return;
+        }
+        state.itemSort = sort != null ? sort : StatsItemSort.COMPLETION;
+        state.itemSortAscending = ascending;
+        state.currentPage = 1;
+        if (listener != null) {
+            listener.onItemSortChanged(state.itemSort, state.itemSortAscending);
+        }
+    }
+
     void onPrevPageRequested(FlipHubPanelMutableState state, FlipHubPanelListener listener) {
         if (state != null && state.currentPage > 1 && listener != null) {
             listener.onPageChanged(state.currentPage - 1);
@@ -292,6 +319,7 @@ final class FlipHubPanelStateService {
     void hookSearchListener(
         FlipHubSearchCoordinator searchCoordinator,
         JTextField searchField,
+        FlipHubPanelMutableState state,
         FlipHubPanelListener listener
     ) {
         if (searchCoordinator == null || searchField == null) {
@@ -300,6 +328,11 @@ final class FlipHubPanelStateService {
         searchCoordinator.hookSearchListener(
             searchField,
             () -> {
+                // The empty state has to know whether the list is empty because nothing was
+                // traded or because nothing matched, and only the query can tell it apart.
+                if (state != null) {
+                    state.searchQuery = searchField.getText() != null ? searchField.getText() : "";
+                }
                 if (listener != null) {
                     listener.onSearchChanged(searchField.getText());
                 }

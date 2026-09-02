@@ -86,6 +86,9 @@ final class FlipHubPanelConstants {
     /** The site's --surface-radius is 18px on a 1200px page; 14 is the same proportion at 225px. */
     static final int CARD_ARC = 14;
     static final int INPUT_ARC = 10;
+    /** Width of the button that closes a control row, so every such row ends on one edge. */
+    static final int TRAILING_CONTROL_WIDTH = 30;
+    static final int TRAILING_CONTROL_GAP = 6;
     /** Pills are fully round. RoundedBorder clamps this to the control's short side. */
     static final int CHIP_ARC = 999;
     static final int AGE_TOOLTIP_LEFT_GAP = 8;
