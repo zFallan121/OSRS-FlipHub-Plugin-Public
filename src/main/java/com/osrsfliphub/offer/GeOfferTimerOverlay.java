@@ -29,12 +29,15 @@ import java.awt.Dimension;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import net.runelite.api.Client;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
 import net.runelite.api.Point;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.ComponentID;
 import net.runelite.client.ui.FontManager;
@@ -55,6 +58,13 @@ public class GeOfferTimerOverlay extends Overlay {
         "sold a total"
     };
 
+    // The eight offer slots are addressable directly, so the normal path never walks the widget
+    // tree. The tree-walking resolvers are kept only as a fallback for layouts where the direct
+    // lookup comes up empty, and their result is reused until the GE window moves or this window
+    // elapses, because those walks cost several milliseconds each.
+    private static final int SLOT_COUNT = 8;
+    private static final long SCAN_CACHE_MS = 200L;
+
     private static final long GREEN_THRESHOLD_MS = 5 * 60 * 1000L;
     private static final long YELLOW_THRESHOLD_MS = 30 * 60 * 1000L;
 
@@ -68,6 +78,11 @@ public class GeOfferTimerOverlay extends Overlay {
     private final GeLifecyclePlugin plugin;
     private final GeOfferStatusWindowDetector statusWindowDetector;
     private final GeOfferSlotBoundsResolver slotBoundsResolver;
+
+    private long lastScanMs;
+    private Rectangle lastGeBounds;
+    private boolean cachedStatusWindowOpen;
+    private List<Rectangle> cachedSlotBounds = Collections.emptyList();
 
     GeOfferTimerOverlay(Client client, PluginConfig config, GeLifecyclePlugin plugin) {
         this.client = client;
@@ -96,19 +111,11 @@ public class GeOfferTimerOverlay extends Overlay {
         if (offerContainer != null && !offerContainer.isHidden()) {
             return null;
         }
-        if (statusWindowDetector.isOfferStatusWindowOpen()) {
+        if (isOfferDetailsOpen()) {
             return null;
         }
-        if (plugin != null && plugin.isOfferStatusOpen()) {
-            return null;
-        }
-        List<Rectangle> slotBounds = slotBoundsResolver.findSlotBounds(geRoot);
+        List<Rectangle> slotBounds = resolveSlotBounds(geRoot);
         if (slotBounds.isEmpty()) {
-            return null;
-        }
-        slotBounds.sort(Comparator.comparingInt((Rectangle bounds) -> bounds.y)
-            .thenComparingInt(bounds -> bounds.x));
-        if (!slotBoundsResolver.looksLikeMainGrid(slotBounds)) {
             return null;
         }
 
@@ -136,6 +143,83 @@ public class GeOfferTimerOverlay extends Overlay {
         }
 
         return null;
+    }
+
+    /**
+     * The offer details panel is a known component, so whether it is open is an O(1) question. The
+     * marker-text scan is only consulted if that component is missing entirely.
+     */
+    private boolean isOfferDetailsOpen() {
+        Widget details = client.getWidget(InterfaceID.GeOffers.DETAILS);
+        if (details != null) {
+            return !details.isHidden();
+        }
+        refreshScanIfStale(client.getWidget(ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER));
+        return cachedStatusWindowOpen;
+    }
+
+    /**
+     * Reads the eight offer slot bounds straight off their components. Only when that yields
+     * nothing does this fall back to the geometry heuristics, which walk the whole GE tree.
+     */
+    private List<Rectangle> resolveSlotBounds(Widget geRoot) {
+        List<Rectangle> bounds = new ArrayList<>(SLOT_COUNT);
+        for (int slot = 0; slot < SLOT_COUNT; slot++) {
+            Widget slotWidget = client.getWidget(InterfaceID.GeOffers.INDEX_0 + slot);
+            if (slotWidget == null || slotWidget.isHidden()) {
+                break;
+            }
+            Rectangle slotBounds = slotWidget.getBounds();
+            if (slotBounds == null || slotBounds.width <= 0 || slotBounds.height <= 0) {
+                break;
+            }
+            bounds.add(slotBounds);
+        }
+        if (bounds.size() == SLOT_COUNT) {
+            return bounds;
+        }
+        refreshScanIfStale(geRoot);
+        return cachedSlotBounds;
+    }
+
+    /**
+     * Re-runs the fallback widget-tree scans that back {@link #cachedStatusWindowOpen} and
+     * {@link #cachedSlotBounds}, but only once the cached result has gone stale. Both scans walk
+     * large parts of the interface tree, which costs several milliseconds while the GE item search
+     * list is open, so running them per frame visibly drops the frame rate.
+     */
+    private void refreshScanIfStale(Widget geRoot) {
+        if (geRoot == null) {
+            cachedStatusWindowOpen = false;
+            cachedSlotBounds = Collections.emptyList();
+            return;
+        }
+        Rectangle geBounds = geRoot.getBounds();
+        long nowMs = System.currentTimeMillis();
+        boolean moved = lastGeBounds == null || !lastGeBounds.equals(geBounds);
+        if (!moved && nowMs - lastScanMs < SCAN_CACHE_MS) {
+            return;
+        }
+        lastScanMs = nowMs;
+        lastGeBounds = geBounds;
+
+        cachedStatusWindowOpen = statusWindowDetector.isOfferStatusWindowOpen()
+            || (plugin != null && plugin.isOfferStatusOpen());
+        if (cachedStatusWindowOpen) {
+            cachedSlotBounds = Collections.emptyList();
+            return;
+        }
+
+        List<Rectangle> slotBounds = slotBoundsResolver.findSlotBounds(geRoot);
+        if (slotBounds.isEmpty()) {
+            cachedSlotBounds = Collections.emptyList();
+            return;
+        }
+        slotBounds.sort(Comparator.comparingInt((Rectangle bounds) -> bounds.y)
+            .thenComparingInt(bounds -> bounds.x));
+        cachedSlotBounds = slotBoundsResolver.looksLikeMainGrid(slotBounds)
+            ? slotBounds
+            : Collections.emptyList();
     }
 
     private void renderTimerText(Graphics2D graphics, Rectangle slotBounds, String text, Color color) {

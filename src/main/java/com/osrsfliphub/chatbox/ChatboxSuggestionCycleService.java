@@ -78,6 +78,11 @@ final class ChatboxSuggestionCycleService {
         }
     }
 
+    private boolean shouldUpdate(long nowMs) {
+        ChatboxSuggestionRuntimeStateService service = runtimeState();
+        return service == null || service.shouldUpdate(nowMs);
+    }
+
     private void clearSuggestions() {
         ChatboxSuggestionPresentationService presentation = presentation();
         if (presentation != null) {
@@ -127,6 +132,12 @@ final class ChatboxSuggestionCycleService {
     }
 
     void update() {
+        long nowMs = System.currentTimeMillis();
+        if (!shouldUpdate(nowMs)) {
+            return;
+        }
+        setLastSuggestionUpdateMs(nowMs);
+
         if (!isClientLoggedIn()) {
             clearSuggestions();
             setSuggestionDirty(false);
@@ -147,7 +158,6 @@ final class ChatboxSuggestionCycleService {
             return;
         }
 
-        setLastSuggestionUpdateMs(System.currentTimeMillis());
         setSuggestionDirty(false);
 
         boolean promptsPrepared = preparePromptWidgets();

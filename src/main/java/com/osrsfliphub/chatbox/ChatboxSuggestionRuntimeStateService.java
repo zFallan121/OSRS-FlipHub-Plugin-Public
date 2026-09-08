@@ -43,6 +43,11 @@ final class ChatboxSuggestionRuntimeStateService {
     private Widget cachedQuantityPromptWidget;
     private volatile boolean suggestionDirty;
     private long lastSuggestionUpdateMs;
+    // Bumped whenever the chatbox is rebuilt, so a fruitless deep scan for a prompt widget can be
+    // remembered as a miss and skipped until the chatbox actually changes again.
+    private long chatboxGeneration;
+    private long pricePromptMissGeneration = -1L;
+    private long quantityPromptMissGeneration = -1L;
 
     @Inject
     ChatboxSuggestionRuntimeStateService(Client client) {
@@ -51,6 +56,17 @@ final class ChatboxSuggestionRuntimeStateService {
 
     void markSuggestionDirty() {
         suggestionDirty = true;
+        chatboxGeneration++;
+    }
+
+    /**
+     * The suggestion pass walks the chatbox widget tree, which is large while the GE item search
+     * list is open. Run it when something has actually changed, and otherwise no more often than
+     * {@link GeLifecyclePluginConstants#SUGGESTION_UPDATE_INTERVAL_MS}.
+     */
+    boolean shouldUpdate(long nowMs) {
+        return suggestionDirty
+            || nowMs - lastSuggestionUpdateMs >= GeLifecyclePluginConstants.SUGGESTION_UPDATE_INTERVAL_MS;
     }
 
     boolean isSuggestionDirty() {
@@ -68,23 +84,50 @@ final class ChatboxSuggestionRuntimeStateService {
     void clearPromptWidgetCache() {
         cachedPricePromptWidget = null;
         cachedQuantityPromptWidget = null;
+        pricePromptMissGeneration = -1L;
+        quantityPromptMissGeneration = -1L;
     }
 
     Widget getPricePromptWidget() {
+        if (ChatboxSuggestionWidgets.isPromptWidgetValid(cachedPricePromptWidget, true)) {
+            return cachedPricePromptWidget;
+        }
+        if (pricePromptMissGeneration == chatboxGeneration) {
+            cachedPricePromptWidget = null;
+            return null;
+        }
         ChatboxPromptWidgetResolverService resolver = PluginInjectorBridge.get(ChatboxPromptWidgetResolverService.class);
         cachedPricePromptWidget = resolver != null
             ? resolver.resolvePromptWidget(cachedPricePromptWidget, true)
             : null;
+        if (cachedPricePromptWidget == null) {
+            pricePromptMissGeneration = chatboxGeneration;
+        }
         return cachedPricePromptWidget;
     }
 
     Widget getQuantityPromptWidget() {
+        if (ChatboxSuggestionWidgets.isPromptWidgetValid(cachedQuantityPromptWidget, false)) {
+            return cachedQuantityPromptWidget;
+        }
+        if (quantityPromptMissGeneration == chatboxGeneration) {
+            cachedQuantityPromptWidget = null;
+            return null;
+        }
         ChatboxPromptWidgetResolverService resolver = PluginInjectorBridge.get(ChatboxPromptWidgetResolverService.class);
         cachedQuantityPromptWidget = resolver != null
             ? resolver.resolvePromptWidget(cachedQuantityPromptWidget, false)
             : null;
+        if (cachedQuantityPromptWidget == null) {
+            quantityPromptMissGeneration = chatboxGeneration;
+        }
         return cachedQuantityPromptWidget;
     }
+
+    // The chatbox input type the client uses for the price and quantity prompts.
+    private static final int INPUT_TYPE_GE_PROMPT = 7;
+    // The chatbox input type the client uses for the GE item search.
+    private static final int INPUT_TYPE_GE_ITEM_SEARCH = 14;
 
     boolean isGeInputPromptActive() {
         Client client = this.client;
@@ -92,10 +135,15 @@ final class ChatboxSuggestionRuntimeStateService {
             return false;
         }
         int inputType = client.getVarcIntValue(VarClientInt.INPUT_TYPE);
-        if (inputType == 7) {
+        if (inputType == INPUT_TYPE_GE_PROMPT) {
             return true;
         }
         if (inputType <= 0) {
+            return false;
+        }
+        // The GE item search is never a price or quantity prompt, and its result list makes the
+        // chatbox tree huge. Rule it out up front rather than deep-scanning that list.
+        if (inputType == INPUT_TYPE_GE_ITEM_SEARCH || isGeItemSearchOpen()) {
             return false;
         }
 
@@ -112,6 +160,13 @@ final class ChatboxSuggestionRuntimeStateService {
         }
 
         return getPricePromptWidget() != null || getQuantityPromptWidget() != null;
+    }
+
+    private boolean isGeItemSearchOpen() {
+        Widget searchResults = client != null
+            ? client.getWidget(ComponentID.CHATBOX_GE_SEARCH_RESULTS)
+            : null;
+        return searchResults != null && !searchResults.isHidden();
     }
 
     boolean isChatboxInputVisible() {

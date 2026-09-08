@@ -25,6 +25,7 @@
 package com.osrsfliphub;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.ItemComposition;
@@ -35,6 +36,13 @@ import net.runelite.http.api.item.ItemPrice;
 
 @Singleton
 final class ItemLookupService {
+    // Most strings pulled off the GE widget tree are not item names, and each miss costs a full
+    // scan of the item database. Remember misses, but re-check them occasionally so names that
+    // only failed because the item database had not loaded yet still resolve later.
+    private static final long NEGATIVE_LOOKUP_TTL_MS = 60_000L;
+    private static final int MAX_NEGATIVE_LOOKUPS = 2048;
+
+    private final Map<String, Long> negativeLookupCache = new ConcurrentHashMap<>();
     private final Map<String, Integer> itemNameLookupCache;
     private final Map<Integer, String> itemNameCache;
     private final ItemManager itemManager;
@@ -118,9 +126,14 @@ final class ItemLookupService {
         if (cached != null) {
             return cached;
         }
+        long nowMs = System.currentTimeMillis();
+        if (isKnownMiss(key, nowMs)) {
+            return -1;
+        }
         try {
             Integer resolved = findItemIdByExactName(name);
             if (resolved != null && resolved > 0) {
+                negativeLookupCache.remove(key);
                 if (itemNameLookupCache != null) {
                     itemNameLookupCache.put(key, resolved);
                 }
@@ -128,7 +141,27 @@ final class ItemLookupService {
             }
         } catch (RuntimeException ignored) {
         }
+        rememberMiss(key, nowMs);
         return -1;
+    }
+
+    private boolean isKnownMiss(String key, long nowMs) {
+        Long missedAtMs = negativeLookupCache.get(key);
+        if (missedAtMs == null) {
+            return false;
+        }
+        if (nowMs - missedAtMs < NEGATIVE_LOOKUP_TTL_MS) {
+            return true;
+        }
+        negativeLookupCache.remove(key);
+        return false;
+    }
+
+    private void rememberMiss(String key, long nowMs) {
+        if (negativeLookupCache.size() >= MAX_NEGATIVE_LOOKUPS) {
+            negativeLookupCache.clear();
+        }
+        negativeLookupCache.put(key, nowMs);
     }
 
     String lookupItemNameSafe(int itemId) {
