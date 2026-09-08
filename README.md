@@ -33,6 +33,18 @@ On a buy, the quantity prompt adds your remaining limit and how many you can aff
 
 ![The GE quantity prompt showing "Remaining GE limit: 3,000" and "Cash limit: 5,585"](docs/ge-suggestion-buy-limit.png)
 
+#### Decimal prices
+
+The game reads `9m` in a price box but refuses the decimal point that would let you write `9.4m`.
+This adds it, in any *enter an amount* prompt — Grand Exchange price and quantity, bank withdraw-X,
+trade, coffers.
+
+- `9.4m` → 9,400,000
+- `1.21b` → 1,210,000,000
+- `2.5325k` → 2,532 — anything past a whole coin is dropped
+
+Turn it off with **Type decimal amounts** in the plugin settings.
+
 #### Profile
 
 Completed flips totalled per item over **Session**, **1h**, **4h**, **24h**, **7d** or **All
@@ -77,9 +89,11 @@ uploads end immediately and the plugin returns to local-only.
 
 ## Privacy
 
-The plugin is local-first and read-only. It watches Grand Exchange events the client already
-exposes, performs no automation, and never sends input to the game. No RuneScape or Jagex
-credentials are requested, read, or transmitted.
+The plugin is local-first. It watches Grand Exchange events the client already exposes and performs
+no automation — it never clicks, moves, or trades for you. The only thing it writes into the game is
+text in a chatbox prompt you opened yourself: a suggested price when you click one, or the decimal
+point you just typed. You still confirm every offer. No RuneScape or Jagex credentials are
+requested, read, or transmitted.
 
 - **Without linking (default)** — No trade data leaves your machine. The only network calls are
   read-only price lookups to `prices.runescape.wiki`.

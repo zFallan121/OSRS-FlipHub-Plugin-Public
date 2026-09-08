@@ -89,9 +89,22 @@ final class GeLifecyclePluginLifecycleCoordinator {
         plugin.ioExecutor = runtimeState.getIoExecutor();
         // Start profile watcher after scheduler assignment; otherwise watcher startup can no-op.
         plugin.startProfileWatcher();
+
+        // Stays registered while the plugin runs; the listener itself reads the config toggle, so
+        // turning decimal amounts off takes effect without re-registering.
+        ChatboxDecimalInputListener decimalInputListener =
+            PluginInjectorBridge.get(ChatboxDecimalInputListener.class);
+        if (plugin.keyManager != null && decimalInputListener != null) {
+            plugin.keyManager.registerKeyListener(decimalInputListener);
+        }
     }
 
     static void shutDown(GeLifecyclePlugin plugin) {
+        ChatboxDecimalInputListener decimalInputListener =
+            PluginInjectorBridge.get(ChatboxDecimalInputListener.class);
+        if (plugin.keyManager != null && decimalInputListener != null) {
+            plugin.keyManager.unregisterKeyListener(decimalInputListener);
+        }
         if (plugin.navButton != null) {
             plugin.clientToolbar.removeNavigation(plugin.navButton);
         }

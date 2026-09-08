@@ -167,4 +167,18 @@ public interface PluginConfig extends Config {
     default boolean showGeOfferTimers() {
         return true;
     }
+
+    @ConfigItem(
+        keyName = "enableDecimalAmounts",
+        name = "Type decimal amounts",
+        description = "Lets you type a decimal point into any \"enter an amount\"<br>"
+            + "prompt - Grand Exchange price and quantity, bank<br>"
+            + "withdraw-X, trade, coffers. The game already reads 9m;<br>"
+            + "this adds the point, so 9.4m becomes 9,400,000 and<br>"
+            + "1.21b becomes 1,210,000,000. Anything past a whole coin<br>"
+            + "is dropped, so 2.5325k becomes 2,532."
+    )
+    default boolean enableDecimalAmounts() {
+        return true;
+    }
 }

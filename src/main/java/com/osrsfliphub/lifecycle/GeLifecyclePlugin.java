@@ -50,6 +50,7 @@ import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.input.KeyManager;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -98,6 +99,9 @@ public class GeLifecyclePlugin extends Plugin {
 
     @Inject
     OverlayManager overlayManager;
+
+    @Inject
+    KeyManager keyManager;
 
     ApiClient apiClient;
     final GeLifecyclePanelBootstrapService panelBootstrapService = new GeLifecyclePanelBootstrapService();
