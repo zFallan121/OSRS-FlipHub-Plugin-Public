@@ -39,7 +39,7 @@ import java.time.format.DateTimeFormatter;
  */
 final class FlipHubPanelConstants {
     static final String DEFAULT_BASE_URL = "https://www.osrsfliphub.com";
-    static final String DISCORD_INVITE_URL = "https://discord.gg/gNakvRzXNX";
+    static final String DISCORD_INVITE_URL = "https://www.osrsfliphub.com/discord";
 
     /** The room: --page-bg, and the two washes body paints over it. */
     static final Color BG = new Color(0x05, 0x08, 0x14);
