@@ -134,6 +134,12 @@ final class AccountwideStatsAggregator {
                     + (item.total_qty != null ? item.total_qty : 0);
                 int nextFillCount = (agg.fill_count != null ? agg.fill_count : 0)
                     + (item.fill_count != null ? item.fill_count : 0);
+                Long aggActive = agg.active_ms;
+                Long itemActive = item.active_ms;
+                if (aggActive != null || itemActive != null) {
+                    agg.active_ms = (aggActive != null ? aggActive : 0L)
+                        + (itemActive != null ? itemActive : 0L);
+                }
                 agg.total_profit_gp = nextProfit;
                 agg.total_cost_gp = nextCost;
                 agg.total_qty = Math.max(0, nextQty);

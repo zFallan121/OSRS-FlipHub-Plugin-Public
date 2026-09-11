@@ -24,14 +24,17 @@
  */
 package com.osrsfliphub;
 
-import java.util.ArrayList;
 import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.client.config.ConfigManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Singleton
 final class GeHistoryWipeStateStore {
+    private static final Logger log = LoggerFactory.getLogger(GeHistoryWipeStateStore.class);
+
     private final ConfigManager configManager;
     private final String configGroup = FliphubConfigGroups.CONFIG_GROUP;
     private final String wipeBarrierKeyPrefix = GeLifecyclePluginConstants.WIPE_BARRIER_KEY_PREFIX;
@@ -68,24 +71,20 @@ final class GeHistoryWipeStateStore {
         writeConfiguration(configGroup, wipeBarrierKeyPrefix + accountKey, armed ? "1" : "");
     }
 
-    List<String> loadCursor(long accountKey) {
-        List<String> cursor = new ArrayList<>();
+    /**
+     * The account's stored cursor. One written by another format version comes back
+     * empty and marked stale: the sync then re-baselines instead of comparing against
+     * signatures that could never match.
+     */
+    GeHistoryCursorService.StoredCursor loadCursor(long accountKey) {
         if (accountKey <= 0) {
-            return cursor;
+            return GeHistoryCursorService.StoredCursor.NONE;
         }
         String raw = readConfiguration(configGroup, cursorKeyPrefix + accountKey);
-        if (raw == null || raw.trim().isEmpty()) {
-            return cursor;
-        }
-        String[] parts = raw.split(",");
-        for (String part : parts) {
-            if (part == null) {
-                continue;
-            }
-            String trimmed = part.trim();
-            if (!trimmed.isEmpty()) {
-                cursor.add(trimmed);
-            }
+        GeHistoryCursorService.StoredCursor cursor = GeHistoryCursorService.decode(raw);
+        if (cursor.staleFormat) {
+            log.info("GE history cursor for account {} was written by another format version; treating as no cursor",
+                accountKey);
         }
         return cursor;
     }
@@ -99,7 +98,7 @@ final class GeHistoryWipeStateStore {
             return;
         }
         int limit = Math.min(maxCursorTrades, cursor.size());
-        String raw = String.join(",", cursor.subList(0, limit));
-        writeConfiguration(configGroup, cursorKeyPrefix + accountKey, raw);
+        writeConfiguration(configGroup, cursorKeyPrefix + accountKey,
+            GeHistoryCursorService.encode(cursor.subList(0, limit)));
     }
 }

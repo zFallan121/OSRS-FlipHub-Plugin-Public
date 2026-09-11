@@ -33,6 +33,10 @@ interface FlipHubPanelListener {
     void onStatsSortChanged(StatsItemSort sort);
     void onProfileSelected(String profileKey);
     void onManageData();
+    /** The player says the recipe the plugin attributed to this entry never happened. */
+    void onConversionRejected(StatsFlipInstance instance);
+    /** The player takes that back. */
+    void onConversionRestored(StatsFlipInstance instance);
     void onLinkSubmitted(String licenseKey);
     void onUnlinkRequested();
 }

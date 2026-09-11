@@ -24,6 +24,7 @@
  */
 package com.osrsfliphub;
 
+import java.util.function.Predicate;
 import net.runelite.client.config.ConfigManager;
 
 final class FlipHubPanelPluginListener implements FlipHubPanelListener {
@@ -121,9 +122,9 @@ final class FlipHubPanelPluginListener implements FlipHubPanelListener {
         long selectedProfileKey = profileSelectionService != null
             ? profileSelectionService.resolveSelectedProfileKey()
             : -1L;
-        if (selectedProfileKey > 0) {
-            plugin.getLocalTradesRuntimeService().ensureProfileLoaded(selectedProfileKey);
-        }
+        // Not loaded here: this runs on the thread drawing the panel, and reading and parsing
+        // the profile file freezes it. The refresh triggered at the end of this method loads
+        // the selected profile on the scheduler anyway.
 
         BookmarkStateService bookmarkStateService = PluginInjectorBridge.get(BookmarkStateService.class);
         if (bookmarkStateService != null && profileSelectionService != null && state != null) {
@@ -142,5 +143,44 @@ final class FlipHubPanelPluginListener implements FlipHubPanelListener {
         if (service != null) {
             service.showManageDataDialog();
         }
+    }
+
+    @Override
+    public void onConversionRejected(StatsFlipInstance instance) {
+        ConversionRejection rejection = ConversionRejection.of(instance, System.currentTimeMillis());
+        if (rejection == null) {
+            return;
+        }
+        correctConversion(instance.accountKey, store -> store.add(instance.accountKey, rejection));
+    }
+
+    @Override
+    public void onConversionRestored(StatsFlipInstance instance) {
+        if (instance == null || instance.dismissed == null) {
+            return;
+        }
+        correctConversion(instance.accountKey, store -> store.remove(instance.accountKey, instance.dismissed));
+    }
+
+    /**
+     * Both ledgers are pure functions over the stored trades and the stored
+     * corrections, so correcting a guess is: change the stored fact, write it
+     * beside the trades it names, throw the aggregates away, and redraw. The
+     * accountwide summary the site gets is built from the reconciled snapshot,
+     * so marking it dirty is enough for it to follow.
+     */
+    private static void correctConversion(long accountKey, Predicate<ConversionRejectionStore> change) {
+        ConversionRejectionStore store = PluginInjectorBridge.get(ConversionRejectionStore.class);
+        if (store == null || !change.test(store)) {
+            return;
+        }
+        GeLifecyclePlugin plugin = plugin();
+        plugin.getLocalTradesRuntimeService().persistLocalTrades(accountKey);
+        LocalStatsCacheService statsCache = PluginInjectorBridge.get(LocalStatsCacheService.class);
+        if (statsCache != null) {
+            statsCache.invalidateAll();
+        }
+        plugin.markAccountwideUploadDirty();
+        plugin.refreshStatsData();
     }
 }

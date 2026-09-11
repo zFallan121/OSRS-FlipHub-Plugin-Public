@@ -48,6 +48,7 @@ final class PluginState {
     private final Map<Integer, String> itemNameCache = new ConcurrentHashMap<>();
     private final Set<Long> loadedProfiles = ConcurrentHashMap.newKeySet();
     private final Map<Long, Long> loadedProfileFileMs = new ConcurrentHashMap<>();
+    private final Map<Long, Long> selfWrittenProfileFileMs = new ConcurrentHashMap<>();
     private final Map<Long, String> profileDisplayNames = new ConcurrentHashMap<>();
     private final Map<Long, LocalStatsCache> statsCacheByAccount = new ConcurrentHashMap<>();
     private final Object localStatsLock = new Object();
@@ -94,6 +95,17 @@ final class PluginState {
 
     Set<Long> getLoadedProfiles() {
         return loadedProfiles;
+    }
+
+    /**
+     * The modification stamp of the last write this process made to each profile file.
+     *
+     * <p>The file watcher cannot otherwise tell its own writes from somebody else's. Every
+     * write woke the watcher, which reloaded the file a second later and replaced the live
+     * in-memory list with what was on disk - discarding any fill recorded in between.</p>
+     */
+    Map<Long, Long> getSelfWrittenProfileFileMs() {
+        return selfWrittenProfileFileMs;
     }
 
     Map<Long, Long> getLoadedProfileFileMs() {

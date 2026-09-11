@@ -56,7 +56,7 @@ public class LocalAccountMergeServiceTest {
 
         sessionStarts.put(200L, 12345L);
 
-        LocalAccountMergeService.Result result = service.merge(deltasByAccount, sessionStarts, 100L, 200L, 5000);
+        LocalAccountMergeService.Result result = service.merge(deltasByAccount, sessionStarts, 100L, 200L);
 
         assertTrue(result.changed);
         assertNotNull(result.mergedSnapshot);
@@ -68,8 +68,9 @@ public class LocalAccountMergeServiceTest {
         assertNull(sessionStarts.get(200L));
     }
 
+    /** Nothing is ever trimmed: the oldest purchase is what a later sale is priced against. */
     @Test
-    public void mergeTrimsOldestEntriesToMaxLocalTrades() {
+    public void mergeKeepsEveryEntryOldestFirst() {
         LocalAccountMergeService service = new LocalAccountMergeService();
         Map<Long, List<LocalTradeDelta>> deltasByAccount = new HashMap<>();
         Map<Long, Long> sessionStarts = new HashMap<>();
@@ -83,12 +84,13 @@ public class LocalAccountMergeServiceTest {
         source.add(delta(3_000L, 1, 3, true, 1, 300L));
         deltasByAccount.put(20L, source);
 
-        LocalAccountMergeService.Result result = service.merge(deltasByAccount, sessionStarts, 10L, 20L, 2);
+        LocalAccountMergeService.Result result = service.merge(deltasByAccount, sessionStarts, 10L, 20L);
 
         assertTrue(result.changed);
-        assertEquals(2, result.mergedSnapshot.size());
-        assertEquals(2, result.mergedSnapshot.get(0).itemId);
-        assertEquals(3, result.mergedSnapshot.get(1).itemId);
+        assertEquals(3, result.mergedSnapshot.size());
+        assertEquals(1, result.mergedSnapshot.get(0).itemId);
+        assertEquals(2, result.mergedSnapshot.get(1).itemId);
+        assertEquals(3, result.mergedSnapshot.get(2).itemId);
     }
 
     @Test
@@ -102,7 +104,7 @@ public class LocalAccountMergeServiceTest {
         deltasByAccount.put(10L, target);
         deltasByAccount.put(20L, new ArrayList<>());
 
-        LocalAccountMergeService.Result result = service.merge(deltasByAccount, sessionStarts, 10L, 20L, 5000);
+        LocalAccountMergeService.Result result = service.merge(deltasByAccount, sessionStarts, 10L, 20L);
 
         assertFalse(result.changed);
         assertEquals(1, result.mergedSnapshot.size());

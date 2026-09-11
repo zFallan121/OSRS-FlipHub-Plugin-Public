@@ -46,10 +46,7 @@ final class ApiClientCore {
     private static final String PATH_EVENTS = "/api/plugin/events";
     private static final String PATH_STATS_ACCOUNTWIDE = "/api/plugin/stats/accountwide";
     private static final String PATH_STATS_WIPE = "/api/plugin/stats/wipe";
-    private static final String PATH_ITEMS = "/api/plugin/items";
-    private static final String PATH_ITEM = "/api/plugin/item";
     private static final String PATH_STATS_SUMMARY = "/api/plugin/stats/summary";
-    private static final String PATH_STATS_ITEMS = "/api/plugin/stats/items";
 
     private final OkHttpClient httpClient;
     private final Gson gson;
@@ -95,17 +92,14 @@ final class ApiClientCore {
                     errorBody = response.body().string();
                 }
                 if (errorBody == null || errorBody.trim().isEmpty()) {
-                    throw new IllegalStateException("Link failed: " + response.code());
+                    throw new ApiRefusedException(response.code(), "Link failed: " + response.code());
                 }
-                throw new IllegalStateException("Link failed: " + response.code() + " - " + errorBody);
+                throw new ApiRefusedException(response.code(),
+                    "Link failed: " + response.code() + " - " + errorBody);
             }
             String responseBody = response.body().string();
             return gson.fromJson(responseBody, ApiClient.LinkResponse.class);
         }
-    }
-
-    ApiClient.LinkResponse refreshSession(String sessionToken) throws IOException {
-        return refreshSession(sessionToken, null, null);
     }
 
     ApiClient.LinkResponse refreshSession(String sessionToken, String signingSecret, String deviceId) throws IOException {
@@ -127,7 +121,7 @@ final class ApiClientCore {
 
         try (Response response = httpClient.newCall(requestBuilder.build()).execute()) {
             if (!response.isSuccessful()) {
-                throw new IllegalStateException("Refresh failed: " + response.code());
+                throw new ApiClient.ApiException("Refresh failed", response.code());
             }
             String responseBody = response.body().string();
             return gson.fromJson(responseBody, ApiClient.LinkResponse.class);
@@ -228,40 +222,6 @@ final class ApiClientCore {
         }
     }
 
-    ApiClient.ItemsResponse fetchItems(String sessionToken, String query, int page, int pageSize) throws IOException {
-        ensureSyncEnabled();
-        StringBuilder urlBuilder = new StringBuilder();
-        urlBuilder.append(requestFactory.apiUrl(PATH_ITEMS));
-        urlBuilder.append("?page=").append(page).append("&page_size=").append(pageSize);
-        if (query != null && !query.trim().isEmpty()) {
-            urlBuilder.append("&q=").append(URLEncoder.encode(query.trim(), StandardCharsets.UTF_8));
-        }
-
-        Request request = requestFactory.newGetRequest(urlBuilder.toString(), sessionToken);
-
-        try (Response response = httpClient.newCall(request).execute()) {
-            if (!response.isSuccessful()) {
-                throw new ApiClient.ApiException("Fetch items failed", response.code());
-            }
-            String responseBody = response.body().string();
-            return gson.fromJson(responseBody, ApiClient.ItemsResponse.class);
-        }
-    }
-
-    ApiClient.ItemResponse fetchItem(String sessionToken, int itemId) throws IOException {
-        ensureSyncEnabled();
-        String url = requestFactory.apiUrl(PATH_ITEM) + "?item_id=" + itemId;
-        Request request = requestFactory.newGetRequest(url, sessionToken);
-
-        try (Response response = httpClient.newCall(request).execute()) {
-            if (!response.isSuccessful()) {
-                throw new ApiClient.ApiException("Fetch item failed", response.code());
-            }
-            String responseBody = response.body().string();
-            return gson.fromJson(responseBody, ApiClient.ItemResponse.class);
-        }
-    }
-
     ApiClient.StatsSummaryResponse fetchStatsSummary(String sessionToken, Long sinceMs, Long untilMs) throws IOException {
         ensureSyncEnabled();
         StringBuilder urlBuilder = new StringBuilder();
@@ -276,35 +236,6 @@ final class ApiClientCore {
             }
             String responseBody = response.body().string();
             return gson.fromJson(responseBody, ApiClient.StatsSummaryResponse.class);
-        }
-    }
-
-    ApiClient.StatsItemsResponse fetchStatsItems(String sessionToken,
-                                                 Long sinceMs,
-                                                 Long untilMs,
-                                                 Integer limit,
-                                                 StatsItemSort sort) throws IOException {
-        ensureSyncEnabled();
-        StringBuilder urlBuilder = new StringBuilder();
-        urlBuilder.append(requestFactory.apiUrl(PATH_STATS_ITEMS));
-        boolean hasQuery = requestFactory.appendStatsQuery(urlBuilder, sinceMs, untilMs);
-        if (limit != null) {
-            urlBuilder.append(hasQuery ? "&" : "?").append("limit=").append(limit);
-            hasQuery = true;
-        }
-        if (sort != null) {
-            urlBuilder.append(hasQuery ? "&" : "?").append("sort=").append(sort.getApiValue());
-            hasQuery = true;
-        }
-
-        Request request = requestFactory.newGetRequest(urlBuilder.toString(), sessionToken);
-
-        try (Response response = httpClient.newCall(request).execute()) {
-            if (!response.isSuccessful()) {
-                throw new ApiClient.ApiException("Fetch stats items failed", response.code());
-            }
-            String responseBody = response.body().string();
-            return gson.fromJson(responseBody, ApiClient.StatsItemsResponse.class);
         }
     }
 

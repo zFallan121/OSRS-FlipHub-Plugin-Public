@@ -27,9 +27,51 @@ package com.osrsfliphub;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class UploadDiagnosticsStateTest {
+    /**
+     * The flush runs every two seconds. Without a growing wait, a rate limit is answered with
+     * another request two seconds later and an unreachable host is retried at that rate for as
+     * long as the client is open.
+     */
+    @Test
+    public void eachConsecutiveFailureWaitsLongerUpToACap() {
+        UploadDiagnosticsState state = new UploadDiagnosticsState();
+        long now = 1_000_000L;
+
+        state.backOff(now, 5_000L, 60_000L);
+        assertEquals(5_000L, state.getCurrentBackoffMs());
+        assertTrue(state.isBackingOff(now + 4_999L));
+        assertFalse(state.isBackingOff(now + 5_000L));
+
+        state.backOff(now, 5_000L, 60_000L);
+        assertEquals(10_000L, state.getCurrentBackoffMs());
+        state.backOff(now, 5_000L, 60_000L);
+        assertEquals(20_000L, state.getCurrentBackoffMs());
+
+        for (int i = 0; i < 10; i++) {
+            state.backOff(now, 5_000L, 60_000L);
+        }
+        assertEquals(60_000L, state.getCurrentBackoffMs());
+    }
+
+    @Test
+    public void anythingGettingThroughClearsTheWait() {
+        UploadDiagnosticsState state = new UploadDiagnosticsState();
+        long now = 1_000_000L;
+        state.backOff(now, 5_000L, 60_000L);
+        state.backOff(now, 5_000L, 60_000L);
+
+        state.clearBackOff();
+
+        assertEquals(0L, state.getCurrentBackoffMs());
+        assertFalse(state.isBackingOff(now));
+        state.backOff(now, 5_000L, 60_000L);
+        assertEquals(5_000L, state.getCurrentBackoffMs());
+    }
+
     @Test
     public void enqueueEventCapsQueueAndTracksDrops() {
         UploadDiagnosticsState state = new UploadDiagnosticsState();

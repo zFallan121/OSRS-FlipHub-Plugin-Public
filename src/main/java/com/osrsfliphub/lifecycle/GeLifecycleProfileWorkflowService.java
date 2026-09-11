@@ -39,7 +39,6 @@ import net.runelite.api.GrandExchangeOfferState;
 @javax.inject.Singleton
 final class GeLifecycleProfileWorkflowService {
     private final long accountwideKey;
-    private final int maxLocalTrades;
     private final Object localStatsLock;
     private final Set<Long> loadedProfiles;
     private final Map<Long, List<LocalTradeDelta>> localTradeDeltasByAccount;
@@ -67,7 +66,6 @@ final class GeLifecycleProfileWorkflowService {
     @javax.inject.Inject
     GeLifecycleProfileWorkflowService(PluginState pluginState) {
         this(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY,
-            GeLifecyclePluginConstants.MAX_LOCAL_TRADES,
             pluginState.getLocalStatsLock(),
             pluginState.getLoadedProfiles(),
             pluginState.getLocalTradeDeltasByAccount(),
@@ -95,7 +93,6 @@ final class GeLifecycleProfileWorkflowService {
 
     GeLifecycleProfileWorkflowService(
         long accountwideKey,
-        int maxLocalTrades,
         Object localStatsLock,
         Set<Long> loadedProfiles,
         Map<Long, List<LocalTradeDelta>> localTradeDeltasByAccount,
@@ -121,7 +118,6 @@ final class GeLifecycleProfileWorkflowService {
         Supplier<Client> clientSupplier
     ) {
         this.accountwideKey = accountwideKey;
-        this.maxLocalTrades = maxLocalTrades;
         this.localStatsLock = localStatsLock;
         this.loadedProfiles = loadedProfiles;
         this.localTradeDeltasByAccount = localTradeDeltasByAccount;
@@ -238,9 +234,12 @@ final class GeLifecycleProfileWorkflowService {
                 localTradeDeltasByAccount,
                 localSessionStartByAccount,
                 targetKey,
-                sourceKey,
-                maxLocalTrades
+                sourceKey
             );
+        }
+        ConversionRejectionStore rejections = PluginInjectorBridge.get(ConversionRejectionStore.class);
+        if (rejections != null) {
+            rejections.move(sourceKey, targetKey);
         }
         if (mergeResult != null && mergeResult.mergedSnapshot != null) {
             localStatsCacheServiceSupplier.get().rebuild(targetKey, mergeResult.mergedSnapshot);

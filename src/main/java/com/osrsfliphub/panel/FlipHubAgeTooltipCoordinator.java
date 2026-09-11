@@ -25,8 +25,8 @@
 package com.osrsfliphub;
 
 import static com.osrsfliphub.FlipHubPanelConstants.AGE_TOOLTIP_LEFT_GAP;
-import static com.osrsfliphub.FlipHubPanelConstants.AGE_TOOLTIP_MIN_WIDTH;
 import static com.osrsfliphub.FlipHubPanelConstants.LINE_STRONG;
+import static com.osrsfliphub.FlipHubPanelConstants.MUTED_2;
 import static com.osrsfliphub.FlipHubPanelConstants.OVERLAY_BASE;
 import static com.osrsfliphub.FlipHubPanelConstants.TEXT;
 
@@ -64,6 +64,15 @@ final class FlipHubAgeTooltipCoordinator {
     private JWindow ageTooltipWindow;
     private JToolTip ageTooltip;
     private Point ageTooltipPoint;
+    /**
+     * The widest this popup has had to be since it appeared.
+     *
+     * <p>It never shrinks while it is up. The ages tick every second and the digits are not all
+     * the same width, so a popup sized to the text exactly would twitch in and out by a pixel
+     * or two as the clock ran. Holding the widest it has needed keeps it still, and starting
+     * again at nothing each time it appears keeps one long row from bloating the next.
+     */
+    private int ageTooltipWidth;
 
     FlipHubAgeTooltipCoordinator(FlipHubPanelValueFormatService valueFormatService) {
         this.valueFormatService = valueFormatService;
@@ -93,7 +102,42 @@ final class FlipHubAgeTooltipCoordinator {
         hideAgeTooltip();
     }
 
-    void registerAgePair(Long buyTimestampMs, Long sellTimestampMs, LineComponents buyLine, LineComponents sellLine) {
+    /**
+     * New timestamps for a pair that is already registered, for a refresh that reuses the rows it
+     * is refreshing. A live popup is retexted in place, because the pointer is still on the row
+     * that owns it and the age it is showing has just moved on.
+     */
+    void updateAgePair(AgePairEntry entry, Long buyTimestampMs, Long sellTimestampMs) {
+        if (entry == null) {
+            return;
+        }
+        entry.buyTimestampMs = buyTimestampMs != null ? buyTimestampMs : 0;
+        entry.sellTimestampMs = sellTimestampMs != null ? sellTimestampMs : 0;
+        if (hoveredAgeEntry == entry) {
+            syncAgeTooltip(System.currentTimeMillis());
+        }
+    }
+
+    /**
+     * Stops ticking a label whose row no longer has a limit running. Without this the clock keeps
+     * counting from the base it last had, which is a number for something that is not happening.
+     */
+    void releaseCountdown(CountdownEntry entry) {
+        if (entry != null) {
+            countdownEntries.remove(entry);
+        }
+    }
+
+    /** The same, for the countdown on a row that is being refreshed rather than rebuilt. */
+    void updateCountdown(CountdownEntry entry, Long remainingMs, long asOfMs) {
+        if (entry == null || remainingMs == null) {
+            return;
+        }
+        entry.rebase(remainingMs, asOfMs > 0 ? asOfMs : System.currentTimeMillis());
+        updateCountdownEntry(entry, System.currentTimeMillis());
+    }
+
+    AgePairEntry registerAgePair(Long buyTimestampMs, Long sellTimestampMs, LineComponents buyLine, LineComponents sellLine) {
         long buyTs = buyTimestampMs != null ? buyTimestampMs : 0;
         long sellTs = sellTimestampMs != null ? sellTimestampMs : 0;
         JComponent[] components = new JComponent[] {
@@ -129,6 +173,7 @@ final class FlipHubAgeTooltipCoordinator {
             component.addMouseListener(hoverListener);
             component.addHierarchyBoundsListener(scrollListener);
         }
+        return entry;
     }
 
     private void showEntry(AgePairEntry entry) {
@@ -156,14 +201,15 @@ final class FlipHubAgeTooltipCoordinator {
         }
     }
 
-    void registerCountdownLabel(JLabel label, Long remainingMs, long asOfMs) {
+    CountdownEntry registerCountdownLabel(JLabel label, Long remainingMs, long asOfMs) {
         if (label == null || remainingMs == null) {
-            return;
+            return null;
         }
         long baseTimeMs = asOfMs > 0 ? asOfMs : System.currentTimeMillis();
         CountdownEntry entry = new CountdownEntry(label, remainingMs, baseTimeMs);
         countdownEntries.add(entry);
         updateCountdownEntry(entry, System.currentTimeMillis());
+        return entry;
     }
 
     void ensureCountdownTimer() {
@@ -265,6 +311,11 @@ final class FlipHubAgeTooltipCoordinator {
             remaining = 0;
         }
         entry.label.setText(valueFormatService.formatDuration(remaining));
+        if (remaining <= 0) {
+            // The row was coloured amber when it was built because a limit was running. It is not
+            // running any more, and the rebuild that would re-colour it may be half a minute off.
+            entry.label.setForeground(MUTED_2);
+        }
     }
 
     private void refreshAgeTooltip(long now) {
@@ -342,6 +393,7 @@ final class FlipHubAgeTooltipCoordinator {
             return;
         }
         hideAgeTooltip();
+        ageTooltipWidth = 0;
         ageTooltip = owner.createToolTip();
         ageTooltip.setOpaque(true);
         // --overlay-base: a popup floating over the panel is a window, not a surface in it, so
@@ -423,6 +475,16 @@ final class FlipHubAgeTooltipCoordinator {
         return Math.max(min, Math.min(max, value));
     }
 
+    /**
+     * Stops the countdown for good. It otherwise only stops when both entry lists empty, which
+     * closing the panel never does, so the timer kept ticking on a panel nobody could see.
+     */
+    void shutDown() {
+        stopTimer(countdownTimer);
+        countdownTimer = null;
+        clearHoverAndHide();
+    }
+
     private void stopTimer(Timer timer) {
         if (timer != null) {
             timer.stop();
@@ -498,23 +560,30 @@ final class FlipHubAgeTooltipCoordinator {
         ageTooltip.setTipText(text);
         ageTooltip.setPreferredSize(null);
         Dimension preferred = ageTooltip.getPreferredSize();
-        ageTooltip.setPreferredSize(
-            new Dimension(Math.max(preferred.width, AGE_TOOLTIP_MIN_WIDTH), preferred.height));
+        ageTooltipWidth = Math.max(ageTooltipWidth, preferred.width);
+        ageTooltip.setPreferredSize(new Dimension(ageTooltipWidth, preferred.height));
         if (ageTooltipWindow != null) {
             ageTooltipWindow.pack();
         }
     }
 
     private String buildAgePairTooltip(AgePairEntry entry, long now) {
-        String buyAge = entry.buyTimestampMs > 0
-            ? valueFormatService.formatAgeClock(now - entry.buyTimestampMs)
-            : "N/A";
-        String sellAge = entry.sellTimestampMs > 0
-            ? valueFormatService.formatAgeClock(now - entry.sellTimestampMs)
-            : "N/A";
+        // Each age carries the same colour its price carries on the card, so an amber price and
+        // the age that made it amber are visibly the same fact. Labels stay plain: colour on
+        // this panel marks the state of a value, never decorates the word in front of it.
         return "<html><div style='font-size:10px;'>"
-            + "<span style='color:#22C55E;'>Sell price age:&nbsp;</span>" + sellAge
-            + "<br><span style='color:#22C55E;'>Buy price age:&nbsp;</span>" + buyAge
+            + "Sell price age:&nbsp;" + agePart(entry.sellTimestampMs, now)
+            + "<br>Buy price age:&nbsp;" + agePart(entry.buyTimestampMs, now)
             + "</div></html>";
+    }
+
+    private String agePart(long timestampMs, long now) {
+        if (timestampMs <= 0) {
+            return "N/A";
+        }
+        String age = valueFormatService.formatAgeClock(now - timestampMs);
+        return "<span style='color:"
+            + FlipHubPanelConstants.toHex(FlipHubPanelConstants.priceAgeColor(timestampMs, now))
+            + ";'>" + age + "</span>";
     }
 }

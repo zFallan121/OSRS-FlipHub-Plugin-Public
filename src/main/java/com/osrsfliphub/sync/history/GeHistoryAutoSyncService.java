@@ -47,7 +47,7 @@ final class GeHistoryAutoSyncService {
         }
     }
 
-    private static final int SYNTHETIC_SLOT_START = 10_000;
+    private static final int SYNTHETIC_SLOT_START = GeLifecyclePluginConstants.GE_HISTORY_SYNTHETIC_SLOT_START;
     private static final long SYNTHETIC_EVENT_SPACING_MS = 4L;
 
     private final long accountwideKey = GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
@@ -73,8 +73,10 @@ final class GeHistoryAutoSyncService {
         }
     }
 
-    private void appendTradeDeltaPair(long accountKey, long accountwideKey, LocalTradeDelta delta) {
-        plugin().getLocalTradesRuntimeService().appendTradeDeltaPair(accountKey, accountwideKey, delta);
+    private LocalTradeOfferCollapser.Outcome appendTradeDeltaPair(long accountKey,
+                                                                  long accountwideKey,
+                                                                  LocalTradeDelta delta) {
+        return plugin().getLocalTradesRuntimeService().appendTradeDeltaPair(accountKey, accountwideKey, delta);
     }
 
     private void applyDeltaToStatsCache(long accountKey, LocalTradeDelta delta) {
@@ -133,15 +135,8 @@ final class GeHistoryAutoSyncService {
         ensureProfileLoaded(accountwideKey);
 
         List<LocalTradeDelta> existingDeltas = snapshotLocalTradeDeltas(accountKey);
-        Map<GeHistoryAutoSyncTradeMatcher.TradeSignature, Integer> existingCounts =
-            GeHistoryAutoSyncTradeMatcher.buildObservedTradeCounts(existingDeltas);
-        Map<GeHistoryAutoSyncTradeMatcher.BaseSignature, Integer> observedQtyByBase =
-            GeHistoryAutoSyncTradeMatcher.buildObservedQuantityByBase(existingDeltas);
-        GeHistoryAutoSyncTradeMatcher.SelectionPlan selectionPlan = GeHistoryAutoSyncTradeMatcher.planMissingTrades(
-            validTrades,
-            existingCounts,
-            observedQtyByBase
-        );
+        GeHistoryAutoSyncTradeMatcher.SelectionPlan selectionPlan =
+            GeHistoryAutoSyncTradeMatcher.planMissingTrades(validTrades, existingDeltas);
         List<GeHistoryTrade> missingTrades = selectionPlan.missingTrades;
         if (missingTrades.isEmpty()) {
             return new SyncResult(validTrades.size(), 0);
@@ -169,6 +164,8 @@ final class GeHistoryAutoSyncService {
                 : Math.max(1L, nowMs - ((long) (validTrades.size() - i + 1) * SYNTHETIC_EVENT_SPACING_MS * 2L));
             long completionTsMs = updateTsMs + SYNTHETIC_EVENT_SPACING_MS;
             int slot = SYNTHETIC_SLOT_START + addedTrades;
+            // The website is told about the trade the way the offer pipeline would have:
+            // a fill, then a completion.
             LocalTradeDelta updateDelta = new LocalTradeDelta(
                 updateTsMs,
                 slot,
@@ -191,16 +188,29 @@ final class GeHistoryAutoSyncService {
                 trade.price,
                 false
             );
+            // Locally the history row is a finished offer, and a finished offer is one
+            // record: the fill and its completion, already folded together. The update's
+            // timestamp keeps the row's place in the batch, which is the history's own order.
+            LocalTradeDelta storedDelta = new LocalTradeDelta(
+                updateTsMs,
+                slot,
+                trade.itemId,
+                trade.isBuy,
+                trade.quantity,
+                trade.totalGp,
+                "OFFER_COMPLETED",
+                trade.price,
+                false,
+                updateTsMs,
+                completionTsMs
+            );
             cacheItemName(trade.itemId);
-            appendTradeDeltaPair(accountKey, accountwideKey, updateDelta);
-            applyDeltaToStatsCache(accountKey, updateDelta);
-            if (accountwideKey != accountKey) {
-                applyDeltaToStatsCache(accountwideKey, updateDelta);
-            }
-            appendTradeDeltaPair(accountKey, accountwideKey, completionDelta);
-            applyDeltaToStatsCache(accountKey, completionDelta);
-            if (accountwideKey != accountKey) {
-                applyDeltaToStatsCache(accountwideKey, completionDelta);
+            if (appendTradeDeltaPair(accountKey, accountwideKey, storedDelta)
+                != LocalTradeOfferCollapser.Outcome.DROPPED) {
+                applyDeltaToStatsCache(accountKey, storedDelta);
+                if (accountwideKey != accountKey) {
+                    applyDeltaToStatsCache(accountwideKey, storedDelta);
+                }
             }
 
             // Ensure GE-history-synced trades also flow through website event ingestion/flip pairing.

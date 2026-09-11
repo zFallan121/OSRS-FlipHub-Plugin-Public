@@ -43,27 +43,44 @@ final class LocalTradeDeltaUtils {
     private LocalTradeDeltaUtils() {
     }
 
-    static List<LocalTradeDelta> mergeLocalTrades(List<LocalTradeDelta> primary,
-                                                  List<LocalTradeDelta> secondary,
-                                                  List<LocalTradeDelta> tertiary,
-                                                  List<LocalTradeDelta> quaternary,
-                                                  int maxLocalTrades) {
-        List<LocalTradeDelta> merged = new ArrayList<>();
-        Set<String> seen = new HashSet<>();
-        addMergedTrades(merged, seen, primary);
-        addMergedTrades(merged, seen, secondary);
-        addMergedTrades(merged, seen, tertiary);
-        addMergedTrades(merged, seen, quaternary);
-        if (merged.isEmpty()) {
-            return null;
+    /**
+     * When a record takes its place in the replay: a purchase as its first unit was
+     * bought, a sale as its last unit was sold (see {@link LocalTradeDelta#closedAtMs}).
+     */
+    static long replayTimeMs(LocalTradeDelta delta) {
+        if (delta == null) {
+            return 0L;
         }
-        merged.sort(Comparator.comparingLong(delta -> delta != null ? delta.tsClientMs : 0L));
-        trimToMax(merged, maxLocalTrades);
-        return merged;
+        return delta.isBuy ? delta.tsClientMs : delta.closedAtMs();
+    }
+
+    /**
+     * The order both ledgers replay deltas in, so a rebuild sees what the live
+     * cache saw.
+     *
+     * <p>Two live fills in one client tick can be reported in either order, so
+     * inside a 600 ms bucket a buy goes before a sell: the purchase a sale drew
+     * on is then in the pool first. Trades imported from the in-game history
+     * get no such favour. The sync invents their timestamps a few milliseconds
+     * apart, which lands a whole batch in one bucket - and the order those
+     * timestamps encode is the history's own, which is the evidence. Replaying
+     * a batch buys-first would put every imported buy ahead of every imported
+     * sale and turn a sale the history put before its parts into an assemble.
+     */
+    static Comparator<LocalTradeDelta> replayOrder() {
+        long bucketMs = GeLifecyclePluginConstants.LOCAL_EVENT_BUCKET_MS;
+        return Comparator
+            .comparingLong((LocalTradeDelta delta) -> replayTimeMs(delta) / bucketMs)
+            .thenComparingInt(delta -> delta != null && delta.isBuy && !isSyncedFromHistory(delta) ? 0 : 1)
+            .thenComparingLong(LocalTradeDeltaUtils::replayTimeMs);
+    }
+
+    /** Whether a delta was imported from the in-game history rather than watched live. */
+    static boolean isSyncedFromHistory(LocalTradeDelta delta) {
+        return delta != null && delta.slot >= GeLifecyclePluginConstants.GE_HISTORY_SYNTHETIC_SLOT_START;
     }
 
     static List<LocalTradeDelta> dedupeLocalTrades(List<LocalTradeDelta> source,
-                                                   int maxLocalTrades,
                                                    long localEventBucketMs,
                                                    long duplicateTradeWindowMs) {
         if (source == null || source.isEmpty()) {
@@ -77,8 +94,10 @@ final class LocalTradeDeltaUtils {
         }
         merged.sort(Comparator.comparingLong(delta -> delta != null ? delta.tsClientMs : 0L));
         List<LocalTradeDelta> normalized = normalizeCompletionDeltas(merged, localEventBucketMs, duplicateTradeWindowMs);
-        trimToMax(normalized, maxLocalTrades);
-        return normalized;
+        // Legacy duplicates are settled above, on the per-fill shape; only then is each
+        // completed offer folded into one record. A file written fill by fill by an earlier
+        // build is migrated here, once, and written back collapsed.
+        return LocalTradeOfferCollapser.collapse(normalized);
     }
 
     static String buildLocalTradeSignature(LocalTradeDelta delta) {
@@ -104,7 +123,7 @@ final class LocalTradeDeltaUtils {
         if (qty > 0 && delta.price > 0) {
             long total = (long) delta.price * (long) qty;
             if (!delta.isBuy) {
-                long tax = computeSellTax(total, qty, delta.price);
+                long tax = computeSellTax(delta.itemId, total, qty, delta.price);
                 return Math.max(0L, total - tax);
             }
             return Math.max(0L, total);
@@ -112,6 +131,18 @@ final class LocalTradeDeltaUtils {
         return Math.max(0L, delta.deltaGp);
     }
 
+    /**
+     * Whether a live record repeats one just stored: the same event, in the same 600 ms
+     * bucket, for the same slot, item, side, quantity, price and value.
+     *
+     * <p>Only the same event type counts. An update followed by a completion of the
+     * same size used to be taken for a repeat too, but the pipeline computes a
+     * completion's quantity as what was still outstanding, so two equal chunks are two
+     * chunks - and the completion is what folds the offer's fills into one record, so
+     * dropping it lost both the last chunk and the collapse. A completion that really
+     * does repeat the update's cumulative fill is zeroed upstream by
+     * {@link RecentTradeDeduper}, which can see the cumulative figures this cannot.
+     */
     static boolean isLikelyDuplicateTradeDelta(List<LocalTradeDelta> deltas,
                                                LocalTradeDelta candidate,
                                                long localEventBucketMs,
@@ -147,11 +178,7 @@ final class LocalTradeDeltaUtils {
                 continue;
             }
             String prevType = prev.eventType != null ? prev.eventType : "";
-            boolean sameBucket = bucket == prevBucket;
-            if (sameBucket && prevType.equals(candidateType)) {
-                return true;
-            }
-            if (isCompletionUpdatePair(prevType, candidateType)) {
+            if (bucket == prevBucket && prevType.equals(candidateType)) {
                 return true;
             }
         }
@@ -169,6 +196,15 @@ final class LocalTradeDeltaUtils {
         Map<String, LocalTradeDelta> recentByTradeKey = new HashMap<>();
         for (LocalTradeDelta delta : source) {
             if (delta == null) {
+                continue;
+            }
+            if (delta.endMs > 0) {
+                // Written by the collapser, so already one normalised record per offer.
+                // The heuristics below read the per-fill shape of older files - a
+                // completion repeating its update, a gross total - and applied to a whole
+                // offer they misfire: two same-sized offers on one slot a quarter of an
+                // hour apart would be taken for a repeated completion and one dropped.
+                normalized.add(delta);
                 continue;
             }
             delta = normalizeSellDeltaIfGross(delta);
@@ -234,7 +270,9 @@ final class LocalTradeDeltaUtils {
             0L,
             delta.eventType,
             delta.price,
-            delta.baselineSynthetic
+            delta.baselineSynthetic,
+            delta.offerStartMs,
+            delta.endMs
         );
     }
 
@@ -247,7 +285,7 @@ final class LocalTradeDeltaUtils {
         if (deltaGp != grossFromPrice) {
             return delta;
         }
-        long tax = computeSellTax(grossFromPrice, delta.deltaQty, delta.price);
+        long tax = computeSellTax(delta.itemId, grossFromPrice, delta.deltaQty, delta.price);
         long netFromPrice = Math.max(0L, grossFromPrice - tax);
         return new LocalTradeDelta(
             delta.tsClientMs,
@@ -258,7 +296,9 @@ final class LocalTradeDeltaUtils {
             netFromPrice,
             delta.eventType,
             delta.price,
-            delta.baselineSynthetic
+            delta.baselineSynthetic,
+            delta.offerStartMs,
+            delta.endMs
         );
     }
 
@@ -277,7 +317,7 @@ final class LocalTradeDeltaUtils {
         }
         long qty = current.deltaQty;
         long gross = (long) current.price * qty;
-        long tax = computeSellTax(gross, qty, current.price);
+        long tax = computeSellTax(current.itemId, gross, qty, current.price);
         long net = Math.max(0L, gross - tax);
         if (gross <= net) {
             return false;
@@ -304,13 +344,13 @@ final class LocalTradeDeltaUtils {
         return previousGp == currentGp || isLikelySellGrossNetDuplicate(previous, current);
     }
 
-    private static long computeSellTax(long grossTotal, long qty, long unitPrice) {
+    private static long computeSellTax(int itemId, long grossTotal, long qty, long unitPrice) {
         if (grossTotal <= 0L || qty <= 0L) {
             return 0L;
         }
-        long taxByRate = unitPrice > 0L ? (unitPrice / 50L) * qty : grossTotal / 50L;
-        long taxCap = qty * 5_000_000L;
-        return Math.max(0L, Math.min(taxByRate, taxCap));
+        return unitPrice > 0L
+            ? GeTax.forSale(itemId, unitPrice, qty)
+            : GeTax.forGrossTotal(itemId, grossTotal);
     }
 
     private static String buildCompletionDedupSignature(LocalTradeDelta delta, long localEventBucketMs) {
@@ -342,13 +382,5 @@ final class LocalTradeDeltaUtils {
                 merged.add(delta);
             }
         }
-    }
-
-    private static void trimToMax(List<LocalTradeDelta> deltas, int maxLocalTrades) {
-        if (deltas == null || maxLocalTrades <= 0 || deltas.size() <= maxLocalTrades) {
-            return;
-        }
-        int trim = deltas.size() - maxLocalTrades;
-        deltas.subList(0, trim).clear();
     }
 }

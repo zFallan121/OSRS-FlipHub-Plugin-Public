@@ -49,7 +49,18 @@ final class LocalTradeDeltaRecorder {
         }
     }
 
-    boolean record(GeEvent event, boolean baselineSynthetic) {
+    private void rebuildStatsCache(long accountKey) {
+        LocalStatsCacheService service = PluginInjectorBridge.get(LocalStatsCacheService.class);
+        if (service != null) {
+            service.rebuildFromStored(accountKey);
+        }
+    }
+
+    /**
+     * @param offerStartMs when the offer this event belongs to was placed, from the slot's
+     *                     stamp; zero when the slot has no stamp any more, as after a collect
+     */
+    boolean record(GeEvent event, boolean baselineSynthetic, long offerStartMs) {
         if (event == null) {
             return false;
         }
@@ -83,20 +94,40 @@ final class LocalTradeDeltaRecorder {
             event.delta_gp,
             event.event_type,
             event.price,
-            baselineSynthetic
+            baselineSynthetic,
+            Math.max(0L, offerStartMs),
+            0L
         );
 
         ItemLookupService itemLookup = PluginInjectorBridge.get(ItemLookupService.class);
         if (itemLookup != null) {
             itemLookup.cacheItemName(event.item_id);
         }
-        tradesRuntime.appendTradeDeltaPair(accountKey, accountwideKey, delta);
-        applyDeltaToStatsCache(accountKey, delta);
-        if (accountwideKey != accountKey) {
-            applyDeltaToStatsCache(accountwideKey, delta);
+        LocalTradeOfferCollapser.Outcome outcome = tradesRuntime.appendTradeDeltaPair(accountKey, accountwideKey, delta);
+        if (outcome == LocalTradeOfferCollapser.Outcome.DROPPED) {
+            // Nothing stored, so nothing may reach the aggregate either: a repeat counted
+            // live but absent from disk is exactly the running-versus-restart drift.
+            return false;
+        }
+        if (outcome == LocalTradeOfferCollapser.Outcome.COLLAPSED) {
+            // The offer's fills were already applied one by one as they arrived, and the
+            // stored list now holds one record in their place. Replaying it is what a
+            // fresh start will do, so it is done now: the numbers never depend on whether
+            // the client has restarted since the offer completed.
+            rebuildStatsCache(accountKey);
+            if (accountwideKey != accountKey) {
+                rebuildStatsCache(accountwideKey);
+            }
+        } else {
+            applyDeltaToStatsCache(accountKey, delta);
+            if (accountwideKey != accountKey) {
+                applyDeltaToStatsCache(accountwideKey, delta);
+            }
         }
         tradesRuntime.persistLocalTrades(accountKey);
-        tradesRuntime.persistLocalTrades(accountwideKey);
+        // The accountwide file is not written here. Its stored deltas are never read: the
+        // accountwide ledger is rebuilt by merging the per-profile files, which the line above
+        // keeps current. Writing it too doubled the disk work on every fill for nothing.
         PanelRefreshCoordinator coordinator = PluginAccess.plugin().getPanelRefreshCoordinator();
         if (coordinator != null) {
             coordinator.triggerStatsRefresh(PluginAccess.plugin().scheduler);

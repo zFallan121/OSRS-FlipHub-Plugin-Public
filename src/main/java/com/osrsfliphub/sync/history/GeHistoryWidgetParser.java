@@ -67,6 +67,16 @@ final class GeHistoryWidgetParser {
         return trades;
     }
 
+    /**
+     * One row of the history as a trade.
+     *
+     * <p>The quantity and coins this returns are what the sync's cursor signatures are
+     * built from ({@link GeHistoryCursorService#buildSignature}). A change to how either
+     * is read makes every stored cursor stop matching, and a cursor that matches nothing
+     * is read as a history that rolled over. Bump
+     * {@link GeHistoryCursorService#FORMAT_VERSION} with any such change, so stored
+     * cursors are retired instead.
+     */
     static GeHistoryTrade parseTrade(String stateText, int itemId, int quantity, String detailsText) {
         if (itemId <= 0) {
             return null;
@@ -119,7 +129,7 @@ final class GeHistoryWidgetParser {
         if (grossFromBreakdown > 0L && resolvedQuantity > 0) {
             grossUnitPrice = (int) Math.max(1L, Math.round((double) grossFromBreakdown / (double) resolvedQuantity));
         } else {
-            grossUnitPrice = inferGrossUnitPrice(netUnit, resolvedQuantity, netTotal);
+            grossUnitPrice = inferGrossUnitPrice(itemId, netUnit, resolvedQuantity, netTotal);
         }
         if (grossUnitPrice <= 0) {
             grossUnitPrice = Math.max(1, netUnit);
@@ -190,11 +200,13 @@ final class GeHistoryWidgetParser {
         return (int) Math.min(Integer.MAX_VALUE, parsed);
     }
 
-    static int inferGrossUnitPrice(int netUnitPrice, int quantity, long netTotal) {
+    static int inferGrossUnitPrice(int itemId, int netUnitPrice, int quantity, long netTotal) {
         if (netUnitPrice <= 0 || quantity <= 0) {
             return 0;
         }
-        if (netUnitPrice < 50) {
+        // Nothing was taken off, so there is nothing to add back. Below fifty coins the tax
+        // rounds away to nothing, and an exempt item is never taxed at any price.
+        if (netUnitPrice < 50 || GeTax.isExempt(itemId)) {
             return netUnitPrice;
         }
         int approx = (int) Math.ceil((double) netUnitPrice * 50.0d / 49.0d);
@@ -204,7 +216,7 @@ final class GeHistoryWidgetParser {
         long bestError = Long.MAX_VALUE;
         int bestDistance = Integer.MAX_VALUE;
         for (int candidate = start; candidate <= end; candidate++) {
-            long netPerItem = candidate - (candidate / 50L);
+            long netPerItem = candidate - GeTax.perItem(itemId, candidate);
             long impliedNetTotal = netPerItem * (long) quantity;
             long error = netTotal > 0L
                 ? Math.abs(impliedNetTotal - netTotal)

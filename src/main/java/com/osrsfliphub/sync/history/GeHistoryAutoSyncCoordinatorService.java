@@ -102,6 +102,18 @@ final class GeHistoryAutoSyncCoordinatorService {
         plugin.runtimeUtilityServices.pushGameMessage(plugin.client, message);
     }
 
+    /** What to say when the current read becomes the cursor: why, if the old one was refused. */
+    private String baselineSetMessage(GeHistoryCursorService.StoredCursor stored, List<String> currentCursor) {
+        GeHistoryAutoSyncMessageService messages = messageService();
+        if (messages == null) {
+            return "";
+        }
+        int size = currentCursor != null ? currentCursor.size() : 0;
+        return stored != null && stored.staleFormat
+            ? messages.cursorFormatResetMessage(size)
+            : messages.baselineSetMessage(size);
+    }
+
     void attemptAutoSync() {
         if (autoSyncState == null) {
             return;
@@ -125,88 +137,91 @@ final class GeHistoryAutoSyncCoordinatorService {
         autoSyncState.noteHistoryVisible(nowMs);
         Widget[] historyWidgets = snapshot.widgets;
         GeHistoryWidgetReadService widgetRead = PluginInjectorBridge.get(GeHistoryWidgetReadService.class);
-        boolean widgetsIncomplete = widgetRead == null || !widgetRead.hasCompleteWidgetGroups(historyWidgets);
-        if (autoSyncState.shouldWaitForSettle(widgetsIncomplete, nowMs)) {
-            return;
-        }
-
-        List<GeHistoryTrade> historyTrades =
-            widgetRead != null ? widgetRead.parseTrades(historyWidgets) : new ArrayList<>();
+        boolean widgetsComplete = widgetRead != null && widgetRead.hasCompleteWidgetGroups(historyWidgets);
+        List<GeHistoryTrade> historyTrades = widgetsComplete ? widgetRead.parseTrades(historyWidgets) : null;
         if (historyTrades == null) {
             historyTrades = new ArrayList<>();
         }
-        List<GeHistoryTrade> eligibleTrades = historyTrades;
         List<String> currentCursor = buildCursorSignatures(historyTrades);
+        int widgetCount = historyWidgets != null ? historyWidgets.length : 0;
+        GeHistoryAutoSyncStateService.ReadVerdict verdict =
+            autoSyncState.observeRead(widgetsComplete, widgetCount, currentCursor, nowMs);
+        if (verdict == GeHistoryAutoSyncStateService.ReadVerdict.WAIT) {
+            return;
+        }
+        GeHistoryAutoSyncMessageService messages = messageService();
+        if (verdict == GeHistoryAutoSyncStateService.ReadVerdict.GIVE_UP) {
+            autoSyncState.disarm();
+            pushGameMessage(messages != null ? messages.readIncompleteMessage() : "");
+            log.info("GE history auto-sync gave up on account {}: the history list never settled", accountKey);
+            return;
+        }
+
         GeHistoryWipeStateStore wipeStore = wipeStore();
-        List<String> storedCursor = wipeStore != null ? wipeStore.loadCursor(accountKey) : new ArrayList<>();
+        GeHistoryCursorService.StoredCursor stored = wipeStore != null
+            ? wipeStore.loadCursor(accountKey)
+            : GeHistoryCursorService.StoredCursor.NONE;
+        List<String> storedCursor = stored.signatures;
         GeHistoryCursorService cursorService = cursorService();
         int overlap = cursorService != null ? cursorService.computeOverlap(currentCursor, storedCursor) : 0;
         boolean wipeBarrierArmed = wipeStore != null && wipeStore.isWipeBarrierArmed(accountKey);
-        if (wipeBarrierArmed) {
-            GeHistoryWipeBaselineDecisionService decisionService =
-                PluginInjectorBridge.get(GeHistoryWipeBaselineDecisionService.class);
-            GeHistoryWipeBaselineDecisionService.Decision decision = decisionService != null
-                ? decisionService.decide(currentCursor, storedCursor, historyTrades.size(), overlap)
-                : GeHistoryWipeBaselineDecisionService.Decision.proceed(historyTrades.size());
+        GeHistoryWipeBaselineDecisionService decisionService =
+            PluginInjectorBridge.get(GeHistoryWipeBaselineDecisionService.class);
+        GeHistoryWipeBaselineDecisionService.Decision decision = decisionService != null
+            ? decisionService.decide(wipeBarrierArmed, currentCursor, storedCursor, historyTrades.size(), overlap)
+            : GeHistoryWipeBaselineDecisionService.Decision.proceed(historyTrades.size());
 
-            if (decision.outcome == GeHistoryWipeBaselineDecisionService.Outcome.SET_BASELINE) {
+        switch (decision.outcome) {
+            case SET_BASELINE:
                 persistCursor(accountKey, currentCursor);
                 autoSyncState.disarm();
-                GeHistoryAutoSyncMessageService messages = messageService();
-                pushGameMessage(messages != null
-                    ? messages.baselineSetMessage(currentCursor != null ? currentCursor.size() : 0) : "");
+                if (wipeBarrierArmed || stored.staleFormat) {
+                    pushGameMessage(baselineSetMessage(stored, currentCursor));
+                }
                 return;
-            }
-
-            if (decision.outcome == GeHistoryWipeBaselineDecisionService.Outcome.SKIP_MISMATCH) {
+            case SKIP_MISMATCH:
                 autoSyncState.disarm();
-                GeHistoryAutoSyncMessageService messages = messageService();
                 pushGameMessage(messages != null ? messages.baselineMismatchMessage() : "");
                 return;
-            }
-
-            int newCount = decision.eligibleTradeCount;
-            if (newCount <= 0) {
-                eligibleTrades = new ArrayList<>();
-            } else if (newCount >= historyTrades.size()) {
-                eligibleTrades = historyTrades;
-            } else {
-                eligibleTrades = new ArrayList<>(historyTrades.subList(0, newCount));
-            }
-        } else {
-            if (storedCursor == null || storedCursor.isEmpty()) {
-                persistCursor(accountKey, currentCursor);
+            case SKIP_SHORT_READ:
                 autoSyncState.disarm();
+                pushGameMessage(messages != null
+                    ? messages.shortReadMessage(currentCursor.size(), storedCursor.size()) : "");
+                log.warn("GE history auto-sync skipped for account {}: read {} trades but the last sync saw {}",
+                    accountKey, currentCursor.size(), storedCursor.size());
                 return;
-            }
-            if (overlap <= 0) {
-                persistCursor(accountKey, currentCursor);
-                autoSyncState.disarm();
-                pushGameMessage(syncResultMessage(0));
-                return;
-            }
-            int newCount = Math.max(0, historyTrades.size() - overlap);
-            if (newCount <= 0) {
-                eligibleTrades = new ArrayList<>();
-            } else if (newCount < historyTrades.size()) {
-                eligibleTrades = new ArrayList<>(historyTrades.subList(0, newCount));
-            }
+            default:
+                break;
         }
 
+        List<GeHistoryTrade> eligibleTrades = eligibleTrades(historyTrades, decision.eligibleTradeCount);
         GeHistoryAutoSyncService syncService = PluginInjectorBridge.get(GeHistoryAutoSyncService.class);
         GeHistoryAutoSyncService.SyncResult result = syncService != null
             ? syncService.sync(accountKey, eligibleTrades)
-            : new GeHistoryAutoSyncService.SyncResult(eligibleTrades != null ? eligibleTrades.size() : 0, 0);
+            : new GeHistoryAutoSyncService.SyncResult(eligibleTrades.size(), 0);
         autoSyncState.disarm();
         int addedTrades = result != null ? result.addedTrades : 0;
         int parsedTrades = result != null ? result.parsedTrades : 0;
         pushGameMessage(syncResultMessage(addedTrades));
-        if (currentCursor != null) {
-            persistCursor(accountKey, currentCursor);
+        persistCursor(accountKey, currentCursor);
+        if (decision.releasesWipeBarrier() && wipeStore != null) {
+            wipeStore.setWipeBarrierArmed(accountKey, false);
+            log.info("GE history wipe barrier released for account {} after a reconciling sync", accountKey);
         }
         if (addedTrades > 0) {
             log.info("GE history auto-sync added {} missing trades ({} parsed) for account {}",
                 addedTrades, parsedTrades, accountKey);
         }
+    }
+
+    /** The newest {@code count} rows: the ones above the overlap with the last sync. */
+    private static List<GeHistoryTrade> eligibleTrades(List<GeHistoryTrade> historyTrades, int count) {
+        if (count <= 0) {
+            return new ArrayList<>();
+        }
+        if (count >= historyTrades.size()) {
+            return historyTrades;
+        }
+        return new ArrayList<>(historyTrades.subList(0, count));
     }
 }

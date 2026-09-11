@@ -72,9 +72,6 @@ final class GeLifecyclePanelBootstrapService {
             config
         );
 
-        plugin.getProfileWorkflowService().updateProfileOptionsUI();
-        plugin.getProfileWorkflowService().updateProfileHeader();
-
         BufferedImage icon = panel.buildNavIcon();
         NavigationButton navButton = NavigationButton.builder()
             .tooltip("FlipHub OSRS")

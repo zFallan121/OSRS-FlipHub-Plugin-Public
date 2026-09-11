@@ -71,38 +71,84 @@ public class LocalTradeAnalyticsServiceTest {
             BUCKET_MS
         );
         long nowMs = 20_000_000L;
-        long validTs = nowMs - 1_000L;
+        long firstBuyTs = nowMs - 60_000L;
         List<LocalTradeDelta> snapshot = Arrays.asList(
-            delta(validTs, 2, 4151, true, 8, 8_000L, "OFFER_UPDATED", 1_000, false),
-            delta(validTs, 2, 4151, true, 8, 8_000L, "OFFER_UPDATED", 1_000, false),
-            delta(nowMs - LIMIT_WINDOW_MS - 1L, 2, 4151, true, 4, 4_000L, "OFFER_UPDATED", 1_000, false),
+            delta(firstBuyTs, 2, 4151, true, 8, 8_000L, "OFFER_UPDATED", 1_000, false),
+            delta(firstBuyTs, 2, 4151, true, 8, 8_000L, "OFFER_UPDATED", 1_000, false),
             delta(nowMs + FUTURE_TOLERANCE_MS + 1L, 2, 4151, true, 4, 4_000L, "OFFER_UPDATED", 1_000, false),
-            delta(validTs - 500L, 2, 4151, true, 3, 3_000L, "OFFER_UPDATED", 1_000, true)
+            delta(firstBuyTs + 500L, 2, 4151, true, 3, 3_000L, "OFFER_UPDATED", 1_000, true)
         );
 
         Map<Integer, LocalLimitInfo> infoMap = service.buildLocalLimitInfo(snapshot, nowMs);
 
         LocalLimitInfo info = infoMap.get(4151);
         assertEquals(8L, info.buyQty);
-        assertEquals(Long.valueOf(validTs), info.firstBuyTs);
+        assertEquals(Long.valueOf(firstBuyTs), info.firstBuyTs);
     }
 
+    /**
+     * The window belongs to the first purchase, not to the clock. Buying at 10:00 and again at
+     * 12:00 opens one window that closes at 14:00, so by 15:00 the whole limit is back even
+     * though the second buy is only three hours old.
+     */
     @Test
-    public void hasRecentLocalBuyRespectsItemAndWindow() {
+    public void buysInsideAWindowThatHasSinceExpiredNoLongerCount() {
         LocalTradeAnalyticsService service = new LocalTradeAnalyticsService(
             LIMIT_WINDOW_MS,
             FUTURE_TOLERANCE_MS,
             BUCKET_MS
         );
-        long nowMs = 30_000_000L;
+        long nowMs = 20_000_000L;
+        long fiveHoursAgo = nowMs - (5L * 60L * 60L * 1000L);
+        long threeHoursAgo = nowMs - (3L * 60L * 60L * 1000L);
         List<LocalTradeDelta> snapshot = Arrays.asList(
-            delta(nowMs - 2_000L, 1, 995, true, 2, 20_000L, "OFFER_UPDATED", 10_000, false),
-            delta(nowMs - LIMIT_WINDOW_MS - 1L, 1, 995, true, 2, 20_000L, "OFFER_UPDATED", 10_000, false),
-            delta(nowMs - 1_000L, 1, 995, false, 2, 20_000L, "OFFER_UPDATED", 10_000, false)
+            delta(fiveHoursAgo, 2, 4151, true, 100, 100_000L, "OFFER_UPDATED", 1_000, false),
+            delta(threeHoursAgo, 2, 4151, true, 50, 50_000L, "OFFER_UPDATED", 1_000, false)
         );
 
-        assertTrue(service.hasRecentLocalBuy(snapshot, 995, nowMs));
-        assertFalse(service.hasRecentLocalBuy(snapshot, 561, nowMs));
+        assertTrue(service.buildLocalLimitInfo(snapshot, nowMs).isEmpty());
+    }
+
+    /** While the window is open every buy inside it counts, and the reset is the window's. */
+    @Test
+    public void buysInsideAnOpenWindowAreSummedAgainstItsFirstPurchase() {
+        LocalTradeAnalyticsService service = new LocalTradeAnalyticsService(
+            LIMIT_WINDOW_MS,
+            FUTURE_TOLERANCE_MS,
+            BUCKET_MS
+        );
+        long nowMs = 20_000_000L;
+        long threeHoursAgo = nowMs - (3L * 60L * 60L * 1000L);
+        long oneHourAgo = nowMs - (60L * 60L * 1000L);
+        List<LocalTradeDelta> snapshot = Arrays.asList(
+            delta(threeHoursAgo, 2, 4151, true, 100, 100_000L, "OFFER_UPDATED", 1_000, false),
+            delta(oneHourAgo, 3, 4151, true, 50, 50_000L, "OFFER_UPDATED", 1_100, false)
+        );
+
+        LocalLimitInfo info = service.buildLocalLimitInfo(snapshot, nowMs).get(4151);
+
+        assertEquals(150L, info.buyQty);
+        assertEquals(Long.valueOf(threeHoursAgo), info.firstBuyTs);
+    }
+
+    /**
+     * Trades replayed from the in-game history carry a timestamp invented at import time, so
+     * they cannot say when a limit was spent and must not consume one.
+     */
+    @Test
+    public void tradesReplayedFromGameHistoryDoNotConsumeTheLimit() {
+        LocalTradeAnalyticsService service = new LocalTradeAnalyticsService(
+            LIMIT_WINDOW_MS,
+            FUTURE_TOLERANCE_MS,
+            BUCKET_MS
+        );
+        long nowMs = 20_000_000L;
+        int syntheticSlot = GeLifecyclePluginConstants.GE_HISTORY_SYNTHETIC_SLOT_START + 3;
+        List<LocalTradeDelta> snapshot = Arrays.asList(
+            delta(nowMs - 1_000L, syntheticSlot, 4151, true, 100, 100_000L, "OFFER_UPDATED", 1_000, false)
+        );
+
+        assertTrue(service.buildLocalLimitInfo(snapshot, nowMs).isEmpty());
     }
 
     @Test

@@ -54,6 +54,38 @@ public class GeHistoryAutoSyncMessageServiceTest {
     }
 
     @Test
+    public void untrustedReadMessagesSayWhatWasSeen() {
+        GeHistoryAutoSyncMessageService service = new GeHistoryAutoSyncMessageService();
+
+        assertEquals(
+            "FlipHub GE history sync: skipped (History tab never finished loading).",
+            service.readIncompleteMessage()
+        );
+        assertEquals(
+            "FlipHub GE history sync: skipped (read 30 trades, the last sync saw 42).",
+            service.shortReadMessage(30, 42)
+        );
+        assertEquals(
+            "FlipHub GE history sync: skipped (read 0 trades, the last sync saw 0).",
+            service.shortReadMessage(-1, -1)
+        );
+    }
+
+    @Test
+    public void cursorFormatResetMessageIncludesSafeTradeCount() {
+        GeHistoryAutoSyncMessageService service = new GeHistoryAutoSyncMessageService();
+
+        assertEquals(
+            "FlipHub GE history sync: stored cursor was from an older version, baseline reset (42 trades, nothing imported).",
+            service.cursorFormatResetMessage(42)
+        );
+        assertEquals(
+            "FlipHub GE history sync: stored cursor was from an older version, baseline reset (0 trades, nothing imported).",
+            service.cursorFormatResetMessage(-3)
+        );
+    }
+
+    @Test
     public void syncResultMessageHandlesAddedAndEmptyCases() {
         GeHistoryAutoSyncMessageService service = new GeHistoryAutoSyncMessageService();
 

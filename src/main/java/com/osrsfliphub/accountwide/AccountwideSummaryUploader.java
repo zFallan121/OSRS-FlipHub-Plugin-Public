@@ -47,17 +47,24 @@ final class AccountwideSummaryUploader {
     AccountwideSummaryUploader() {
     }
 
+    /**
+     * Reads the readiness flag the client thread photographs each tick, because this runs on the
+     * upload pool and {@code client.getLocalPlayer()} must not be called from there.
+     */
     private boolean isClientFullyReady() {
-        return PluginAccess.plugin().runtimeUtilityServices.isClientFullyReady(PluginAccess.plugin().client);
+        PluginRuntime runtime = PluginInjectorBridge.get(PluginRuntime.class);
+        return runtime != null && runtime.isClientFullyReady();
     }
 
     private LocalStatsSnapshot buildAccountwideSnapshot() {
         return PluginAccess.plugin().getProfileWorkflowService().buildReconciledAccountwideSnapshot();
     }
 
-    private boolean attemptRefresh(String currentToken) {
+    private SessionRefreshService.Outcome attemptRefresh(String currentToken) {
         SessionRefreshService service = PluginInjectorBridge.get(SessionRefreshService.class);
-        return service != null && service.attemptRefresh(currentToken);
+        return service != null
+            ? service.attemptRefresh(currentToken)
+            : SessionRefreshService.Outcome.UNAVAILABLE;
     }
 
     private void clearSession() {
@@ -125,8 +132,8 @@ final class AccountwideSummaryUploader {
         try {
             int status = apiClient.sendAccountwideSummary(sessionToken, signingSecret, summary, items);
             if (ApiStatusPolicy.isAuthStatus(status)) {
-                boolean refreshed = attemptRefresh(sessionToken);
-                if (refreshed) {
+                SessionRefreshService.Outcome outcome = attemptRefresh(sessionToken);
+                if (outcome == SessionRefreshService.Outcome.REFRESHED) {
                     String refreshedToken = config.sessionToken();
                     String refreshedSecret = config.signingSecret();
                     if (ApiStatusPolicy.hasCredentials(refreshedToken, refreshedSecret)) {
@@ -141,9 +148,9 @@ final class AccountwideSummaryUploader {
                             clearSession();
                         }
                     }
-                } else {
-                    clearSession();
                 }
+                // Only a refusal ends the link. Anything else leaves the credentials alone and
+                // waits for the next sync, which is a minute away at most.
                 if (wasDirty) {
                     markDirty();
                 }

@@ -25,15 +25,18 @@
 package com.osrsfliphub;
 
 final class RecentTradeEvent {
-    final String signature;
     final String tradeKey;
     final String eventType;
+    /** Cumulative fill the offer reported, so a repeat can be told from the next chunk. */
+    final int filledQty;
+    final long spentGp;
     final long tsClientMs;
 
-    RecentTradeEvent(String signature, String tradeKey, String eventType, long tsClientMs) {
-        this.signature = signature != null ? signature : "";
+    RecentTradeEvent(String tradeKey, String eventType, int filledQty, long spentGp, long tsClientMs) {
         this.tradeKey = tradeKey != null ? tradeKey : "";
         this.eventType = eventType;
+        this.filledQty = filledQty;
+        this.spentGp = spentGp;
         this.tsClientMs = tsClientMs;
     }
 }

@@ -83,9 +83,19 @@ final class ProfileWatcher {
         return store != null ? store.getProfileFileModifiedMs(file) : 0L;
     }
 
-    private Long getLoadedProfileFileMs(long accountKey) {
-        GeLifecyclePlugin plugin = PluginAccess.pluginOrNull();
-        return plugin != null ? plugin.loadedProfileFileMs.get(accountKey) : null;
+    /**
+     * The modification time a profile was last loaded at, from the same map the loader and
+     * the writer record into. Reading any other map makes every stored timestamp look absent,
+     * which turns the periodic scan into an unconditional reload of every profile.
+     */
+    private Long getSelfWrittenProfileFileMs(long accountKey) {
+        PluginState state = PluginInjectorBridge.get(PluginState.class);
+        return state != null ? state.getSelfWrittenProfileFileMs().get(accountKey) : null;
+    }
+
+    Long getLoadedProfileFileMs(long accountKey) {
+        PluginState state = PluginInjectorBridge.get(PluginState.class);
+        return state != null ? state.getLoadedProfileFileMs().get(accountKey) : null;
     }
 
     private void reloadProfile(long accountKey) {
@@ -188,6 +198,12 @@ final class ProfileWatcher {
             return;
         }
         long fileMs = getProfileFileModifiedMs(file);
+        Long selfWrittenMs = getSelfWrittenProfileFileMs(accountKey);
+        if (selfWrittenMs != null && fileMs == selfWrittenMs) {
+            // This is the plugin's own write coming back. Reloading it would replace the live
+            // list with a snapshot taken before any fill recorded since the write began.
+            return;
+        }
         Long loadedMs = getLoadedProfileFileMs(accountKey);
         if (fileMs > 0 && loadedMs != null) {
             // Watch events can arrive with equal-millisecond mtimes; allow those.

@@ -49,7 +49,6 @@ final class LocalProfileTradesLoadService {
         }
         return loader.load(
             accountHash,
-            GeLifecyclePluginConstants.MAX_LOCAL_TRADES,
             GeLifecyclePluginConstants.LOCAL_EVENT_BUCKET_MS,
             GeLifecyclePluginConstants.DUPLICATE_TRADE_WINDOW_MS);
     }
@@ -62,12 +61,24 @@ final class LocalProfileTradesLoadService {
         if (loaded == null) {
             return false;
         }
+        if (loaded.unreadable) {
+            // The file is there but unparseable. Keep whatever is already in memory and leave
+            // the file alone: replacing the list with nothing and then persisting would turn a
+            // recoverable bad file into a permanent loss. Not recording the modification time
+            // either, so a later repair of the file is still picked up as a change.
+            return false;
+        }
         if (loaded.profileFileModifiedMs > 0) {
             pluginState.getLoadedProfileFileMs().put(accountHash, loaded.profileFileModifiedMs);
         }
         List<LocalTradeDelta> merged = loaded.deltas != null ? loaded.deltas : new ArrayList<>();
         synchronized (pluginState.getLocalStatsLock()) {
             pluginState.getLocalTradeDeltasByAccount().put(accountHash, new ArrayList<>(merged));
+        }
+        // Before the rebuild below, which has to honour them.
+        ConversionRejectionStore rejections = PluginInjectorBridge.get(ConversionRejectionStore.class);
+        if (rejections != null) {
+            rejections.replace(accountHash, loaded.rejectedConversions);
         }
         LocalStatsCacheService statsCache = PluginInjectorBridge.get(LocalStatsCacheService.class);
         if (statsCache != null) {

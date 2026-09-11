@@ -30,7 +30,9 @@ import java.util.List;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 public class GeHistoryCursorServiceTest {
     @Test
@@ -38,7 +40,7 @@ public class GeHistoryCursorServiceTest {
         GeHistoryCursorService service = new GeHistoryCursorService(45);
         GeHistoryTrade trade = new GeHistoryTrade(1513, false, 70_000, 1_100, 77_000_000L);
 
-        assertEquals("1513|S|70000|1100|77000000", service.buildSignature(trade));
+        assertEquals("1513|S|70000|77000000", service.buildSignature(trade));
     }
 
     @Test
@@ -57,7 +59,43 @@ public class GeHistoryCursorServiceTest {
         trades.add(new GeHistoryTrade(200, false, 2, 20, 40L));
 
         List<String> cursor = service.buildCursorSignatures(trades);
-        assertEquals(Arrays.asList("100|B|1|10|10"), cursor);
+        assertEquals(Arrays.asList("100|B|1|10"), cursor);
+    }
+
+    @Test
+    public void aStoredCursorReadsBackAsWhatWasWritten() {
+        List<String> signatures = Arrays.asList("1513|S|70000|77000000", "561|B|1000|118000");
+
+        String raw = GeHistoryCursorService.encode(signatures);
+        GeHistoryCursorService.StoredCursor cursor = GeHistoryCursorService.decode(raw);
+
+        assertEquals("v2,1513|S|70000|77000000,561|B|1000|118000", raw);
+        assertEquals(signatures, cursor.signatures);
+        assertFalse(cursor.staleFormat);
+    }
+
+    @Test
+    public void aCursorWrittenByAnEarlierVersionIsNoCursorRatherThanARollover() {
+        // A version-one cursor: no tag, and a heuristic sell price in every row. Read
+        // as signatures it would match nothing, and on the wipe barrier a cursor that
+        // matches nothing is taken for a history that rolled over - importing every
+        // row the player just wiped. It has to come back as no cursor at all.
+        GeHistoryCursorService.StoredCursor cursor =
+            GeHistoryCursorService.decode("1513|S|70000|1100|77000000,561|B|1000|118|118000");
+
+        assertTrue(cursor.isEmpty());
+        assertTrue(cursor.staleFormat);
+    }
+
+    @Test
+    public void nothingStoredIsNoCursorAndNotStale() {
+        assertTrue(GeHistoryCursorService.decode(null).isEmpty());
+        assertFalse(GeHistoryCursorService.decode(null).staleFormat);
+        assertTrue(GeHistoryCursorService.decode("   ").isEmpty());
+        assertFalse(GeHistoryCursorService.decode("   ").staleFormat);
+        assertTrue(GeHistoryCursorService.decode("v2").isEmpty());
+        assertFalse(GeHistoryCursorService.decode("v2").staleFormat);
+        assertEquals("", GeHistoryCursorService.encode(new ArrayList<>()));
     }
 
     @Test

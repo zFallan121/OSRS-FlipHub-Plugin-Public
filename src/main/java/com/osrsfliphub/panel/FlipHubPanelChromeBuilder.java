@@ -28,6 +28,7 @@ import static com.osrsfliphub.FlipHubPanelConstants.*;
 
 import java.awt.BorderLayout;
 import java.awt.Cursor;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Graphics2D;
@@ -157,7 +158,17 @@ final class FlipHubPanelChromeBuilder {
             button.setBorderPainted(false);
             button.setFocusPainted(false);
             button.setOpaque(false);
-            button.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
+            // The same trailing slot the bookmark star and the sort mark take in the two rows
+            // below, so the three marks stand on one centre line down the panel's right edge.
+            // Side padding cannot do that job: it centres the mark in a slot of its own width,
+            // which is the icon's width plus the padding, and no icon is exactly the star's.
+            // The slot is the padding - the mark is narrower than it, and the room left over is
+            // split evenly by the button's own centring.
+            button.setBorder(BorderFactory.createEmptyBorder());
+            Dimension slot = new Dimension(TRAILING_CONTROL_WIDTH, button.getPreferredSize().height);
+            button.setPreferredSize(slot);
+            button.setMinimumSize(slot);
+            button.setMaximumSize(slot);
             button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         } else {
             // The word is the fallback, so the control never becomes an empty box - and a word
@@ -229,8 +240,8 @@ final class FlipHubPanelChromeBuilder {
         tabGroup.add(linkTab);
         tabs.add(tabGroup, BorderLayout.WEST);
         // Pinned east so the mark stands on the same vertical as the bookmark toggle in the
-        // search row below, which is east of a container with the same insets. Its 10px side
-        // padding matches that toggle's, so the two glyphs share a centre line rather than only
+        // search row below, which is east of a container with the same insets. It is pinned to
+        // that toggle's slot width too, so the two glyphs share a centre line rather than only
         // an outer edge.
         tabs.add(discordButton, BorderLayout.EAST);
         return tabs;

@@ -91,7 +91,8 @@ final class FlipHubPanelComponentsFactory {
             uiStyler,
             hiddenItemStore,
             bookmarkStore,
-            itemCardBuilder
+            itemCardBuilder,
+            ageTooltipCoordinator
         );
 
         FlipHubFlippingPanelBuilder flippingPanelBuilder = new FlipHubFlippingPanelBuilder(
@@ -123,7 +124,9 @@ final class FlipHubPanelComponentsFactory {
             expandedStatsHistoryItems,
             panelState,
             toggleStatsItemExpanded,
-            toggleStatsHistoryExpanded
+            toggleStatsHistoryExpanded,
+            listener != null ? listener::onConversionRejected : null,
+            listener != null ? listener::onConversionRestored : null
         );
 
         return new FlipHubPanelComponentBundle(

@@ -65,19 +65,6 @@ final class OfferUpdateStampPersistenceService {
         this.client = client;
     }
 
-    void loadLegacyGlobal(Map<Integer, OfferUpdateStamp> destination) {
-        if (destination == null) {
-            return;
-        }
-        destination.clear();
-        Gson gson = gson();
-        if (gson == null || configStore == null) {
-            return;
-        }
-        String raw = readConfiguration(configGroup, configStore.legacyGlobalKey());
-        destination.putAll(OfferUpdateStampStore.parse(raw, gson, MIN_SLOT, MAX_SLOT));
-    }
-
     LoadState loadForCurrentAccount(Map<Integer, OfferUpdateStamp> destination,
                                     long loadedAccountKey,
                                     boolean loaded) {

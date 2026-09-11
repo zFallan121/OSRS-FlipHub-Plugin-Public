@@ -27,6 +27,7 @@ package com.osrsfliphub;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.GameState;
+import net.runelite.api.Skill;
 
 @Singleton
 final class GameStateChangedHandlerService {
@@ -49,6 +50,119 @@ final class GameStateChangedHandlerService {
         return PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
     }
 
+    /**
+     * Resolve the conversion table's item names to ids once the item database
+     * is up.
+     *
+     * <p>On the scheduler rather than the client thread: this is a few hundred
+     * name lookups and none of them touch client state, since
+     * {@code ItemManager} search runs against the loaded item index. Until it
+     * completes the index is empty, and an empty index makes both trade ledgers
+     * behave exactly as they did before conversions existed. Re-running is cheap
+     * and self-healing, so a login that arrives before the item database has
+     * loaded is fixed by the next one.
+     */
+    private static void resolveConversionRecipes(GeLifecyclePlugin plugin) {
+        ConversionRecipeIndex index = PluginInjectorBridge.get(ConversionRecipeIndex.class);
+        if (index == null || plugin == null) {
+            return;
+        }
+        plugin.executeOnScheduler(plugin.scheduler, () -> {
+            if (!index.resolve()) {
+                return;
+            }
+            // Aggregates built while the table was empty dropped every converted
+            // sale. Throw them away so the next read re-derives them from the
+            // stored deltas, now that the conversions are known.
+            LocalStatsCacheService statsCacheService = PluginInjectorBridge.get(LocalStatsCacheService.class);
+            if (statsCacheService != null) {
+                statsCacheService.invalidateAll();
+            }
+            PanelRefreshCoordinator coordinator = PluginInjectorBridge.get(PanelRefreshCoordinator.class);
+            if (coordinator != null) {
+                coordinator.triggerStatsRefresh(plugin.scheduler);
+            }
+        });
+    }
+
+    /**
+     * A logged-out client knows nobody's Smithing level. The aggregates priced
+     * with one go with it, so the rows the cache feeds and the header the flip
+     * history feeds keep pricing repairs the same way.
+     */
+    private static void forgetSmithingLevels() {
+        ConversionFeeService feeService = PluginInjectorBridge.get(ConversionFeeService.class);
+        if (feeService == null || !feeService.clearSmithingLevels()) {
+            return;
+        }
+        LocalStatsCacheService statsCacheService = PluginInjectorBridge.get(LocalStatsCacheService.class);
+        if (statsCacheService != null) {
+            statsCacheService.invalidateAll();
+        }
+    }
+
+    /**
+     * The Smithing level usually arrives by StatChanged with the account hash
+     * beside it, but at login the stat packets can land before the client can
+     * say whose they are. By LOGGED_IN it can, so attach what was held back;
+     * the stats refresh this handler goes on to trigger picks it up.
+     */
+    private static void adoptPendingSmithingLevel(GeLifecyclePlugin plugin) {
+        ConversionFeeService feeService = PluginInjectorBridge.get(ConversionFeeService.class);
+        if (feeService == null || plugin == null || plugin.client == null) {
+            return;
+        }
+        if (!feeService.adoptPendingSmithingLevel(plugin.client.getAccountHash())) {
+            return;
+        }
+        LocalStatsCacheService statsCacheService = PluginInjectorBridge.get(LocalStatsCacheService.class);
+        if (statsCacheService != null) {
+            statsCacheService.invalidateAll();
+        }
+    }
+
+    /**
+     * Do the login work for a player who was already in the game when the plugin was
+     * switched on.
+     *
+     * <p>RuneLite delivers events only to plugins that are running, and it does not replay
+     * the login for one enabled afterwards. Everything the plugin sets up at login was
+     * therefore skipped: the conversion table was never resolved, so every assemble, break
+     * and repair went unrecognised; the session clock never started, so the Session range
+     * showed nothing; the Grand Exchange slots were never photographed, so an offer already
+     * running could be read as a brand new one; and nobody had asked the client for the
+     * Smithing level, so repairs were priced at the full NPC rate. All of it lasted until the
+     * player happened to log out and back in.
+     */
+    void catchUpWithAnAlreadyRunningGame() {
+        GeLifecyclePlugin plugin = PluginAccess.pluginOrNull();
+        if (plugin == null || plugin.client == null || plugin.client.getGameState() != GameState.LOGGED_IN) {
+            return;
+        }
+        readSmithingLevelFromClient(plugin);
+        handle(GameState.LOGGED_IN);
+    }
+
+    /**
+     * At a real login the level arrives on its own, in a stat report. Nothing sends those
+     * again for a plugin that was not there to hear them, so ask the client outright.
+     */
+    private static void readSmithingLevelFromClient(GeLifecyclePlugin plugin) {
+        ConversionFeeService feeService = PluginInjectorBridge.get(ConversionFeeService.class);
+        if (feeService == null) {
+            return;
+        }
+        int level = plugin.client.getRealSkillLevel(Skill.SMITHING);
+        if (!feeService.onSmithingLevel(plugin.client.getAccountHash(), level)) {
+            return;
+        }
+        // Every repair of this account was priced without a level.
+        LocalStatsCacheService statsCacheService = PluginInjectorBridge.get(LocalStatsCacheService.class);
+        if (statsCacheService != null) {
+            statsCacheService.invalidateAll();
+        }
+    }
+
     void handle(GameState gameState) {
         if (gameState == null) {
             return;
@@ -60,10 +174,24 @@ final class GameStateChangedHandlerService {
             // resetting on those would restart the clock every world hop.
             if (gameState == GameState.LOGIN_SCREEN) {
                 plugin.sessionStartMs = 0L;
+                // The stats window the Session range reads has to end with the clock beside
+                // it, or the next login would keep reporting against the old session.
+                LocalTradeSessionFacadeService endingSession =
+                    PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
+                if (endingSession != null) {
+                    endingSession.clearLocalAccountSessionStarts();
+                }
+                forgetSmithingLevels();
             }
             offerStampState().persistOfferUpdateTimes();
             offerStampState().resetOfferUpdateStampsOnLogout();
-            plugin.snapshots.clear();
+            // The live map, the one the offer handler diffs against. Clearing a copy left the
+            // last offers in place, so the client's EMPTY reports at logout diffed against a
+            // real offer and could emit a completion for a trade that never happened.
+            PluginState offerState = PluginInjectorBridge.get(PluginState.class);
+            if (offerState != null) {
+                offerState.getSnapshots().clear();
+            }
             PluginInjectorBridge.get(GeHistoryAutoSyncStateService.class).disarm();
             RecentTradeDeduper deduper = PluginInjectorBridge.get(RecentTradeDeduper.class);
             if (deduper != null) {
@@ -81,6 +209,8 @@ final class GameStateChangedHandlerService {
             plugin.sessionStartMs = System.currentTimeMillis();
         }
         PluginInjectorBridge.get(GeHistoryAutoSyncStateService.class).arm();
+        resolveConversionRecipes(plugin);
+        adoptPendingSmithingLevel(plugin);
         offerStampState().setLastLoginNow();
         offerStampState().loadOfferUpdateTimesForCurrentAccount();
         LocalTradeSessionFacadeService tradeSession = PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
@@ -93,7 +223,10 @@ final class GameStateChangedHandlerService {
         ProfileSelectionPresentationFacadeService selectionFacade = profileSelectionFacade();
         if (selectionFacade == null || !selectionFacade.hasSessionToken()) {
             plugin.localTradesLoadedThisLogin = false;
-            plugin.localTradesLoadState.setLastAttemptMs(0L);
+            PluginState loadState = PluginInjectorBridge.get(PluginState.class);
+            if (loadState != null) {
+                loadState.getLocalTradesLoadState().setLastAttemptMs(0L);
+            }
             plugin.getLocalTradesRuntimeService().scheduleLocalTradesLoad();
             WikiPriceService wikiPrices = PluginInjectorBridge.get(WikiPriceService.class);
             if (wikiPrices != null) {

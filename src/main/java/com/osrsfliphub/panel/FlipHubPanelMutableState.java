@@ -42,6 +42,11 @@ final class FlipHubPanelMutableState {
     boolean showBookmarkedOnly;
     StatsItemSort itemSort = StatsItemSort.COMPLETION;
     boolean itemSortAscending;
+    StatsItemSort statsSort = StatsItemSort.COMPLETION;
+    /** Which activities the item list shows. */
+    StatsRecipeFilter statsRecipeFilter = StatsRecipeFilter.ALL;
+    /** Which activities the total at the top of the tab adds up. */
+    StatsRecipeFilter statsProfitFilter = StatsRecipeFilter.ALL;
     boolean statsSortAscending;
     int statsPage = 1;
     String statsSearchQuery = "";

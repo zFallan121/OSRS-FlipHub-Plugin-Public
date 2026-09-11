@@ -14,3 +14,6 @@ replay_pid*.log
 _legacy_untracked_backup_*/
 
 .vscode/
+
+# Local agent settings: holds machine-specific absolute paths.
+.claude/

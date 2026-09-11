@@ -24,9 +24,6 @@
  */
 package com.osrsfliphub;
 
-import static com.osrsfliphub.FlipHubPanelConstants.REFRESH_TIME_FORMATTER;
-
-import java.time.Instant;
 
 final class FlipHubStatsItemFormattingService {
     private final FlipHubPanelValueFormatService valueFormatService;
@@ -53,11 +50,22 @@ final class FlipHubStatsItemFormattingService {
         return "ROI " + roi + " | x" + flips;
     }
 
-    String formatStatsTimestamp(Long timestampMs) {
-        if (timestampMs == null || timestampMs <= 0) {
+    /**
+     * How long a flip of this item takes, from the money going out to the sale completing.
+     *
+     * <p>The stored figure is the total across every completed flip, so it is divided by the
+     * number of them. This replaced the time of day the last sale finished, which was a bare
+     * clock with no date on it and told the reader nothing they could act on.
+     */
+    String formatStatsTimeToComplete(StatsItem item) {
+        if (item == null || item.active_ms == null || item.active_ms <= 0L) {
             return "N/A";
         }
-        return REFRESH_TIME_FORMATTER.format(Instant.ofEpochMilli(timestampMs));
+        int flips = item.fill_count != null ? item.fill_count : 0;
+        if (flips <= 0) {
+            return "N/A";
+        }
+        return valueFormatService.formatDurationCompact(item.active_ms / flips);
     }
 
     String formatStatsAvgBuy(StatsItem item) {

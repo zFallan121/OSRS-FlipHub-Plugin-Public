@@ -36,11 +36,37 @@ final class ProfileTradesLoader {
         final List<LocalTradeDelta> deltas;
         final String resolvedDisplayName;
         final long profileFileModifiedMs;
+        /**
+         * The profile file is on disk but could not be parsed, so {@link #deltas} is empty
+         * because nothing could be read, not because the account has no history. Callers must
+         * not treat this as an empty account: replacing the in-memory list would drop the
+         * history, and persisting afterwards would write that loss to disk.
+         */
+        final boolean unreadable;
+        /** The recipe guesses the file says the player dismissed; empty for a file that predates them. */
+        final List<ConversionRejection> rejectedConversions;
 
         Result(List<LocalTradeDelta> deltas, String resolvedDisplayName, long profileFileModifiedMs) {
+            this(deltas, resolvedDisplayName, profileFileModifiedMs, false);
+        }
+
+        Result(List<LocalTradeDelta> deltas,
+               String resolvedDisplayName,
+               long profileFileModifiedMs,
+               boolean unreadable) {
+            this(deltas, resolvedDisplayName, profileFileModifiedMs, unreadable, null);
+        }
+
+        Result(List<LocalTradeDelta> deltas,
+               String resolvedDisplayName,
+               long profileFileModifiedMs,
+               boolean unreadable,
+               List<ConversionRejection> rejectedConversions) {
             this.deltas = deltas != null ? deltas : new ArrayList<>();
             this.resolvedDisplayName = resolvedDisplayName;
             this.profileFileModifiedMs = profileFileModifiedMs;
+            this.unreadable = unreadable;
+            this.rejectedConversions = rejectedConversions != null ? rejectedConversions : new ArrayList<>();
         }
     }
 
@@ -55,7 +81,6 @@ final class ProfileTradesLoader {
     }
 
     Result load(long accountHash,
-                int maxLocalTrades,
                 long localEventBucketMs,
                 long duplicateTradeWindowMs) {
         if (accountHash < 0) {
@@ -69,6 +94,17 @@ final class ProfileTradesLoader {
         }
 
         ProfileData profile = storage != null ? storage.readProfileData(accountHash) : null;
+        // A non-zero modification time means the file is there. Getting nothing back from a
+        // file that exists means it is corrupt or truncated, which is not the same as an
+        // account with no trades. Accountwide is exempt: its list is rebuilt from the
+        // per-profile files below, so its own file being unreadable costs nothing.
+        // A missing deltas list counts as unreadable too. Gson hands back a ProfileData with a
+        // null list for any JSON object that simply lacks the field - "{}", a hand edit, a
+        // recovery tool's output - and that used to read as an account with no trades, which
+        // the loader then persisted straight back over the real file.
+        if ((profile == null || profile.deltas == null) && fileMs > 0 && accountHash != accountwideKey) {
+            return new Result(null, null, Math.max(0L, fileMs), true);
+        }
         List<LocalTradeDelta> merged = profile != null ? profile.deltas : null;
         String profileName = profile != null ? profile.displayName : null;
         boolean placeholderName = ProfileDisplayNames.isPlaceholder(profileName);
@@ -79,7 +115,6 @@ final class ProfileTradesLoader {
         }
         merged = LocalTradeDeltaUtils.dedupeLocalTrades(
             merged,
-            maxLocalTrades,
             localEventBucketMs,
             duplicateTradeWindowMs
         );
@@ -91,6 +126,7 @@ final class ProfileTradesLoader {
         if (profileName != null && !profileName.trim().isEmpty() && !placeholderName) {
             resolvedName = profileName.trim();
         }
-        return new Result(merged, resolvedName, Math.max(0L, fileMs));
+        List<ConversionRejection> corrections = profile != null ? profile.rejectedConversions : null;
+        return new Result(merged, resolvedName, Math.max(0L, fileMs), false, corrections);
     }
 }

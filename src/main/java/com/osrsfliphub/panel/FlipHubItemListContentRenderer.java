@@ -38,93 +38,195 @@ import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
-import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
+/**
+ * The list of item rows, kept between refreshes.
+ *
+ * <p>A refresh a second brings new prices for the same items in the same order, which is a list
+ * that has not changed shape - only its numbers. Rebuilding it would throw away the row the
+ * pointer is on, the tooltip it has open and every icon, and put back an identical list; so the
+ * rows are held here by item id and the refresh writes into them. The panel is only emptied and
+ * rebuilt when the shape genuinely changes: a different set of items, a different order, a
+ * filter turned on, the offer preview taking over.
+ */
 final class FlipHubItemListContentRenderer {
     private final FlipHubUiStyler uiStyler;
     private final FlipHubPanelHiddenItemStore hiddenItemStore;
     private final FlipHubPanelBookmarkStore bookmarkStore;
     private final FlipHubItemCardBuilder itemCardBuilder;
+    private final FlipHubAgeTooltipCoordinator ageTooltipCoordinator;
+
+    /** What was last put in the panel: the shape of it, and the rows in the order they went in. */
+    private String renderedShape;
+    private List<FlipHubItemCard> renderedCards = new ArrayList<>();
 
     FlipHubItemListContentRenderer(FlipHubUiStyler uiStyler,
                                    FlipHubPanelHiddenItemStore hiddenItemStore,
                                    FlipHubPanelBookmarkStore bookmarkStore,
-                                   FlipHubItemCardBuilder itemCardBuilder) {
+                                   FlipHubItemCardBuilder itemCardBuilder,
+                                   FlipHubAgeTooltipCoordinator ageTooltipCoordinator) {
         this.uiStyler = uiStyler;
         this.hiddenItemStore = hiddenItemStore;
         this.bookmarkStore = bookmarkStore;
         this.itemCardBuilder = itemCardBuilder;
+        this.ageTooltipCoordinator = ageTooltipCoordinator;
     }
 
-    void renderList(JPanel listPanel,
-                    FlipHubItem offerPreviewItem,
-                    long offerAsOfMs,
-                    List<FlipHubItem> lastItems,
-                    long lastAsOfMs,
-                    boolean showBookmarkedOnly,
-                    String searchQuery) {
-        if (listPanel == null) {
-            return;
-        }
+    /** What the panel should hold, worked out before anything is touched. */
+    private static final class Plan {
+        final String shape;
+        final List<FlipHubItem> items;
+        final boolean offerPreview;
+        final boolean sectionHeader;
+        final String emptyTitle;
+        final String emptyBody;
 
+        Plan(String shape, List<FlipHubItem> items, boolean offerPreview, boolean sectionHeader,
+             String emptyTitle, String emptyBody) {
+            this.shape = shape;
+            this.items = items;
+            this.offerPreview = offerPreview;
+            this.sectionHeader = sectionHeader;
+            this.emptyTitle = emptyTitle;
+            this.emptyBody = emptyBody;
+        }
+    }
+
+    /**
+     * @return true when the panel's children changed, so the caller has a layout to run and
+     *     hovers to put back. False means every row was already there and only its values moved.
+     */
+    boolean renderList(JPanel listPanel,
+                       FlipHubItem offerPreviewItem,
+                       long offerAsOfMs,
+                       List<FlipHubItem> lastItems,
+                       long lastAsOfMs,
+                       boolean showBookmarkedOnly,
+                       String searchQuery) {
+        if (listPanel == null) {
+            return false;
+        }
+        Plan plan = plan(offerPreviewItem, lastItems, showBookmarkedOnly, searchQuery);
+        long asOfMs = plan.offerPreview ? offerAsOfMs : lastAsOfMs;
+        if (matchesRendered(plan)) {
+            for (int index = 0; index < plan.items.size(); index++) {
+                itemCardBuilder.applyValues(renderedCards.get(index), plan.items.get(index), asOfMs);
+            }
+            return false;
+        }
+        rebuild(listPanel, plan, asOfMs);
+        return true;
+    }
+
+    private Plan plan(FlipHubItem offerPreviewItem,
+                      List<FlipHubItem> lastItems,
+                      boolean showBookmarkedOnly,
+                      String searchQuery) {
         if (offerPreviewItem != null) {
-            listPanel.add(buildItemCard(offerPreviewItem, offerAsOfMs, true));
-            return;
+            return new Plan("offer", listOf(offerPreviewItem), true, false, null, null);
         }
         if (lastItems == null || lastItems.isEmpty()) {
-            listPanel.add(buildEmptyStateCard(showBookmarkedOnly, searchQuery));
-            return;
+            return emptyPlan(showBookmarkedOnly, searchQuery);
         }
-        if (showBookmarkedOnly) {
-            List<FlipHubItem> itemsToShow = new ArrayList<>();
-            for (FlipHubItem item : lastItems) {
-                if (item == null) {
-                    continue;
-                }
-                if (!isHidden(item.item_id) && isBookmarked(item.item_id)) {
-                    itemsToShow.add(item);
-                }
-            }
-            if (itemsToShow.isEmpty()) {
-                listPanel.add(buildEmptyStateCard(true, searchQuery));
-            } else {
-                listPanel.add(buildSectionHeader("Bookmarked items"));
-                listPanel.add(Box.createVerticalStrut(6));
-                addItemCards(listPanel, itemsToShow, lastAsOfMs);
-            }
-            return;
-        }
-        addItemCards(listPanel, lastItems, lastAsOfMs);
-    }
-
-    private JComponent buildEmptyStateCard(boolean showBookmarkedOnly, String searchQuery) {
-        boolean searching = searchQuery != null && !searchQuery.trim().isEmpty();
-        if (showBookmarkedOnly) {
-            return searching
-                ? buildCard("No bookmarks match", "Nothing you have bookmarked goes by that name.")
-                : buildCard("No bookmarks", "Bookmark items to pin them here.");
-        }
-        // The search reaches the whole Grand Exchange now, so an empty result means the name is
-        // wrong, not that the account has never traded it.
-        return searching
-            ? buildCard("No matches", "No tradeable item goes by that name.")
-            : buildCard("No flip history", "Make a trade to see your items here.");
-    }
-
-    private void addItemCards(JPanel listPanel, List<FlipHubItem> items, long asOfMs) {
-        if (listPanel == null || items == null) {
-            return;
-        }
-        for (FlipHubItem item : items) {
+        List<FlipHubItem> itemsToShow = new ArrayList<>();
+        for (FlipHubItem item : lastItems) {
             if (item == null || isHidden(item.item_id)) {
                 continue;
             }
-            listPanel.add(buildItemCard(item, asOfMs, false));
-            listPanel.add(Box.createVerticalStrut(8));
+            if (showBookmarkedOnly && !isBookmarked(item.item_id)) {
+                continue;
+            }
+            itemsToShow.add(item);
         }
+        if (showBookmarkedOnly) {
+            return itemsToShow.isEmpty()
+                ? emptyPlan(true, searchQuery)
+                : new Plan("bookmarked", itemsToShow, false, true, null, null);
+        }
+        return new Plan("all", itemsToShow, false, false, null, null);
     }
+
+    private Plan emptyPlan(boolean showBookmarkedOnly, String searchQuery) {
+        boolean searching = searchQuery != null && !searchQuery.trim().isEmpty();
+        String title;
+        String body;
+        if (showBookmarkedOnly) {
+            title = searching ? "No bookmarks match" : "No bookmarks";
+            body = searching
+                ? "Nothing you have bookmarked goes by that name."
+                : "Bookmark items to pin them here.";
+        } else if (searching) {
+            // The search reaches the whole Grand Exchange now, so an empty result means the name
+            // is wrong, not that the account has never traded it.
+            title = "No matches";
+            body = "No tradeable item goes by that name.";
+        } else {
+            title = "No flip history";
+            body = "Make a trade to see your items here.";
+        }
+        return new Plan("empty:" + title, new ArrayList<>(), false, false, title, body);
+    }
+
+    /**
+     * Whether the panel already holds exactly this plan's rows, in this order, built for this
+     * kind of list. Anything less than exactly and the panel is rebuilt: a row in the wrong place
+     * is worse than a rebuild, and cheaper to prevent than to move.
+     */
+    private boolean matchesRendered(Plan plan) {
+        if (renderedShape == null || !renderedShape.equals(plan.shape)) {
+            return false;
+        }
+        if (renderedCards.size() != plan.items.size()) {
+            return false;
+        }
+        // Position by position rather than by item id: the row in slot two has to be the card in
+        // slot two, whatever the list happens to hold twice.
+        for (int index = 0; index < plan.items.size(); index++) {
+            FlipHubItemCard card = renderedCards.get(index);
+            if (card.itemId != plan.items.get(index).item_id
+                || card.compactRightPadding != plan.offerPreview) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void rebuild(JPanel listPanel, Plan plan, long asOfMs) {
+        // Before removeAll(): pulling the rows out from under the pointer synthesises a
+        // mouseExited on them, and the hover has to be stood down before that arrives.
+        if (ageTooltipCoordinator != null) {
+            ageTooltipCoordinator.clearEntriesForRebuild();
+        }
+        listPanel.removeAll();
+        renderedCards = new ArrayList<>();
+
+        if (plan.emptyTitle != null) {
+            listPanel.add(buildCard(plan.emptyTitle, plan.emptyBody));
+        } else {
+            if (plan.sectionHeader) {
+                listPanel.add(buildSectionHeader("Bookmarked items"));
+                listPanel.add(Box.createVerticalStrut(6));
+            }
+            for (FlipHubItem item : plan.items) {
+                FlipHubItemCard card = itemCardBuilder.buildItemCard(item, asOfMs, plan.offerPreview);
+                renderedCards.add(card);
+                listPanel.add(card.panel);
+                if (!plan.offerPreview) {
+                    listPanel.add(Box.createVerticalStrut(8));
+                }
+            }
+        }
+        renderedShape = plan.shape;
+    }
+
+    private List<FlipHubItem> listOf(FlipHubItem item) {
+        List<FlipHubItem> items = new ArrayList<>();
+        items.add(item);
+        return items;
+    }
+
 
     private JPanel buildSectionHeader(String text) {
         JPanel header = new JPanel(new BorderLayout());
@@ -166,12 +268,6 @@ final class FlipHubItemListContentRenderer {
 
     private boolean isBookmarked(int itemId) {
         return bookmarkStore != null && bookmarkStore.isBookmarked(itemId);
-    }
-
-    private JComponent buildItemCard(FlipHubItem item, long asOfMs, boolean compactRightPadding) {
-        return itemCardBuilder != null
-            ? itemCardBuilder.buildItemCard(item, asOfMs, compactRightPadding)
-            : new JPanel();
     }
 
     private Font font(float size) {

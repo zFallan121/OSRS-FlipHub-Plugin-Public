@@ -60,16 +60,16 @@ public class FlipHubPanel extends PluginPanel {
     private final JButton prevButton = new JButton("<");
     private final JButton nextButton = new JButton(">");
     private JPanel footerPanel;
-    private final JButton bookmarkFilterButton = new JButton("\u2605");
+    private final JButton bookmarkFilterButton = new JButton(BOOKMARK_GLYPH);
     private final JComboBox<StatsItemSort> itemSortCombo = new JComboBox<>(StatsItemSort.values());
-    private final JButton itemSortDirectionButton = new JButton("\u25bc");
+    private final JButton itemSortDirectionButton = new JButton();
     private final JPanel listPanel = new TrackingPanel(SCROLL_UNIT_INCREMENT, SCROLL_BLOCK_INCREMENT);
     private final JScrollPane scrollPane = new JScrollPane(listPanel);
     private final JComboBox<StatsRange> statsRangeCombo = new JComboBox<>(StatsRange.values());
     private final JComboBox<StatsItemSort> statsSortCombo = new JComboBox<>(StatsItemSort.values());
-    private final JButton statsSortDirectionButton = new JButton("\u25bc");
-    private final JTextField statsSearchField = new JTextField();
-    private final JButton statsClearButton = new JButton("Clear");
+    private final JComboBox<StatsRecipeFilter> statsFilterCombo = new JComboBox<>(StatsRecipeFilter.values());
+    private final JButton statsSortDirectionButton = new JButton();
+    private final JTextField statsSearchField = new PlaceholderTextField("Search items");
     private final JLabel statsUpdatedLabel = new JLabel("Updated: --");
     private final JPanel statsContentPanel = new TrackingPanel(SCROLL_UNIT_INCREMENT, SCROLL_BLOCK_INCREMENT);
     private final JPanel statsItemsListPanel = new JPanel();
@@ -177,11 +177,11 @@ public class FlipHubPanel extends PluginPanel {
             pageLabel,
             statsRangeCombo,
             statsSearchField,
-            statsClearButton,
             statsUpdatedLabel,
             statsContentPanel,
             statsItemsListPanel,
             statsSortCombo,
+            statsFilterCombo,
             statsSortDirectionButton,
             panelStateService,
             ageTooltipCoordinator,
@@ -219,6 +219,20 @@ public class FlipHubPanel extends PluginPanel {
         ageTooltipCoordinator.clearHoverAndHide();
         wheelScrollCoordinator.uninstallGlobalWheelListener();
         super.removeNotify();
+    }
+
+    /**
+     * Releases everything the panel holds outside itself.
+     *
+     * <p>Disabling the plugin drops the panel, but two one-second Swing timers and a global AWT
+     * wheel listener kept referring back to it, so each toggle left a whole panel alive and
+     * ticking. removeNotify is not enough on its own: it never runs if the side panel was never
+     * opened, because the wheel listener is installed in the constructor.
+     */
+    void dispose() {
+        ageTooltipCoordinator.shutDown();
+        statsRenderCoordinator.shutDown();
+        wheelScrollCoordinator.uninstallGlobalWheelListener();
     }
 
     BufferedImage buildNavIcon() {
@@ -279,11 +293,6 @@ public class FlipHubPanel extends PluginPanel {
             priceCacheMs,
             this::renderItems
         );
-    }
-
-    /** Shows the account card. The tab buttons put the user back on flipping or stats. */
-    void showAccountView() {
-        SwingUtilities.invokeLater(() -> cardLayout.show(cardPanel, "account"));
     }
 
     void setAccountState(boolean linked, String keyHint, String message, java.awt.Color messageColor) {
@@ -348,7 +357,6 @@ public class FlipHubPanel extends PluginPanel {
             statsRenderCoordinator,
             statsItemsListPanel,
             panelState,
-            (StatsItemSort) statsSortCombo.getSelectedItem(),
             statsItemCardBuilder,
             this::buildCard,
             statsPagerBuilder,

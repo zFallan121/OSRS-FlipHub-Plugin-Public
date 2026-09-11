@@ -24,6 +24,7 @@
  */
 package com.osrsfliphub;
 
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -37,6 +38,8 @@ import java.awt.RadialGradientPaint;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.geom.Point2D;
+import java.util.function.Supplier;
+import javax.swing.BorderFactory;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.JButton;
 import javax.swing.JComponent;
@@ -48,22 +51,33 @@ import javax.swing.Scrollable;
 import javax.swing.border.Border;
 import javax.swing.plaf.basic.BasicComboBoxUI;
 
+/**
+ * A label counting down, and the point it is counting from.
+ *
+ * <p>The base moves rather than the entry being replaced: a refresh brings a new remaining time
+ * for the same row, and re-registering would mean discarding the label the row is built from.
+ */
 final class CountdownEntry {
     final JLabel label;
-    final long baseRemainingMs;
-    final long baseTimeMs;
+    long baseRemainingMs;
+    long baseTimeMs;
 
     CountdownEntry(JLabel label, long baseRemainingMs, long baseTimeMs) {
         this.label = label;
-        this.baseRemainingMs = Math.max(0, baseRemainingMs);
+        rebase(baseRemainingMs, baseTimeMs);
+    }
+
+    void rebase(long remainingMs, long baseTimeMs) {
+        this.baseRemainingMs = Math.max(0, remainingMs);
         this.baseTimeMs = baseTimeMs;
     }
 }
 
+/** The two prices a row shows an age for, and when each of them last traded. */
 final class AgePairEntry {
     final javax.swing.JComponent[] components;
-    final long buyTimestampMs;
-    final long sellTimestampMs;
+    long buyTimestampMs;
+    long sellTimestampMs;
 
     AgePairEntry(javax.swing.JComponent[] components, long buyTimestampMs, long sellTimestampMs) {
         this.components = components;
@@ -174,12 +188,67 @@ final class BackdropPanel extends JPanel {
  * ladder buys with a contact shadow — Swing has no blur to spare in a list that re-renders on
  * every tick, so the panel keeps the tight contact line and drops the ambient half.
  */
+/**
+ * A block of rows inside a card, set in from its left edge and sunk into its surface.
+ *
+ * <p>The card's own heading, its picture and its name, stays at full width; everything below is
+ * held in one of these. That does two jobs with one move: it gives the rows somewhere to sit so
+ * the card has a front and a back rather than being flat, and it separates one block of rows
+ * from the next without needing a line drawn between them.
+ */
+final class CardSection extends JPanel {
+    private CardSection() {
+        super(new BorderLayout());
+    }
+
+    /** Wraps {@code content} as a section. The result is ready to add to a card. */
+    static JPanel of(JComponent content) {
+        return of(content, 6);
+    }
+
+    /**
+     * @param rightPadding room inside the block on its right. Rows whose values carry a padding
+     *                     of their own pass a smaller number, so the text ends up sitting the
+     *                     same distance from each edge whichever card it is in.
+     */
+    static JPanel of(JComponent content, int rightPadding) {
+        RoundedPanel well = new RoundedPanel(
+            FlipHubPanelConstants.WELL_ARC,
+            FlipHubPanelConstants.SURFACE_WELL,
+            FlipHubPanelConstants.SURFACE_WELL);
+        well.setLayout(new BorderLayout());
+        well.setBorder(BorderFactory.createEmptyBorder(5, 6, 5, Math.max(0, rightPadding)));
+        well.add(content, BorderLayout.CENTER);
+
+        // No inset of its own. The card's own padding is the margin, so the block sits the same
+        // distance from the left edge, the right edge and the bottom of the card.
+        CardSection section = new CardSection();
+        section.setOpaque(false);
+        // Deliberately not given a left alignment. A column laid out this way places its
+        // children against one another, and one child claiming a different alignment from the
+        // struts and rows beside it shunts the whole block sideways.
+        section.add(well, BorderLayout.CENTER);
+        return section;
+    }
+
+    /**
+     * Asked for rather than set once at build time. A card's rows are filled in after it is
+     * assembled, and a height captured before that is the height of a row with no text in it.
+     */
+    @Override
+    public Dimension getMaximumSize() {
+        return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+    }
+}
+
 final class RoundedPanel extends JPanel {
     private final int arc;
     private final Color topColor;
     private final Color bottomColor;
     private final Color borderColor;
     private final boolean seated;
+    private Color hoverBorderColor;
+    private boolean hovered;
 
     RoundedPanel(int arc, Color background, Color borderColor) {
         this(arc, background, background, borderColor, false);
@@ -195,6 +264,22 @@ final class RoundedPanel extends JPanel {
         setBackground(topColor);
     }
 
+    /**
+     * Lifts the card's rule while the pointer is on it. A glass surface has no
+     * fill to brighten and no shadow to raise, so the edge is the whole of the
+     * affordance - the same move every ghost control in the panel makes.
+     */
+    void setHoverBorderColor(Color color) {
+        this.hoverBorderColor = color;
+    }
+
+    void setHovered(boolean value) {
+        if (hovered != value) {
+            hovered = value;
+            repaint();
+        }
+    }
+
     /** A glass card: the surface that groups. */
     static RoundedPanel glass(int arc) {
         return new RoundedPanel(
@@ -203,17 +288,6 @@ final class RoundedPanel extends JPanel {
             FlipHubPanelConstants.SURFACE_BOTTOM,
             FlipHubPanelConstants.SURFACE_BORDER,
             true
-        );
-    }
-
-    /** A row inside a card, or a list row: the same glass without the seat, so it reads as flatter. */
-    static RoundedPanel glassRow(int arc) {
-        return new RoundedPanel(
-            arc,
-            FlipHubPanelConstants.SURFACE_BOTTOM,
-            FlipHubPanelConstants.SURFACE_BOTTOM,
-            FlipHubPanelConstants.LINE,
-            false
         );
     }
 
@@ -248,12 +322,13 @@ final class RoundedPanel extends JPanel {
 
     @Override
     protected void paintBorder(Graphics g) {
-        if (borderColor == null) {
+        Color edge = hovered && hoverBorderColor != null ? hoverBorderColor : borderColor;
+        if (edge == null) {
             return;
         }
         Graphics2D g2 = (Graphics2D) g.create();
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2.setColor(borderColor);
+        g2.setColor(edge);
         int radius = clampArc(arc, getWidth(), getHeight());
         g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, radius, radius);
         g2.dispose();
@@ -349,12 +424,45 @@ final class FlipHubComboRenderer extends DefaultListCellRenderer {
     }
 }
 
+/** Lifts an unselected tab out of the muted ramp while the pointer is on it. */
+final class TabHoverAdapter extends java.awt.event.MouseAdapter {
+    private final javax.swing.AbstractButton button;
+    private final Color resting;
+
+    TabHoverAdapter(javax.swing.AbstractButton button, boolean active) {
+        this.button = button;
+        this.resting = active ? FlipHubPanelConstants.TEXT : FlipHubPanelConstants.MUTED;
+    }
+
+    @Override
+    public void mouseEntered(java.awt.event.MouseEvent event) {
+        button.setForeground(FlipHubPanelConstants.TEXT);
+    }
+
+    @Override
+    public void mouseExited(java.awt.event.MouseEvent event) {
+        button.setForeground(resting);
+    }
+}
+
 final class RoundedBorder implements Border {
     private final int arc;
-    private final Color color;
+    private final Supplier<Color> color;
     private final Insets insets;
 
     RoundedBorder(int arc, Color color, Insets insets) {
+        this(arc, () -> color, insets);
+    }
+
+    /**
+     * A border whose colour is asked for each time it is drawn.
+     *
+     * <p>So a control that changes colour under the pointer can keep one border for its whole
+     * life and simply repaint. Swapping the border instead throws away anything wrapped around
+     * it: a button given extra spacing above it lost that spacing the first time the pointer
+     * touched it, and jumped upward by however much the spacing was.
+     */
+    RoundedBorder(int arc, Supplier<Color> color, Insets insets) {
         this.arc = arc;
         this.color = color;
         this.insets = insets;
@@ -362,6 +470,7 @@ final class RoundedBorder implements Border {
 
     @Override
     public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
+        Color color = this.color != null ? this.color.get() : null;
         if (color == null) {
             return;
         }
@@ -399,6 +508,7 @@ final class PlaceholderTextField extends JTextField {
 
     @Override
     protected void paintComponent(Graphics g) {
+        paintWell(g);
         super.paintComponent(g);
         if (placeholder.isEmpty() || !getText().isEmpty()) {
             return;
@@ -413,6 +523,32 @@ final class PlaceholderTextField extends JTextField {
             Insets insets = getInsets();
             int baseline = (getHeight() - metrics.getHeight()) / 2 + metrics.getAscent();
             g2.drawString(placeholder, insets.left, baseline);
+        } finally {
+            g2.dispose();
+        }
+    }
+
+    /**
+     * The floor of the field, painted before the text so it sits behind it.
+     *
+     * <p>The field is not opaque, so without this it is an outline with the panel showing
+     * through and reads as flat. The rounded fill stops at the same corner the border draws,
+     * which leaves the corners outside it transparent rather than square.
+     */
+    private void paintWell(Graphics g) {
+        int width = getWidth();
+        int height = getHeight();
+        if (width <= 0 || height <= 0) {
+            return;
+        }
+        Graphics2D g2 = (Graphics2D) g.create();
+        try {
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setPaint(new GradientPaint(
+                0f, 0f, FlipHubPanelConstants.INPUT_WELL_TOP,
+                0f, height, FlipHubPanelConstants.INPUT_WELL_BOTTOM));
+            int arc = FlipHubPanelConstants.INPUT_ARC;
+            g2.fillRoundRect(0, 0, width, height, arc, arc);
         } finally {
             g2.dispose();
         }

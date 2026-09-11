@@ -30,14 +30,11 @@ import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.Insets;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
-import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JTextField;
 
 final class FlipHubStatsPanelHeaderBuilder {
     private final FlipHubUiStyler uiStyler;
@@ -60,8 +57,6 @@ final class FlipHubStatsPanelHeaderBuilder {
 
     JPanel buildHeader(
         JComboBox<StatsRange> statsRangeCombo,
-        JTextField statsSearchField,
-        JButton statsClearButton,
         JLabel statsUpdatedLabel
     ) {
         JPanel header = new JPanel();
@@ -84,55 +79,15 @@ final class FlipHubStatsPanelHeaderBuilder {
         });
         rangeRow.add(statsRangeCombo, BorderLayout.WEST);
 
-        JPanel searchRow = new JPanel(new BorderLayout(8, 0));
-        searchRow.setOpaque(false);
-        searchRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-        searchRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-        if (uiStyler != null) {
-            uiStyler.styleTextField(statsSearchField);
-        }
-        statsSearchField.setToolTipText("Filter items");
-        installDocumentListener(statsSearchField, () -> {
-            if (panelStateService != null) {
-                panelStateService.onStatsSearchQueryChanged(panelState, statsSearchField.getText(), renderStatsItems);
-            }
-        });
-
-        uiStyler.styleGhostControl(statsClearButton, 10f, new Insets(3, 8, 3, 8), INPUT_ARC);
-        uiStyler.matchFieldHeight(statsClearButton, statsSearchField);
-        statsClearButton.addActionListener(e -> statsSearchField.setText(""));
-
-        searchRow.add(statsSearchField, BorderLayout.CENTER);
-        searchRow.add(statsClearButton, BorderLayout.EAST);
-
         statsUpdatedLabel.setForeground(MUTED_2);
         statsUpdatedLabel.setFont(font(10.5f));
         statsUpdatedLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
+        // The range is the only thing pinned above the list now: it says which trades the whole
+        // tab is about, so it stays put while everything it describes scrolls under it.
         header.add(rangeRow);
-        header.add(Box.createVerticalStrut(6));
-        header.add(searchRow);
-        header.add(Box.createVerticalStrut(4));
+        header.add(Box.createVerticalStrut(8));
         return header;
-    }
-
-    private void installDocumentListener(JTextField field, Runnable onChange) {
-        field.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            @Override
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                onChange.run();
-            }
-
-            @Override
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                onChange.run();
-            }
-
-            @Override
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                onChange.run();
-            }
-        });
     }
 
     private Font font(float size) {

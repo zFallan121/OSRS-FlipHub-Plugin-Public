@@ -63,6 +63,28 @@ final class OfferUpdateStamp {
         this.lastEmptyMs = lastEmptyMs;
     }
 
+    /**
+     * Independent copy. Stamps are mutated in place by the tracking rules, so a
+     * caller that needs the pre-update fill level must copy before tracking.
+     */
+    static OfferUpdateStamp copyOf(OfferUpdateStamp stamp) {
+        if (stamp == null) {
+            return null;
+        }
+        return new OfferUpdateStamp(
+            stamp.itemId,
+            stamp.price,
+            stamp.totalQty,
+            stamp.filledQty,
+            stamp.isBuy,
+            stamp.spentGp,
+            stamp.lastUpdateMs,
+            stamp.firstSeenMs,
+            stamp.completedMs,
+            stamp.lastEmptyMs
+        );
+    }
+
     static OfferUpdateStamp fromSnapshot(OfferSnapshot snapshot, long timestamp) {
         if (snapshot == null) {
             return null;

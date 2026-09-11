@@ -35,10 +35,12 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
+import java.util.function.UnaryOperator;
 import javax.swing.Box;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -51,12 +53,14 @@ final class FlipHubStatsRenderCoordinator {
      * when the panel is built at login. Mirrors the countdown timer in the age tooltip.
      */
     private Timer sessionTimer;
+    private boolean disposed;
     private FlipHubPanelValueFormatService sessionFormatService;
     private JLabel sessionTimeLabel;
     private JLabel sessionHourlyLabel;
     private long sessionTotalProfit;
 
     void updateSummary(StatsSummary statsSummary,
+                       StatsProfitSlice slice,
                        FlipHubPanelValueFormatService valueFormatService,
                        JLabel statsTotalProfitValue,
                        JLabel statsRoiValue,
@@ -76,15 +80,24 @@ final class FlipHubStatsRenderCoordinator {
             return;
         }
 
-        long totalProfit = statsSummary.total_profit_gp != null ? statsSummary.total_profit_gp : 0;
+        // A slice re-answers the headline question - profit, the return it was
+        // made at, and how many activities produced it - for one kind of trade.
+        // Tax, session time and hourly stay whole-range: they are properties of
+        // the session rather than of a subset of its trades.
+        boolean sliced = slice != null;
+        long totalProfit = sliced
+            ? slice.profitGp
+            : (statsSummary.total_profit_gp != null ? statsSummary.total_profit_gp : 0);
         // Green means profit. The figure was amber whatever its sign, which spent the caution
         // tint on the one number on the tab that is never a caution.
         setLabel(statsTotalProfitValue, valueFormatService.formatGp(totalProfit), totalProfit >= 0 ? SUCCESS : DANGER);
 
-        Double roi = statsSummary.roi_percent;
+        Double roi = sliced ? slice.roiPercent() : statsSummary.roi_percent;
         setLabel(statsRoiValue, valueFormatService.formatPercent(roi), roi != null && roi < 0 ? DANGER : SUCCESS);
 
-        int flips = statsSummary.fill_count != null ? statsSummary.fill_count : 0;
+        int flips = sliced
+            ? slice.count
+            : (statsSummary.fill_count != null ? statsSummary.fill_count : 0);
         setLabel(statsFlipsValue, String.valueOf(flips), null);
 
         setLabel(statsTaxValue, valueFormatService.formatGp(statsSummary.tax_paid_gp), null);
@@ -137,6 +150,9 @@ final class FlipHubStatsRenderCoordinator {
     }
 
     private void startSessionTimer() {
+        if (disposed) {
+            return;
+        }
         if (sessionTimer == null) {
             sessionTimer = new Timer(1000, e -> renderSessionRows());
             sessionTimer.setRepeats(true);
@@ -199,9 +215,11 @@ final class FlipHubStatsRenderCoordinator {
                     List<StatsItem> statsItems,
                     String statsSearchQuery,
                     StatsItemSort sort,
+                    StatsRecipeFilter recipeFilter,
                     boolean statsSortAscending,
                     int requestedPage,
                     Function<StatsItem, JPanel> statsItemCardBuilder,
+                    UnaryOperator<StatsItem> filteredView,
                     BiFunction<String, String, JPanel> emptyCardBuilder,
                     FlipHubStatsPagerBuilder pagerBuilder,
                     IntConsumer onPageSelected) {
@@ -223,7 +241,15 @@ final class FlipHubStatsRenderCoordinator {
             if (!normalizedQuery.isEmpty() && !name.toLowerCase(Locale.US).contains(normalizedQuery)) {
                 continue;
             }
-            filtered.add(item);
+            if (recipeFilter != null && !recipeFilter.matches(item.conversionKinds, item.hasPlainFlip)) {
+                continue;
+            }
+            // Cut the item down to the activities the filter leaves before it is sorted or
+            // paged. Sorting the full totals and then drawing the filtered ones put an item
+            // with a large flip profit and a small assembly profit above one that had made far
+            // more from assembling, which is the opposite of what the filter was asked for.
+            StatsItem view = filteredView != null ? filteredView.apply(item) : item;
+            filtered.add(view != null ? view : item);
         }
 
         StatsItemSort effectiveSort = sort != null ? sort : StatsItemSort.COMPLETION;
@@ -247,7 +273,13 @@ final class FlipHubStatsRenderCoordinator {
 
         if (filtered.isEmpty()) {
             if (emptyCardBuilder != null) {
-                if (normalizedQuery.isEmpty()) {
+                boolean filtering = recipeFilter != null && recipeFilter != StatsRecipeFilter.ALL;
+                if (normalizedQuery.isEmpty() && filtering) {
+                    // An empty list here is a real answer, not a missing feature:
+                    // the player has not done this kind of trade yet.
+                    statsItemsListPanel.add(emptyCardBuilder.apply(
+                        "Nothing to show", "No " + recipeFilter.toString().toLowerCase(Locale.US) + " activity in this range."));
+                } else if (normalizedQuery.isEmpty()) {
                     statsItemsListPanel.add(emptyCardBuilder.apply("No stats yet", "Make a trade to see your items here."));
                 } else {
                     statsItemsListPanel.add(emptyCardBuilder.apply("No matches", "Try a different search term."));
@@ -267,6 +299,8 @@ final class FlipHubStatsRenderCoordinator {
 
         statsItemsListPanel.revalidate();
         statsItemsListPanel.repaint();
+        // The cards the pointer was over are gone, replaced by cards that have never heard of it.
+        FlipHubHoverRestorer.restoreAfterRebuild(statsItemsListPanel);
         return page;
     }
 
@@ -311,6 +345,50 @@ final class FlipHubStatsRenderCoordinator {
         }
     }
 
+    /**
+     * Profit, cost and count over just the activities a filter admits.
+     *
+     * <p>Sliced per activity rather than per item, because an item is usually
+     * both: Guardian boots that were flipped six times and assembled twice is
+     * one row in the list and two very different answers here.
+     */
+    static StatsProfitSlice sliceActivities(Map<Integer, List<StatsFlipInstance>> historyByItem,
+                                            StatsRecipeFilter filter) {
+        StatsProfitSlice slice = new StatsProfitSlice();
+        if (historyByItem == null || filter == null) {
+            return slice;
+        }
+        for (List<StatsFlipInstance> history : historyByItem.values()) {
+            if (history == null) {
+                continue;
+            }
+            for (StatsFlipInstance instance : history) {
+                if (instance == null || !instance.counted() || !filter.matchesKind(instance.conversionKind)) {
+                    continue;
+                }
+                slice.profitGp += instance.profitGp;
+                slice.costGp += instance.buyCostGp;
+                slice.quantity += Math.max(0, instance.quantity);
+                if (!instance.inProgress) {
+                    slice.count += 1;
+                }
+            }
+        }
+        return slice;
+    }
+
+    /** What one filter's worth of activity adds up to. */
+    static final class StatsProfitSlice {
+        long profitGp;
+        long costGp;
+        long quantity;
+        int count;
+
+        double roiPercent() {
+            return costGp > 0 ? (profitGp * 100.0) / costGp : 0.0;
+        }
+    }
+
     private Comparator<StatsItem> buildItemsComparator(StatsItemSort sort) {
         if (sort == StatsItemSort.ROI) {
             return Comparator
@@ -349,6 +427,18 @@ final class FlipHubStatsRenderCoordinator {
         label.setText(text);
         if (color != null) {
             label.setForeground(color);
+        }
+    }
+
+    /**
+     * Stops the session clock for good. It otherwise only stopped when the plugin reference had
+     * gone, which never happened, so every disabled panel left one ticking.
+     */
+    void shutDown() {
+        disposed = true;
+        if (sessionTimer != null) {
+            sessionTimer.stop();
+            sessionTimer = null;
         }
     }
 }

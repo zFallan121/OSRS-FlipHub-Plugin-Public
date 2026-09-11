@@ -86,21 +86,23 @@ final class FlipHubStatsPanelBuilder {
     BuildResult build(
         JComboBox<StatsRange> statsRangeCombo,
         JTextField statsSearchField,
-        JButton statsClearButton,
         JLabel statsUpdatedLabel,
         JPanel statsContentPanel,
         JPanel statsItemsListPanel,
         JComboBox<StatsItemSort> statsSortCombo,
+        JComboBox<StatsRecipeFilter> statsFilterCombo,
         JButton statsSortDirectionButton
     ) {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setOpaque(false);
 
-        JPanel header = headerBuilder.buildHeader(statsRangeCombo, statsSearchField, statsClearButton, statsUpdatedLabel);
+        JPanel header = headerBuilder.buildHeader(statsRangeCombo, statsUpdatedLabel);
         FlipHubStatsPanelContentBuilder.ContentResult content = contentBuilder.buildContent(
             statsContentPanel,
             statsItemsListPanel,
+            statsSearchField,
             statsSortCombo,
+            statsFilterCombo,
             statsSortDirectionButton
         );
 

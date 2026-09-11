@@ -35,6 +35,33 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 public class LocalStatsCacheServiceTest {
+    /**
+     * After an invalidation or a wipe there is no aggregate to add to. Callers store the
+     * delta before applying it, so the account's whole history is on hand and the aggregate
+     * has to be rebuilt from it - seeding a fresh cache with the one new delta would report
+     * the latest fill as though it were everything the account had ever done.
+     */
+    @Test
+    public void applyDeltaWithNoCachePresentRebuildsFromTheStoredHistory() {
+        Map<Long, LocalStatsCache> cacheMap = new ConcurrentHashMap<>();
+        Map<Long, List<LocalTradeDelta>> deltasByAccount = new HashMap<>();
+        Object lock = new Object();
+        long accountKey = 789L;
+        List<LocalTradeDelta> deltas = new ArrayList<>();
+        LocalTradeDelta buy = new LocalTradeDelta(1000L, 1, 4151, true, 1, 100L, "OFFER_UPDATED", 100, false);
+        LocalTradeDelta sell = new LocalTradeDelta(2000L, 1, 4151, false, 1, 120L, "OFFER_COMPLETED", 120, false);
+        deltas.add(buy);
+        deltas.add(sell);
+        deltasByAccount.put(accountKey, deltas);
+        LocalStatsCacheService service = new LocalStatsCacheService(cacheMap, deltasByAccount, lock);
+
+        service.applyDelta(accountKey, sell);
+
+        StatsSummary summary = cacheMap.get(accountKey).getSummary();
+        assertEquals(Integer.valueOf(1), summary.fill_count);
+        assertEquals(Long.valueOf(20L), summary.total_profit_gp);
+    }
+
     @Test
     public void getOrBuildBuildsCacheFromSnapshot() {
         Map<Long, LocalStatsCache> cacheMap = new ConcurrentHashMap<>();

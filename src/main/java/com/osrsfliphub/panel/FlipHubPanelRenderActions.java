@@ -81,8 +81,16 @@ final class FlipHubPanelRenderActions {
         JLabel statsSessionTimeValue,
         JLabel statsHourlyValue
     ) {
+        // ALL is the default and means the card reports the range as a whole,
+        // exactly as it always has - no slice is computed at all.
+        FlipHubStatsRenderCoordinator.StatsProfitSlice slice =
+            panelState.statsProfitFilter == null || panelState.statsProfitFilter == StatsRecipeFilter.ALL
+                ? null
+                : FlipHubStatsRenderCoordinator.sliceActivities(
+                    panelState.statsFlipHistoryByItem, panelState.statsProfitFilter);
         statsRenderCoordinator.updateSummary(
             panelState.statsSummary,
+            slice,
             valueFormatService,
             statsTotalProfitValue,
             statsRoiValue,
@@ -97,7 +105,6 @@ final class FlipHubPanelRenderActions {
         FlipHubStatsRenderCoordinator statsRenderCoordinator,
         JPanel statsItemsListPanel,
         FlipHubPanelMutableState panelState,
-        StatsItemSort sort,
         FlipHubStatsItemCardBuilder statsItemCardBuilder,
         BiFunction<String, String, JPanel> cardBuilder,
         FlipHubStatsPagerBuilder statsPagerBuilder,
@@ -107,10 +114,12 @@ final class FlipHubPanelRenderActions {
             statsItemsListPanel,
             panelState.statsItems,
             panelState.statsSearchQuery,
-            sort,
+            panelState.statsSort,
+            panelState.statsRecipeFilter,
             panelState.statsSortAscending,
             panelState.statsPage,
             statsItemCardBuilder::buildStatsItemCard,
+            statsItemCardBuilder::visibleItem,
             cardBuilder,
             statsPagerBuilder,
             onStatsPageSelected

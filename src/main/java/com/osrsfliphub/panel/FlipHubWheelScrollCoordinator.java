@@ -98,6 +98,12 @@ final class FlipHubWheelScrollCoordinator {
     }
 
     void forwardWheelEvent(MouseWheelEvent e) {
+        if (e == null || e.isConsumed()) {
+            // Already handled. The global listener sees the event first and the component's own
+            // listener sees it afterwards regardless of consume(), so without this one notch
+            // scrolled twice as far as it should.
+            return;
+        }
         JScrollPane targetScroll = getActiveScrollPane();
         if (targetScroll == null) {
             return;

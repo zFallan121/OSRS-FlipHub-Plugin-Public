@@ -110,11 +110,11 @@ final class AccountwideBackfillCoordinator {
             ? matcher.inferLikelySyncedProfiles(profileKeys, localSummaries, remoteSummary) : null;
     }
 
-    private boolean backfillProfileTrades(long profileKey) {
+    private BackfillUploader.Outcome backfillProfileTrades(long profileKey) {
         AccountwideProfileBackfillService runner = PluginInjectorBridge.get(AccountwideProfileBackfillService.class);
         BackfillUploader uploader = PluginInjectorBridge.get(BackfillUploader.class);
         if (runner == null || apiClient == null || config == null || uploader == null) {
-            return false;
+            return BackfillUploader.Outcome.RETRY;
         }
         return runner.backfillProfileTrades(profileKey, apiClient, config, uploader);
     }
@@ -236,11 +236,25 @@ final class AccountwideBackfillCoordinator {
                 if (profileKey == null || profileKey <= 0) {
                     continue;
                 }
-                boolean synced = backfillProfileTrades(profileKey);
-                if (!synced) {
-                    logWarn("FlipHub backfill stopped: profile " + profileKey + " upload failed");
+                BackfillUploader.Outcome outcome = backfillProfileTrades(profileKey);
+                if (outcome == BackfillUploader.Outcome.RETRY) {
+                    logWarn("FlipHub backfill paused: profile " + profileKey + " will be retried");
                     fullySynced = false;
                     break;
+                }
+                if (outcome == BackfillUploader.Outcome.SESSION_DEAD) {
+                    // Nothing was said about this profile, only about the link. Marking it done
+                    // would mean its remaining trades were never uploaded after the relink.
+                    logWarn("FlipHub backfill stopped: the session was rejected, relink to resume");
+                    fullySynced = false;
+                    break;
+                }
+                if (outcome == BackfillUploader.Outcome.TERMINAL) {
+                    // The server will not take this profile's events. Retrying every ninety
+                    // seconds for the rest of the session would achieve nothing, so it is
+                    // marked done and the remaining profiles still get their turn.
+                    logWarn("FlipHub backfill gave up on profile " + profileKey
+                        + ": the server refused its events");
                 }
                 alreadyBackfilled.add(profileKey);
                 changed = true;

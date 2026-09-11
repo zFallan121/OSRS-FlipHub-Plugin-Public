@@ -31,4 +31,11 @@ final class ProfileData {
     String displayName;
     List<LocalTradeDelta> deltas;
     long updatedMs;
+    /**
+     * Recipe guesses the player dismissed, keyed on the trades above. Absent -
+     * and read as none - in a file written before corrections existed, and
+     * left out again when there are none, so a file with nothing to say still
+     * looks the way it always has.
+     */
+    List<ConversionRejection> rejectedConversions;
 }

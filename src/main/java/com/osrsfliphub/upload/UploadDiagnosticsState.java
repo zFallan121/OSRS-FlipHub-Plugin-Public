@@ -45,6 +45,34 @@ final class UploadDiagnosticsState {
     private volatile long lastUploadSuccessMs = 0L;
     private volatile Integer lastUploadStatusCode;
     private volatile String lastUploadError;
+    /** Earliest the next attempt may run, while a failure is being backed off. */
+    private volatile long nextAttemptAllowedMs = 0L;
+    private volatile long currentBackoffMs = 0L;
+
+    /**
+     * Holds off the next attempt, doubling the wait each consecutive failure up to the cap. The
+     * flush runs every two seconds, so without this a rate limit is answered with another
+     * request two seconds later, and an unreachable server is retried forever at that rate.
+     */
+    void backOff(long nowMs, long initialMs, long maxMs) {
+        long next = currentBackoffMs <= 0L ? Math.max(1L, initialMs) : currentBackoffMs * 2L;
+        currentBackoffMs = Math.min(next, Math.max(1L, maxMs));
+        nextAttemptAllowedMs = nowMs + currentBackoffMs;
+    }
+
+    /** Clears any backoff, because something got through. */
+    void clearBackOff() {
+        currentBackoffMs = 0L;
+        nextAttemptAllowedMs = 0L;
+    }
+
+    boolean isBackingOff(long nowMs) {
+        return nowMs < nextAttemptAllowedMs;
+    }
+
+    long getCurrentBackoffMs() {
+        return currentBackoffMs;
+    }
 
     void enqueueEvent(GeEvent event, int maxPendingUploadEvents) {
         if (event == null) {
@@ -91,14 +119,30 @@ final class UploadDiagnosticsState {
         return Math.max(0, pendingUploadEvents.get());
     }
 
-    void reset() {
-        eventQueue.clear();
-        pendingUploadEvents.set(0);
+    /**
+     * Forget the failure state when the plugin stops, but keep the queued events.
+     *
+     * <p>These are completed trades that have not reached the server yet. The final flush is
+     * handed to the IO pool and finishes after this runs, and it can also decline outright
+     * while a backoff is standing or while logged out. Emptying the queue here therefore threw
+     * the events away, and nothing resends them: once a profile is marked backfilled they are
+     * gone for good. They are bounded already, they carry deterministic ids so a resend cannot
+     * double-count, and this object outlives a disable, so holding them costs nothing and a
+     * re-enable can still deliver them.</p>
+     */
+    void resetForPluginStop() {
+        clearBackOff();
     }
 
+    /**
+     * Forget the last failure. The wait it left behind goes with it: a run of failures can
+     * leave five minutes standing, and a player who has just relinked or changed a setting
+     * should not sit through the rest of it for a problem they have addressed.
+     */
     void resetStatus() {
         lastUploadStatusCode = null;
         lastUploadError = null;
+        clearBackOff();
     }
 
     void markBlocked(String reason) {

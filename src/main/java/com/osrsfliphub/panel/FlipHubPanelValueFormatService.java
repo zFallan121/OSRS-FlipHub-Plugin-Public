@@ -65,9 +65,20 @@ final class FlipHubPanelValueFormatService {
         return formatGpValue(value);
     }
 
+    /**
+     * Two decimal places, except for a return too small to show at that width.
+     *
+     * <p>Rounding alone printed a negative return as "-0.00%", which reads as a visible
+     * negative zero and was painted red; and it printed a real, if tiny, gain as "0.00%",
+     * which claims there was no return at all. A one-coin margin on an expensive item lands
+     * in that band routinely.</p>
+     */
     String formatPercent(Double value) {
         if (value == null) {
             return "N/A";
+        }
+        if (value != 0d && Math.abs(value) < 0.005d) {
+            return value > 0d ? "<0.01%" : ">-0.01%";
         }
         return String.format(Locale.US, "%.2f%%", value);
     }
@@ -98,6 +109,33 @@ final class FlipHubPanelValueFormatService {
             return "N/A";
         }
         return formatAgeClock(ms);
+    }
+
+    /**
+     * A span of time in the largest two units that carry any of it: "3d 4h", "4h 12m", "45m".
+     *
+     * <p>The clock form beside this one is right for a countdown, where the seconds are the
+     * point. For "how long does a flip of this take" they are noise, and a flip that took two
+     * days reads as "51:20:00" there, which nobody parses as two days.
+     */
+    String formatDurationCompact(Long ms) {
+        if (ms == null || ms <= 0L) {
+            return "N/A";
+        }
+        long totalSeconds = ms / 1000L;
+        long days = totalSeconds / 86400L;
+        long hours = (totalSeconds % 86400L) / 3600L;
+        long minutes = (totalSeconds % 3600L) / 60L;
+        if (days > 0) {
+            return hours > 0 ? days + "d " + hours + "h" : days + "d";
+        }
+        if (hours > 0) {
+            return minutes > 0 ? hours + "h " + minutes + "m" : hours + "h";
+        }
+        if (minutes > 0) {
+            return minutes + "m";
+        }
+        return Math.max(1L, totalSeconds) + "s";
     }
 
     String formatAgeClock(long ms) {

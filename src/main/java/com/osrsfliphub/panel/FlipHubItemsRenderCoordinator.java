@@ -55,11 +55,10 @@ final class FlipHubItemsRenderCoordinator {
             return;
         }
 
-        // Before removeAll(): pulling the rows out from under the pointer synthesises a
-        // mouseExited on them, and the hover has to be stood down before that arrives.
-        ageTooltipCoordinator.clearEntriesForRebuild();
-        listPanel.removeAll();
-        itemListContentRenderer.renderList(
+        // The renderer answers whether it had to rebuild the panel or could write the new
+        // values into the rows already in it. A refresh that only moved the numbers has no
+        // layout to run and no hover to put back - that is the whole point of asking.
+        boolean rebuilt = itemListContentRenderer.renderList(
             listPanel,
             offerPreviewItem,
             offerAsOfMs,
@@ -85,8 +84,12 @@ final class FlipHubItemsRenderCoordinator {
             }
         }
 
-        listPanel.revalidate();
-        listPanel.repaint();
+        if (rebuilt) {
+            listPanel.revalidate();
+            listPanel.repaint();
+            // The rows the pointer was over are gone, replaced by rows that never heard of it.
+            FlipHubHoverRestorer.restoreAfterRebuild(listPanel);
+        }
         ageTooltipCoordinator.ensureCountdownTimer();
     }
 }

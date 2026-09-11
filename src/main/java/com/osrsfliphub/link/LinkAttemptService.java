@@ -153,6 +153,18 @@ final class LinkAttemptService {
         return false;
     }
 
+    /**
+     * Whether FlipHub itself said no to this key, as opposed to nobody answering. Only the
+     * first is a reason to forget the key.
+     */
+    private boolean isRefusalOfTheKey(Throwable ex) {
+        return ApiRefusedException.refusedTheRequest(ex);
+    }
+
+    private boolean syncIsOff() {
+        return config == null || !config.enableFlipHubSync();
+    }
+
     private void logTimeout() {
         if (log.isDebugEnabled()) {
             log.debug("FlipHub link timed out");
@@ -163,8 +175,8 @@ final class LinkAttemptService {
         log.warn("FlipHub link failed", ex);
     }
 
-    private void executeIo(Runnable task) {
-        PluginAccess.plugin().executeIo(task);
+    private boolean executeIo(Runnable task) {
+        return PluginAccess.plugin().executeIo(task);
     }
 
     private void scheduleRetry(Runnable task, long delaySeconds) {
@@ -201,7 +213,15 @@ final class LinkAttemptService {
         if (!linkInFlight.compareAndSet(false, true)) {
             return;
         }
-        executeIo(() -> runLinkAttempt(normalized));
+        if (!executeIo(() -> runLinkAttempt(normalized))) {
+            // Nothing took the work, so runLinkAttempt - the only thing that lowers this flag -
+            // will never run. Left raised, every later attempt dies at the check above and the
+            // account panel sits on "Linking..." for the rest of the session. This happens for
+            // real when the plugin is enabled while already logged in, because the pools are
+            // assigned after the link is first triggered.
+            linkInFlight.set(false);
+            reportStatus(LinkStatusService.NEEDS_LOGIN);
+        }
     }
 
     /**
@@ -260,7 +280,15 @@ final class LinkAttemptService {
         if (!linkInFlight.compareAndSet(false, true)) {
             return;
         }
-        executeIo(() -> runLinkAttempt(normalized));
+        if (!executeIo(() -> runLinkAttempt(normalized))) {
+            // Nothing took the work, so runLinkAttempt - the only thing that lowers this flag -
+            // will never run. Left raised, every later attempt dies at the check above and the
+            // account panel sits on "Linking..." for the rest of the session. This happens for
+            // real when the plugin is enabled while already logged in, because the pools are
+            // assigned after the link is first triggered.
+            linkInFlight.set(false);
+            reportStatus(LinkStatusService.NEEDS_LOGIN);
+        }
     }
 
     private void runLinkAttempt(String licenseKey) {
@@ -281,6 +309,8 @@ final class LinkAttemptService {
                 }
             } else {
                 // The call went through and FlipHub declined it, so the key itself is the problem.
+                // Keeping it would re-send the same rejected key on every start and every login.
+                discardRejectedKey();
                 reportStatus(LinkStatusService.REJECTED);
             }
             updateProfileHeader();
@@ -293,11 +323,33 @@ final class LinkAttemptService {
                 scheduleRetry(licenseKey);
                 return;
             }
+            if (!isRefusalOfTheKey(ex)) {
+                // Nobody said the key was wrong. The machine is offline, the name did not
+                // resolve, the handshake failed, the server had a bad minute, or sync is
+                // switched off. Erasing the key here made the player go and find it again for
+                // a problem that had nothing to do with it.
+                reportStatus(syncIsOff() ? LinkStatusService.SYNC_OFF : LinkStatusService.UNREACHABLE);
+                updateProfileHeader();
+                logFailure(ex);
+                linkInFlight.set(false);
+                scheduleRetry(licenseKey);
+                return;
+            }
+            // FlipHub answered and refused the key itself. Keeping it would re-send the same
+            // rejected key on every start and every login.
+            discardRejectedKey();
             reportStatus(LinkStatusService.FAILED);
             updateProfileHeader();
             logFailure(ex);
         } finally {
             linkInFlight.set(false);
+        }
+    }
+
+    private void discardRejectedKey() {
+        LinkSessionConfigStore store = PluginInjectorBridge.get(LinkSessionConfigStore.class);
+        if (store != null) {
+            store.clearRejectedLicenseKey();
         }
     }
 

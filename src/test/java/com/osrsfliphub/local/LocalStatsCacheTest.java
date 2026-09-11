@@ -31,74 +31,78 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+/**
+ * The stats cache on ordinary flips: what a rebuild replays, and what the
+ * running totals say about them.
+ */
 public class LocalStatsCacheTest {
-    @Test
-    public void buildSnapshotSinceUsesOlderBuysForInWindowSells() {
-        LocalStatsCache cache = new LocalStatsCache();
-        List<LocalTradeDelta> deltas = Arrays.asList(
-            delta(1_000L, 1, 561, true, 10, 1_000L, "OFFER_UPDATED", 100, false),
-            delta(2_000L, 1, 561, false, 5, 700L, "OFFER_COMPLETED", 140, false),
-            delta(5_000L, 1, 561, false, 5, 800L, "OFFER_COMPLETED", 160, false)
-        );
-        cache.rebuild(deltas);
-
-        LocalStatsSnapshot window = cache.buildSnapshotSince(4_000L);
-
-        assertEquals(Long.valueOf(300L), window.summary.total_profit_gp);
-        assertEquals(Long.valueOf(500L), window.summary.total_cost_gp);
-        assertEquals(Long.valueOf(5L), window.summary.total_qty);
-        assertEquals(Integer.valueOf(1), window.summary.fill_count);
-        assertEquals(1, window.items.size());
-        assertEquals(Integer.valueOf(1), window.items.get(0).fill_count);
-    }
-
-    @Test
-    public void unmatchedCompletionDoesNotIncreaseFlipCount() {
-        LocalStatsCache cache = new LocalStatsCache();
-        List<LocalTradeDelta> deltas = Arrays.asList(
-            delta(1_000L, 1, 995, false, 0, 0L, "OFFER_COMPLETED", 100, false),
-            delta(2_000L, 1, 995, false, 5, 500L, "OFFER_COMPLETED", 100, false)
-        );
-        cache.rebuild(deltas);
-
-        StatsSummary summary = cache.getSummary();
-
-        assertEquals(Integer.valueOf(0), summary.fill_count);
-        assertEquals(Long.valueOf(0L), summary.total_profit_gp);
-        assertEquals(Long.valueOf(0L), summary.total_cost_gp);
-        assertTrue(cache.getItems().isEmpty());
-    }
-
-    @Test
-    public void zeroQuantityCompletionCountsWhenRecentSellWasMatched() {
-        LocalStatsCache cache = new LocalStatsCache();
-        List<LocalTradeDelta> deltas = Arrays.asList(
-            delta(1_000L, 2, 4151, true, 1, 100L, "OFFER_UPDATED", 100, false),
-            delta(2_000L, 2, 4151, false, 1, 120L, "OFFER_UPDATED", 120, false),
-            delta(2_100L, 2, 4151, false, 0, 0L, "OFFER_COMPLETED", 120, false)
-        );
-        cache.rebuild(deltas);
-
-        StatsSummary summary = cache.getSummary();
-
-        assertEquals(Long.valueOf(20L), summary.total_profit_gp);
-        assertEquals(Integer.valueOf(1), summary.fill_count);
-        assertEquals(1, cache.getItems().size());
-        assertEquals(Integer.valueOf(1), cache.getItems().get(0).fill_count);
-    }
+    private static final int SYNCED = GeLifecyclePluginConstants.GE_HISTORY_SYNTHETIC_SLOT_START;
 
     private static LocalTradeDelta delta(long tsClientMs, int slot, int itemId, boolean isBuy, int deltaQty,
-                                         long deltaGp, String eventType, int price, boolean baselineSynthetic) {
-        return new LocalTradeDelta(
-            tsClientMs,
-            slot,
-            itemId,
-            isBuy,
-            deltaQty,
-            deltaGp,
-            eventType,
-            price,
-            baselineSynthetic
+                                         long deltaGp, String eventType, int price) {
+        return new LocalTradeDelta(tsClientMs, slot, itemId, isBuy, deltaQty, deltaGp, eventType, price, false);
+    }
+
+    /**
+     * The live cache saw the sync's batch in the order the sync wrote it, one
+     * delta at a time. A rebuild from disk has to replay the same batch the
+     * same way, or the numbers change when the client restarts.
+     */
+    @Test
+    public void rebuildReplaysASyncedBatchInTheOrderTheLiveCacheSawIt() {
+        List<LocalTradeDelta> deltas = Arrays.asList(
+            delta(5_000L, SYNCED, 560, false, 1, 130L, "OFFER_UPDATED", 130),
+            delta(5_004L, SYNCED, 560, false, 0, 0L, "OFFER_COMPLETED", 130),
+            delta(5_008L, SYNCED + 1, 560, true, 1, 100L, "OFFER_UPDATED", 100),
+            delta(5_012L, SYNCED + 1, 560, true, 0, 0L, "OFFER_COMPLETED", 100)
         );
+        LocalStatsCache live = new LocalStatsCache();
+        for (LocalTradeDelta delta : deltas) {
+            assertTrue(live.applyDeltaInOrder(delta));
+        }
+        LocalStatsCache rebuilt = new LocalStatsCache();
+        rebuilt.rebuild(deltas);
+
+        // The history said the sale came first, so it was not a sale of this stock.
+        assertEquals(Integer.valueOf(0), live.getSummary().fill_count);
+        assertEquals(Long.valueOf(0L), live.getSummary().total_profit_gp);
+        assertEquals(live.getSummary().fill_count, rebuilt.getSummary().fill_count);
+        assertEquals(live.getSummary().total_profit_gp, rebuilt.getSummary().total_profit_gp);
+    }
+
+    private static final long HOUR_MS = 3_600_000L;
+
+    /**
+     * Active time is what the website's gold per hour divides by. One purchase
+     * held an hour is an hour in the market however many fills it took to sell
+     * it, so each fill carries the share of the position it closed - a tenth
+     * of an hour each here - and not the whole hold ten times over.
+     */
+    @Test
+    public void onePurchaseSoldInTenFillsIsHeldOnce() {
+        LocalStatsCache cache = new LocalStatsCache();
+        assertTrue(cache.applyDeltaInOrder(delta(0L, 1, 560, true, 10, 1_000L, "OFFER_COMPLETED", 100)));
+        for (int fill = 0; fill < 10; fill++) {
+            String type = fill == 9 ? "OFFER_COMPLETED" : "OFFER_UPDATED";
+            assertTrue(cache.applyDeltaInOrder(delta(HOUR_MS + fill, 2, 560, false, 1, 127L, type, 130)));
+        }
+
+        StatsSummary summary = cache.getSummary();
+        assertEquals(Long.valueOf(HOUR_MS), summary.active_ms);
+        // 270 profit over one hour, not over ten.
+        assertEquals(270.0, summary.gp_per_hour, 0.001);
+    }
+
+    @Test
+    public void twoPurchasesSoldSeparatelyAreTwoHolds() {
+        // The pool empties between them, so they are two positions and the
+        // clock runs from each one's own purchase.
+        LocalStatsCache cache = new LocalStatsCache();
+        assertTrue(cache.applyDeltaInOrder(delta(0L, 1, 560, true, 5, 500L, "OFFER_COMPLETED", 100)));
+        assertTrue(cache.applyDeltaInOrder(delta(HOUR_MS, 2, 560, false, 5, 635L, "OFFER_COMPLETED", 130)));
+        assertTrue(cache.applyDeltaInOrder(delta(2 * HOUR_MS, 1, 560, true, 5, 500L, "OFFER_COMPLETED", 100)));
+        assertTrue(cache.applyDeltaInOrder(delta(4 * HOUR_MS, 2, 560, false, 5, 635L, "OFFER_COMPLETED", 130)));
+
+        assertEquals(Long.valueOf(3 * HOUR_MS), cache.getSummary().active_ms);
     }
 }

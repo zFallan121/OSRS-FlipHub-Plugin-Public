@@ -158,6 +158,18 @@ public interface PluginConfig extends Config {
     }
 
     @ConfigItem(
+        keyName = "repairAtArmourStand",
+        name = "I repair on an armour stand",
+        description = "Prices a repaired item the way a player-owned house<br>"
+            + "armour stand charges for it: half a percent less per<br>"
+            + "Smithing level, so a little over half the NPC price at 99.<br>"
+            + "Turn this off if you repair at an NPC and pay full price."
+    )
+    default boolean repairAtArmourStand() {
+        return true;
+    }
+
+    @ConfigItem(
         keyName = "showGeOfferTimers",
         name = "Show GE offer timers",
         description = "Draws a timer on each Grand Exchange slot showing how<br>"

@@ -26,9 +26,12 @@ package com.osrsfliphub;
 
 import com.google.gson.Gson;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -36,8 +39,36 @@ import java.util.function.Supplier;
 import net.runelite.client.callback.ClientThread;
 import okhttp3.OkHttpClient;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 final class GeLifecycleRuntimeSchedulerServices {
+    private static final Logger log = LoggerFactory.getLogger(GeLifecycleRuntimeSchedulerServices.class);
+
+    /** Steps already complained about, so a failure every cycle is said once, not forever. */
+    private static final Set<String> REPORTED_TASK_FAILURES = ConcurrentHashMap.newKeySet();
+
+    /**
+     * Wraps a repeating scheduled task so one failure cannot end it.
+     *
+     * <p>A ScheduledExecutorService cancels a periodic task the first time it throws, and the
+     * Future is discarded here, so nothing observes the exception and nothing is logged. Every
+     * one of these bodies reaches for a service through the injector, which is exactly where
+     * this codebase has produced runtime-only failures before. Unguarded, a single throw ended
+     * event upload, the accountwide sync, both panel refreshes or the offer preview for the
+     * rest of the client session, in silence.</p>
+     */
+    private static Runnable guarded(String name, Runnable work) {
+        return () -> {
+            try {
+                work.run();
+            } catch (RuntimeException ex) {
+                if (REPORTED_TASK_FAILURES.add(name)) {
+                    log.warn("FlipHub scheduled task '{}' failed; it will keep retrying", name, ex);
+                }
+            }
+        };
+    }
+
     static final class RuntimeState {
         private final ApiClient apiClient;
         private final ScheduledExecutorService scheduler;
@@ -88,37 +119,39 @@ final class GeLifecycleRuntimeSchedulerServices {
         ExecutorService ioExecutor = Executors.newFixedThreadPool(2);
 
         scheduler.scheduleAtFixedRate(
-            () -> {
+            guarded("event flush", () -> {
                 UploadBackfillDispatchService service = resolve(uploadBackfillDispatchServiceSupplier);
                 if (service != null) {
                     service.requestEventFlush();
                 }
-            },
+            }),
             2,
             2,
             TimeUnit.SECONDS
         );
         scheduler.scheduleAtFixedRate(
-            () -> {
+            guarded("accountwide sync", () -> {
                 UploadBackfillDispatchService service = resolve(uploadBackfillDispatchServiceSupplier);
                 if (service != null) {
                     service.requestAccountwideSync();
                 }
-            },
+            }),
             60,
             accountwideUploadIntervalSeconds,
             TimeUnit.SECONDS
         );
         if (refreshPanelData != null) {
-            scheduler.scheduleAtFixedRate(refreshPanelData, 5, 60, TimeUnit.SECONDS);
-            scheduler.execute(refreshPanelData);
+            Runnable guardedPanelRefresh = guarded("panel refresh", refreshPanelData);
+            scheduler.scheduleAtFixedRate(guardedPanelRefresh, 5, 60, TimeUnit.SECONDS);
+            scheduler.execute(guardedPanelRefresh);
         }
         if (refreshStatsData != null) {
-            scheduler.scheduleAtFixedRate(refreshStatsData, 5, 60, TimeUnit.SECONDS);
-            scheduler.execute(refreshStatsData);
+            Runnable guardedStatsRefresh = guarded("stats refresh", refreshStatsData);
+            scheduler.scheduleAtFixedRate(guardedStatsRefresh, 5, 60, TimeUnit.SECONDS);
+            scheduler.execute(guardedStatsRefresh);
         }
         scheduler.scheduleAtFixedRate(
-            () -> {
+            guarded("offer preview poll", () -> {
                 OfferPreviewRuntimeFacadeService runtime = resolve(offerPreviewRuntimeFacadeServiceSupplier);
                 if (runtime == null) {
                     return;
@@ -141,7 +174,7 @@ final class GeLifecycleRuntimeSchedulerServices {
                         }
                     }
                 );
-            },
+            }),
             1,
             offerPollIntervalMs,
             TimeUnit.MILLISECONDS
@@ -210,13 +243,24 @@ final class GeLifecycleRuntimeSchedulerServices {
         if (scheduler != null) {
             scheduler.shutdown();
         }
+
+        // RuneLite disables a plugin on the thread that draws its window, so this method runs
+        // there. A final upload therefore has to be handed to the IO pool rather than run here,
+        // and handed over before that pool is shut down: shutdown() lets already-queued work
+        // finish, it just refuses anything new.
+        UploadEventDispatchFacadeService uploadDispatch = resolve(uploadEventDispatchFacadeServiceSupplier);
+        if (uploadDispatch != null && ioExecutor != null && !ioExecutor.isShutdown()) {
+            PluginConfig shutdownConfig = resolve(configSupplier);
+            Logger shutdownLog = resolve(loggerSupplier);
+            try {
+                ioExecutor.execute(() ->
+                    uploadDispatch.flushEvents(apiClient, shutdownConfig, shutdownLog));
+            } catch (RejectedExecutionException ignored) {
+                // Already stopping. The queue is drained on client shutdown as well.
+            }
+        }
         if (ioExecutor != null) {
             ioExecutor.shutdown();
-        }
-
-        UploadEventDispatchFacadeService uploadDispatch = resolve(uploadEventDispatchFacadeServiceSupplier);
-        if (uploadDispatch != null) {
-            uploadDispatch.flushEvents(apiClient, resolve(configSupplier), resolve(loggerSupplier));
         }
 
         if (snapshots != null) {
@@ -234,7 +278,7 @@ final class GeLifecycleRuntimeSchedulerServices {
             deduper.clearAll();
         }
         if (uploadState != null) {
-            uploadState.reset();
+            uploadState.resetForPluginStop();
         }
         if (uploadDispatch != null) {
             uploadDispatch.updateUploadDiagnosticsUi();

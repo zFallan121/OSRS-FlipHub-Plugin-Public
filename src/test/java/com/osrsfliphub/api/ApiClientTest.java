@@ -147,8 +147,6 @@ public class ApiClientTest
         assertThrows(IllegalStateException.class,
             () -> client.linkDevice("key", "device", "1.0.0"));
         assertThrows(IllegalStateException.class,
-            () -> client.refreshSession("token"));
-        assertThrows(IllegalStateException.class,
             () -> client.refreshSession("token", "secret", "device"));
         assertThrows(IllegalStateException.class,
             () -> client.sendEvents("token", "secret", Arrays.asList(sampleEvent())));
@@ -159,13 +157,7 @@ public class ApiClientTest
         assertThrows(IllegalStateException.class,
             () -> client.wipeWebsiteStats("token", "secret"));
         assertThrows(IllegalStateException.class,
-            () -> client.fetchItems("token", null, 1, 10));
-        assertThrows(IllegalStateException.class,
-            () -> client.fetchItem("token", 4151));
-        assertThrows(IllegalStateException.class,
             () -> client.fetchStatsSummary("token", null, null));
-        assertThrows(IllegalStateException.class,
-            () -> client.fetchStatsItems("token", null, null, null, null));
 
         assertEquals(0, callCount.get());
     }

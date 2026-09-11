@@ -40,8 +40,8 @@ final class UploadBackfillDispatchService {
         this.backfillRetryScheduler = backfillRetryScheduler;
     }
 
-    private void executeIo(Runnable task) {
-        PluginAccess.plugin().executeIo(task);
+    private boolean executeIo(Runnable task) {
+        return PluginAccess.plugin().executeIo(task);
     }
 
     private void flushEvents() {
@@ -66,26 +66,34 @@ final class UploadBackfillDispatchService {
         if (!flushInFlight.compareAndSet(false, true)) {
             return;
         }
-        executeIo(() -> {
+        // The finally that lowers the flag lives inside the task, so a refused task leaves it
+        // raised for good and event upload stops for the rest of the client session. The
+        // window is real: shutDown stops the pools before the plugin's references are nulled,
+        // so the two-second flush can arrive just after they close.
+        if (!executeIo(() -> {
             try {
                 flushEvents();
             } finally {
                 flushInFlight.set(false);
             }
-        });
+        })) {
+            flushInFlight.set(false);
+        }
     }
 
     void requestAccountwideSync() {
         if (!accountwideSyncInFlight.compareAndSet(false, true)) {
             return;
         }
-        executeIo(() -> {
+        if (!executeIo(() -> {
             try {
                 syncAccountwideSummaryIfNeeded();
             } finally {
                 accountwideSyncInFlight.set(false);
             }
-        });
+        })) {
+            accountwideSyncInFlight.set(false);
+        }
     }
 
     void requestBackfillAttempt(ScheduledExecutorService scheduler, long delaySeconds, boolean resetBackoff) {

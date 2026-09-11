@@ -149,6 +149,39 @@ final class FlipHubPanelStateService {
         }
     }
 
+    /** Which activities the list shows. Nothing needs refetching to answer it. */
+    void onStatsRecipeFilterChanged(
+        FlipHubPanelMutableState state,
+        StatsRecipeFilter filter,
+        Runnable renderStatsItems
+    ) {
+        if (state == null || filter == null) {
+            return;
+        }
+        state.statsRecipeFilter = filter;
+        // A different set of items means page 3 of the old list says nothing
+        // about page 3 of the new one.
+        state.statsPage = 1;
+        if (renderStatsItems != null) {
+            renderStatsItems.run();
+        }
+    }
+
+    /** Which activities the total at the top adds up. The list is unaffected. */
+    void onStatsProfitFilterChanged(
+        FlipHubPanelMutableState state,
+        StatsRecipeFilter filter,
+        Runnable updateStatsSummary
+    ) {
+        if (state == null || filter == null) {
+            return;
+        }
+        state.statsProfitFilter = filter;
+        if (updateStatsSummary != null) {
+            updateStatsSummary.run();
+        }
+    }
+
     void onStatsSortSelectionChanged(
         FlipHubPanelListener listener,
         FlipHubPanelMutableState state,
@@ -223,6 +256,13 @@ final class FlipHubPanelStateService {
         state.lastPriceCacheMs = priceCacheMs;
         state.currentPage = page;
         state.totalPages = totalPages <= 0 ? 1 : totalPages;
+        // The page actually drawn, which is the requested one clamped to what exists. Leaving
+        // the plugin on the page the user had asked for meant a list that shrank and later grew
+        // silently jumped back to it.
+        GeLifecyclePlugin plugin = PluginAccess.pluginOrNull();
+        if (plugin != null) {
+            plugin.currentPage = page;
+        }
 
         if (pageLabel != null) {
             pageLabel.setText("Page " + page + " of " + state.totalPages);

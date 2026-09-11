@@ -71,7 +71,10 @@ final class GeLifecyclePanelDataRuntimeService {
             () -> PluginInjectorBridge.get(LocalStatsViewService.class),
             () -> PluginInjectorBridge.get(OfferPreviewRuntimeFacadeService.class),
             () -> PluginAccess.plugin().client,
-            () -> PluginAccess.plugin().offerUpdateStamps,
+            () -> {
+                PluginState state = PluginInjectorBridge.get(PluginState.class);
+                return state != null ? state.getOfferUpdateStamps() : null;
+            },
             () -> PluginInjectorBridge.get(OfferStampFallbackBuilder.class),
             System::currentTimeMillis);
     }

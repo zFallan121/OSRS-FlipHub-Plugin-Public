@@ -258,10 +258,19 @@ final class FlipHubAccountPanelBuilder {
         label.setAlignmentX(Component.LEFT_ALIGNMENT);
         label.setBorder(BorderFactory.createEmptyBorder(topGap, 0, 0, 0));
         label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        // The shared handler, so a few pixels of drift between press and release does not
+        // silently swallow the click.
+        label.addMouseListener(new FlipHubStatsClickMouseAdapter(
+            () -> linkCoordinator.openExternalUrl(DEFAULT_BASE_URL + INSIGHTS_PATH)));
         label.addMouseListener(new MouseAdapter() {
             @Override
-            public void mouseClicked(MouseEvent e) {
-                linkCoordinator.openExternalUrl(DEFAULT_BASE_URL + INSIGHTS_PATH);
+            public void mouseEntered(MouseEvent event) {
+                label.setForeground(TEXT);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent event) {
+                label.setForeground(ACCENT);
             }
         });
         return label;

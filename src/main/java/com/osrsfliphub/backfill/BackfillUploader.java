@@ -34,6 +34,29 @@ import net.runelite.api.GrandExchangeOfferState;
 
 @Singleton
 final class BackfillUploader {
+    /**
+     * What became of one batch, and therefore whether trying again can help.
+     *
+     * <p>A boolean could not tell "the server is having a moment" from "the server will never
+     * take this". Both read as failure, so a batch the server had permanently refused was
+     * retried every ninety seconds for as long as the client stayed open, and each cycle
+     * re-sent every batch before it.
+     */
+    enum Outcome {
+        /** Accepted. */
+        SENT,
+        /** Nobody refused it; the server could not be reached or is overloaded. */
+        RETRY,
+        /** The server refused this content. Sending the same events again changes nothing. */
+        TERMINAL,
+        /**
+         * The session is dead and needs a relink. This says nothing about the events, so the
+         * profile must not be written off; it used to be marked backfilled here, and after
+         * the player relinked its remaining trades were never uploaded.
+         */
+        SESSION_DEAD
+    }
+
     @Inject
     BackfillUploader() {
     }
@@ -42,8 +65,11 @@ final class BackfillUploader {
         return PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
     }
 
-    private boolean attemptRefresh(String currentToken) {
-        return PluginInjectorBridge.get(SessionRefreshService.class).attemptRefresh(currentToken);
+    private SessionRefreshService.Outcome attemptRefresh(String currentToken) {
+        SessionRefreshService service = PluginInjectorBridge.get(SessionRefreshService.class);
+        return service != null
+            ? service.attemptRefresh(currentToken)
+            : SessionRefreshService.Outcome.UNAVAILABLE;
     }
 
     private void clearSession() {
@@ -118,19 +144,20 @@ final class BackfillUploader {
         return event;
     }
 
-    boolean sendBatch(ApiClient apiClient, PluginConfig config, List<GeEvent> batch) {
+    Outcome sendBatch(ApiClient apiClient, PluginConfig config, List<GeEvent> batch) {
         if (batch == null || batch.isEmpty() || apiClient == null || config == null) {
-            return false;
+            return Outcome.RETRY;
         }
         if (!config.enableFlipHubSync()) {
+            // Paused rather than refused: turning sync back on should resume where this left off.
             setUploadBlocked("Backfill paused: FlipHub sync is disabled in the plugin settings.");
-            return false;
+            return Outcome.RETRY;
         }
         String sessionToken = config.sessionToken();
         String signingSecret = config.signingSecret();
         if (!ApiStatusPolicy.hasCredentials(sessionToken, signingSecret)) {
             setUploadBlocked("Backfill paused: plugin is not linked.");
-            return false;
+            return Outcome.RETRY;
         }
 
         recordUploadAttempt();
@@ -139,20 +166,22 @@ final class BackfillUploader {
             int status = upload != null ? upload.status_code : 500;
             if (status < 400) {
                 if (!isBackfillUploadUsable(upload, batch.size())) {
+                    // The server took the request and threw the contents away. Sending the same
+                    // events again would get the same answer.
                     recordUploadFailure(
                         status,
-                        "Backfill upload rejected all events in batch.",
-                        false,
-                        0
+                        "Backfill upload rejected every event in the batch. Not retrying.",
+                        true,
+                        batch.size()
                     );
-                    return false;
+                    return Outcome.TERMINAL;
                 }
                 recordUploadSuccess(resolveBackfillUploadedCount(upload, batch.size()), status);
-                return true;
+                return Outcome.SENT;
             }
             if (ApiStatusPolicy.isAuthStatus(status)) {
-                boolean refreshed = attemptRefresh(sessionToken);
-                if (refreshed) {
+                SessionRefreshService.Outcome outcome = attemptRefresh(sessionToken);
+                if (outcome == SessionRefreshService.Outcome.REFRESHED) {
                     String refreshedToken = config.sessionToken();
                     String refreshedSecret = config.signingSecret();
                     if (ApiStatusPolicy.hasCredentials(refreshedToken, refreshedSecret)) {
@@ -163,44 +192,49 @@ final class BackfillUploader {
                             if (!isBackfillUploadUsable(retryUpload, batch.size())) {
                                 recordUploadFailure(
                                     retryStatus,
-                                    "Backfill upload rejected all events in batch.",
-                                    false,
-                                    0
+                                    "Backfill upload rejected every event in the batch. Not retrying.",
+                                    true,
+                                    batch.size()
                                 );
-                                return false;
+                                return Outcome.TERMINAL;
                             }
                             recordUploadSuccess(resolveBackfillUploadedCount(retryUpload, batch.size()), retryStatus);
-                            return true;
+                            return Outcome.SENT;
                         }
                         recordUploadFailure(retryStatus,
                             "Backfill upload failed with status " + retryStatus + ".", false, 0);
-                        return false;
+                        return classify(retryStatus);
                     }
                 }
-                clearSession();
-                recordUploadFailure(status, "Backfill upload unauthorized.", false, 0);
-                return false;
+                // clearSession has already run if the server refused the session; a refresh
+                // that simply could not be completed leaves the link intact to try again.
+                recordUploadFailure(status, outcome == SessionRefreshService.Outcome.REJECTED
+                    ? "Backfill upload unauthorized. Relink to resume."
+                    : "Backfill upload could not refresh the session. Will retry.", false, 0);
+                // A refused session needs a relink, not another attempt; an unreachable one is
+                // worth coming back to. Neither is a verdict on this profile's events.
+                return outcome == SessionRefreshService.Outcome.REJECTED
+                    ? Outcome.SESSION_DEAD : Outcome.RETRY;
             }
             recordUploadFailure(status, "Backfill upload failed with status " + status + ".", false, 0);
-            return false;
+            return classify(status);
         } catch (IOException | RuntimeException ex) {
             String message = ex != null && ex.getMessage() != null ? ex.getMessage() : "Unknown backfill exception";
             recordUploadFailure(-1, "Backfill upload exception: " + message, false, 0);
-            return false;
+            return Outcome.RETRY;
         }
     }
 
+    /**
+     * A rate limit or a server error is worth waiting out. Any other refusal in the four
+     * hundreds is a statement about the request itself, which will not improve by repeating it.
+     */
+    private static Outcome classify(int status) {
+        return ApiStatusPolicy.isRetryableUploadStatus(status) ? Outcome.RETRY : Outcome.TERMINAL;
+    }
+
     private boolean isBackfillUploadUsable(ApiClient.EventUploadResponse upload, int batchSize) {
-        if (upload == null || batchSize <= 0) {
-            return false;
-        }
-        int accepted = upload.accepted != null ? Math.max(0, upload.accepted) : 0;
-        int duplicates = upload.duplicates != null ? Math.max(0, upload.duplicates) : 0;
-        int rejected = upload.rejected != null ? Math.max(0, upload.rejected) : 0;
-        if (accepted + duplicates > 0) {
-            return true;
-        }
-        return rejected <= 0;
+        return ApiStatusPolicy.keptSomething(upload, batchSize);
     }
 
     private int resolveBackfillUploadedCount(ApiClient.EventUploadResponse upload, int batchSize) {

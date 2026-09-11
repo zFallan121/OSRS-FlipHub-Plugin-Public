@@ -199,17 +199,6 @@ final class OfferUpdateStampService {
             snapshot.filledQty, snapshot.spentGp);
     }
 
-    long resolveBaselineTradeTimestamp(OfferUpdateStamp stamp, long lastLoginMs) {
-        long stampMs = 0L;
-        if (stamp != null) {
-            stampMs = OfferUpdateStampStateHelpers.minPositive(stamp.firstSeenMs, stamp.lastUpdateMs, stamp.completedMs);
-        }
-        if (lastLoginMs > 0 && stampMs > 0 && stampMs < lastLoginMs) {
-            return stampMs;
-        }
-        return 0L;
-    }
-
     private long nowMs() {
         return System.currentTimeMillis();
     }

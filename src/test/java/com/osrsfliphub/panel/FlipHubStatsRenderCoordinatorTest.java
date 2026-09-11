@@ -27,6 +27,7 @@ package com.osrsfliphub;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.function.UnaryOperator;
 import java.util.Set;
 import javax.swing.BoxLayout;
 import javax.swing.JPanel;
@@ -102,12 +103,14 @@ public class FlipHubStatsRenderCoordinatorTest {
             buildItems(25),
             "",
             StatsItemSort.PROFIT,
+            StatsRecipeFilter.ALL,
             false,
             2,
             item -> {
                 rendered.add(item);
                 return new JPanel();
             },
+            UnaryOperator.identity(),
             null,
             null,
             null
@@ -120,6 +123,92 @@ public class FlipHubStatsRenderCoordinatorTest {
     }
 
     @Test
+    public void renderItemsKeepsOnlyTheRequestedRecipeKind() {
+        FlipHubStatsRenderCoordinator coordinator = new FlipHubStatsRenderCoordinator();
+        List<StatsItem> items = buildItems(3);
+        items.get(0).conversionKinds = java.util.EnumSet.of(ConversionKind.ASSEMBLE);
+        items.get(1).conversionKinds = java.util.EnumSet.of(ConversionKind.REPAIR);
+        // items.get(2) was only ever flipped.
+        List<StatsItem> rendered = new ArrayList<>();
+
+        coordinator.renderItems(
+            newListPanel(),
+            items,
+            "",
+            StatsItemSort.PROFIT,
+            StatsRecipeFilter.ASSEMBLE,
+            false,
+            1,
+            item -> {
+                rendered.add(item);
+                return new JPanel();
+            },
+            UnaryOperator.identity(),
+            null,
+            null,
+            null
+        );
+
+        assertEquals(1, rendered.size());
+        assertEquals(items.get(0).item_id, rendered.get(0).item_id);
+    }
+
+    @Test
+    public void allRecipesDropsThePlainFlips() {
+        FlipHubStatsRenderCoordinator coordinator = new FlipHubStatsRenderCoordinator();
+        List<StatsItem> items = buildItems(3);
+        items.get(0).conversionKinds = java.util.EnumSet.of(ConversionKind.ASSEMBLE);
+        items.get(1).conversionKinds = java.util.EnumSet.of(ConversionKind.SET_BREAK);
+        List<StatsItem> rendered = new ArrayList<>();
+
+        coordinator.renderItems(
+            newListPanel(),
+            items,
+            "",
+            StatsItemSort.PROFIT,
+            StatsRecipeFilter.ANY_RECIPE,
+            false,
+            1,
+            item -> {
+                rendered.add(item);
+                return new JPanel();
+            },
+            UnaryOperator.identity(),
+            null,
+            null,
+            null
+        );
+
+        assertEquals(2, rendered.size());
+    }
+
+    @Test
+    public void theDefaultFilterChangesNothingForAnAccountOfPlainFlips() {
+        FlipHubStatsRenderCoordinator coordinator = new FlipHubStatsRenderCoordinator();
+        List<StatsItem> rendered = new ArrayList<>();
+
+        coordinator.renderItems(
+            newListPanel(),
+            buildItems(4),
+            "",
+            StatsItemSort.PROFIT,
+            StatsRecipeFilter.ALL,
+            false,
+            1,
+            item -> {
+                rendered.add(item);
+                return new JPanel();
+            },
+            UnaryOperator.identity(),
+            null,
+            null,
+            null
+        );
+
+        assertEquals(4, rendered.size());
+    }
+
+    @Test
     public void renderItemsClampsAPageThatNoLongerExists() {
         FlipHubStatsRenderCoordinator coordinator = new FlipHubStatsRenderCoordinator();
         List<StatsItem> rendered = new ArrayList<>();
@@ -129,12 +218,14 @@ public class FlipHubStatsRenderCoordinatorTest {
             buildItems(12),
             "",
             StatsItemSort.PROFIT,
+            StatsRecipeFilter.ALL,
             false,
             7,
             item -> {
                 rendered.add(item);
                 return new JPanel();
             },
+            UnaryOperator.identity(),
             null,
             null,
             null
@@ -154,6 +245,54 @@ public class FlipHubStatsRenderCoordinatorTest {
      * Profit descends with the item id, so sorting by profit keeps the items in id order and the
      * page slice stays readable in the assertions.
      */
+    /**
+     * With a recipe filter on, the card shows what that recipe earned, not the item's whole
+     * total. Ordering by the whole total put an item that had made a fortune flipping, and
+     * almost nothing assembling, above one that had actually made money assembling.
+     */
+    @Test
+    public void theFilteredListIsOrderedByWhatTheCardsWillShow() {
+        FlipHubStatsRenderCoordinator coordinator = new FlipHubStatsRenderCoordinator();
+        List<StatsItem> items = buildItems(2);
+        StatsItem mostlyFlipped = items.get(0);
+        StatsItem mostlyAssembled = items.get(1);
+        mostlyFlipped.conversionKinds = java.util.EnumSet.of(ConversionKind.ASSEMBLE);
+        mostlyAssembled.conversionKinds = java.util.EnumSet.of(ConversionKind.ASSEMBLE);
+        mostlyFlipped.total_profit_gp = 5_000_000L;
+        mostlyAssembled.total_profit_gp = 400_000L;
+        List<StatsItem> rendered = new ArrayList<>();
+
+        coordinator.renderItems(
+            newListPanel(),
+            items,
+            "",
+            StatsItemSort.PROFIT,
+            StatsRecipeFilter.ASSEMBLE,
+            false,
+            1,
+            item -> {
+                rendered.add(item);
+                return new JPanel();
+            },
+            item -> {
+                // What assembling alone earned each of them.
+                StatsItem view = new StatsItem();
+                view.item_id = item.item_id;
+                view.item_name = item.item_name;
+                view.conversionKinds = item.conversionKinds;
+                view.total_profit_gp = item.item_id == mostlyFlipped.item_id ? 10_000L : 400_000L;
+                return view;
+            },
+            null,
+            null,
+            null
+        );
+
+        assertEquals(2, rendered.size());
+        assertEquals(mostlyAssembled.item_id, rendered.get(0).item_id);
+        assertEquals(400_000L, (long) rendered.get(0).total_profit_gp);
+    }
+
     private List<StatsItem> buildItems(int count) {
         List<StatsItem> items = new ArrayList<>();
         for (int index = 0; index < count; index++) {

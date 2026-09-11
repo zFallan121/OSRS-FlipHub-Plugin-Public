@@ -28,10 +28,17 @@ import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -43,7 +50,19 @@ final class ProfileStore {
     private final String profileDirName;
     private final String legacyProfileDirName;
     private final Path runeliteDir;
+    private static final Logger log = LoggerFactory.getLogger(ProfileStore.class);
+
     private final AtomicBoolean legacyProfilesMigrated = new AtomicBoolean(false);
+    /**
+     * One lock per profile file.
+     *
+     * <p>Several callers write these files and they do not all come through the same queue:
+     * the coalescing writer on the IO pool, the flush at shutdown, the display-name stamp on
+     * the game thread, and a wipe. Two of them writing one file at once used to interleave
+     * through a shared scratch file and could publish half a document, which reads back as an
+     * account with no history at all.
+     */
+    private final Map<Path, Object> fileLocks = new ConcurrentHashMap<>();
 
     @Inject
     ProfileStore(Gson gson) {
@@ -140,6 +159,14 @@ final class ProfileStore {
     }
 
     long writeProfileData(long accountHash, long accountwideKey, String displayName, List<LocalTradeDelta> deltas) {
+        return writeProfileData(accountHash, accountwideKey, displayName, deltas, null);
+    }
+
+    long writeProfileData(long accountHash,
+                          long accountwideKey,
+                          String displayName,
+                          List<LocalTradeDelta> deltas,
+                          List<ConversionRejection> rejectedConversions) {
         Path file = getProfileFile(accountHash, accountwideKey);
         if (file == null || gson == null) {
             return 0L;
@@ -148,13 +175,54 @@ final class ProfileStore {
         data.accountHash = accountHash;
         data.displayName = displayName;
         data.deltas = deltas;
+        data.rejectedConversions = rejectedConversions != null && !rejectedConversions.isEmpty()
+            ? rejectedConversions
+            : null;
         data.updatedMs = System.currentTimeMillis();
+        Object fileLock = fileLocks.computeIfAbsent(file.toAbsolutePath(), key -> new Object());
+        synchronized (fileLock) {
+            return writeDocument(file, data);
+        }
+    }
+
+    private long writeDocument(Path file, ProfileData data) {
+        Path temp = null;
         try {
             String json = gson.toJson(data);
-            Files.writeString(file, json, StandardCharsets.UTF_8);
-            return getProfileFileModifiedMs(file);
-        } catch (IOException ignored) {
-            return 0L;
+            // Written beside the target and moved into place, so a crash or a full disk
+            // mid-write leaves the previous file intact rather than a truncated one. A
+            // truncated file reads back as no history at all, which the loader would then
+            // persist over the top of, losing the account permanently.
+            // A name of this write's own. A shared one lets a second writer truncate the
+            // scratch file that the first is about to move into place.
+            temp = file.resolveSibling(file.getFileName() + "." + UUID.randomUUID() + ".tmp");
+            Files.writeString(temp, json, StandardCharsets.UTF_8);
+            try {
+                Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException ex) {
+                Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING);
+            }
+            temp = null;
+            // The document is on disk. A mtime of zero here only means the stamp could not
+            // be read back, so report success with whatever stamp we got.
+            return Math.max(0L, getProfileFileModifiedMs(file));
+        } catch (IOException | RuntimeException ex) {
+            // Negative means the trades are still only in memory. The caller has to keep the
+            // account marked unsaved, or this silently becomes the moment the history was lost.
+            // RuntimeException is caught too: serialising a large history can throw out of Gson,
+            // and a throw here used to escape past the caller's bookkeeping, leaving the account
+            // marked saved when nothing had been written.
+            log.warn("Could not save trade history to {}", file, ex);
+            return -1L;
+        } finally {
+            if (temp != null) {
+                // The move never happened, so this is a half-written document nobody wants.
+                try {
+                    Files.deleteIfExists(temp);
+                } catch (IOException ignored) {
+                    // Nothing reads it; a stray scratch file is the lesser problem.
+                }
+            }
         }
     }
 

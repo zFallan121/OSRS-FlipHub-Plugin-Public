@@ -45,10 +45,6 @@ public class ApiClient {
         return core.linkDevice(licenseKey, deviceId, pluginVersion);
     }
 
-    public LinkResponse refreshSession(String sessionToken) throws IOException {
-        return core.refreshSession(sessionToken);
-    }
-
     public LinkResponse refreshSession(String sessionToken, String signingSecret, String deviceId) throws IOException {
         return core.refreshSession(sessionToken, signingSecret, deviceId);
     }
@@ -77,21 +73,8 @@ public class ApiClient {
         return core.wipeWebsiteStats(sessionToken, signingSecret);
     }
 
-    public ItemsResponse fetchItems(String sessionToken, String query, int page, int pageSize) throws IOException {
-        return core.fetchItems(sessionToken, query, page, pageSize);
-    }
-
-    public ItemResponse fetchItem(String sessionToken, int itemId) throws IOException {
-        return core.fetchItem(sessionToken, itemId);
-    }
-
     public StatsSummaryResponse fetchStatsSummary(String sessionToken, Long sinceMs, Long untilMs) throws IOException {
         return core.fetchStatsSummary(sessionToken, sinceMs, untilMs);
-    }
-
-    public StatsItemsResponse fetchStatsItems(String sessionToken, Long sinceMs, Long untilMs, Integer limit, StatsItemSort sort)
-        throws IOException {
-        return core.fetchStatsItems(sessionToken, sinceMs, untilMs, limit, sort);
     }
 
     public static class LinkResponse {
@@ -110,20 +93,9 @@ public class ApiClient {
         public Long price_cache_ms;
     }
 
-    public static class ItemResponse {
-        public FlipHubItem item;
-        public long as_of_ms;
-        public Long price_cache_ms;
-    }
-
     public static class StatsSummaryResponse {
         public long as_of_ms;
         public StatsSummary summary;
-    }
-
-    public static class StatsItemsResponse {
-        public long as_of_ms;
-        public List<StatsItem> items;
     }
 
     public static class WipeStatsResponse {

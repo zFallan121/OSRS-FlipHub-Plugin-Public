@@ -25,11 +25,56 @@
 package com.osrsfliphub;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Where the last history sync got to, as the signatures of the rows it saw.
+ *
+ * <p>A signature is a row's item, side, quantity and coins - the four numbers read
+ * straight off the widget. Not its unit price: the parser derives that, and for a
+ * sale it is inferred back through the tax, so it moves whenever that inference
+ * does. A cursor built on it stopped matching the moment the parser was touched,
+ * and a cursor that matches nothing reads as "every row is new" - which after a
+ * wipe means importing every row the player just wiped.
+ *
+ * <p>For the same reason the stored form carries {@link #FORMAT_VERSION}. A cursor
+ * this code did not write is no cursor at all, and no cursor re-baselines without
+ * importing anything. The config key it is stored under does not change with it;
+ * the value says what it is.
+ */
 @javax.inject.Singleton
 final class GeHistoryCursorService {
+    /**
+     * The format of a stored cursor. Bump it whenever {@link #buildSignature} changes
+     * what it writes, or the parser changes what a row's numbers come out as. Every
+     * cursor stored under an older version is then ignored, and the account's next
+     * sync sets a fresh baseline rather than reading the mismatch as a rollover.
+     */
+    static final int FORMAT_VERSION = 2;
+    static final String FORMAT_TAG = "v" + FORMAT_VERSION;
+    private static final String ROW_SEPARATOR = ",";
+
+    /** A stored cursor as read back: its signatures, and whether one was refused for its format. */
+    static final class StoredCursor {
+        static final StoredCursor NONE = new StoredCursor(Collections.emptyList(), false);
+        static final StoredCursor STALE = new StoredCursor(Collections.emptyList(), true);
+
+        final List<String> signatures;
+        /** True when something was stored, but in a format this code does not read. */
+        final boolean staleFormat;
+
+        private StoredCursor(List<String> signatures, boolean staleFormat) {
+            this.signatures = Collections.unmodifiableList(signatures);
+            this.staleFormat = staleFormat;
+        }
+
+        boolean isEmpty() {
+            return signatures.isEmpty();
+        }
+    }
+
     private final int maxCursorTrades;
 
     @javax.inject.Inject
@@ -63,8 +108,34 @@ final class GeHistoryCursorService {
         return trade.itemId
             + "|" + (trade.isBuy ? "B" : "S")
             + "|" + trade.quantity
-            + "|" + trade.price
             + "|" + trade.totalGp;
+    }
+
+    /** The stored form of a cursor: the format tag, then the signatures. Empty stays empty. */
+    static String encode(List<String> signatures) {
+        if (signatures == null || signatures.isEmpty()) {
+            return "";
+        }
+        return FORMAT_TAG + ROW_SEPARATOR + String.join(ROW_SEPARATOR, signatures);
+    }
+
+    /** A stored cursor read back. Anything not written under {@link #FORMAT_TAG} is stale. */
+    static StoredCursor decode(String raw) {
+        if (raw == null || raw.trim().isEmpty()) {
+            return StoredCursor.NONE;
+        }
+        String[] parts = raw.split(ROW_SEPARATOR);
+        if (parts.length == 0 || !FORMAT_TAG.equals(parts[0].trim())) {
+            return StoredCursor.STALE;
+        }
+        List<String> signatures = new ArrayList<>();
+        for (int i = 1; i < parts.length; i++) {
+            String trimmed = parts[i] != null ? parts[i].trim() : "";
+            if (!trimmed.isEmpty()) {
+                signatures.add(trimmed);
+            }
+        }
+        return new StoredCursor(signatures, false);
     }
 
     int computeOverlap(List<String> currentCursor, List<String> storedCursor) {

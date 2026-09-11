@@ -50,8 +50,7 @@ final class LocalAccountMergeService {
     Result merge(Map<Long, List<LocalTradeDelta>> localTradeDeltasByAccount,
                  Map<Long, Long> localSessionStartByAccount,
                  long targetKey,
-                 long sourceKey,
-                 int maxLocalTrades) {
+                 long sourceKey) {
         if (localTradeDeltasByAccount == null || localSessionStartByAccount == null) {
             return new Result(null, false);
         }
@@ -78,10 +77,6 @@ final class LocalAccountMergeService {
                     }
                 }
                 target.sort(Comparator.comparingLong(delta -> delta != null ? delta.tsClientMs : 0L));
-                if (target.size() > maxLocalTrades) {
-                    int trim = target.size() - maxLocalTrades;
-                    target.subList(0, trim).clear();
-                }
             }
         }
 

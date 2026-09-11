@@ -74,6 +74,19 @@ public class FlipHubPanelValueFormatServiceTest {
         assertEquals("N/A", service.formatLimit(9, null));
     }
 
+    /**
+     * A return too small to show at two decimals must not be rendered as a signed zero, and
+     * must not claim there was no return. "-0.00%" was painted red; "0.00%" was painted green.
+     */
+    @Test
+    public void formatPercentNeverPrintsASignedOrMisleadingZero() {
+        assertEquals("<0.01%", service.formatPercent(0.004));
+        assertEquals(">-0.01%", service.formatPercent(-0.004));
+        assertEquals("0.00%", service.formatPercent(0.0));
+        assertEquals("0.01%", service.formatPercent(0.005));
+        assertEquals("-0.01%", service.formatPercent(-0.005));
+    }
+
     @Test
     public void formatDurationAndAgeClockClampAndFormatTime() {
         assertEquals("N/A", service.formatDuration(null));

@@ -83,6 +83,15 @@ final class LinkSessionConfigStore {
         }
     }
 
+    /**
+     * Drops a key the server would not take. Without this it stays in config in plain text and
+     * is re-sent on every start and every login, forever failing the same way.
+     */
+    void clearRejectedLicenseKey() {
+        setString(LICENSE_KEY, "");
+        flush();
+    }
+
     private void clearLinkInputs() {
         setString(LICENSE_KEY, "");
     }

@@ -31,18 +31,20 @@ import com.google.inject.Provides;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.nio.file.Path;
 import javax.inject.Inject;
 import net.runelite.api.Client;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.ScriptID;
+import net.runelite.api.Skill;
 import net.runelite.api.VarClientInt;
 import net.runelite.api.events.PostClientTick;
 import net.runelite.api.events.GrandExchangeOfferChanged;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.ScriptPostFired;
+import net.runelite.api.events.StatChanged;
 import net.runelite.api.events.VarClientIntChanged;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.ComponentID;
@@ -54,6 +56,7 @@ import net.runelite.client.input.KeyManager;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.events.ClientShutdown;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
@@ -103,23 +106,20 @@ public class GeLifecyclePlugin extends Plugin {
     @Inject
     KeyManager keyManager;
 
+    /** Batches the closing drain will try before giving up, so the client is never held long. */
+    private static final int SHUTDOWN_FLUSH_MAX_BATCHES = 10;
+
     ApiClient apiClient;
     final GeLifecyclePanelBootstrapService panelBootstrapService = new GeLifecyclePanelBootstrapService();
     final GeLifecycleRuntimeSchedulerServices runtimeSchedulerServices = new GeLifecycleRuntimeSchedulerServices();
     final GeLifecycleRuntimeUtilityServices runtimeUtilityServices = new GeLifecycleRuntimeUtilityServices();
     private ProfileWatcher profileWatcher;
-    final OfferUpdateStampConfigStore offerUpdateStampConfigStore = new OfferUpdateStampConfigStore();
-    final OfferUpdateStampLegacyMatcher offerUpdateStampLegacyMatcher = new OfferUpdateStampLegacyMatcher();
     ScheduledExecutorService scheduler;
     ExecutorService ioExecutor;
-    final UploadDiagnosticsState uploadState = new UploadDiagnosticsState();
-    final Map<Integer, OfferSnapshot> snapshots = new ConcurrentHashMap<>();
-    final Map<Integer, OfferUpdateStamp> offerUpdateStamps = new ConcurrentHashMap<>();
     volatile Integer offerPreviewItemId;
     volatile FlipHubItem offerPreviewItem;
     FlipHubPanel panel;
     NavigationButton navButton;
-    final Map<Long, Long> loadedProfileFileMs = new ConcurrentHashMap<>();
     volatile String currentQuery = "";
     volatile int currentPage = 1;
     volatile boolean bookmarkFilterEnabled = false;
@@ -134,7 +134,6 @@ public class GeLifecyclePlugin extends Plugin {
      */
     volatile long sessionStartMs;
     volatile StatsItemSort currentStatsSort = StatsItemSort.COMPLETION;
-    final LocalTradesLoadCoordinator.State localTradesLoadState = new LocalTradesLoadCoordinator.State();
     boolean localTradesLoadedThisLogin = false;
     GeOfferTimerOverlay offerTimerOverlay;
 
@@ -170,10 +169,86 @@ public class GeLifecyclePlugin extends Plugin {
         PluginInjectorBridge.get(GrandExchangeOfferChangedHandlerService.class).handle(event);
     }
 
+    /**
+     * RuneLite does not stop plugins when the client closes, so shutDown never runs on a normal
+     * exit and the pending upload queue would simply be discarded. This is the only hook that
+     * fires, and waitFor keeps the client alive while the drain runs.
+     */
+    @Subscribe
+    public void onClientShutdown(ClientShutdown event) {
+        ExecutorService activeIoExecutor = ioExecutor;
+        UploadEventDispatchFacadeService dispatch =
+            PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
+        ApiClient apiClient = PluginInjectorBridge.get(ApiClient.class);
+        // Writing the player's own trades is not conditional on the upload pipeline being
+        // healthy. These used to share one guard, so a null dispatch service - which Guice can
+        // produce silently at runtime - threw away the evening's unsaved trades on the way out.
+        boolean canUpload = dispatch != null && apiClient != null && config != null;
+
+        if (activeIoExecutor == null || activeIoExecutor.isShutdown()) {
+            // No pool left to hand it to. Write on this thread rather than lose the trades.
+            flushUnsavedProfilesQuietly();
+            return;
+        }
+
+        event.waitFor(activeIoExecutor.submit(() -> {
+            // Profile writes are queued rather than written on the game thread, so anything
+            // still unsaved has to be written before the process goes. waitFor holds the client
+            // open until this returns.
+            flushUnsavedProfilesQuietly();
+            if (canUpload) {
+                dispatch.flushPendingBeforeShutdown(apiClient, config, log, SHUTDOWN_FLUSH_MAX_BATCHES);
+            }
+        }));
+    }
+
+    /**
+     * Flushes unsaved trades, never letting a failure escape. At shutdown a thrown exception
+     * would skip whatever the caller meant to do next, and there is no later chance to retry.
+     */
+    private void flushUnsavedProfilesQuietly() {
+        try {
+            GeLifecycleLocalTradesRuntimeService runtimeService = getLocalTradesRuntimeService();
+            if (runtimeService != null) {
+                runtimeService.flushUnsavedProfiles();
+            } else {
+                log.warn("FlipHub: no local trades service at shutdown, unsaved trades not written");
+            }
+        } catch (RuntimeException ex) {
+            log.warn("FlipHub: failed to flush unsaved trades at client shutdown", ex);
+        }
+    }
+
     @Subscribe
     public void onPostClientTick(PostClientTick event) {
         panelVisible = PluginInjectorBridge.get(GeLifecycleTickServices.class).handlePostClientTick(panelVisible);
         // local profile loads are handled on login/selection
+    }
+
+    @Subscribe
+    public void onStatChanged(StatChanged event) {
+        // What a repair cost depends on the player's Smithing level, and this is
+        // the cheapest place to learn it: the client reports every skill at login
+        // and again whenever one moves, on its own thread, and the fee service
+        // only keeps the number - per account, since the profile being viewed
+        // is not always the one logged in.
+        if (event.getSkill() == Skill.SMITHING) {
+            ConversionFeeService feeService = PluginInjectorBridge.get(ConversionFeeService.class);
+            long accountKey = client != null ? client.getAccountHash() : -1L;
+            if (feeService != null && feeService.onSmithingLevel(accountKey, event.getLevel())) {
+                // Every repair of this account was priced with the old level.
+                // The ledgers are pure functions over the deltas, so throwing
+                // the aggregates away is the whole of the migration.
+                LocalStatsCacheService statsCacheService = PluginInjectorBridge.get(LocalStatsCacheService.class);
+                if (statsCacheService != null) {
+                    statsCacheService.invalidateAll();
+                }
+                PanelRefreshCoordinator coordinator = getPanelRefreshCoordinator();
+                if (coordinator != null) {
+                    coordinator.triggerStatsRefresh(scheduler);
+                }
+            }
+        }
     }
 
     @Subscribe
@@ -261,28 +336,51 @@ public class GeLifecyclePlugin extends Plugin {
         return PluginInjectorBridge.get(ProfileStore.class).getProfileFileModifiedMs(file);
     }
 
-    void executeAsync(Runnable task) {
+    /**
+     * Runs work on the plugin's own scheduler, or drops it.
+     *
+     * <p>It used to fall back to the common pool, which meant that once the plugin was disabled
+     * its stragglers carried on running there, reaching for a client and a panel that were on
+     * their way out. Nothing here is important enough to outlive the plugin.
+     */
+    /**
+     * @return whether the task was accepted. A caller that raised an "in flight" flag before
+     *         submitting must lower it again when this returns false, because the task that
+     *         would have lowered it is never going to run. A flag left raised on a singleton
+     *         that survives a plugin toggle disables its feature for the rest of the session.
+     */
+    boolean executeAsync(Runnable task) {
         if (task == null) {
-            return;
+            return false;
         }
         ScheduledExecutorService activeScheduler = scheduler;
-        if (activeScheduler != null && !activeScheduler.isShutdown()) {
-            activeScheduler.execute(task);
-            return;
+        if (activeScheduler == null || activeScheduler.isShutdown()) {
+            return false;
         }
-        ForkJoinPool.commonPool().execute(task);
+        try {
+            activeScheduler.execute(task);
+            return true;
+        } catch (RejectedExecutionException ignored) {
+            // Shut down between the check and the submit. Dropping it is the point.
+            return false;
+        }
     }
 
-    void executeIo(Runnable task) {
+    /** @return whether the task was accepted; see {@link #executeAsync(Runnable)}. */
+    boolean executeIo(Runnable task) {
         if (task == null) {
-            return;
+            return false;
         }
         ExecutorService activeIoExecutor = ioExecutor;
-        if (activeIoExecutor != null && !activeIoExecutor.isShutdown()) {
-            activeIoExecutor.execute(task);
-            return;
+        if (activeIoExecutor == null || activeIoExecutor.isShutdown()) {
+            return executeAsync(task);
         }
-        executeAsync(task);
+        try {
+            activeIoExecutor.execute(task);
+            return true;
+        } catch (RejectedExecutionException ignored) {
+            return executeAsync(task);
+        }
     }
 
     void markAccountwideUploadDirty() {

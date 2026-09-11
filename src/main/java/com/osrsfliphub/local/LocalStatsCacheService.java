@@ -60,7 +60,7 @@ final class LocalStatsCacheService {
             return cache;
         }
         List<LocalTradeDelta> snapshot = snapshotDeltas(accountKey);
-        LocalStatsCache created = new LocalStatsCache();
+        LocalStatsCache created = new LocalStatsCache(accountKey);
         created.rebuild(snapshot);
         statsCacheByAccount.put(accountKey, created);
         return created;
@@ -70,9 +70,30 @@ final class LocalStatsCacheService {
         if (accountKey <= 0) {
             return;
         }
-        LocalStatsCache cache = new LocalStatsCache();
+        LocalStatsCache cache = new LocalStatsCache(accountKey);
         cache.rebuild(deltas != null ? deltas : new ArrayList<>());
         statsCacheByAccount.put(accountKey, cache);
+    }
+
+    /**
+     * Rebuild from what is stored. Used when the stored list changed shape rather than
+     * grew - an offer's fills folded into one record on completion - so the running
+     * aggregate shows exactly what a fresh start would replay.
+     */
+    void rebuildFromStored(long accountKey) {
+        if (accountKey <= 0) {
+            return;
+        }
+        rebuild(accountKey, snapshotDeltas(accountKey));
+    }
+
+    /**
+     * Drop every cached aggregate so the next read rebuilds it from the stored
+     * deltas. Used when something the rebuild depends on changed after the fact
+     * - the conversion table resolving is the only such thing today.
+     */
+    void invalidateAll() {
+        statsCacheByAccount.clear();
     }
 
     void applyDelta(long accountKey, LocalTradeDelta delta) {
@@ -81,8 +102,12 @@ final class LocalStatsCacheService {
         }
         LocalStatsCache cache = statsCacheByAccount.get(accountKey);
         if (cache == null) {
-            cache = new LocalStatsCache();
-            statsCacheByAccount.put(accountKey, cache);
+            // No aggregate yet, because it was invalidated, wiped, or never built. Callers
+            // append the delta to the stored list before applying it here, so a rebuild sees
+            // this delta and everything before it. Seeding an empty cache with this one delta
+            // would instead report a single fill as the account's entire history.
+            rebuild(accountKey, snapshotDeltas(accountKey));
+            return;
         }
         if (!cache.applyDeltaInOrder(delta)) {
             rebuild(accountKey, snapshotDeltas(accountKey));

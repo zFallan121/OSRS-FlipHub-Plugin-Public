@@ -64,8 +64,8 @@ final class GeLifecycleRuntimeUtilityServices {
             return apiClient.fetchStatsSummary(sessionToken, sinceMs, null);
         } catch (ApiClient.ApiException ex) {
             if (ApiStatusPolicy.isAuthStatus(ex.statusCode) && allowRefresh) {
-                boolean refreshed = sessionRefreshService.attemptRefresh(sessionToken);
-                if (refreshed) {
+                SessionRefreshService.Outcome outcome = sessionRefreshService.attemptRefresh(sessionToken);
+                if (outcome == SessionRefreshService.Outcome.REFRESHED) {
                     String refreshedToken = config.sessionToken();
                     if (ApiStatusPolicy.hasText(refreshedToken)) {
                         return fetchRemoteStatsSummary(
@@ -78,7 +78,8 @@ final class GeLifecycleRuntimeUtilityServices {
                         );
                     }
                 }
-                sessionRefreshService.clearSession();
+                // A refusal already cleared the session inside the refresh; an unreachable
+                // server must not cost the user their link.
             }
         } catch (IOException | RuntimeException ignored) {
         }
@@ -96,17 +97,6 @@ final class GeLifecycleRuntimeUtilityServices {
 
     boolean isPanelVisible(FlipHubPanel panel) {
         return panel != null && panel.isShowing();
-    }
-
-    boolean isTimeoutException(Throwable ex) {
-        Throwable current = ex;
-        while (current != null) {
-            if (current instanceof java.net.SocketTimeoutException) {
-                return true;
-            }
-            current = current.getCause();
-        }
-        return false;
     }
 
     boolean isClientLoggedIn(Client client) {

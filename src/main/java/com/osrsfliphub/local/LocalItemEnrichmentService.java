@@ -134,18 +134,19 @@ final class LocalItemEnrichmentService {
         if (buy == null || sell == null) {
             return;
         }
-        // Keep 2dp precision for post-tax margin (2% tax) so margin x limit is accurate.
-        long marginHundredths = ((long) sell * 100L) - ((long) buy * 100L) - ((long) sell * 2L);
-        int margin = (int) (marginHundredths / 100L);
-        item.margin = margin;
-        // Align ROI with recorded flip-history math by applying per-item GE tax floor.
-        int sellTaxPerItem = sell / 50;
-        long realizedMarginPerItem = ((long) sell - sellTaxPerItem) - buy;
-        item.roi_percent = buy > 0 ? (realizedMarginPerItem * 100.0) / buy : null;
+        // One margin, taxed the way the ledgers tax it, so what the card promises matches the
+        // profit it later reports. The game rounds the tax per item and caps it, so the margin
+        // is whole coins and margin x limit is a plain multiple of it. The previous version
+        // took an exact two percent here and a floored two percent for ROI, and neither
+        // capped, which overstated the margin on anything selling above 250M.
+        long taxPerItem = GeTax.perItem(item.item_id, sell);
+        long marginPerItem = (long) sell - taxPerItem - (long) buy;
+        item.margin = (int) marginPerItem;
+        item.roi_percent = buy > 0 ? (marginPerItem * 100.0) / buy : null;
         if (item.ge_limit_remaining != null) {
-            item.margin_x_limit = (marginHundredths * (long) item.ge_limit_remaining) / 100L;
+            item.margin_x_limit = marginPerItem * (long) item.ge_limit_remaining;
         } else if (item.ge_limit_total != null) {
-            item.margin_x_limit = (marginHundredths * (long) item.ge_limit_total) / 100L;
+            item.margin_x_limit = marginPerItem * (long) item.ge_limit_total;
         }
     }
 }

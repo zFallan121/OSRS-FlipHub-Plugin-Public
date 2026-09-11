@@ -41,6 +41,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
+import javax.swing.JTextField;
 import javax.swing.JViewport;
 import javax.swing.SwingConstants;
 import javax.swing.border.Border;
@@ -104,7 +105,9 @@ final class FlipHubStatsPanelContentBuilder {
     ContentResult buildContent(
         JPanel statsContentPanel,
         JPanel statsItemsListPanel,
+        JTextField statsSearchField,
         JComboBox<StatsItemSort> statsSortCombo,
+        JComboBox<StatsRecipeFilter> statsFilterCombo,
         JButton statsSortDirectionButton
     ) {
         statsContentPanel.setOpaque(false);
@@ -131,8 +134,13 @@ final class FlipHubStatsPanelContentBuilder {
         };
         statsContentPanel.add(buildSummaryCard(statsTotalProfitValue, rows));
 
+        // The search sits under the answer rather than over it. It narrows the list, not the
+        // total - putting it above the card read as if the card were showing the search's
+        // profit, and it now stands with the sort and the filter, which is the company it keeps.
         statsContentPanel.add(Box.createVerticalStrut(12));
-        statsContentPanel.add(buildStatsSortRow(statsSortCombo, statsSortDirectionButton));
+        statsContentPanel.add(buildSearchRow(statsSearchField));
+        statsContentPanel.add(Box.createVerticalStrut(8));
+        statsContentPanel.add(buildStatsSortRow(statsSortCombo, statsFilterCombo, statsSortDirectionButton));
         statsContentPanel.add(Box.createVerticalStrut(8));
 
         statsItemsListPanel.setOpaque(false);
@@ -179,20 +187,69 @@ final class FlipHubStatsPanelContentBuilder {
         );
     }
 
-    private JPanel buildStatsSortRow(JComboBox<StatsItemSort> statsSortCombo, JButton statsSortDirectionButton) {
-        // The activity tab's shape: the label west, the dropdown taking the width between, and
-        // the direction button pinned east at the shared trailing width, so both tabs' sort rows
-        // span their panel and end on the same edge.
+    /**
+     * The field and nothing else. What stood beside it was a button spelling out "Clear", which
+     * took a slot of the row whether or not there was anything in the field to clear; the mark
+     * inside the field does the same work only when there is.
+     */
+    private JPanel buildSearchRow(JTextField statsSearchField) {
+        JPanel searchRow = new JPanel(new BorderLayout(TRAILING_CONTROL_GAP, 0));
+        searchRow.setOpaque(false);
+        searchRow.setAlignmentX(JPanel.LEFT_ALIGNMENT);
+
+        uiStyler.styleTextField(statsSearchField);
+        statsSearchField.setToolTipText("Filter items");
+        installDocumentListener(statsSearchField, () -> {
+            if (panelStateService != null) {
+                panelStateService.onStatsSearchQueryChanged(panelState, statsSearchField.getText(), renderStatsItems);
+            }
+        });
+
+        uiStyler.installInlineClear(statsSearchField);
+
+        searchRow.add(statsSearchField, BorderLayout.CENTER);
+        searchRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, searchRow.getPreferredSize().height));
+        return searchRow;
+    }
+
+    private void installDocumentListener(JTextField field, Runnable onChange) {
+        field.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                onChange.run();
+            }
+
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                onChange.run();
+            }
+
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                onChange.run();
+            }
+        });
+    }
+
+    private JPanel buildStatsSortRow(JComboBox<StatsItemSort> statsSortCombo,
+                                     JComboBox<StatsRecipeFilter> statsFilterCombo,
+                                     JButton statsSortDirectionButton) {
+        // Two questions, two controls, side by side at half width each, with the
+        // direction button pinned east at the shared trailing width so the row
+        // still ends on the panel's edge. The "Sort" micro label is gone: with a
+        // second dropdown beside it, a label that names only one of them reads as
+        // if it named both - which is the confusion this row is fixing.
         JPanel row = new JPanel(new BorderLayout(TRAILING_CONTROL_GAP, 0));
         row.setOpaque(false);
         row.setAlignmentX(JPanel.LEFT_ALIGNMENT);
 
-        JLabel sortLabel = new JLabel("Sort");
-        uiStyler.styleMicroLabel(sortLabel, 9.5f);
-        sortLabel.setBorder(BorderFactory.createEmptyBorder(0, 2, 0, 4));
+        // The direction button belongs to the sort, not to the row, so it sits
+        // against it. The filter then takes whatever is left, which is more than
+        // an even split gave it - and it is the control with the longest words.
+        JPanel sortGroup = new JPanel(new BorderLayout(4, 0));
+        sortGroup.setOpaque(false);
 
         uiStyler.styleComboBox(statsSortCombo);
-        statsSortCombo.setFont(font(10.5f));
         statsSortCombo.setBorder(roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
         if (statsSortCombo.getSelectedItem() == null) {
             statsSortCombo.setSelectedItem(StatsItemSort.COMPLETION);
@@ -200,40 +257,136 @@ final class FlipHubStatsPanelContentBuilder {
         statsSortCombo.addActionListener(e -> {
             StatsItemSort sort = (StatsItemSort) statsSortCombo.getSelectedItem();
             if (panelStateService != null && sort != null) {
+                if (panelState != null) {
+                    panelState.statsSort = sort;
+                }
                 panelStateService.onStatsSortSelectionChanged(listener, panelState, sort, renderStatsItems);
             }
         });
-        // A rounded square, not the chip radius' oval, at the same width as the star toggle.
-        uiStyler.styleGhostControl(statsSortDirectionButton, 9f, new Insets(3, 6, 3, 6), INPUT_ARC);
+
+        uiStyler.styleComboBox(statsFilterCombo);
+        statsFilterCombo.setBorder(roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
+        if (statsFilterCombo.getSelectedItem() == null) {
+            statsFilterCombo.setSelectedItem(StatsRecipeFilter.ALL);
+        }
+        statsFilterCombo.addActionListener(e -> {
+            StatsRecipeFilter filter = (StatsRecipeFilter) statsFilterCombo.getSelectedItem();
+            if (panelStateService != null && filter != null) {
+                panelStateService.onStatsRecipeFilterChanged(panelState, filter, renderStatsItems);
+            }
+        });
+
+
+        // No container: the mark is the control. Half the trailing width, because what the slot
+        // gives up here is what the filter beside it was short of - the mark itself is the same
+        // size the flipping tab draws, so one control does not read as two.
+        int markSize = uiStyler.sortMarkSize(SORT_DIRECTION_WIDTH);
+        uiStyler.styleBareControl(statsSortDirectionButton);
         uiStyler.matchFieldHeight(statsSortDirectionButton, statsSortCombo);
-        uiStyler.sizeTrailingControl(statsSortDirectionButton, statsSortCombo);
+        uiStyler.sizeTrailingControl(statsSortDirectionButton, statsSortCombo, SORT_DIRECTION_WIDTH);
         statsSortDirectionButton.addActionListener(e -> {
             if (panelStateService != null) {
                 panelStateService.onStatsSortDirectionToggled(panelState, renderStatsItems);
                 updateStatsSortDirectionButton(statsSortDirectionButton,
-                    panelState != null && panelState.statsSortAscending);
+                    panelState != null && panelState.statsSortAscending, markSize);
             }
         });
         updateStatsSortDirectionButton(statsSortDirectionButton,
-            panelState != null && panelState.statsSortAscending);
-        row.add(sortLabel, BorderLayout.WEST);
-        row.add(statsSortCombo, BorderLayout.CENTER);
-        row.add(statsSortDirectionButton, BorderLayout.EAST);
+            panelState != null && panelState.statsSortAscending, markSize);
+        sortGroup.add(statsSortCombo, BorderLayout.CENTER);
+        sortGroup.add(statsSortDirectionButton, BorderLayout.EAST);
+        row.add(sortGroup, BorderLayout.WEST);
+        row.add(statsFilterCombo, BorderLayout.CENTER);
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
         return row;
     }
 
-    private void updateStatsSortDirectionButton(JButton statsSortDirectionButton, boolean ascending) {
-        statsSortDirectionButton.setText(ascending ? "\u25b2" : "\u25bc");
-        statsSortDirectionButton.setForeground(ascending ? ACCENT : MUTED);
-        statsSortDirectionButton.setToolTipText(ascending ? "Ascending order" : "Descending order");
+    private void updateStatsSortDirectionButton(JButton statsSortDirectionButton,
+                                                boolean ascending,
+                                                int markSize) {
+        statsSortDirectionButton.setText(null);
+        statsSortDirectionButton.setIcon(new FlipHubSortIcon(ascending, markSize));
+        statsSortDirectionButton.setForeground(ascending ? ACCENT : TEXT);
+        statsSortDirectionButton.setToolTipText(ascending ? "Sorted low to high" : "Sorted high to low");
     }
 
     /**
      * The one card on the tab: the answer at the top, then the figures it is made of as hairline
      * rows under it. One separator per surface - the rows are ruled, not boxed.
      */
-    private JPanel buildSummaryCard(JLabel totalProfitValue, Object[][] rows) {
+    /**
+     * The slice menu, opened from the heading. The active row is marked in the
+     * action colour rather than by rewriting the heading, so the card keeps one
+     * answer and one question.
+     */
+    private void installProfitFilterMenu(JLabel trigger) {
+        // A popup dismisses itself on any press outside it - including the press
+        // on the very label that opened it, which then opened it again. The
+        // dismissal lands first, so by the time this handler runs the menu is
+        // already invisible and there is nothing left to ask. The moment it
+        // closed is the only evidence that the press was a close, not an open.
+        long[] closedAtMs = {0L};
+        trigger.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent event) {
+                trigger.setForeground(TEXT);
+            }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent event) {
+                trigger.setForeground(MUTED_2);
+            }
+
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent event) {
+                if (System.currentTimeMillis() - closedAtMs[0] < 250L) {
+                    return;
+                }
+                javax.swing.JPopupMenu menu = new javax.swing.JPopupMenu();
+                menu.addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
+                    @Override
+                    public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
+                    }
+
+                    @Override
+                    public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent e) {
+                        closedAtMs[0] = System.currentTimeMillis();
+                    }
+
+                    @Override
+                    public void popupMenuCanceled(javax.swing.event.PopupMenuEvent e) {
+                    }
+                });
+                menu.setBackground(OVERLAY_BASE);
+                menu.setBorder(javax.swing.BorderFactory.createCompoundBorder(
+                    javax.swing.BorderFactory.createLineBorder(LINE_STRONG),
+                    javax.swing.BorderFactory.createEmptyBorder(2, 0, 2, 0)));
+                StatsRecipeFilter active = panelState != null && panelState.statsProfitFilter != null
+                    ? panelState.statsProfitFilter
+                    : StatsRecipeFilter.ALL;
+                for (StatsRecipeFilter filter : StatsRecipeFilter.values()) {
+                    javax.swing.JMenuItem entry = new javax.swing.JMenuItem(filter.toString());
+                    entry.setOpaque(true);
+                    entry.setBackground(OVERLAY_BASE);
+                    entry.setForeground(filter == active ? ACCENT : TEXT);
+                    entry.setFont(font(FlipHubUiStyler.DROPDOWN_TEXT_SIZE));
+                    entry.setBorder(javax.swing.BorderFactory.createEmptyBorder(3, 10, 3, 14));
+                    entry.addChangeListener(e -> entry.setBackground(
+                        entry.getModel().isArmed() ? SURFACE_TOP : OVERLAY_BASE));
+                    entry.addActionListener(e -> {
+                        if (panelStateService != null) {
+                            panelStateService.onStatsProfitFilterChanged(panelState, filter, updateStatsSummary);
+                        }
+                    });
+                    menu.add(entry);
+                }
+                menu.show(trigger, 0, trigger.getHeight());
+            }
+        });
+    }
+
+    private JPanel buildSummaryCard(JLabel totalProfitValue,
+                                    Object[][] rows) {
         JPanel card = RoundedPanel.glass(CARD_ARC);
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setBorder(BorderFactory.createEmptyBorder(12, 14, 8, 14));
@@ -242,15 +395,32 @@ final class FlipHubStatsPanelContentBuilder {
         JPanel answer = new JPanel(new BorderLayout());
         answer.setOpaque(false);
         answer.setAlignmentX(JPanel.LEFT_ALIGNMENT);
-        answer.setMaximumSize(new Dimension(Integer.MAX_VALUE, 46));
+        // Sized to what it holds. The old fixed 46 cut the descenders off the
+        // one number the whole tab exists to show.
+        answer.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 
-        JLabel labelView = new JLabel("Total Profit");
+        // No control of its own: the label is the control. A caret after the
+        // words is enough to say there is something to open, and the card still
+        // reads as a card rather than a form. The label never changes - naming
+        // the slice here would turn the heading into a second answer.
+        // U+25BC, not U+25BE. The small down-pointing triangle drew as a
+        // tofu box; this is the same triangle the sort button and the card
+        // chevrons use, and having been seen is the only evidence a glyph
+        // is safe here.
+        JLabel labelView = new JLabel("Total Profit \u25bc");
         uiStyler.styleMicroLabel(labelView, 9.5f);
+        labelView.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        labelView.setToolTipText("Show this total for one kind of activity");
+        installProfitFilterMenu(labelView);
 
         totalProfitValue.setForeground(SUCCESS);
         totalProfitValue.setFont(fontBold(20f));
 
-        answer.add(labelView, BorderLayout.NORTH);
+        JPanel labelRow = new JPanel(new BorderLayout());
+        labelRow.setOpaque(false);
+        labelRow.add(labelView, BorderLayout.WEST);
+
+        answer.add(labelRow, BorderLayout.NORTH);
         answer.add(totalProfitValue, BorderLayout.CENTER);
         card.add(answer);
         card.add(Box.createVerticalStrut(8));

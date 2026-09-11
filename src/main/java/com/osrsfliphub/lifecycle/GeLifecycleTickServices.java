@@ -25,13 +25,22 @@
 package com.osrsfliphub;
 
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Singleton
 final class GeLifecycleTickServices {
+    private static final Logger log = LoggerFactory.getLogger(GeLifecycleTickServices.class);
+
+    /** Steps already complained about, so a failure every tick is said once, not forever. */
+    private final Set<String> reportedFailures = ConcurrentHashMap.newKeySet();
+
     private final PluginState pluginState;
 
     @Inject
@@ -39,28 +48,86 @@ final class GeLifecycleTickServices {
         this.pluginState = pluginState;
     }
 
+    /**
+     * Run one step of the tick, and let the rest of the tick carry on if it fails.
+     *
+     * <p>These steps have nothing to do with one another, but they shared a fate: the first to
+     * throw took every later one with it, every tick, in silence. A service that could not be
+     * built at all stopped the in-game history sync, the display-name stamp, the wiki price
+     * refresh and the panel refresh together, and the only visible symptom was that the
+     * history sync said nothing any more.
+     */
+    private void step(String name, Runnable work) {
+        try {
+            work.run();
+        } catch (RuntimeException ex) {
+            if (reportedFailures.add(name)) {
+                log.warn("FlipHub tick step '{}' failed and will be skipped from now on", name, ex);
+            }
+        }
+    }
+
+    /**
+     * Whether this tick should ask for a panel refresh, given the panel is on screen now.
+     *
+     * @param wasVisible whether it was already on screen on the previous tick
+     * @param rendered   whether a refresh has actually reached it since it was shown
+     */
+    static boolean shouldAskForRefresh(boolean wasVisible, boolean rendered) {
+        return !wasVisible || !rendered;
+    }
+
     boolean handlePostClientTick(boolean panelVisible) {
-        ChatboxSuggestionCycleService suggestionCycleService =
-            PluginInjectorBridge.get(ChatboxSuggestionCycleService.class);
-        if (suggestionCycleService != null) {
-            suggestionCycleService.update();
-        }
-        GeHistoryAutoSyncCoordinatorService autoSync =
-            PluginInjectorBridge.get(GeHistoryAutoSyncCoordinatorService.class);
-        if (autoSync != null) {
-            autoSync.attemptAutoSync();
-        }
-        maybeStampCurrentProfileDisplayName();
+        step("chatbox suggestions", () -> {
+            ChatboxSuggestionCycleService suggestionCycleService =
+                PluginInjectorBridge.get(ChatboxSuggestionCycleService.class);
+            if (suggestionCycleService != null) {
+                suggestionCycleService.update();
+            }
+        });
+        step("history sync", () -> {
+            GeHistoryAutoSyncCoordinatorService autoSync =
+                PluginInjectorBridge.get(GeHistoryAutoSyncCoordinatorService.class);
+            if (autoSync != null) {
+                autoSync.attemptAutoSync();
+            }
+        });
+        step("display name stamp", this::maybeStampCurrentProfileDisplayName);
 
         GeLifecyclePlugin plugin = PluginAccess.plugin();
         boolean visible = plugin.runtimeUtilityServices.isPanelVisible(plugin.panel);
-        if (visible && !panelVisible) {
-            PanelRefreshCoordinator coordinator = PluginInjectorBridge.get(PanelRefreshCoordinator.class);
-            plugin.runtimeUtilityServices.triggerPanelRefresh(coordinator, plugin.scheduler);
-            plugin.runtimeUtilityServices.triggerStatsRefresh(coordinator, plugin.scheduler);
+        // The wiki price refresh only runs while the panel is open, and nothing had ever told
+        // it the panel was open, so its periodic fetch and its login fetch never ran at all.
+        PluginRuntime runtime = PluginInjectorBridge.get(PluginRuntime.class);
+        if (runtime != null) {
+            runtime.setPanelVisible(visible);
+            // Photograph "logged in with a local player" here, on the client thread, so the
+            // upload pool and the scheduler can consult it without calling getLocalPlayer()
+            // themselves off-thread.
+            runtime.setClientFullyReady(
+                plugin.runtimeUtilityServices.isClientFullyReady(plugin.client));
+        }
+        PanelRefreshCoordinator coordinator = PluginInjectorBridge.get(PanelRefreshCoordinator.class);
+        if (visible) {
+            // Ask on the tick the panel appears, and keep asking until one actually lands. A
+            // refresh triggered before the client is ready is dropped, and at login it usually
+            // is: the panel is up a moment before the world is. One ask meant an empty panel
+            // until something unrelated rebuilt it. This stops the moment a refresh sticks.
+            if (shouldAskForRefresh(panelVisible, coordinator == null || coordinator.hasRenderedSincePanelShown())) {
+                plugin.runtimeUtilityServices.triggerPanelRefresh(coordinator, plugin.scheduler);
+            }
+            // The Profile tab is asked for separately, because it is skipped entirely while it
+            // is not the tab on screen. Selecting it is not an event anything listened for, so
+            // without this it arrived empty and waited for something unrelated to fill it.
+            if (coordinator != null && coordinator.needsStatsRefresh()) {
+                plugin.runtimeUtilityServices.triggerStatsRefresh(coordinator, plugin.scheduler);
+            }
             return true;
         }
-        if (!visible && panelVisible) {
+        if (panelVisible) {
+            if (coordinator != null) {
+                coordinator.notePanelHidden();
+            }
             return false;
         }
         return panelVisible;

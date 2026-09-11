@@ -67,10 +67,14 @@ final class ProfileStorageFacadeService {
         return store != null ? store.readProfileData(file) : null;
     }
 
-    void writeProfileData(long accountHash, List<LocalTradeDelta> deltas) {
+    /**
+     * @return true when the trades reached disk. False means they are still only in memory
+     *         and the caller has to keep the account marked unsaved.
+     */
+    boolean writeProfileData(long accountHash, List<LocalTradeDelta> deltas) {
         ProfileStore store = profileStore();
         if (store == null) {
-            return;
+            return false;
         }
         String displayName = accountHash == accountwideKey
             ? "Accountwide" : pluginState.getProfileDisplayNames().get(accountHash);
@@ -80,10 +84,17 @@ final class ProfileStorageFacadeService {
             displayName = null;
         }
         List<LocalTradeDelta> snapshot = deltas != null ? deltas : new ArrayList<>();
-        long fileMs = store.writeProfileData(accountHash, accountwideKey, displayName, snapshot);
+        // The corrections travel with the trades they name, in the same file.
+        ConversionRejectionStore rejections = PluginInjectorBridge.get(ConversionRejectionStore.class);
+        List<ConversionRejection> corrections = rejections != null ? rejections.snapshotForFile(accountHash) : null;
+        long fileMs = store.writeProfileData(accountHash, accountwideKey, displayName, snapshot, corrections);
         if (fileMs > 0) {
             pluginState.getLoadedProfileFileMs().put(accountHash, fileMs);
+            // Remember that this write was ours, so the watcher does not treat it as an
+            // outside change and reload over trades recorded since.
+            pluginState.getSelfWrittenProfileFileMs().put(accountHash, fileMs);
         }
+        return fileMs >= 0;
     }
 
 }

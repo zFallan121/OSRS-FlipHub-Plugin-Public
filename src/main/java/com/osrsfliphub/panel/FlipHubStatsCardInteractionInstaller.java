@@ -54,6 +54,49 @@ final class FlipHubStatsCardInteractionInstaller {
             }
         });
         installStatsCardToggleRecursive(root, clickHandler);
+        installCardHover(root);
+    }
+
+    /**
+     * Hover for a whole card, installed on every descendant.
+     *
+     * <p>Swing does not bubble mouse events, so the card only learns about the
+     * pointer through its children - and moving between two of them fires an
+     * exit before the next enter. Asking whether the pointer is still inside the
+     * card, rather than trusting the exit, is what stops that flickering.
+     */
+    private void installCardHover(JComponent root) {
+        if (!(root instanceof RoundedPanel)) {
+            return;
+        }
+        RoundedPanel card = (RoundedPanel) root;
+        card.setHoverBorderColor(FlipHubPanelConstants.SURFACE_BORDER_HOVER);
+        MouseAdapter hoverHandler = new MouseAdapter() {
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent event) {
+                card.setHovered(true);
+            }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent event) {
+                java.awt.Point point = javax.swing.SwingUtilities.convertPoint(
+                    event.getComponent(), event.getPoint(), card);
+                card.setHovered(card.contains(point));
+            }
+        };
+        installHoverRecursive(card, hoverHandler);
+    }
+
+    private void installHoverRecursive(Component component, MouseAdapter hoverHandler) {
+        if (component == null) {
+            return;
+        }
+        component.addMouseListener(hoverHandler);
+        if (component instanceof Container) {
+            for (Component child : ((Container) component).getComponents()) {
+                installHoverRecursive(child, hoverHandler);
+            }
+        }
     }
 
     private void installStatsCardToggleRecursive(Component component, MouseAdapter clickHandler) {

@@ -39,6 +39,21 @@ final class GeHistoryAutoSyncMessageService {
         return "FlipHub GE history sync: skipped (wipe baseline mismatch).";
     }
 
+    String readIncompleteMessage() {
+        return "FlipHub GE history sync: skipped (History tab never finished loading).";
+    }
+
+    String shortReadMessage(int readTrades, int storedTrades) {
+        return "FlipHub GE history sync: skipped (read " + Math.max(0, readTrades)
+            + " trades, the last sync saw " + Math.max(0, storedTrades) + ").";
+    }
+
+    String cursorFormatResetMessage(int cursorSize) {
+        int safeCursorSize = Math.max(0, cursorSize);
+        return "FlipHub GE history sync: stored cursor was from an older version, baseline reset ("
+            + safeCursorSize + " trades, nothing imported).";
+    }
+
     String syncResultMessage(int addedTrades) {
         int safeAddedTrades = Math.max(0, addedTrades);
         if (safeAddedTrades <= 0) {

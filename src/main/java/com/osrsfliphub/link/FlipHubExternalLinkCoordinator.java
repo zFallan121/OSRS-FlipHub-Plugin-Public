@@ -42,12 +42,10 @@ final class FlipHubExternalLinkCoordinator {
         String safeName = itemName != null ? itemName : "item";
         component.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         component.setToolTipText("Open " + safeName + " on FlipHub");
-        component.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-                openItemPage(itemId);
-            }
-        });
+        // The shared handler: it survives a little drift between press and release, and it
+        // ignores anything but the left button. This used to open the browser on a right-click
+        // as well, which is how a person reaches the menu.
+        component.addMouseListener(new FlipHubStatsClickMouseAdapter(() -> openItemPage(itemId)));
     }
 
     void openItemPage(int itemId) {

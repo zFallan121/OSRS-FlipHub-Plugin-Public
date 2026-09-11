@@ -131,7 +131,11 @@ final class OfferEventBuildService {
 
         boolean prevIsBaseline = prev == null
             || prev.itemId <= 0
-            || GrandExchangeOfferState.EMPTY.name().equals(prev.state);
+            || GrandExchangeOfferState.EMPTY.name().equals(prev.state)
+            || isSlotReused(prev, next);
+        // A baseline prev holds no progress for this offer, so progress and event type are
+        // derived as if nothing had been seen before (an EMPTY prev is the same as none).
+        OfferSnapshot progressBase = prevIsBaseline ? null : prev;
         boolean usedBaseline = false;
         int deltaQty;
         long deltaGp;
@@ -143,11 +147,13 @@ final class OfferEventBuildService {
                 return Result.ignore(nextIsEmpty);
             }
         } else {
-            deltaQty = prev != null ? Math.max(0, next.filledQty - prev.filledQty) : Math.max(0, next.filledQty);
-            deltaGp = mathService.computeDeltaGp(next, prev, deltaQty);
+            deltaQty = progressBase != null
+                ? Math.max(0, next.filledQty - progressBase.filledQty)
+                : Math.max(0, next.filledQty);
+            deltaGp = mathService.computeDeltaGp(next, progressBase, deltaQty);
         }
 
-        String eventType = mathService.determineEventType(prev, next);
+        String eventType = mathService.determineEventType(progressBase, next);
         OfferSnapshot eventSnapshot = next;
         if (eventType == null) {
             boolean prevCompletedState = prev != null
@@ -170,7 +176,7 @@ final class OfferEventBuildService {
         }
 
         if ("OFFER_COMPLETED".equals(eventType) && deltaQty == 0) {
-            int prevFilled = prev != null ? Math.max(0, prev.filledQty) : 0;
+            int prevFilled = progressBase != null ? Math.max(0, progressBase.filledQty) : 0;
             int remaining = 0;
             if (eventSnapshot.totalQty > 0) {
                 remaining = Math.max(0, eventSnapshot.totalQty - prevFilled);
@@ -185,7 +191,7 @@ final class OfferEventBuildService {
                     long total = eventSnapshot.spentGp > 0 ? eventSnapshot.spentGp
                         : (long) eventSnapshot.price * (long) deltaQty;
                     if (!eventSnapshot.isBuy) {
-                        long tax = mathService.computeSellTax(total, deltaQty, eventSnapshot.price);
+                        long tax = mathService.computeSellTax(eventSnapshot.itemId, total, deltaQty, eventSnapshot.price);
                         deltaGp = Math.max(0L, total - tax);
                     } else {
                         deltaGp = Math.max(0L, total);
@@ -194,35 +200,17 @@ final class OfferEventBuildService {
             }
         }
 
-        boolean baselineDelta = prevIsBaseline
-            && (deltaQty > 0 || deltaGp > 0)
-            && input.unlinked;
-        boolean baselineSynthetic = baselineDelta && !usedBaseline;
-        long baselineTimestamp = baselineDelta ? resolveBaselineTradeTimestamp(input.stamp, input.lastLoginMs) : 0L;
-        if (baselineDelta && baselineTimestamp <= 0L) {
-            if (isWithinLoginGrace()) {
-                baselineTimestamp = nowMs();
-                baselineSynthetic = true;
-            } else if ("OFFER_COMPLETED".equals(eventType)) {
-                if (input.lastLoginMs > 0) {
-                    baselineTimestamp = Math.max(1L, input.lastLoginMs - 1L);
-                    baselineSynthetic = true;
-                }
-            } else if (input.localTradesLoadedThisLogin) {
-                return Result.ignore(nextIsEmpty);
-            } else if (input.lastLoginMs > 0) {
-                baselineTimestamp = Math.max(1L, input.lastLoginMs - 1L);
-                baselineSynthetic = true;
-            }
-        }
-        if (baselineDelta && input.localTradesLoadedThisLogin && next.isBuy && !baselineSynthetic) {
-            if (hasRecentLocalBuy(next.itemId, nowMs())) {
-                baselineSynthetic = true;
-            }
-        }
-        if (!baselineSynthetic && baselineDelta && input.stamp != null && input.lastLoginMs > 0
-            && input.stamp.firstSeenMs > 0 && input.stamp.firstSeenMs < input.lastLoginMs && isWithinLoginGrace()) {
-            baselineSynthetic = true;
+        // A fill level is evidence of new progress only when there is a stored position to
+        // measure it against. Without one, this event says where the offer stands now, not what
+        // happened since it was last seen, and counting it would re-count fills already
+        // recorded in an earlier session. The caller has already advanced the stamp to this
+        // snapshot, so the position is adopted here and the next fill measures from it.
+        //
+        // Guessing is the only thing given up. A stored position still yields its offline
+        // progress, an offer placed from scratch is still reported, and a trade skipped here is
+        // recoverable from the in-game Grand Exchange history, which the plugin imports.
+        if (prevIsBaseline && !usedBaseline && (deltaQty > 0 || deltaGp > 0)) {
+            return Result.ignore(nextIsEmpty);
         }
 
         GeEvent geEvent = GeEvent.createBase(eventSnapshot, prev, eventType);
@@ -230,32 +218,35 @@ final class OfferEventBuildService {
         geEvent.world = input.world;
         geEvent.delta_qty = deltaQty;
         geEvent.delta_gp = deltaGp;
-        if (baselineTimestamp > 0L) {
-            geEvent.ts_client_ms = baselineTimestamp;
-        }
         boolean shouldScheduleRefresh = geEvent.delta_qty > 0 || "OFFER_COMPLETED".equals(eventType);
-        return Result.accepted(geEvent, baselineSynthetic, nextIsEmpty, shouldScheduleRefresh);
+        return Result.accepted(geEvent, false, nextIsEmpty, shouldScheduleRefresh);
+    }
+
+    /**
+     * The slot now holds a different offer than the one last seen, with no EMPTY observed in
+     * between (a missed event), so {@code prev}'s progress does not belong to {@code next}.
+     * Identity is item, side, price and total; a zero price or total is metadata the client
+     * has not reported yet, not a change.
+     */
+    private static boolean isSlotReused(OfferSnapshot prev, OfferSnapshot next) {
+        if (next.itemId <= 0 || GrandExchangeOfferState.EMPTY.name().equals(next.state)) {
+            return false;
+        }
+        if (prev.itemId != next.itemId || prev.isBuy != next.isBuy) {
+            return true;
+        }
+        if (prev.price > 0 && next.price > 0 && prev.price != next.price) {
+            return true;
+        }
+        return prev.totalQty > 0 && next.totalQty > 0 && prev.totalQty != next.totalQty;
     }
 
     private boolean stampMatchesSnapshot(OfferUpdateStamp stamp, OfferSnapshot snapshot) {
         return stampService != null && stampService.stampMatchesSnapshot(stamp, snapshot);
     }
 
-    private long resolveBaselineTradeTimestamp(OfferUpdateStamp stamp, long lastLoginMs) {
-        return stampService != null ? stampService.resolveBaselineTradeTimestamp(stamp, lastLoginMs) : 0L;
-    }
-
     private boolean isWithinLoginGrace() {
         return PluginAccess.plugin().getOfferStampStateServices().isWithinLoginGrace();
-    }
-
-    private boolean hasRecentLocalBuy(int itemId, long nowMs) {
-        LocalTradeSessionFacadeService service = PluginInjectorBridge.get(LocalTradeSessionFacadeService.class);
-        if (service == null) {
-            return false;
-        }
-        long accountKey = service.resolveAccountHash();
-        return accountKey > 0 && service.hasRecentLocalBuy(accountKey, itemId, nowMs);
     }
 
     private long nowMs() {

@@ -35,11 +35,9 @@ import javax.inject.Singleton;
 
 @Singleton
 final class AccountwideTradesMergeService {
-    private final int maxLocalTrades;
 
     @Inject
     AccountwideTradesMergeService() {
-        this.maxLocalTrades = GeLifecyclePluginConstants.MAX_LOCAL_TRADES;
     }
 
     private static ProfileStorageFacadeService profileStorage() {
@@ -56,10 +54,6 @@ final class AccountwideTradesMergeService {
             return null;
         }
         merged.sort(Comparator.comparingLong(delta -> delta != null ? delta.tsClientMs : 0L));
-        if (merged.size() > maxLocalTrades) {
-            int trim = merged.size() - maxLocalTrades;
-            merged.subList(0, trim).clear();
-        }
         return merged;
     }
 

@@ -96,11 +96,11 @@ final class FlipHubPanelLayoutActions {
         JLabel pageLabel,
         JComboBox<StatsRange> statsRangeCombo,
         JTextField statsSearchField,
-        JButton statsClearButton,
         JLabel statsUpdatedLabel,
         JPanel statsContentPanel,
         JPanel statsItemsListPanel,
         JComboBox<StatsItemSort> statsSortCombo,
+        JComboBox<StatsRecipeFilter> statsFilterCombo,
         JButton statsSortDirectionButton,
         FlipHubPanelStateService panelStateService,
         FlipHubAgeTooltipCoordinator ageTooltipCoordinator,
@@ -160,11 +160,11 @@ final class FlipHubPanelLayoutActions {
             pageLabel,
             statsRangeCombo,
             statsSearchField,
-            statsClearButton,
             statsUpdatedLabel,
             statsContentPanel,
             statsItemsListPanel,
             statsSortCombo,
+            statsFilterCombo,
             statsSortDirectionButton
         );
 

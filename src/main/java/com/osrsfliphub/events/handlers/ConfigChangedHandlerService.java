@@ -117,6 +117,21 @@ final class ConfigChangedHandlerService {
             }
         }
 
+        if ("repairAtArmourStand".equals(key)) {
+            // Every repaired activity was priced with the old answer. The ledgers
+            // are pure functions over the deltas, so throwing the aggregates away
+            // is the whole of the migration.
+            LocalStatsCacheService statsCacheService = PluginInjectorBridge.get(LocalStatsCacheService.class);
+            if (statsCacheService != null) {
+                statsCacheService.invalidateAll();
+            }
+            GeLifecyclePlugin plugin = PluginAccess.plugin();
+            PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
+            if (coordinator != null) {
+                coordinator.triggerStatsRefresh(plugin.scheduler);
+            }
+        }
+
         if (state.getHiddenItemConfigStore().isHiddenItemsConfigKey(key)) {
             if (config != null) {
                 state.getHiddenItems().clear();

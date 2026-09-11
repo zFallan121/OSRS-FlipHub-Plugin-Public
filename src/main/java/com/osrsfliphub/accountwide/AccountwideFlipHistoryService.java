@@ -58,8 +58,10 @@ final class AccountwideFlipHistoryService {
         return PluginInjectorBridge.get(LocalTradeSessionFacadeService.class).snapshotLocalTradeDeltas(accountKey);
     }
 
-    private Map<Integer, List<StatsFlipInstance>> buildLocalHistory(List<LocalTradeDelta> deltas, Long sinceMs) {
-        return PluginInjectorBridge.get(LocalFlipHistoryService.class).buildHistory(deltas, sinceMs);
+    private Map<Integer, List<StatsFlipInstance>> buildLocalHistory(List<LocalTradeDelta> deltas,
+                                                                     Long sinceMs,
+                                                                     long accountKey) {
+        return PluginInjectorBridge.get(LocalFlipHistoryService.class).buildHistory(deltas, sinceMs, accountKey);
     }
 
     private Set<Long> collectAccountwideProfileKeys() {
@@ -86,7 +88,8 @@ final class AccountwideFlipHistoryService {
                 ensureProfileLoaded(key);
                 Map<Integer, List<StatsFlipInstance>> perProfile = buildLocalHistory(
                     snapshotLocalTradeDeltas(key),
-                    sinceMs
+                    sinceMs,
+                    key
                 );
                 mergeHistory(merged, perProfile);
             }
@@ -98,7 +101,8 @@ final class AccountwideFlipHistoryService {
 
         Map<Integer, List<StatsFlipInstance>> accountwide = buildLocalHistory(
             snapshotLocalTradeDeltas(accountwideKey),
-            sinceMs
+            sinceMs,
+            accountwideKey
         );
         if (accountwide == null || accountwide.isEmpty()) {
             return new HashMap<>();

@@ -80,11 +80,11 @@ final class FlipHubPanelBodyBuilder {
                       JLabel pageLabel,
                       JComboBox<StatsRange> statsRangeCombo,
                       JTextField statsSearchField,
-                      JButton statsClearButton,
                       JLabel statsUpdatedLabel,
                       JPanel statsContentPanel,
                       JPanel statsItemsListPanel,
                       JComboBox<StatsItemSort> statsSortCombo,
+        JComboBox<StatsRecipeFilter> statsFilterCombo,
                       JButton statsSortDirectionButton) {
         cardPanel.setOpaque(false);
 
@@ -104,11 +104,11 @@ final class FlipHubPanelBodyBuilder {
         FlipHubStatsPanelBuilder.BuildResult stats = statsPanelBuilder.build(
             statsRangeCombo,
             statsSearchField,
-            statsClearButton,
             statsUpdatedLabel,
             statsContentPanel,
             statsItemsListPanel,
             statsSortCombo,
+            statsFilterCombo,
             statsSortDirectionButton
         );
 

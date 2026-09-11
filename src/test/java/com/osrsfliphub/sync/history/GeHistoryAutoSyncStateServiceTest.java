@@ -24,12 +24,35 @@
  */
 package com.osrsfliphub;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+/**
+ * When a read of the history list may be acted on.
+ *
+ * <p>A cursor persisted from a partial read is the one mistake the sync cannot recover
+ * from: the rows between the old cursor and the truncated one are never imported. So
+ * an incomplete read is never acted on, however long the tab has been open, and a
+ * complete one only once it has held still.
+ */
 public class GeHistoryAutoSyncStateServiceTest {
+    private static final GeHistoryAutoSyncStateService.ReadVerdict WAIT =
+        GeHistoryAutoSyncStateService.ReadVerdict.WAIT;
+    private static final GeHistoryAutoSyncStateService.ReadVerdict SETTLED =
+        GeHistoryAutoSyncStateService.ReadVerdict.SETTLED;
+    private static final GeHistoryAutoSyncStateService.ReadVerdict GIVE_UP =
+        GeHistoryAutoSyncStateService.ReadVerdict.GIVE_UP;
+
+    private static final List<String> ROWS = Arrays.asList("561|B|1000|118000", "1513|S|70000|77000000");
+    private static final List<String> MORE_ROWS =
+        Arrays.asList("4151|B|1|2000000", "561|B|1000|118000", "1513|S|70000|77000000");
+
     @Test
     public void armAndDisarmControlPendingState() {
         GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(2_000L);
@@ -42,36 +65,114 @@ public class GeHistoryAutoSyncStateServiceTest {
     }
 
     @Test
-    public void shouldWaitForSettleUsesVisibleSinceTime() {
-        GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(2_000L);
-
+    public void anIncompleteReadIsWaitedOnHoweverLongTheTabHasBeenOpen() {
+        // Five widgets is most of a row. Acting on it after two seconds used to
+        // persist a cursor with nothing in it, over the top of a real one.
+        GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(2_000L, 20_000L);
         service.arm();
         service.noteHistoryVisible(1_000L);
 
-        assertTrue(service.shouldWaitForSettle(true, 2_500L));
-        assertFalse(service.shouldWaitForSettle(true, 3_000L));
-        assertFalse(service.shouldWaitForSettle(false, 1_500L));
+        assertEquals(WAIT, service.observeRead(false, 5, Collections.emptyList(), 2_500L));
+        assertEquals(WAIT, service.observeRead(false, 5, Collections.emptyList(), 3_000L));
+        assertEquals(WAIT, service.observeRead(false, 5, Collections.emptyList(), 15_000L));
     }
 
     @Test
-    public void markHistoryHiddenResetsSettleWindow() {
-        GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(2_000L);
-
+    public void aCompleteReadIsTrustedOnceItHasHeldStillForTheSettleWindow() {
+        GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(2_000L, 20_000L);
         service.arm();
         service.noteHistoryVisible(1_000L);
-        assertFalse(service.shouldWaitForSettle(true, 3_500L));
+
+        assertEquals(WAIT, service.observeRead(true, 12, ROWS, 1_000L));
+        assertEquals(WAIT, service.observeRead(true, 12, ROWS, 2_500L));
+        assertEquals(SETTLED, service.observeRead(true, 12, ROWS, 3_000L));
+    }
+
+    @Test
+    public void aReadThatIsStillChangingRestartsTheSettleWindow() {
+        // Two rows, then a third arrives: the list is still being filled in, and the
+        // clock starts again from the read that has the third row.
+        GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(2_000L, 20_000L);
+        service.arm();
+        service.noteHistoryVisible(1_000L);
+
+        assertEquals(WAIT, service.observeRead(true, 12, ROWS, 1_000L));
+        assertEquals(WAIT, service.observeRead(true, 12, ROWS, 2_000L));
+        assertEquals(WAIT, service.observeRead(true, 18, MORE_ROWS, 2_500L));
+        assertEquals(WAIT, service.observeRead(true, 18, MORE_ROWS, 4_000L));
+        assertEquals(SETTLED, service.observeRead(true, 18, MORE_ROWS, 4_500L));
+    }
+
+    @Test
+    public void hidingTheHistoryForgetsWhatWasRead() {
+        GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(2_000L, 20_000L);
+        service.arm();
+        service.noteHistoryVisible(1_000L);
+        service.observeRead(true, 12, ROWS, 1_000L);
+        assertEquals(SETTLED, service.observeRead(true, 12, ROWS, 3_500L));
 
         service.markHistoryHidden();
         service.noteHistoryVisible(5_000L);
-        assertTrue(service.shouldWaitForSettle(true, 6_500L));
+
+        assertEquals(WAIT, service.observeRead(true, 12, ROWS, 5_000L));
+        assertEquals(WAIT, service.observeRead(true, 12, ROWS, 6_500L));
+        assertEquals(SETTLED, service.observeRead(true, 12, ROWS, 7_000L));
     }
 
     @Test
-    public void nonPositiveSettleWindowNeverWaits() {
-        GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(-1L);
-
+    public void aNonPositiveSettleWindowTrustsTheFirstCompleteReadButNeverAnIncompleteOne() {
+        GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(-1L, 20_000L);
         service.arm();
         service.noteHistoryVisible(1_000L);
-        assertFalse(service.shouldWaitForSettle(true, 1_000L));
+
+        assertEquals(WAIT, service.observeRead(false, 5, Collections.emptyList(), 1_000L));
+        assertEquals(SETTLED, service.observeRead(true, 12, ROWS, 1_000L));
+    }
+
+    @Test
+    public void aReadThatNeverSettlesIsGivenUpOnAfterTheGiveUpWindow() {
+        GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(2_000L, 20_000L);
+        service.arm();
+        service.noteHistoryVisible(1_000L);
+
+        assertEquals(WAIT, service.observeRead(false, 0, Collections.emptyList(), 1_000L));
+        assertEquals(WAIT, service.observeRead(false, 0, Collections.emptyList(), 20_999L));
+        assertEquals(GIVE_UP, service.observeRead(false, 0, Collections.emptyList(), 21_000L));
+    }
+
+    /**
+     * A History tab left open while offers keep completing. The list changes each time, so
+     * the sync must keep waiting rather than deciding the tab never loaded. On the old clock,
+     * which ran from the moment the tab opened, the first unsettled read past twenty seconds
+     * gave up and switched the sync off for the rest of the login.
+     */
+    @Test
+    public void aListThatKeepsChangingIsStillLoading() {
+        GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(2_000L, 20_000L);
+        service.arm();
+        service.noteHistoryVisible(1_000L);
+
+        assertEquals(WAIT, service.observeRead(true, 2, ROWS, 1_000L));
+        // Well past the give-up window, but a new row has just arrived.
+        assertEquals(WAIT, service.observeRead(true, 3, MORE_ROWS, 60_000L));
+        // And it settles normally once it holds still.
+        assertEquals(SETTLED, service.observeRead(true, 3, MORE_ROWS, 62_000L));
+    }
+
+    /**
+     * A list that goes back to being unreadable is still given up on, and that half is still
+     * measured from when the tab opened, because an unreadable list has no last change to
+     * measure from.
+     */
+    @Test
+    public void aListThatStopsBeingReadableIsStillGivenUpOn() {
+        GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(2_000L, 20_000L);
+        service.arm();
+        service.noteHistoryVisible(1_000L);
+
+        assertEquals(WAIT, service.observeRead(true, 2, ROWS, 5_000L));
+        assertEquals(WAIT, service.observeRead(false, 0, Collections.emptyList(), 6_000L));
+        assertEquals(WAIT, service.observeRead(false, 0, Collections.emptyList(), 20_999L));
+        assertEquals(GIVE_UP, service.observeRead(false, 0, Collections.emptyList(), 21_000L));
     }
 }

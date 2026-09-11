@@ -25,21 +25,42 @@
 package com.osrsfliphub;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 final class LocalStatsCache {
-    private static final long LOCAL_EVENT_BUCKET_MS = 600L;
     private final Map<Integer, LocalStatsCacheDeltaService.LocalItemAgg> itemAggs = new HashMap<>();
     private final Map<Integer, LocalStatsCacheDeltaService.LocalInventoryState> inventory = new HashMap<>();
     private final Map<Integer, LocalStatsCacheDeltaService.MatchedSellMarker> recentMatchedSellBySlot = new HashMap<>();
     private final List<LocalTradeDelta> sortedDeltas = new ArrayList<>();
     private final LocalStatsCacheDeltaService.Totals totals = new LocalStatsCacheDeltaService.Totals();
-    private final LocalStatsCacheDeltaService deltaService =
-        new LocalStatsCacheDeltaService(itemAggs, inventory, recentMatchedSellBySlot, totals);
+    private final ConversionLedger conversionLedger;
+    /** Whose trades these are; a repair fee depends on the player's Smithing. */
+    private final long accountKey;
+    private final LocalStatsCacheDeltaService deltaService;
     private long lastTs = Long.MIN_VALUE;
+
+    LocalStatsCache() {
+        this(0L);
+    }
+
+    // Looked up rather than injected: caches are built with `new`, per account and
+    // per window, well after startUp has wired the injector.
+    LocalStatsCache(long accountKey) {
+        this(PluginInjectorBridge.get(ConversionLedger.class), accountKey);
+    }
+
+    LocalStatsCache(ConversionLedger conversionLedger) {
+        this(conversionLedger, 0L);
+    }
+
+    LocalStatsCache(ConversionLedger conversionLedger, long accountKey) {
+        this.conversionLedger = conversionLedger;
+        this.accountKey = accountKey;
+        this.deltaService = new LocalStatsCacheDeltaService(
+            itemAggs, inventory, recentMatchedSellBySlot, totals, conversionLedger, accountKey);
+    }
 
     synchronized void rebuild(List<LocalTradeDelta> deltas) {
         deltaService.reset();
@@ -49,16 +70,10 @@ final class LocalStatsCache {
             return;
         }
         List<LocalTradeDelta> snapshot = new ArrayList<>(deltas);
-        snapshot.sort(Comparator
-            .comparingLong((LocalTradeDelta delta) -> delta != null ? delta.tsClientMs / LOCAL_EVENT_BUCKET_MS : 0L)
-            .thenComparingInt(delta -> delta != null && delta.isBuy ? 0 : 1)
-            .thenComparingLong(delta -> delta != null ? delta.tsClientMs : 0L));
+        snapshot.sort(LocalTradeDeltaUtils.replayOrder());
         sortedDeltas.addAll(snapshot);
-        LocalTradeDelta last = snapshot.get(snapshot.size() - 1);
-        if (last != null) {
-            lastTs = last.tsClientMs;
-        }
         for (LocalTradeDelta delta : snapshot) {
+            lastTs = Math.max(lastTs, LocalTradeDeltaUtils.replayTimeMs(delta));
             deltaService.applyDelta(delta);
         }
     }
@@ -67,11 +82,12 @@ final class LocalStatsCache {
         if (delta == null) {
             return false;
         }
-        if (lastTs != Long.MIN_VALUE && delta.tsClientMs < lastTs) {
+        long replayTimeMs = LocalTradeDeltaUtils.replayTimeMs(delta);
+        if (lastTs != Long.MIN_VALUE && replayTimeMs < lastTs) {
             return false;
         }
         sortedDeltas.add(delta);
-        lastTs = Math.max(lastTs, delta.tsClientMs);
+        lastTs = Math.max(lastTs, replayTimeMs);
         deltaService.applyDelta(delta);
         return true;
     }
@@ -80,7 +96,8 @@ final class LocalStatsCache {
         if (sinceMs == null) {
             return new LocalStatsSnapshot(getSummary(), getItems());
         }
-        LocalStatsCache window = new LocalStatsCache();
+        // The window has to see the same conversions the live cache does.
+        LocalStatsCache window = new LocalStatsCache(conversionLedger, accountKey);
         for (LocalTradeDelta delta : sortedDeltas) {
             if (delta == null) {
                 continue;
@@ -124,6 +141,7 @@ final class LocalStatsCache {
             item.total_qty = (int) Math.min(Integer.MAX_VALUE, Math.max(0, qty));
             item.fill_count = agg.completedSells;
             item.last_sell_ts_ms = agg.lastSellTs;
+            item.active_ms = agg.activeMs > 0L ? agg.activeMs : null;
             items.add(item);
         }
         return items;

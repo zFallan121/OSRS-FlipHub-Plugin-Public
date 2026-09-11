@@ -31,18 +31,15 @@ import javax.inject.Singleton;
 
 @Singleton
 final class RecentTradeDeduper {
-    private final long localEventBucketMs;
     private final long duplicateTradeWindowMs;
     private final Map<Integer, RecentTradeEvent> recentTradeEventsBySlot = new ConcurrentHashMap<>();
 
     @Inject
     RecentTradeDeduper() {
-        this(GeLifecyclePluginConstants.LOCAL_EVENT_BUCKET_MS,
-            GeLifecyclePluginConstants.DUPLICATE_TRADE_WINDOW_MS);
+        this(GeLifecyclePluginConstants.DUPLICATE_TRADE_WINDOW_MS);
     }
 
-    RecentTradeDeduper(long localEventBucketMs, long duplicateTradeWindowMs) {
-        this.localEventBucketMs = Math.max(1L, localEventBucketMs);
+    RecentTradeDeduper(long duplicateTradeWindowMs) {
         this.duplicateTradeWindowMs = Math.max(0L, duplicateTradeWindowMs);
     }
 
@@ -54,59 +51,39 @@ final class RecentTradeDeduper {
         recentTradeEventsBySlot.clear();
     }
 
+    /**
+     * A repeat is the same offer reporting the same cumulative fill again within the window.
+     * Two chunks of one offer share slot, item, side and price and can even be the same size,
+     * so only the cumulative {@code filled_qty}/{@code spent_gp} tells a repeat from a new fill.
+     */
     boolean normalizeOrSuppress(GeEvent event) {
         if (event == null || event.slot < 0 || event.item_id <= 0) {
             return false;
         }
         long ts = event.ts_client_ms > 0 ? event.ts_client_ms : System.currentTimeMillis();
-        String signature = buildEventTradeSignature(event);
         String tradeKey = buildEventTradeKey(event);
         RecentTradeEvent previous = recentTradeEventsBySlot.get(event.slot);
-        if (previous != null && Math.abs(ts - previous.tsClientMs) <= duplicateTradeWindowMs) {
+        if (previous != null
+            && Math.abs(ts - previous.tsClientMs) <= duplicateTradeWindowMs
+            && tradeKey.equals(previous.tradeKey)
+            && event.filled_qty == previous.filledQty
+            && event.spent_gp == previous.spentGp) {
             String previousType = previous.eventType != null ? previous.eventType : "";
             String currentType = event.event_type != null ? event.event_type : "";
-            boolean strictMatch = signature.equals(previous.signature);
-            boolean completionPairMatch = tradeKey.equals(previous.tradeKey)
-                && LocalTradeDeltaUtils.isCompletionUpdatePair(previousType, currentType);
-            boolean repeatedCompletionMatch = tradeKey.equals(previous.tradeKey)
-                && "OFFER_COMPLETED".equals(previousType)
-                && "OFFER_COMPLETED".equals(currentType);
-            if (strictMatch || completionPairMatch || repeatedCompletionMatch) {
-                if ("OFFER_COMPLETED".equals(currentType) && "OFFER_UPDATED".equals(previousType)) {
-                    event.delta_qty = 0;
-                    event.delta_gp = 0L;
-                } else {
-                    return true;
-                }
+            if ("OFFER_COMPLETED".equals(currentType) && "OFFER_UPDATED".equals(previousType)) {
+                // The state change is new information; the quantity and coins were already reported.
+                event.delta_qty = 0;
+                event.delta_gp = 0L;
+            } else if (currentType.equals(previousType)) {
+                return true;
             }
         }
-        recentTradeEventsBySlot.put(event.slot, new RecentTradeEvent(signature, tradeKey, event.event_type, ts));
+        recentTradeEventsBySlot.put(event.slot,
+            new RecentTradeEvent(tradeKey, event.event_type, event.filled_qty, event.spent_gp, ts));
         return false;
-    }
-
-    private String buildEventTradeSignature(GeEvent event) {
-        long bucket = event.ts_client_ms / localEventBucketMs;
-        long normalizedValue = normalizeEventDeltaValue(event);
-        return bucket + "|" + event.slot + "|" + event.item_id + "|" + event.is_buy + "|" + event.delta_qty
-            + "|" + event.price + "|" + normalizedValue;
     }
 
     private String buildEventTradeKey(GeEvent event) {
         return event.slot + "|" + event.item_id + "|" + event.is_buy + "|" + event.price;
-    }
-
-    private long normalizeEventDeltaValue(GeEvent event) {
-        int qty = event.delta_qty;
-        if (qty > 0 && event.price > 0) {
-            long total = (long) event.price * (long) qty;
-            if (!event.is_buy) {
-                long tax = ((long) event.price / 50L) * qty;
-                long taxCap = (long) qty * 5_000_000L;
-                tax = Math.max(0L, Math.min(tax, taxCap));
-                return Math.max(0L, total - tax);
-            }
-            return Math.max(0L, total);
-        }
-        return Math.max(0L, event.delta_gp);
     }
 }

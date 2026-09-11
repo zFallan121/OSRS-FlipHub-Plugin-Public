@@ -33,6 +33,10 @@ import org.slf4j.Logger;
 
 @Singleton
 final class UploadEventDispatchFacadeService {
+    /** First wait after a failure the server might recover from. */
+    private static final long UPLOAD_BACKOFF_INITIAL_MS = 5_000L;
+    /** Longest the flush will wait before trying again. */
+    private static final long UPLOAD_BACKOFF_MAX_MS = 5L * 60L * 1000L;
     private final UploadDiagnosticsState uploadState;
     private final int maxPendingUploadEvents = GeLifecyclePluginConstants.MAX_PENDING_UPLOAD_EVENTS;
     private final int maxBatchSize = GeLifecyclePluginConstants.MAX_BATCH_SIZE;
@@ -46,13 +50,21 @@ final class UploadEventDispatchFacadeService {
         return PluginAccess.plugin().runtimeUtilityServices.isClientLoggedIn(PluginAccess.plugin().client);
     }
 
+    private void backOff() {
+        if (uploadState != null) {
+            uploadState.backOff(System.currentTimeMillis(), UPLOAD_BACKOFF_INITIAL_MS, UPLOAD_BACKOFF_MAX_MS);
+        }
+    }
+
     private void requeue(List<GeEvent> batch) {
         PluginAccess.plugin().runtimeUtilityServices.requeue(this, batch);
     }
 
-    private boolean attemptRefresh(String currentToken) {
+    private SessionRefreshService.Outcome attemptRefresh(String currentToken) {
         SessionRefreshService service = PluginInjectorBridge.get(SessionRefreshService.class);
-        return service != null && service.attemptRefresh(currentToken);
+        return service != null
+            ? service.attemptRefresh(currentToken)
+            : SessionRefreshService.Outcome.UNAVAILABLE;
     }
 
     private void clearSession() {
@@ -120,16 +132,56 @@ final class UploadEventDispatchFacadeService {
     void updateUploadDiagnosticsUi() {
         GeLifecyclePlugin plugin = PluginAccess.pluginOrNull();
         FlipHubPanel panel = plugin != null ? plugin.panel : null;
-        if (panel != null) {
-            panel.setUploadDiagnosticsTooltip(null);
+        if (panel == null) {
+            return;
+        }
+        // The state has always known how to describe itself; this used to pass null instead,
+        // so "oldest events were dropped" and "session cleared" were built and thrown away and
+        // the player was never told either.
+        PluginConfig config = plugin.config;
+        boolean linked = config != null
+            && ApiStatusPolicy.hasCredentials(config.sessionToken(), config.signingSecret());
+        panel.setUploadDiagnosticsTooltip(uploadState != null ? uploadState.buildTooltip(linked) : null);
+    }
+
+    /**
+     * One last drain as the client closes. The queue lives only in memory, so anything still in
+     * it when the process ends is gone: the events are already recorded locally, but the
+     * website never hears about them, and once a profile is marked backfilled nothing will
+     * resend them. Bounded, and stops the moment a pass makes no progress.
+     */
+    void flushPendingBeforeShutdown(ApiClient apiClient, PluginConfig config, Logger log, int maxBatches) {
+        if (uploadState == null) {
+            return;
+        }
+        // Whatever wait was in force, this is the last chance to use it up.
+        uploadState.clearBackOff();
+        for (int attempt = 0; attempt < maxBatches && uploadState.getPendingUploadEvents() > 0; attempt++) {
+            int before = uploadState.getPendingUploadEvents();
+            flushEvents(apiClient, config, log, false);
+            if (uploadState.getPendingUploadEvents() >= before) {
+                return;
+            }
         }
     }
 
     void flushEvents(ApiClient apiClient, PluginConfig config, Logger log) {
+        flushEvents(apiClient, config, log, true);
+    }
+
+    /**
+     * @param onlyWhileLoggedIn the routine flush waits for a logged-in client, because the
+     *                          events describe the account that is playing. The drain as the
+     *                          client closes must not: a player who logs out to the lobby and
+     *                          then quits used to have their queued trades thrown away, and
+     *                          once a profile is marked backfilled nothing resends them.
+     */
+    private void flushEvents(ApiClient apiClient, PluginConfig config, Logger log,
+                             boolean onlyWhileLoggedIn) {
         if (uploadState == null || apiClient == null || config == null || log == null) {
             return;
         }
-        if (!isClientLoggedIn()) {
+        if (onlyWhileLoggedIn && !isClientLoggedIn()) {
             return;
         }
         if (!config.enableFlipHubSync()) {
@@ -153,6 +205,12 @@ final class UploadEventDispatchFacadeService {
             return;
         }
 
+        if (uploadState.isBackingOff(System.currentTimeMillis())) {
+            // Still waiting out an earlier failure. The events stay queued.
+            updateUploadDiagnosticsUi();
+            return;
+        }
+
         List<GeEvent> batch = dequeueBatch();
         if (batch.isEmpty()) {
             updateUploadDiagnosticsUi();
@@ -161,14 +219,17 @@ final class UploadEventDispatchFacadeService {
 
         markAttempt();
         try {
-            int status = apiClient.sendEvents(sessionToken, signingSecret, batch);
+            ApiClient.EventUploadResponse upload =
+                apiClient.sendEventsDetailed(sessionToken, signingSecret, batch);
+            int status = upload != null ? upload.status_code : -1;
             if (ApiStatusPolicy.isAuthStatus(status)) {
                 handleAuthFailure(apiClient, config, log, batch, sessionToken, status);
                 return;
             }
-            handlePrimaryStatus(status, log, batch);
+            handlePrimaryStatus(status, upload, log, batch);
         } catch (IOException | RuntimeException ex) {
             requeue(batch);
+            backOff();
             String message = ex.getMessage() != null ? ex.getMessage() : "Unknown upload exception";
             markFailure(-1, "Upload exception: " + message + ". Events queued for retry.", false, 0);
         }
@@ -180,31 +241,47 @@ final class UploadEventDispatchFacadeService {
                                    List<GeEvent> batch,
                                    String currentToken,
                                    int initialStatus) throws IOException {
-        boolean refreshed = attemptRefresh(currentToken);
-        if (refreshed) {
+        SessionRefreshService.Outcome outcome = attemptRefresh(currentToken);
+        if (outcome == SessionRefreshService.Outcome.REFRESHED) {
             String refreshedToken = config.sessionToken();
             String refreshedSecret = config.signingSecret();
             if (ApiStatusPolicy.hasCredentials(refreshedToken, refreshedSecret)) {
-                int retryStatus = apiClient.sendEvents(refreshedToken, refreshedSecret, batch);
-                handleRetryStatus(retryStatus, log, batch);
+                ApiClient.EventUploadResponse retryUpload =
+                    apiClient.sendEventsDetailed(refreshedToken, refreshedSecret, batch);
+                handleRetryStatus(retryUpload != null ? retryUpload.status_code : -1,
+                    retryUpload, log, batch);
                 return;
             }
         }
 
         requeue(batch);
-        markFailure(initialStatus, "Session refresh did not recover auth. Events queued for retry.", false, 0);
-        if (refreshed) {
-            log.warn("FlipHub refresh did not recover event upload auth; clearing session to force relink");
+        if (outcome == SessionRefreshService.Outcome.REJECTED) {
+            // The server refused the session itself, so the link is genuinely dead and
+            // clearSession has already said so. Retrying would only repeat the refusal.
+            markFailure(initialStatus, "Session was rejected. Relink to resume uploads.", false, 0);
+            log.warn("FlipHub session was rejected on refresh; relink required");
+        } else {
+            // Nobody refused anything: the refresh could not be completed. The credentials are
+            // very probably still good, so they stay put and the batch waits for the next tick.
+            backOff();
+            markFailure(initialStatus, "Could not reach FlipHub to refresh the session. Events queued for retry.",
+                false, 0);
         }
-        clearSession();
         if (isPanelVisible()) {
             updateProfileHeader();
         }
     }
 
-    private void handleRetryStatus(int retryStatus, Logger log, List<GeEvent> batch) {
+    private void handleRetryStatus(int retryStatus, ApiClient.EventUploadResponse upload,
+                                   Logger log, List<GeEvent> batch) {
         if (retryStatus < 400) {
+            if (!ApiStatusPolicy.keptSomething(upload, batch.size())) {
+                reportNothingKept(retryStatus, log, batch);
+                return;
+            }
             updateProfileHeader();
+            // A run of failures can leave a five minute wait standing. This one worked.
+            uploadState.clearBackOff();
             markSuccess(batch.size(), retryStatus);
             return;
         }
@@ -217,6 +294,9 @@ final class UploadEventDispatchFacadeService {
         }
         if (ApiStatusPolicy.isRetryableUploadStatus(retryStatus) || ApiStatusPolicy.isAuthStatus(retryStatus)) {
             requeue(batch);
+            // Without this the batch was retried on every flush tick, two seconds apart, for
+            // as long as the server kept saying no.
+            backOff();
             markFailure(
                 retryStatus,
                 "Upload rejected with status " + retryStatus + ". Events queued for retry.",
@@ -235,9 +315,11 @@ final class UploadEventDispatchFacadeService {
         );
     }
 
-    private void handlePrimaryStatus(int status, Logger log, List<GeEvent> batch) {
+    private void handlePrimaryStatus(int status, ApiClient.EventUploadResponse upload,
+                                     Logger log, List<GeEvent> batch) {
         if (ApiStatusPolicy.isRetryableUploadStatus(status)) {
             requeue(batch);
+            backOff();
             markFailure(
                 status,
                 "Upload failed with status " + status + ". Events queued for retry.",
@@ -256,8 +338,28 @@ final class UploadEventDispatchFacadeService {
             );
             return;
         }
+        if (!ApiStatusPolicy.keptSomething(upload, batch.size())) {
+            reportNothingKept(status, log, batch);
+            return;
+        }
         updateProfileHeader();
+        uploadState.clearBackOff();
         markSuccess(batch.size(), status);
+    }
+
+    /**
+     * The server took the request and threw every event in it away. Sending the same events
+     * again gets the same answer, so they are dropped rather than queued, and the player is
+     * told, instead of being shown a success that did not happen.
+     */
+    private void reportNothingKept(int status, Logger log, List<GeEvent> batch) {
+        log.warn("FlipHub accepted the request and rejected all {} events", batch.size());
+        markFailure(
+            status,
+            "FlipHub rejected every event in that batch. They were not uploaded.",
+            true,
+            batch.size()
+        );
     }
 
     private List<GeEvent> dequeueBatch() {

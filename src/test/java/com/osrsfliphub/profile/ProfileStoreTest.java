@@ -29,12 +29,62 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 public class ProfileStoreTest {
+    @Test
+    public void writeProfileDataRoundTripsAndLeavesNoTemporaryFileBehind() throws Exception {
+        Path baseDir = Files.createTempDirectory("profile-store-write");
+        try {
+            ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
+            List<LocalTradeDelta> deltas = new ArrayList<>();
+            deltas.add(new LocalTradeDelta(1000L, 1, 4151, true, 5, 500L, "OFFER_UPDATED", 100, false));
+
+            long writtenMs = store.writeProfileData(123L, 0L, "Zezima", deltas);
+
+            assertTrue(writtenMs > 0);
+            ProfileData read = store.readProfileData(123L, 0L);
+            assertNotNull(read);
+            assertEquals(1, read.deltas.size());
+            assertEquals(4151, read.deltas.get(0).itemId);
+            try (java.util.stream.Stream<Path> files =
+                     Files.list(baseDir.resolve("fliphub").resolve("profiles"))) {
+                assertFalse(files.anyMatch(path -> path.getFileName().toString().endsWith(".tmp")));
+            }
+        } finally {
+            deleteRecursively(baseDir);
+        }
+    }
+
+    /**
+     * The loader tells "this account has no trades" from "this file could not be read" using
+     * exactly these two signals, and only overwrites the file in the first case.
+     */
+    @Test
+    public void aCorruptProfileFileIsDistinguishableFromAMissingOne() throws Exception {
+        Path baseDir = Files.createTempDirectory("profile-store-corrupt");
+        try {
+            ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
+            Path file = store.getProfileFile(123L, 0L);
+            assertEquals(0L, store.getProfileFileModifiedMs(file));
+
+            Files.writeString(file, "{\"deltas\":[{\"itemId\"", StandardCharsets.UTF_8);
+
+            assertNull(store.readProfileData(file));
+            assertTrue(store.getProfileFileModifiedMs(file) > 0);
+        } finally {
+            deleteRecursively(baseDir);
+        }
+    }
+
     @Test
     public void parseAccountKeyFromProfileFileParsesValidHashFile() {
         ProfileStore store = new ProfileStore(new Gson(), "fliphub-dev", "fliphub");

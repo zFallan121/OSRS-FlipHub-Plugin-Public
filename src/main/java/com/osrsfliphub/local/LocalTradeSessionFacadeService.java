@@ -57,6 +57,14 @@ final class LocalTradeSessionFacadeService {
         sessionService.updateLocalAccountSessionStart(localSessionStartByAccount, localStatsLock, accountwideKey);
     }
 
+    void clearLocalAccountSessionStarts() {
+        LocalAccountSessionService sessionService = PluginInjectorBridge.get(LocalAccountSessionService.class);
+        if (sessionService == null) {
+            return;
+        }
+        sessionService.clearLocalAccountSessionStarts(localSessionStartByAccount, localStatsLock);
+    }
+
     void ensureLocalSessionStart(long accountKey, long nowMs) {
         LocalAccountSessionService sessionService = PluginInjectorBridge.get(LocalAccountSessionService.class);
         if (sessionService == null) {
@@ -87,14 +95,6 @@ final class LocalTradeSessionFacadeService {
             : java.util.Collections.emptyMap();
     }
 
-    boolean hasRecentLocalBuy(long accountKey, int itemId, long nowMs) {
-        if (accountKey <= 0 || itemId <= 0) {
-            return false;
-        }
-        LocalTradeAnalyticsService analyticsService = PluginInjectorBridge.get(LocalTradeAnalyticsService.class);
-        return analyticsService != null && analyticsService.hasRecentLocalBuy(snapshotLocalTradeDeltas(accountKey), itemId, nowMs);
-    }
-
     List<LocalTradeDelta> snapshotLocalTradeDeltas(long accountKey) {
         LocalTradeAnalyticsService analyticsService = PluginInjectorBridge.get(LocalTradeAnalyticsService.class);
         if (analyticsService == null) {
@@ -116,7 +116,7 @@ final class LocalTradeSessionFacadeService {
         PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
         LocalFlipHistoryService localHistoryService = PluginInjectorBridge.get(LocalFlipHistoryService.class);
         return localHistoryService != null
-            ? localHistoryService.buildHistory(snapshotLocalTradeDeltas(accountKey), sinceMs)
+            ? localHistoryService.buildHistory(snapshotLocalTradeDeltas(accountKey), sinceMs, accountKey)
             : java.util.Collections.emptyMap();
     }
 }

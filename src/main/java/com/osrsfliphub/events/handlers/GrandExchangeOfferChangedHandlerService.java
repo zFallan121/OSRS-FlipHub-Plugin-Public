@@ -27,7 +27,9 @@ package com.osrsfliphub;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.Client;
+import net.runelite.api.GameState;
 import net.runelite.api.GrandExchangeOffer;
+import net.runelite.api.GrandExchangeOfferState;
 import net.runelite.api.events.GrandExchangeOfferChanged;
 
 @Singleton
@@ -71,12 +73,22 @@ final class GrandExchangeOfferChangedHandlerService {
         if (event == null) {
             return;
         }
-        offerStampState().loadOfferUpdateTimesForCurrentAccount();
         GrandExchangeOffer offer = event.getOffer();
+        // Leaving LOGGED_IN, the client empties every slot and reports each one. That is the
+        // client tidying up, not offers being collected, so diffing it against the live
+        // snapshots would invent a completion for a trade that never finished.
+        if (offer != null && offer.getState() == GrandExchangeOfferState.EMPTY
+            && client != null && client.getGameState() != GameState.LOGGED_IN) {
+            return;
+        }
+        offerStampState().loadOfferUpdateTimesForCurrentAccount();
         int slot = event.getSlot();
 
         OfferSnapshot previous = state.getSnapshots().get(slot);
         OfferSnapshot next = OfferSnapshot.fromOffer(slot, offer, previous);
+        // The stamp is the last fill level this slot was seen at. trackOfferUpdate advances it
+        // to `next` in place, so the delta has to be derived from a copy taken before that.
+        OfferUpdateStamp stampBeforeUpdate = OfferUpdateStamp.copyOf(state.getOfferUpdateStamps().get(slot));
         state.getSnapshots().put(slot, next);
         offerStampState().trackOfferUpdate(slot, previous, next);
 
@@ -92,7 +104,7 @@ final class GrandExchangeOfferChangedHandlerService {
             new OfferEventBuildService.Input(
                 previous,
                 next,
-                state.getOfferUpdateStamps().get(slot),
+                stampBeforeUpdate,
                 !hasSessionToken,
                 PluginAccess.plugin().localTradesLoadedThisLogin,
                 offerStampState().getLastLoginMs(),
@@ -120,7 +132,11 @@ final class GrandExchangeOfferChangedHandlerService {
         if (uploadFacade != null) {
             uploadFacade.enqueueEvent(geEvent);
         }
-        PluginInjectorBridge.get(LocalTradeDeltaRecorder.class).record(geEvent, result.isBaselineSynthetic());
+        // Read after tracking: a fill that opens a new offer on a reused slot has only now
+        // been given its own stamp, and the stored record must name that offer, not the last.
+        OfferUpdateStamp stampAfterUpdate = state.getOfferUpdateStamps().get(slot);
+        long offerStartMs = stampAfterUpdate != null ? stampAfterUpdate.firstSeenMs : 0L;
+        PluginInjectorBridge.get(LocalTradeDeltaRecorder.class).record(geEvent, result.isBaselineSynthetic(), offerStartMs);
         if (result.shouldClearRecentSlot()) {
             clearRecentTradeEvent(slot);
         }

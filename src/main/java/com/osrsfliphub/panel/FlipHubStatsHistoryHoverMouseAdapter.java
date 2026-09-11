@@ -28,6 +28,7 @@ import static com.osrsfliphub.FlipHubPanelConstants.MUTED;
 import static com.osrsfliphub.FlipHubPanelConstants.MUTED_2;
 import static com.osrsfliphub.FlipHubPanelConstants.TEXT;
 
+import java.awt.Component;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import javax.swing.JLabel;
@@ -35,28 +36,45 @@ import javax.swing.JLabel;
 final class FlipHubStatsHistoryHoverMouseAdapter extends MouseAdapter {
     private final JLabel title;
     private final JLabel chevron;
-    private int hoverDepth;
+
 
     FlipHubStatsHistoryHoverMouseAdapter(JLabel title, JLabel chevron) {
         this.title = title;
         this.chevron = chevron;
     }
 
+    /**
+     * Hover is answered from where the pointer actually is, not counted.
+     *
+     * <p>Counting entries and exits assumed they arrive in pairs. They do not: after the list is
+     * rebuilt the pointer is re-entered synthetically, which leaves AWT still believing it is
+     * elsewhere, so the next real movement delivers a second enter with no exit between. The
+     * count then never returned to zero and the header stayed lit after the pointer had left.
+     */
     @Override
     public void mouseEntered(MouseEvent e) {
-        hoverDepth += 1;
-        title.setForeground(TEXT);
-        chevron.setForeground(TEXT);
+        applyHover(true);
     }
 
     @Override
     public void mouseExited(MouseEvent e) {
-        hoverDepth = Math.max(0, hoverDepth - 1);
-        if (hoverDepth == 0) {
-            // Back to the ramp the two were built at, not to one shared tier: the chevron is
-            // ornament on --muted-2 and the title is a label on --muted.
-            title.setForeground(MUTED);
-            chevron.setForeground(MUTED_2);
+        applyHover(isPointerStillInside(e));
+    }
+
+    private boolean isPointerStillInside(MouseEvent e) {
+        Component source = e != null && e.getComponent() != null ? e.getComponent() : null;
+        return source != null && source.contains(e.getPoint());
+    }
+
+    private void applyHover(boolean hovered) {
+        if (hovered) {
+            title.setForeground(TEXT);
+            chevron.setForeground(TEXT);
+            return;
         }
+        // Back to the ramp the two were built at, not to one shared tier: the chevron is
+        // ornament on --muted-2 and the title is a label on --muted.
+        title.setForeground(MUTED);
+        chevron.setForeground(MUTED_2);
     }
 }

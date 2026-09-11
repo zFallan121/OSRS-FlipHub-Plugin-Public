@@ -41,6 +41,28 @@ final class ApiStatusPolicy {
         return statusCode == 429 || statusCode >= 500;
     }
 
+    /**
+     * Whether an upload the server answered 200 to actually kept anything.
+     *
+     * <p>A batch can be accepted as a request and have every event in it thrown away. That is
+     * not a successful upload, and calling it one told the player their trades were on the
+     * website when none of them were. Both upload paths ask this same question, because they
+     * talk to the same endpoint and used to give opposite answers about it.
+     */
+    static boolean keptSomething(ApiClient.EventUploadResponse upload, int batchSize) {
+        if (upload == null || batchSize <= 0) {
+            return false;
+        }
+        int accepted = upload.accepted != null ? Math.max(0, upload.accepted) : 0;
+        int duplicates = upload.duplicates != null ? Math.max(0, upload.duplicates) : 0;
+        int rejected = upload.rejected != null ? Math.max(0, upload.rejected) : 0;
+        if (accepted + duplicates > 0) {
+            return true;
+        }
+        // A server that reports no counts at all is an older one; take it at its word.
+        return rejected <= 0;
+    }
+
     static boolean hasCredentials(String sessionToken, String signingSecret) {
         return hasText(sessionToken) && hasText(signingSecret);
     }

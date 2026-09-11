@@ -25,6 +25,7 @@
 package com.osrsfliphub;
 
 import java.awt.event.KeyEvent;
+import java.util.function.UnaryOperator;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.Client;
@@ -59,14 +60,14 @@ final class ChatboxDecimalInputListener implements KeyListener {
 
     @Override
     public void keyPressed(KeyEvent event) {
-        if (event == null || !isAmountPromptActive()) {
+        if (event == null || !isDecimalAmountsEnabled()) {
             return;
         }
         int keyCode = event.getKeyCode();
         if (keyCode == KeyEvent.VK_ENTER) {
-            setInputText(ChatboxDecimalInput.toPlainAmount(readInputText()), false);
+            rewriteInputText(ChatboxDecimalInput::toPlainAmount, false);
         } else if (keyCode == KeyEvent.VK_PERIOD || keyCode == KeyEvent.VK_DECIMAL) {
-            setInputText(ChatboxDecimalInput.withDecimalPoint(readInputText()), true);
+            rewriteInputText(ChatboxDecimalInput::withDecimalPoint, true);
         }
     }
 
@@ -78,28 +79,49 @@ final class ChatboxDecimalInputListener implements KeyListener {
     public void keyTyped(KeyEvent event) {
     }
 
-    private boolean isAmountPromptActive() {
+    /**
+     * The half of the gate that is safe to answer on the AWT thread: settings and wiring only,
+     * no client state.
+     */
+    private boolean isDecimalAmountsEnabled() {
         return config != null
             && config.enableDecimalAmounts()
             && client != null
-            && clientThread != null
-            && client.getVarcIntValue(VarClientID.MESLAYERMODE) == INPUT_TYPE_AMOUNT_PROMPT;
-    }
-
-    private String readInputText() {
-        return client.getVarcStrValue(VarClientID.MESLAYERINPUT);
+            && clientThread != null;
     }
 
     /**
+     * Whether the chatbox is currently showing an "enter an amount" prompt.
+     *
+     * <p>Only ever called on the client thread. Key events arrive on the AWT thread, and reading
+     * client state from there is both a plugin hub review point and a genuine race: the prompt
+     * can close between the check and the write.</p>
+     */
+    private boolean isAmountPromptActive() {
+        return client.getVarcIntValue(VarClientID.MESLAYERMODE) == INPUT_TYPE_AMOUNT_PROMPT;
+    }
+
+    /**
+     * Reads what the prompt holds, converts it and writes it back, all on the client thread.
+     *
+     * <p>Key events arrive on the AWT thread, ahead of the game applying the keystrokes it has
+     * already queued. Reading here and deferring only the write meant a fast "9.4" then "m"
+     * could be read as "9", converted to 9, and then have the game append its own "m" to give
+     * nine million instead of nine point four.
+     *
      * @param redraw whether the prompt still has to show the new text. A converted amount is read
      *               by the game and the prompt closes, so only the typed decimal point needs it.
      */
-    private void setInputText(String text, boolean redraw) {
-        if (text == null) {
-            return;
-        }
+    private void rewriteInputText(UnaryOperator<String> conversion, boolean redraw) {
         clientThread.invoke(() -> {
-            client.setVarcStrValue(VarClientID.MESLAYERINPUT, text);
+            if (!isAmountPromptActive()) {
+                return;
+            }
+            String converted = conversion.apply(client.getVarcStrValue(VarClientID.MESLAYERINPUT));
+            if (converted == null) {
+                return;
+            }
+            client.setVarcStrValue(VarClientID.MESLAYERINPUT, converted);
             if (redraw) {
                 client.runScript(ScriptID.CHAT_TEXT_INPUT_REBUILD, "");
             }

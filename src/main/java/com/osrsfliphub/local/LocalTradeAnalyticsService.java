@@ -25,6 +25,7 @@
 package com.osrsfliphub;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -75,8 +76,10 @@ final class LocalTradeAnalyticsService {
                     info.lastBuyPrice = delta.price;
                 }
             } else {
-                if (info.lastSellTs == null || delta.tsClientMs >= info.lastSellTs) {
-                    info.lastSellTs = delta.tsClientMs;
+                // A sale is booked when it ended; the latest to end is the latest sale.
+                long soldAtMs = delta.closedAtMs();
+                if (info.lastSellTs == null || soldAtMs >= info.lastSellTs) {
+                    info.lastSellTs = soldAtMs;
                     info.lastSellPrice = delta.price;
                 }
             }
@@ -84,57 +87,69 @@ final class LocalTradeAnalyticsService {
         return infoMap;
     }
 
+    /**
+     * How much of each item's four-hour buy limit is spoken for.
+     *
+     * <p>The game opens the window at the first purchase made once the previous one has run
+     * out, and closes it four hours later, so buys sitting in an expired window no longer
+     * count at all. Measuring a plain four hours back from now instead would keep charging a
+     * purchase made five hours ago against a window that has already reset.
+     */
     Map<Integer, LocalLimitInfo> buildLocalLimitInfo(List<LocalTradeDelta> snapshot, long nowMs) {
         Map<Integer, LocalLimitInfo> infoMap = new HashMap<>();
         if (snapshot == null || snapshot.isEmpty()) {
             return infoMap;
         }
-        long windowStart = nowMs - limitWindowMs;
+        Map<Integer, List<LocalTradeDelta>> buysByItem = new HashMap<>();
         Set<String> seen = new HashSet<>();
         for (LocalTradeDelta delta : snapshot) {
-            if (delta == null || !delta.isBuy || delta.deltaQty <= 0 || delta.baselineSynthetic) {
-                continue;
-            }
-            if (delta.tsClientMs <= 0 || delta.tsClientMs < windowStart) {
-                continue;
-            }
-            if (delta.tsClientMs > nowMs + futureToleranceMs) {
+            if (!countsTowardBuyLimit(delta, nowMs)) {
                 continue;
             }
             String signature = LocalTradeDeltaUtils.buildLimitTradeSignature(delta, localEventBucketMs);
             if (!seen.add(signature)) {
                 continue;
             }
-            LocalLimitInfo info = infoMap.computeIfAbsent(delta.itemId, LocalLimitInfo::new);
-            info.buyQty += delta.deltaQty;
-            if (info.firstBuyTs == null || delta.tsClientMs < info.firstBuyTs) {
-                info.firstBuyTs = delta.tsClientMs;
+            buysByItem.computeIfAbsent(delta.itemId, key -> new ArrayList<>()).add(delta);
+        }
+
+        for (Map.Entry<Integer, List<LocalTradeDelta>> entry : buysByItem.entrySet()) {
+            List<LocalTradeDelta> buys = entry.getValue();
+            buys.sort(Comparator.comparingLong(buy -> buy.tsClientMs));
+            long windowStartMs = -1L;
+            long windowQty = 0L;
+            for (LocalTradeDelta buy : buys) {
+                if (windowStartMs < 0L || buy.tsClientMs >= windowStartMs + limitWindowMs) {
+                    windowStartMs = buy.tsClientMs;
+                    windowQty = 0L;
+                }
+                windowQty += buy.deltaQty;
             }
+            // The last window this item opened has already run its four hours, so the whole
+            // limit is available again and there is nothing to report.
+            if (windowStartMs < 0L || nowMs >= windowStartMs + limitWindowMs) {
+                continue;
+            }
+            LocalLimitInfo info = infoMap.computeIfAbsent(entry.getKey(), LocalLimitInfo::new);
+            info.buyQty += windowQty;
+            info.firstBuyTs = windowStartMs;
         }
         return infoMap;
     }
 
-    boolean hasRecentLocalBuy(List<LocalTradeDelta> snapshot, int itemId, long nowMs) {
-        if (snapshot == null || snapshot.isEmpty() || itemId <= 0) {
+    /**
+     * Whether a delta is a purchase that can be placed in a buy-limit window. Trades replayed
+     * from the in-game history are not: their timestamps were invented when they were imported,
+     * so they say nothing about when the limit was actually spent.
+     */
+    private boolean countsTowardBuyLimit(LocalTradeDelta delta, long nowMs) {
+        if (delta == null || !delta.isBuy || delta.deltaQty <= 0 || delta.baselineSynthetic) {
             return false;
         }
-        long windowStart = nowMs - limitWindowMs;
-        for (LocalTradeDelta delta : snapshot) {
-            if (delta == null || !delta.isBuy || delta.deltaQty <= 0) {
-                continue;
-            }
-            if (delta.itemId != itemId) {
-                continue;
-            }
-            if (delta.tsClientMs <= 0 || delta.tsClientMs < windowStart) {
-                continue;
-            }
-            if (delta.tsClientMs > nowMs + futureToleranceMs) {
-                continue;
-            }
-            return true;
+        if (delta.slot >= GeLifecyclePluginConstants.GE_HISTORY_SYNTHETIC_SLOT_START) {
+            return false;
         }
-        return false;
+        return delta.tsClientMs > 0 && delta.tsClientMs <= nowMs + futureToleranceMs;
     }
 
     List<LocalTradeDelta> copySnapshot(List<LocalTradeDelta> deltas) {

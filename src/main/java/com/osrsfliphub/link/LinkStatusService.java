@@ -155,10 +155,6 @@ final class LinkStatusService {
         pushToPanel();
     }
 
-    void clearHint() {
-        writeHint("");
-    }
-
     private String resolveSettledStatus() {
         if (linkGuard == null || !linkGuard.isSyncEnabled()) {
             return SYNC_OFF;
@@ -168,11 +164,6 @@ final class LinkStatusService {
         }
         String hint = config != null ? config.licenseKeyHint() : null;
         return isBlank(hint) ? LINKED : LINKED + " (key ending " + hint + ")";
-    }
-
-    private boolean isFailureMessage(String value) {
-        return REJECTED.equals(value) || UNREACHABLE.equals(value) || FAILED.equals(value)
-            || NEEDS_LOGIN.equals(value);
     }
 
     private String hintFor(String licenseKey) {

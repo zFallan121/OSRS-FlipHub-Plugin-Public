@@ -59,10 +59,18 @@ public class OfferSnapshot {
         GrandExchangeOfferState offerState = offer.getState();
         String state = offerState != null ? offerState.name() : "EMPTY";
 
+        // A cancelled offer still says which side it was. Reading it off the previous
+        // snapshot alone meant that with no previous snapshot - a fresh start, or just after
+        // the slots were cleared - the first offer the player cancelled was recorded as a
+        // sale of something they had been trying to buy.
         boolean isBuy = false;
-        if (offerState == GrandExchangeOfferState.BUYING || offerState == GrandExchangeOfferState.BOUGHT) {
+        if (offerState == GrandExchangeOfferState.BUYING
+            || offerState == GrandExchangeOfferState.BOUGHT
+            || offerState == GrandExchangeOfferState.CANCELLED_BUY) {
             isBuy = true;
-        } else if (offerState == GrandExchangeOfferState.SELLING || offerState == GrandExchangeOfferState.SOLD) {
+        } else if (offerState == GrandExchangeOfferState.SELLING
+            || offerState == GrandExchangeOfferState.SOLD
+            || offerState == GrandExchangeOfferState.CANCELLED_SELL) {
             isBuy = false;
         } else if (prev != null) {
             isBuy = prev.isBuy;

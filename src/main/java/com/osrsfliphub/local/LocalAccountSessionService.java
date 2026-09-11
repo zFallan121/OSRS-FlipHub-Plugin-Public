@@ -105,12 +105,37 @@ final class LocalAccountSessionService {
         if (accountKey <= 0) {
             return;
         }
-        long nowMs = System.currentTimeMillis();
+        startSessionIfAbsent(localSessionStartByAccount, localStatsLock, accountKey, accountwideKey,
+            System.currentTimeMillis());
+    }
+
+    void startSessionIfAbsent(Map<Long, Long> localSessionStartByAccount,
+                              Object localStatsLock,
+                              long accountKey,
+                              long accountwideKey,
+                              long nowMs) {
+        if (localSessionStartByAccount == null || localStatsLock == null || accountKey <= 0) {
+            return;
+        }
         synchronized (localStatsLock) {
-            localSessionStartByAccount.put(accountKey, nowMs);
+            // Only the first login of a session starts the clock. The client reports
+            // LOGGED_IN again after every world hop and every loading screen, and
+            // overwriting here would restart the Session range each time, emptying it
+            // while the session timer beside it kept counting.
+            localSessionStartByAccount.putIfAbsent(accountKey, nowMs);
             if (accountwideKey >= 0) {
-                localSessionStartByAccount.put(accountwideKey, nowMs);
+                localSessionStartByAccount.putIfAbsent(accountwideKey, nowMs);
             }
+        }
+    }
+
+    /** Ends the session: the next login starts a new one. */
+    void clearLocalAccountSessionStarts(Map<Long, Long> localSessionStartByAccount, Object localStatsLock) {
+        if (localSessionStartByAccount == null || localStatsLock == null) {
+            return;
+        }
+        synchronized (localStatsLock) {
+            localSessionStartByAccount.clear();
         }
     }
 

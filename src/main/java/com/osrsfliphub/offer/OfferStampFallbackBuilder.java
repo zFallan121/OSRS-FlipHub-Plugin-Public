@@ -52,22 +52,21 @@ final class OfferStampFallbackBuilder {
                 if (itemName != null && !itemName.trim().isEmpty()) {
                     item.item_name = itemName;
                 }
-                Integer guidePrice = lookup.lookupGuidePriceSafe(stamp.itemId);
-                if (guidePrice != null && guidePrice > 0) {
-                    item.instabuy_price = guidePrice;
-                    item.instasell_price = guidePrice;
-                }
             }
             if (stamp.isBuy) {
                 item.last_buy_price = stamp.price;
             } else {
                 item.last_sell_price = stamp.price;
             }
-            if (item.last_buy_price != null && item.last_sell_price != null
-                && item.last_buy_price > 0 && item.last_sell_price > 0) {
-                int margin = item.last_sell_price - item.last_buy_price;
-                item.margin = margin;
-                item.roi_percent = item.last_buy_price > 0 ? (margin * 100.0) / item.last_buy_price : null;
+            // The same prices and the same margin every other card gets. These used to be the
+            // game's single guide price written into both the buy and the sell slot, so a card
+            // on a fresh install showed one number twice and a margin of nothing, which reads
+            // as a broken price feed rather than as a card with no trades behind it yet.
+            LocalItemEnrichmentService enrichment = PluginInjectorBridge.get(LocalItemEnrichmentService.class);
+            if (enrichment != null) {
+                enrichment.applyGuidePrices(item, stamp.itemId, false);
+                enrichment.applyLocalLimitInfo(item, stamp.itemId, null);
+                enrichment.applyMarginInfo(item);
             }
             items.add(item);
         }

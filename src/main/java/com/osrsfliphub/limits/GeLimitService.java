@@ -129,18 +129,25 @@ final class GeLimitService {
             boolean updated = false;
             for (int itemId : missing) {
                 int limit = 0;
+                boolean answered = false;
                 try {
                     Integer lookedUp = lookupGeLimit(itemId);
                     if (lookedUp != null) {
                         limit = lookedUp;
                     }
+                    answered = true;
                 } catch (RuntimeException ex) {
                     logDebug("Local GE limit lookup failed for " + itemId + ": " + ex.getMessage());
                 }
                 synchronized (geLimitLock) {
-                    if (limit > 0) {
+                    if (answered) {
+                        // "This item has no limit" is an answer and has to be remembered.
+                        // Recording only real limits left every limitless item looking unasked,
+                        // so each refresh asked about them again and they filled the
+                        // per-refresh budget ahead of items whose limit nobody knew yet. Those
+                        // items never got a turn and their remaining-limit line stayed blank.
                         geLimitCache.put(itemId, limit);
-                        updated = true;
+                        updated |= limit > 0;
                     }
                     geLimitPending.remove(itemId);
                 }

@@ -165,7 +165,10 @@ final class WikiPriceService {
         if (wikiFetchTask != null && !wikiFetchTask.isCancelled()) {
             return;
         }
-        wikiFetchTask = scheduler.scheduleAtFixedRate(() -> requestFetch(false), 5, 1, TimeUnit.SECONDS);
+        // No initial delay. The gate below already refuses a fetch while the panel is hidden
+        // and holds a floor between attempts, so waiting five seconds first only ever delayed
+        // the first prices the player sees.
+        wikiFetchTask = scheduler.scheduleAtFixedRate(() -> requestFetch(false), 0, 1, TimeUnit.SECONDS);
     }
 
     void stop() {
@@ -200,6 +203,7 @@ final class WikiPriceService {
                         wikiLatestCache.putAll(entries);
                         wikiLatestFetchedMs = System.currentTimeMillis();
                     }
+                    notifyPricesArrived();
                 } finally {
                     wikiFetchInFlight.set(false);
                 }
@@ -216,6 +220,29 @@ final class WikiPriceService {
                 }
             }
         });
+    }
+
+    /**
+     * Tell the panel there are prices now.
+     *
+     * <p>The panel builds its cards once, when it becomes visible, and the first prices arrive
+     * a moment after that. Nothing used to say so, so the cards kept whatever they had been
+     * built with until some unrelated event happened to rebuild them: a batch of buy limits
+     * finishing, an item name being looked up, an offer changing. On a list of any size that
+     * is tens of seconds of a panel that looks broken.
+     *
+     * <p>The refresh is debounced by the coordinator, and a successful fetch happens at most
+     * once per cache window, so this is cheap.
+     */
+    private void notifyPricesArrived() {
+        GeLifecyclePlugin plugin = PluginAccess.pluginOrNull();
+        if (plugin == null) {
+            return;
+        }
+        PanelRefreshCoordinator coordinator = PluginInjectorBridge.get(PanelRefreshCoordinator.class);
+        if (coordinator != null) {
+            coordinator.scheduleRefreshSoon(plugin.scheduler);
+        }
     }
 
     private boolean shouldFetch(boolean allowWhenHidden) {

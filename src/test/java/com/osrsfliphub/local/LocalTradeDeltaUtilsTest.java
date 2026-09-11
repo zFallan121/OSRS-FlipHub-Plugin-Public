@@ -35,6 +35,11 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 public class LocalTradeDeltaUtilsTest {
+    /**
+     * A legacy completion repeating its update's quantity is first zeroed as the
+     * duplicate it is, and then, as the offer's completion, folds the update into one
+     * record: the offer's ten, once, timed at the fill and marked with the completion.
+     */
     @Test
     public void dedupeLocalTradesCollapsesUpdateCompletionPair() {
         long ts = System.currentTimeMillis();
@@ -43,17 +48,43 @@ public class LocalTradeDeltaUtilsTest {
 
         List<LocalTradeDelta> result = LocalTradeDeltaUtils.dedupeLocalTrades(
             Arrays.asList(update, completion),
-            100,
             600L,
             2000L
         );
 
         assertNotNull(result);
+        assertEquals(1, result.size());
+        LocalTradeDelta offer = result.get(0);
+        assertEquals("OFFER_COMPLETED", offer.eventType);
+        assertEquals(10, offer.deltaQty);
+        assertEquals(10000L, offer.deltaGp);
+        assertEquals(ts, offer.tsClientMs);
+        assertEquals(ts + 100, offer.endMs);
+    }
+
+    /**
+     * Two finished offers of the same size on one slot a quarter of an hour apart are two
+     * offers. The legacy repeated-completion heuristic would take the second for a repeat
+     * of the first; a record the collapser wrote is exempt from it.
+     */
+    @Test
+    public void twoSameSizedCollapsedOffersOnOneSlotAreBothKept() {
+        long ts = 1_000_000L;
+        LocalTradeDelta first = new LocalTradeDelta(ts, 3, 4151, true, 1_000, 500_000L, "OFFER_COMPLETED", 500, false,
+            ts - 10L, ts + 60_000L);
+        LocalTradeDelta second = new LocalTradeDelta(ts + 600_000L, 3, 4151, true, 1_000, 500_000L, "OFFER_COMPLETED",
+            500, false, ts + 590_000L, ts + 660_000L);
+
+        List<LocalTradeDelta> result = LocalTradeDeltaUtils.dedupeLocalTrades(
+            Arrays.asList(first, second),
+            600L,
+            2_000L
+        );
+
+        assertNotNull(result);
         assertEquals(2, result.size());
-        assertEquals("OFFER_UPDATED", result.get(0).eventType);
-        assertEquals("OFFER_COMPLETED", result.get(1).eventType);
-        assertEquals(0, result.get(1).deltaQty);
-        assertEquals(0L, result.get(1).deltaGp);
+        assertEquals(1_000, result.get(0).deltaQty);
+        assertEquals(1_000, result.get(1).deltaQty);
     }
 
     @Test
@@ -62,7 +93,6 @@ public class LocalTradeDeltaUtilsTest {
 
         List<LocalTradeDelta> result = LocalTradeDeltaUtils.dedupeLocalTrades(
             Arrays.asList(sell),
-            100,
             600L,
             2_000L
         );
@@ -84,17 +114,20 @@ public class LocalTradeDeltaUtilsTest {
 
         List<LocalTradeDelta> result = LocalTradeDeltaUtils.dedupeLocalTrades(
             Arrays.asList(update, completion),
-            100,
             600L,
             2_000L
         );
 
+        // The gross update is brought to net, the completion recognised as its repeat and
+        // zeroed, and the pair folded into one offer that sold the quantity once, net.
         assertNotNull(result);
-        assertEquals(2, result.size());
-        assertEquals("OFFER_UPDATED", result.get(0).eventType);
-        assertEquals("OFFER_COMPLETED", result.get(1).eventType);
-        assertEquals(0, result.get(1).deltaQty);
-        assertEquals(0L, result.get(1).deltaGp);
+        assertEquals(1, result.size());
+        LocalTradeDelta offer = result.get(0);
+        assertEquals("OFFER_COMPLETED", offer.eventType);
+        assertEquals(qty, offer.deltaQty);
+        assertEquals(net, offer.deltaGp);
+        assertEquals(ts, offer.tsClientMs);
+        assertEquals(ts + 600_000L, offer.endMs);
     }
 
     @Test
@@ -109,7 +142,6 @@ public class LocalTradeDeltaUtilsTest {
 
         List<LocalTradeDelta> result = LocalTradeDeltaUtils.dedupeLocalTrades(
             Arrays.asList(completionGross, completionNet),
-            100,
             600L,
             2_000L
         );
@@ -117,27 +149,6 @@ public class LocalTradeDeltaUtilsTest {
         assertNotNull(result);
         assertEquals(1, result.size());
         assertEquals("OFFER_COMPLETED", result.get(0).eventType);
-    }
-
-    @Test
-    public void mergeLocalTradesDedupesAndTrimsToMax() {
-        LocalTradeDelta a = new LocalTradeDelta(1000L, 1, 1, true, 1, 100L, "OFFER_UPDATED", 100, false);
-        LocalTradeDelta b = new LocalTradeDelta(2000L, 1, 2, true, 1, 200L, "OFFER_UPDATED", 200, false);
-        LocalTradeDelta duplicateOfA = new LocalTradeDelta(1000L, 1, 1, true, 1, 100L, "OFFER_UPDATED", 100, false);
-        LocalTradeDelta c = new LocalTradeDelta(3000L, 1, 3, true, 1, 300L, "OFFER_UPDATED", 300, false);
-
-        List<LocalTradeDelta> merged = LocalTradeDeltaUtils.mergeLocalTrades(
-            new ArrayList<>(Arrays.asList(a, b)),
-            new ArrayList<>(Arrays.asList(duplicateOfA, c)),
-            null,
-            null,
-            2
-        );
-
-        assertNotNull(merged);
-        assertEquals(2, merged.size());
-        assertTrue(merged.stream().anyMatch(delta -> delta.itemId == 2));
-        assertTrue(merged.stream().anyMatch(delta -> delta.itemId == 3));
     }
 
     @Test

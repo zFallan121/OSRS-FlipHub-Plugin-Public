@@ -44,7 +44,11 @@ final class GeLifecyclePluginConstants {
     static final int SUGGESTION_RIGHT_X = 8;
     static final int SUGGESTION_RIGHT_WIDTH_PADDING = 16;
     static final String WIKI_LATEST_URL = "https://prices.runescape.wiki/api/v1/osrs/latest";
-    static final String WIKI_USER_AGENT = "FlipHub OSRS Plugin (contact: support@fliphub.app)";
+    // The wiki price API requires a contact route that actually works, and blocks callers whose
+    // contact goes nowhere. The site is listed alongside the mailbox because the mailbox sits on
+    // a different domain from everything else the plugin shows the player.
+    static final String WIKI_USER_AGENT =
+        "FlipHub OSRS RuneLite plugin (https://www.osrsfliphub.com; contact: support@fliphub.app)";
     static final long WIKI_CACHE_TTL_MS = 2 * 60 * 1000;
     static final long WIKI_MIN_REFRESH_MS = 60_000L;
     static final long LOGIN_GRACE_MS = 60_000L;
@@ -69,11 +73,29 @@ final class GeLifecyclePluginConstants {
     static final String LEGACY_DEV_CONFIG_GROUP = FliphubConfigGroups.LEGACY_DEV_CONFIG_GROUP;
     static final int GE_HISTORY_GROUP_ID = 383;
     static final int GE_HISTORY_CONTAINER_CHILD_ID = 3;
+    /** How long a read of the history list must hold still before it is trusted as complete. */
     static final long GE_HISTORY_SYNC_WIDGET_SETTLE_MS = 2_000L;
+    /** How long the list may stay incomplete or keep changing before this login's sync is given up. */
+    static final long GE_HISTORY_SYNC_READ_GIVE_UP_MS = 20_000L;
     // GE history UI only shows ~42 entries; treat as <=45 for safety.
     static final int GE_HISTORY_CURSOR_MAX_TRADES = 45;
     static final int GE_HISTORY_CURSOR_MIN_MATCH = 6;
     static final int GE_HISTORY_CURSOR_ROLLOVER_MIN_LEN = 30;
+    /**
+     * How many times running the visible list may be shorter than the stored cursor before
+     * the cursor is rewritten rather than trusted. A short read is normally a half-drawn
+     * widget and is skipped; a list that stays short means the cursor describes rows that
+     * are gone, and skipping forever meant the sync never ran again with no way to clear it.
+     */
+    static final int GE_HISTORY_SHORT_READS_BEFORE_REBASELINE = 5;
+    /**
+     * Slot number the GE-history sync starts numbering replayed trades from.
+     * Real Grand Exchange slots are single digits, so a delta at or above this
+     * was reconstructed from the history widget - which carries no timestamps,
+     * meaning the delta's own timestamp was made up at replay time and is not
+     * evidence of when anything happened.
+     */
+    static final int GE_HISTORY_SYNTHETIC_SLOT_START = 10_000;
     static final String WIPE_BARRIER_KEY_PREFIX = "wipeBarrierV1_";
     static final String GE_HISTORY_CURSOR_KEY_PREFIX = "geHistoryCursorV1_";
     static final String[] OFFER_STATUS_MARKERS = new String[] {
@@ -83,7 +105,6 @@ final class GeLifecyclePluginConstants {
         "bought a total",
         "sold a total"
     };
-    static final int MAX_LOCAL_TRADES = 5000;
     static final long LOCAL_EVENT_BUCKET_MS = 600L;
     static final long DUPLICATE_TRADE_WINDOW_MS = 2_000L;
     static final String[] OFFER_SETUP_BLOCKERS = new String[] {

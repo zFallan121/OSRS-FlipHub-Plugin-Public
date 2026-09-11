@@ -24,7 +24,20 @@
  */
 package com.osrsfliphub;
 
+/**
+ * One stored trade record.
+ *
+ * <p>While an offer is filling there is one of these per fill, holding that fill's
+ * increment. When the offer completes, {@link LocalTradeOfferCollapser} replaces
+ * them with one record holding the offer's totals, so a finished offer is always
+ * exactly one record however many chunks it filled in.
+ */
 final class LocalTradeDelta {
+    /**
+     * When the quantity here changed hands. For a collapsed offer this is its first
+     * fill: the buy-limit window opens at the first purchase, and a position is held
+     * from the moment it was opened, so neither may move to the completion.
+     */
     long tsClientMs;
     int slot;
     int itemId;
@@ -34,12 +47,31 @@ final class LocalTradeDelta {
     String eventType;
     int price;
     boolean baselineSynthetic;
+    /**
+     * When the offer this record belongs to was placed, as the slot's stamp saw it
+     * ({@link OfferUpdateStamp#firstSeenMs}). Slots are reused, so this is what tells
+     * two offers of the same item at the same price on one slot apart. Zero on records
+     * written before it was tracked, and on trades replayed from the in-game history.
+     */
+    long offerStartMs;
+    /**
+     * When the offer ended: its completion, or - for a run of fills the slot moved on
+     * from without a completion being seen - its last fill. Zero on a single fill, which
+     * is one moment. Only a record the collapser wrote carries one, which is also how
+     * the load-time normalisation knows to leave it alone.
+     */
+    long endMs;
 
     LocalTradeDelta() {
     }
 
     LocalTradeDelta(long tsClientMs, int slot, int itemId, boolean isBuy, int deltaQty, long deltaGp,
                     String eventType, int price, boolean baselineSynthetic) {
+        this(tsClientMs, slot, itemId, isBuy, deltaQty, deltaGp, eventType, price, baselineSynthetic, 0L, 0L);
+    }
+
+    LocalTradeDelta(long tsClientMs, int slot, int itemId, boolean isBuy, int deltaQty, long deltaGp,
+                    String eventType, int price, boolean baselineSynthetic, long offerStartMs, long endMs) {
         this.tsClientMs = tsClientMs;
         this.slot = slot;
         this.itemId = itemId;
@@ -49,5 +81,22 @@ final class LocalTradeDelta {
         this.eventType = eventType;
         this.price = price;
         this.baselineSynthetic = baselineSynthetic;
+        this.offerStartMs = offerStartMs;
+        this.endMs = endMs;
+    }
+
+    /**
+     * When the offer ended: {@link #endMs} when it has one, else the record's own time.
+     *
+     * <p>A sale is booked at this moment - replayed against the stock held by then,
+     * given the flip's completion time, placed in a range, the end of the hold - because
+     * a sale offer left up while more of the item is bought sells its later units out of
+     * that later stock, and one record can only be matched once. Booking it when it
+     * ended is the one choice that never leaves a real sale unmatched. A purchase keeps
+     * {@link #tsClientMs} for its anchors: the position opens, and the buy-limit window
+     * starts, at the first unit bought.
+     */
+    long closedAtMs() {
+        return endMs > 0 ? endMs : tsClientMs;
     }
 }

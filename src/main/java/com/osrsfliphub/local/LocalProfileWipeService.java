@@ -112,18 +112,27 @@ final class LocalProfileWipeService {
         }
     }
 
-    private void clearProfileData(long accountKey, String displayName) {
+    /** @return whether the profile is actually gone from disk, not merely from memory. */
+    private boolean clearProfileData(long accountKey, String displayName) {
         ProfileWipeDataService service = PluginInjectorBridge.get(ProfileWipeDataService.class);
-        if (service != null) {
-            service.clearProfileDataForWipe(accountKey, displayName);
-        }
+        return service != null && service.clearProfileDataForWipe(accountKey, displayName);
     }
 
-    private void clearAccountwideData() {
+    /** @return whether the accountwide file is actually gone from disk. */
+    private boolean clearAccountwideData() {
         ProfileWipeDataService service = PluginInjectorBridge.get(ProfileWipeDataService.class);
-        if (service != null) {
-            service.clearAccountwideDataForWipe();
-        }
+        return service != null && service.clearAccountwideDataForWipe();
+    }
+
+    /**
+     * Told to the player when a wipe emptied memory but could not empty the file. Saying
+     * "cleared" there is the worst outcome: they believe the history is destroyed, the panel
+     * agrees, and it all returns at the next restart.
+     */
+    private void reportWipeWriteFailure() {
+        showError("Your history was cleared on screen but could not be deleted from disk. "
+            + "Check that the FlipHub folder is writable, then wipe again.");
+        pushGameMessage("FlipHub wipe failed: the history could not be deleted from disk.");
     }
 
     private void loadLocalTradesForAccount(long accountKey, boolean forceReload) {
@@ -189,13 +198,18 @@ final class LocalProfileWipeService {
             setProfileDisplayName(accountKey, trimmedDisplayName);
         }
 
-        clearProfileData(accountKey, displayName);
+        boolean cleared = clearProfileData(accountKey, displayName);
 
         // Ensure accountwide view reflects the wipe immediately.
         loadLocalTradesForAccount(accountKey, false);
         loadLocalTradesForAccount(accountwideKey, true);
         refreshUiAfterWipe();
         markAccountwideUploadDirty();
+
+        if (!cleared) {
+            reportWipeWriteFailure();
+            return;
+        }
 
         String label = !trimmedDisplayName.isEmpty()
             ? trimmedDisplayName : ProfileDisplayNames.placeholderFor(accountKey);
@@ -225,6 +239,7 @@ final class LocalProfileWipeService {
             keys.add(currentAccountKey);
         }
 
+        boolean allCleared = true;
         for (Long key : keys) {
             if (key == null || key <= 0) {
                 continue;
@@ -236,15 +251,19 @@ final class LocalProfileWipeService {
                 persistGeHistoryCursor(key, new ArrayList<>());
             }
 
-            clearProfileData(key, resolveProfileDisplayName(key));
+            allCleared &= clearProfileData(key, resolveProfileDisplayName(key));
         }
 
-        clearAccountwideData();
+        allCleared &= clearAccountwideData();
 
         // Reload accountwide after the wipe so the UI updates immediately.
         loadLocalTradesForAccount(accountwideKey, true);
         refreshUiAfterWipe();
         markAccountwideUploadDirty();
+        if (!allCleared) {
+            reportWipeWriteFailure();
+            return;
+        }
         pushGameMessage("FlipHub local wipe: cleared history for all profiles.");
     }
 }

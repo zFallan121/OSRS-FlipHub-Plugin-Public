@@ -24,6 +24,9 @@
  */
 package com.osrsfliphub;
 
+import java.util.EnumSet;
+import java.util.Set;
+
 public class StatsItem {
     public int item_id;
     public String item_name;
@@ -33,4 +36,21 @@ public class StatsItem {
     public Integer total_qty;
     public Integer fill_count;
     public Long last_sell_ts_ms;
+    /**
+     * How long this item's money was tied up, summed over its completed flips.
+     *
+     * <p>Weighted per unit, so one purchase sold off in ten parts counts as one holding rather
+     * than ten. Divided by the flip count it is what a flip of this item takes to come round,
+     * which is the reading the card shows.
+     */
+    public Long active_ms;
+
+    /**
+     * Which activity kinds produced these totals. Local only - the API neither
+     * sends nor receives it - and empty for an item that was only ever flipped.
+     */
+    public transient Set<ConversionKind> conversionKinds = EnumSet.noneOf(ConversionKind.class);
+
+    /** Whether any of these totals came from an ordinary buy-then-sell flip. */
+    public transient boolean hasPlainFlip;
 }

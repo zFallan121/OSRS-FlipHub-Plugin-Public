@@ -35,9 +35,13 @@ import java.util.Map;
 import java.util.Set;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Singleton
 final class ProfileWipeDataService {
+    private static final Logger log = LoggerFactory.getLogger(ProfileWipeDataService.class);
+
     private final long accountwideKey = GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
     private final Object localStatsLock;
     private final Map<Long, List<LocalTradeDelta>> localTradeDeltasByAccount;
@@ -58,37 +62,50 @@ final class ProfileWipeDataService {
         this.gson = gson;
     }
 
-    private void writeProfileData(long accountKey, List<LocalTradeDelta> deltas) {
-        PluginInjectorBridge.get(ProfileStorageFacadeService.class).writeProfileData(accountKey, deltas);
+    private boolean writeProfileData(long accountKey, List<LocalTradeDelta> deltas) {
+        ProfileStorageFacadeService storage = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
+        return storage != null && storage.writeProfileData(accountKey, deltas);
     }
 
-    void clearProfileDataForWipe(long accountKey, String displayName) {
+    /**
+     * Clears one profile, on disk as well as in memory.
+     *
+     * @return whether the data is actually gone. A wipe that only emptied memory must never be
+     *         reported as done: the player is told their history is deleted, the panel shows
+     *         nothing, and the file comes back at the next restart.
+     */
+    boolean clearProfileDataForWipe(long accountKey, String displayName) {
         resetInMemoryProfileData(accountKey);
         List<LocalTradeDelta> emptyDeltas = new ArrayList<>();
-        writeProfileData(accountKey, emptyDeltas);
-        writeLegacyProfileDataIfPresent(accountKey, displayName, emptyDeltas);
+        boolean written = writeProfileData(accountKey, emptyDeltas);
+        boolean legacyWritten = writeLegacyProfileDataIfPresent(accountKey, displayName, emptyDeltas);
+        return written && legacyWritten;
     }
 
-    void clearAccountwideDataForWipe() {
+    /** @return whether the accountwide file was actually cleared; see clearProfileDataForWipe. */
+    boolean clearAccountwideDataForWipe() {
         resetInMemoryProfileData(accountwideKey);
         List<LocalTradeDelta> emptyDeltas = new ArrayList<>();
-        writeProfileData(accountwideKey, emptyDeltas);
-        writeLegacyProfileDataIfPresent(accountwideKey, "Accountwide", emptyDeltas);
+        boolean written = writeProfileData(accountwideKey, emptyDeltas);
+        boolean legacyWritten = writeLegacyProfileDataIfPresent(accountwideKey, "Accountwide", emptyDeltas);
+        return written && legacyWritten;
     }
 
-    void writeLegacyProfileDataIfPresent(long accountKey, String displayName, List<LocalTradeDelta> deltas) {
+    /** @return whether the legacy copy was cleared, or true when there is no legacy copy. */
+    boolean writeLegacyProfileDataIfPresent(long accountKey, String displayName, List<LocalTradeDelta> deltas) {
         if (gson == null) {
-            return;
+            return true;
         }
-        Path legacyDir = PluginInjectorBridge.get(ProfileStorageFacadeService.class).getLegacyProfilesDir();
+        ProfileStorageFacadeService storage = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
+        Path legacyDir = storage != null ? storage.getLegacyProfilesDir() : null;
         if (legacyDir == null || !Files.exists(legacyDir)) {
-            return;
+            return true;
         }
         Path file = accountKey == accountwideKey
             ? legacyDir.resolve("accountwide.json")
             : legacyDir.resolve("hash_" + accountKey + ".json");
         if (!Files.exists(file)) {
-            return;
+            return true;
         }
         ProfileData data = new ProfileData();
         data.accountHash = accountKey;
@@ -97,7 +114,12 @@ final class ProfileWipeDataService {
         data.updatedMs = System.currentTimeMillis();
         try {
             Files.writeString(file, gson.toJson(data), StandardCharsets.UTF_8);
-        } catch (IOException ignored) {
+            return true;
+        } catch (IOException ex) {
+            // The legacy copy is not the source of truth, but it still holds the history the
+            // player asked to destroy, so a failure here is reported rather than swallowed.
+            log.warn("FlipHub: could not clear the legacy profile copy at {}", file, ex);
+            return false;
         }
     }
 
@@ -109,5 +131,9 @@ final class ProfileWipeDataService {
         statsCacheByAccount.remove(accountKey);
         loadedProfiles.remove(accountKey);
         loadedProfileFileMs.remove(accountKey);
+        ConversionRejectionStore rejections = PluginInjectorBridge.get(ConversionRejectionStore.class);
+        if (rejections != null) {
+            rejections.clear(accountKey);
+        }
     }
 }

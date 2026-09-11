@@ -82,10 +82,6 @@ final class FlipHubPanelComponentBundle {
         return ageTooltipCoordinator;
     }
 
-    FlipHubItemCardBuilder getItemCardBuilder() {
-        return itemCardBuilder;
-    }
-
     FlipHubItemListContentRenderer getItemListContentRenderer() {
         return itemListContentRenderer;
     }

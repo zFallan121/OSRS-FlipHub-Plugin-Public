@@ -48,7 +48,6 @@ final class GeLifecyclePluginLifecycleCoordinator {
         plugin.getOfferStampStateServices().resetForStartup();
         PluginInjectorBridge.get(ProfileStore.class);
         PluginInjectorBridge.get(LinkStatusService.class).refresh();
-        plugin.getLocalTradesRuntimeService().ensureProfileLoaded(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY);
         if (plugin.client != null && plugin.client.getGameState() == GameState.LOGGED_IN) {
             plugin.getOfferStampStateServices().setLastLoginNow();
             PluginInjectorBridge.get(GeHistoryAutoSyncStateService.class).arm();
@@ -65,6 +64,12 @@ final class GeLifecyclePluginLifecycleCoordinator {
         plugin.panel = uiState.getPanel();
         plugin.navButton = uiState.getNavButton();
         plugin.offerTimerOverlay = uiState.getOfferTimerOverlay();
+
+        // Both of these return early when the plugin has no panel, so they have to come after
+        // the assignment above. Run before it, they did nothing and the profile menu stayed
+        // empty until some later refresh happened to rebuild it.
+        plugin.getProfileWorkflowService().updateProfileOptionsUI();
+        plugin.getProfileWorkflowService().updateProfileHeader();
 
         plugin.getOfferStampStateServices().ensureDeviceId();
         GeLifecycleRuntimeSchedulerServices.RuntimeState runtimeState = plugin.runtimeSchedulerServices.start(
@@ -90,6 +95,19 @@ final class GeLifecyclePluginLifecycleCoordinator {
         // Start profile watcher after scheduler assignment; otherwise watcher startup can no-op.
         plugin.startProfileWatcher();
 
+        // Merges every profile file from disk and writes one back. Far too much for the thread
+        // drawing the client, and it needs the scheduler assigned just above to have somewhere
+        // to run, so it is queued here rather than earlier in startUp.
+        plugin.executeAsync(() ->
+            plugin.getLocalTradesRuntimeService().ensureProfileLoaded(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY));
+
+        PanelRefreshCoordinator refreshCoordinator = PluginInjectorBridge.get(PanelRefreshCoordinator.class);
+        if (refreshCoordinator != null) {
+            // The coordinator is a singleton that survives a toggle, so it can still be holding
+            // flags from the last shutdown.
+            refreshCoordinator.resetForStartUp();
+        }
+
         // Stays registered while the plugin runs; the listener itself reads the config toggle, so
         // turning decimal amounts off takes effect without re-registering.
         ChatboxDecimalInputListener decimalInputListener =
@@ -97,6 +115,12 @@ final class GeLifecyclePluginLifecycleCoordinator {
         if (plugin.keyManager != null && decimalInputListener != null) {
             plugin.keyManager.registerKeyListener(decimalInputListener);
         }
+
+        // Last, because it needs the scheduler and the panel that everything above assigns.
+        // A player who ticks the plugin on while already in the game gets no login event, so
+        // the login work is done here instead. It ends in a no-op at the login screen.
+        plugin.invokeOnClientThread(() ->
+            PluginInjectorBridge.get(GameStateChangedHandlerService.class).catchUpWithAnAlreadyRunningGame());
     }
 
     static void shutDown(GeLifecyclePlugin plugin) {
@@ -112,6 +136,17 @@ final class GeLifecyclePluginLifecycleCoordinator {
             plugin.overlayManager.remove(plugin.offerTimerOverlay);
             plugin.offerTimerOverlay = null;
         }
+        // Profile writes are queued to the IO pool now, so anything still unsaved has to be
+        // written here before that pool goes away.
+        plugin.getLocalTradesRuntimeService().flushUnsavedProfiles();
+        if (plugin.panel != null) {
+            // The panel itself is dropped below, but its two one-second timers and the global
+            // wheel listener would keep hold of it and keep firing on a panel nobody can see.
+            plugin.panel.dispose();
+        }
+        // The singletons outlive a plugin toggle, so what shutDown leaves behind is what the
+        // next startUp inherits.
+        PluginState lifecycleState = PluginInjectorBridge.get(PluginState.class);
         plugin.runtimeSchedulerServices.shutDown(
             plugin.apiClient,
             plugin.scheduler,
@@ -123,11 +158,16 @@ final class GeLifecyclePluginLifecycleCoordinator {
             () -> PluginInjectorBridge.get(UploadEventDispatchFacadeService.class),
             () -> plugin.config,
             () -> GeLifecyclePlugin.log,
-            plugin.snapshots,
+            lifecycleState != null ? lifecycleState.getSnapshots() : null,
             () -> plugin.getOfferStampStateServices().persistOfferUpdateTimes(),
-            plugin.offerUpdateStamps,
+            lifecycleState != null ? lifecycleState.getOfferUpdateStamps() : null,
             () -> PluginInjectorBridge.get(RecentTradeDeduper.class),
-            plugin.uploadState
+            lifecycleState != null ? lifecycleState.getUploadState() : null
         );
+
+        plugin.panel = null;
+        plugin.navButton = null;
+        plugin.scheduler = null;
+        plugin.ioExecutor = null;
     }
 }
