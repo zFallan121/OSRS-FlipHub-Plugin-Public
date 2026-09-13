@@ -121,22 +121,14 @@ final class LocalStatsSnapshotService {
      * hundred it looted, and the pair is booked as a flip at a blended cost that never existed.
      * The flip list is already built per character, so pooling also left the item rows unable
      * to add up to the total above them. Adding up per character agrees with both.
-     *
-     * <p>The pooled ledger is still the fallback for the case where no per-character files can
-     * be found, so an account that has one is never shown nothing.
      */
     private StatsSnapshot buildAccountwideSnapshot(Long sinceMs, StatsItemSort sort) {
         Set<Long> profileKeys = collectAccountwideProfileKeys();
         StatsAggregator aggregator = Bridge.get(StatsAggregator.class);
         StatsSnapshot aggregated =
             aggregator != null ? aggregator.buildFromProfiles(profileKeys, sinceMs, sort) : null;
-        if (StatsAggregator.hasMeaningfulStats(aggregated)) {
-            return aggregated;
-        }
-        StatsSnapshot pooled = buildSnapshotForAccount(accountwideKey, sinceMs, sort);
-        if (StatsAggregator.hasMeaningfulStats(pooled)) {
-            return pooled;
-        }
+        // No pooled fallback: the accountwide key is zero and the cache refuses a key that is
+        // not positive, so asking it for one only ever returned an empty snapshot.
         return aggregated != null ? aggregated : emptySnapshot();
     }
 

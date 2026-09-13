@@ -111,7 +111,7 @@ final class StatsCacheDelta {
         if (delta.deltaQty <= 0 && !isCompletion) {
             return;
         }
-        LocalInventoryState state = inventory.computeIfAbsent(delta.itemId, LocalInventoryState::new);
+        LocalInventoryState state = inventory.computeIfAbsent(delta.itemId, ignored -> new LocalInventoryState());
         if (delta.isBuy) {
             if (delta.deltaQty <= 0) {
                 return;
@@ -364,7 +364,7 @@ final class StatsCacheDelta {
             Iterator<DeferredSale> iterator = completedDeferredSales.iterator();
             while (iterator.hasNext()) {
                 DeferredSale sale = iterator.next();
-                LocalInventoryState state = inventory.computeIfAbsent(sale.itemId, LocalInventoryState::new);
+                LocalInventoryState state = inventory.computeIfAbsent(sale.itemId, ignored -> new LocalInventoryState());
                 // A shortfall of zero usually means stock arrived some other way -
                 // a plain buy made after the sale - and that ordering is real
                 // evidence, so the ledger is asked for nothing and the sale stays
@@ -418,8 +418,20 @@ final class StatsCacheDelta {
                     state.breakQty = 0L;
                     state.positionQty = 0L;
                     state.firstBuyTs = null;
+                } else if (matchQty >= Math.max(0L, state.qty - state.breakQty)) {
+                    // Every bought unit is going; the whole remaining cost was theirs.
+                    cost = state.cost;
+                    state.qty -= matchQty;
+                    state.cost = 0L;
+                    state.synced.trimTo(state.qty);
+                    state.convertedQty = Math.min(state.convertedQty, state.qty);
+                    state.breakQty = Math.min(state.breakQty, state.qty);
+                    state.positionQty = 0L;
                 } else {
-                    cost = (state.cost * matchQty) / state.qty;
+                    // Across bought units only, matching the ordinary sale path. The guard above
+                    // only admits a bucket that is wholly break or wholly converted stock, so the
+                    // two divisors agree today; this keeps them agreeing if that guard loosens.
+                    cost = (state.cost * matchQty) / Math.max(1L, state.qty - state.breakQty);
                     state.qty -= matchQty;
                     state.cost = Math.max(0L, state.cost - cost);
                     state.synced.trimTo(state.qty);
@@ -660,7 +672,7 @@ final class StatsCacheDelta {
         public void credit(int itemId, long quantity, long cost, Match match) {
             // The match is the panel's business, and this cache only keeps the
             // numbers. What made the stock is re-derived by the flip history.
-            LocalInventoryState state = inventory.computeIfAbsent(itemId, LocalInventoryState::new);
+            LocalInventoryState state = inventory.computeIfAbsent(itemId, ignored -> new LocalInventoryState());
             state.qty += quantity;
             state.cost += cost;
             state.convertedQty += quantity;
@@ -677,7 +689,7 @@ final class StatsCacheDelta {
             // the input was bought, so a set broken and sold reports the hold it
             // really had rather than starting the clock at the first sale.
             pending.rememberFirstBuyTs(earliestInputBuyTs);
-            LocalInventoryState state = inventory.computeIfAbsent(itemId, LocalInventoryState::new);
+            LocalInventoryState state = inventory.computeIfAbsent(itemId, ignored -> new LocalInventoryState());
             state.qty += quantity;
             state.breakQty += quantity;
             if (state.breaks == null) {
@@ -738,7 +750,6 @@ final class StatsCacheDelta {
     }
 
     static final class LocalInventoryState {
-        private final int itemId;
         private long qty;
         private long cost;
         /** The part of the quantity that came from a GE-history replay, and which. */
@@ -760,8 +771,7 @@ final class StatsCacheDelta {
         private long positionQty;
         private Long firstBuyTs;
 
-        private LocalInventoryState(int itemId) {
-            this.itemId = itemId;
+        private LocalInventoryState() {
         }
     }
 

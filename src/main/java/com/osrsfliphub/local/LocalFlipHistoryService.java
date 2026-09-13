@@ -467,8 +467,16 @@ final class LocalFlipHistoryService {
                     inventory.synced.clear();
                     inventory.convertedQty = 0L;
                     inventory.conversion = null;
+                } else if (matchQty >= Math.max(0L, inventory.qty - inventory.breakQty)) {
+                    cost = inventory.cost;
+                    inventory.qty -= matchQty;
+                    inventory.cost = 0L;
+                    inventory.synced.trimTo(inventory.qty);
+                    inventory.convertedQty = Math.min(inventory.convertedQty, inventory.qty);
                 } else {
-                    cost = (inventory.cost * matchQty) / inventory.qty;
+                    // Across bought units only; see the cache ledger, which splits it the same
+                    // way. Defensive: the guard above admits only a homogeneous bucket today.
+                    cost = (inventory.cost * matchQty) / Math.max(1L, inventory.qty - inventory.breakQty);
                     inventory.qty -= matchQty;
                     inventory.cost = Math.max(0L, inventory.cost - cost);
                     inventory.synced.trimTo(inventory.qty);
