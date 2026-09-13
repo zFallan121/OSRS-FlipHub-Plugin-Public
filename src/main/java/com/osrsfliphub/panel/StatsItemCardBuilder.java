@@ -55,8 +55,6 @@ final class StatsItemCardBuilder {
     private final StatsCardInteractionInstaller interactionInstaller;
     private final UiStyler uiStyler;
     private final ItemIconResolver itemIconResolver;
-    private final Consumer<StatsFlipInstance> onConversionRejected;
-    private final Consumer<StatsFlipInstance> onConversionRestored;
     private final Supplier<Integer> expandedStatsItemIdSupplier;
     private final Set<Integer> expandedStatsHistoryItems;
     private final PanelMutableState panelState;
@@ -68,11 +66,7 @@ final class StatsItemCardBuilder {
                                 Set<Integer> expandedStatsHistoryItems,
                                 PanelMutableState panelState,
                                 IntConsumer toggleStatsItemExpanded,
-                                IntConsumer toggleStatsHistoryExpanded,
-                                Consumer<StatsFlipInstance> onConversionRejected,
-                                Consumer<StatsFlipInstance> onConversionRestored) {
-        this.onConversionRejected = onConversionRejected;
-        this.onConversionRestored = onConversionRestored;
+                                IntConsumer toggleStatsHistoryExpanded) {
         this.valueFormatService = valueFormatService;
         this.formattingService = new StatsItemFormatting(valueFormatService);
         this.interactionInstaller =
@@ -117,7 +111,7 @@ final class StatsItemCardBuilder {
         for (StatsFlipInstance instance : history) {
             // A dismissed guess or an unfinished break is not an activity of
             // any kind; they show only unfiltered.
-            if (instance != null && instance.counted() && filter.matchesKind(instance.conversionKind)) {
+            if (instance != null && filter.matchesKind(instance.conversionKind)) {
                 visible.add(instance);
             }
         }
@@ -135,7 +129,7 @@ final class StatsItemCardBuilder {
     private List<ConversionKind> visibleKinds(int itemId) {
         java.util.Map<ConversionKind, Long> profitByKind = new java.util.HashMap<>();
         for (StatsFlipInstance instance : getStatsFlipHistory(itemId)) {
-            if (instance == null || !instance.counted()) {
+            if (instance == null) {
                 continue;
             }
             ConversionKind kind = instance.conversionKind;
@@ -174,7 +168,7 @@ final class StatsItemCardBuilder {
         int flips = 0;
         long lastSellTs = 0L;
         for (StatsFlipInstance instance : visible) {
-            if (instance == null || !instance.counted()) {
+            if (instance == null) {
                 continue;
             }
             profit += instance.profitGp;
@@ -413,7 +407,7 @@ final class StatsItemCardBuilder {
             if (instance == null) {
                 continue;
             }
-            if (instance.counted() && !instance.inProgress) {
+            if (!instance.inProgress) {
                 numbered++;
             }
             // A rule between one entry and the next, and nowhere else. Above the first it would
@@ -440,12 +434,6 @@ final class StatsItemCardBuilder {
      * withdrawn, or the break still waiting on its pieces.
      */
     static String historyEntryLabel(StatsFlipInstance instance, int ordinal) {
-        if (instance.dismissed != null) {
-            return "Dismissed";
-        }
-        if (instance.openBreak) {
-            return "Unfinished";
-        }
         if (instance.inProgress) {
             return "In progress";
         }
@@ -466,24 +454,6 @@ final class StatsItemCardBuilder {
                 BorderFactory.createMatteBorder(1, 0, 0, 0, LINE),
                 BorderFactory.createEmptyBorder(7, 0, 2, 0))
             : BorderFactory.createEmptyBorder(0, 0, 2, 0));
-        if (instance.dismissed != null) {
-            // Nothing here to price. The guess was withdrawn and the sale it
-            // named stands unmatched, so the entry says only that, and how to
-            // take it back - never a zero dressed up as a buy or a profit.
-            entry.add(buildEntryWordRow(label));
-            entry.add(buildDismissedBlock(instance));
-            return entry;
-        }
-        if (instance.openBreak) {
-            // Nothing here to price either. A break is booked whole once its
-            // last piece has sold, and until then the only honest things to
-            // say are what the plugin thinks happened, which sales it thinks
-            // so from, and how to say it did not.
-            entry.add(buildEntryWordRow(label));
-            entry.add(buildOpenBreakBlock(instance));
-            return entry;
-        }
-
         // The entry reads top to bottom as what was traded, then at what prices, then what came
         // of it. So the quantity sits on the heading row beside the number of the flip, and the
         // profit goes last, where the eye lands after the two prices it comes from.
@@ -522,7 +492,7 @@ final class StatsItemCardBuilder {
         profitRow.add(profitLabel, BorderLayout.EAST);
 
         entry.add(topRow);
-        if (instance.conversionKind != null && !instance.conversionLines.isEmpty()) {
+        if (instance.conversionKind != null) {
             entry.add(buildConversionBreakdown(instance));
         }
         entry.add(pricesRow);
@@ -568,27 +538,17 @@ final class StatsItemCardBuilder {
         headingRow.setOpaque(false);
         headingRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 14));
         headingRow.add(heading, BorderLayout.WEST);
-        if (onConversionRejected != null && !instance.conversionTrades.isEmpty()) {
-            // The way out of a wrong guess, beside the guess. The plugin works
-            // out on its own that a trade was assembled or a set broken up,
-            // which is worth having - but it reads that off what was bought
-            // and sold, and selling one piece of a set out of the bank looks
-            // exactly like breaking up the set sitting there waiting to be
-            // flipped. Left alone a wrong guess is invisible and permanent, so
-            // the guess is offered back rather than asserted: a word in the
-            // panel's one action colour, on the heading's row, with no box of
-            // its own to earn.
-            headingRow.add(actionLink(
-                rejectLabel(instance.conversionKind),
-                rejectTooltip(instance.conversionKind),
-                () -> onConversionRejected.accept(instance)), BorderLayout.EAST);
-        }
         breakdown.add(headingRow);
-
-        for (Match.Line line : instance.conversionLines) {
-            if (line != null) {
-                breakdown.add(buildConversionLine(line));
-            }
+        if (instance.conversionName != null && !instance.conversionName.trim().isEmpty()) {
+            JPanel row = new JPanel(new BorderLayout(6, 0));
+            row.setOpaque(false);
+            row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 14));
+            EllipsisLabel name = new EllipsisLabel(instance.conversionName.trim());
+            name.setForeground(MUTED);
+            name.setFont(font(9.5f));
+            name.setHorizontalAlignment(SwingConstants.LEFT);
+            row.add(name, BorderLayout.CENTER);
+            breakdown.add(row);
         }
         // A Y_AXIS child with no ceiling absorbs slack from the box above it.
         breakdown.setMaximumSize(new Dimension(Integer.MAX_VALUE, breakdown.getPreferredSize().height));
@@ -636,72 +596,6 @@ final class StatsItemCardBuilder {
     }
 
     /**
-     * A break the plugin has guessed and not finished: the heading the
-     * finished activity would get, the control to refuse it, and under them
-     * the pieces whose sales the guess rests on - named, not priced. There is
-     * no figure anywhere on it, because an unfinished break has none that is
-     * honest, and a zero would read as one.
-     */
-    private JPanel buildOpenBreakBlock(StatsFlipInstance instance) {
-        JPanel block = new JPanel();
-        block.setOpaque(false);
-        block.setLayout(new BoxLayout(block, BoxLayout.Y_AXIS));
-
-        JLabel heading = new JLabel(conversionHeading(instance.conversionKind));
-        uiStyler.styleMicroLabel(heading, 9.5f);
-        JPanel headingRow = new JPanel(new BorderLayout());
-        headingRow.setOpaque(false);
-        headingRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 14));
-        headingRow.add(heading, BorderLayout.WEST);
-        if (onConversionRejected != null && !instance.conversionTrades.isEmpty()) {
-            headingRow.add(actionLink(
-                rejectLabel(instance.conversionKind),
-                rejectTooltip(instance.conversionKind),
-                () -> onConversionRejected.accept(instance)), BorderLayout.EAST);
-        }
-        block.add(headingRow);
-
-        for (Match.Line line : instance.conversionLines) {
-            if (line == null || line.fee) {
-                continue;
-            }
-            JPanel row = new JPanel(new BorderLayout(6, 0));
-            row.setOpaque(false);
-            row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 14));
-            EllipsisLabel name = new EllipsisLabel(itemLineName(line));
-            name.setForeground(MUTED);
-            name.setFont(font(9.5f));
-            name.setHorizontalAlignment(SwingConstants.LEFT);
-            row.add(name, BorderLayout.CENTER);
-            block.add(row);
-        }
-        block.setMaximumSize(new Dimension(Integer.MAX_VALUE, block.getPreferredSize().height));
-        return block;
-    }
-
-    /**
-     * Where a dismissed guess used to be: what it was, and the way back. The
-     * heading names the correction in the same words the control offered it
-     * in, so the entry reads as the answer to the question that was asked.
-     */
-    private JPanel buildDismissedBlock(StatsFlipInstance instance) {
-        ConversionKind kind = instance.dismissed != null ? instance.dismissed.kindOrNull() : null;
-        JLabel heading = new JLabel(rejectLabel(kind));
-        uiStyler.styleMicroLabel(heading, 9.5f);
-        JPanel headingRow = new JPanel(new BorderLayout());
-        headingRow.setOpaque(false);
-        headingRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 14));
-        headingRow.add(heading, BorderLayout.WEST);
-        if (onConversionRestored != null) {
-            headingRow.add(actionLink(
-                "Restore",
-                "Put the recipe back on this trade.",
-                () -> onConversionRestored.accept(instance)), BorderLayout.EAST);
-        }
-        return headingRow;
-    }
-
-    /**
      * The refusal, in the direction's own words. "Not a recipe" would be true
      * of all five and clear about none; the player is correcting a specific
      * claim, and the control should repeat the claim it withdraws.
@@ -734,43 +628,6 @@ final class StatsItemCardBuilder {
             : "The plugin guessed this was made from those parts. If it was not, click: the sale "
                 + "stands on its own, the parts stay as bought, and every total is recomputed. It can "
                 + "be restored.";
-    }
-
-    private JPanel buildConversionLine(Match.Line line) {
-        JPanel row = new JPanel(new BorderLayout(6, 0));
-        row.setOpaque(false);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 14));
-
-        // The name takes the row and the number is pinned right, so a full
-        // "Black tourmaline core" fits instead of being cut to make room for
-        // space nothing was using.
-        EllipsisLabel name = new EllipsisLabel(conversionLineLabel(line));
-        name.setForeground(MUTED);
-        name.setFont(font(9.5f));
-        name.setHorizontalAlignment(SwingConstants.LEFT);
-
-        JLabel value = new JLabel(valueFormatService.formatGp(line.costGp), SwingConstants.RIGHT);
-        value.setForeground(TEXT);
-        value.setFont(font(9.5f));
-
-        row.add(name, BorderLayout.CENTER);
-        row.add(value, BorderLayout.EAST);
-        return row;
-    }
-
-    /** A fee has no item, and saying so is the point: it was never a trade. */
-    static String conversionLineLabel(Match.Line line) {
-        if (line.fee) {
-            return "NPC fee";
-        }
-        String name = itemLineName(line);
-        return line.quantity > 1 ? name + " x" + line.quantity : name;
-    }
-
-    /** The item on a line by name alone - no count, which is a figure. */
-    static String itemLineName(Match.Line line) {
-        String name = resolveItemName(line.itemId);
-        return name == null || name.trim().isEmpty() ? "Item " + line.itemId : name;
     }
 
     private static String resolveItemName(int itemId) {

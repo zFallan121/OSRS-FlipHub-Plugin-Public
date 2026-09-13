@@ -363,7 +363,7 @@ final class StatsRender {
                 continue;
             }
             for (StatsFlipInstance instance : history) {
-                if (instance == null || !instance.counted() || !filter.matchesKind(instance.conversionKind)) {
+                if (instance == null || !filter.matchesKind(instance.conversionKind)) {
                     continue;
                 }
                 slice.profitGp += instance.profitGp;

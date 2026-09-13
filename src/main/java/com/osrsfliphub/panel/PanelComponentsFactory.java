@@ -124,9 +124,7 @@ final class PanelComponentsFactory {
             expandedStatsHistoryItems,
             panelState,
             toggleStatsItemExpanded,
-            toggleStatsHistoryExpanded,
-            listener != null ? listener::onConversionRejected : null,
-            listener != null ? listener::onConversionRestored : null
+            toggleStatsHistoryExpanded
         );
 
         return new PanelComponentBundle(

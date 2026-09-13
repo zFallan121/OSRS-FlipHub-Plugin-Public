@@ -50,76 +50,6 @@ final class GameStateChangedHandler {
         return Bridge.get(ProfileSelectionPresentation.class);
     }
 
-    /**
-     * Resolve the conversion table's item names to ids once the item database
-     * is up.
-     *
-     * <p>On the scheduler rather than the client thread: this is a few hundred
-     * name lookups and none of them touch client state, since
-     * {@code ItemManager} search runs against the loaded item index. Until it
-     * completes the index is empty, and an empty index makes both trade ledgers
-     * behave exactly as they did before conversions existed. Re-running is cheap
-     * and self-healing, so a login that arrives before the item database has
-     * loaded is fixed by the next one.
-     */
-    private static void resolveConversionRecipes(GeLifecyclePlugin plugin) {
-        RecipeIndex index = Bridge.get(RecipeIndex.class);
-        if (index == null || plugin == null) {
-            return;
-        }
-        plugin.executeOnScheduler(plugin.scheduler, () -> {
-            if (!index.resolve()) {
-                return;
-            }
-            // Aggregates built while the table was empty dropped every converted
-            // sale. Throw them away so the next read re-derives them from the
-            // stored deltas, now that the conversions are known.
-            LocalStatsCacheService statsCacheService = Bridge.get(LocalStatsCacheService.class);
-            if (statsCacheService != null) {
-                statsCacheService.invalidateAll();
-            }
-            PanelRefresh coordinator = Bridge.get(PanelRefresh.class);
-            if (coordinator != null) {
-                coordinator.triggerStatsRefresh(plugin.scheduler);
-            }
-        });
-    }
-
-    /**
-     * A logged-out client knows nobody's Smithing level. The aggregates priced
-     * with one go with it, so the rows the cache feeds and the header the flip
-     * history feeds keep pricing repairs the same way.
-     */
-    private static void forgetSmithingLevels() {
-        FeeService feeService = Bridge.get(FeeService.class);
-        if (feeService == null || !feeService.clearSmithingLevels()) {
-            return;
-        }
-        LocalStatsCacheService statsCacheService = Bridge.get(LocalStatsCacheService.class);
-        if (statsCacheService != null) {
-            statsCacheService.invalidateAll();
-        }
-    }
-
-    /**
-     * The Smithing level usually arrives by StatChanged with the account hash
-     * beside it, but at login the stat packets can land before the client can
-     * say whose they are. By LOGGED_IN it can, so attach what was held back;
-     * the stats refresh this handler goes on to trigger picks it up.
-     */
-    private static void adoptPendingSmithingLevel(GeLifecyclePlugin plugin) {
-        FeeService feeService = Bridge.get(FeeService.class);
-        if (feeService == null || plugin == null || plugin.client == null) {
-            return;
-        }
-        if (!feeService.adoptPendingSmithingLevel(plugin.client.getAccountHash())) {
-            return;
-        }
-        LocalStatsCacheService statsCacheService = Bridge.get(LocalStatsCacheService.class);
-        if (statsCacheService != null) {
-            statsCacheService.invalidateAll();
-        }
-    }
 
     /**
      * Do the login work for a player who was already in the game when the plugin was
@@ -139,29 +69,9 @@ final class GameStateChangedHandler {
         if (plugin == null || plugin.client == null || plugin.client.getGameState() != GameState.LOGGED_IN) {
             return;
         }
-        readSmithingLevelFromClient(plugin);
         handle(GameState.LOGGED_IN);
     }
 
-    /**
-     * At a real login the level arrives on its own, in a stat report. Nothing sends those
-     * again for a plugin that was not there to hear them, so ask the client outright.
-     */
-    private static void readSmithingLevelFromClient(GeLifecyclePlugin plugin) {
-        FeeService feeService = Bridge.get(FeeService.class);
-        if (feeService == null) {
-            return;
-        }
-        int level = plugin.client.getRealSkillLevel(Skill.SMITHING);
-        if (!feeService.onSmithingLevel(plugin.client.getAccountHash(), level)) {
-            return;
-        }
-        // Every repair of this account was priced without a level.
-        LocalStatsCacheService statsCacheService = Bridge.get(LocalStatsCacheService.class);
-        if (statsCacheService != null) {
-            statsCacheService.invalidateAll();
-        }
-    }
 
     void handle(GameState gameState) {
         if (gameState == null) {
@@ -181,7 +91,6 @@ final class GameStateChangedHandler {
                 if (endingSession != null) {
                     endingSession.clearLocalAccountSessionStarts();
                 }
-                forgetSmithingLevels();
             }
             offerStampState().persistOfferUpdateTimes();
             offerStampState().resetOfferUpdateStampsOnLogout();
@@ -209,8 +118,6 @@ final class GameStateChangedHandler {
             plugin.sessionStartMs = System.currentTimeMillis();
         }
         Bridge.get(AutoSyncState.class).arm();
-        resolveConversionRecipes(plugin);
-        adoptPendingSmithingLevel(plugin);
         offerStampState().setLastLoginNow();
         offerStampState().loadOfferUpdateTimesForCurrentAccount();
         TradeSession tradeSession = Bridge.get(TradeSession.class);

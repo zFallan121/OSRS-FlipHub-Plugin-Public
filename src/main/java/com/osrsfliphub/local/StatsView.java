@@ -153,7 +153,7 @@ final class StatsView {
                 if (instance == null) {
                     continue;
                 }
-                if (instance.counted()) {
+                if (instance != null) {
                     onlyUncounted = false;
                     break;
                 }
@@ -205,7 +205,7 @@ final class StatsView {
             }
             for (StatsFlipInstance instance : entries) {
                 // A dismissed guess or an unfinished break is shown, not counted.
-                if (instance == null || !instance.counted()) {
+                if (instance == null) {
                     continue;
                 }
                 hasHistory = true;
@@ -241,7 +241,7 @@ final class StatsView {
             item.conversionKinds = java.util.EnumSet.noneOf(ConversionKind.class);
             item.hasPlainFlip = false;
             for (StatsFlipInstance instance : entries) {
-                if (instance == null || !instance.counted()) {
+                if (instance == null) {
                     continue;
                 }
                 if (instance.conversionKind != null) {

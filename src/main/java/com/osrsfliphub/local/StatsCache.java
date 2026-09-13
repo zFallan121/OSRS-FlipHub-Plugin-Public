@@ -35,7 +35,6 @@ final class StatsCache {
     private final Map<Integer, StatsCacheDelta.MatchedSellMarker> recentMatchedSellBySlot = new HashMap<>();
     private final List<Delta> sortedDeltas = new ArrayList<>();
     private final StatsCacheDelta.Totals totals = new StatsCacheDelta.Totals();
-    private final Ledger conversionLedger;
     /** Whose trades these are; a repair fee depends on the player's Smithing. */
     private final long accountKey;
     private final StatsCacheDelta deltaService;
@@ -51,24 +50,15 @@ final class StatsCache {
     // Looked up rather than injected: caches are built with `new`, per account and
     // per window, well after startUp has wired the injector.
     StatsCache(long accountKey) {
-        this(Bridge.get(Ledger.class), accountKey);
-    }
-
-    StatsCache(Ledger conversionLedger) {
-        this(conversionLedger, 0L);
-    }
-
-    StatsCache(Ledger conversionLedger, long accountKey) {
-        this(conversionLedger, accountKey, null);
+        this(accountKey, null);
     }
 
     /** The store is passed in by tests; in the running plugin it is looked up. */
-    StatsCache(Ledger conversionLedger, long accountKey, RecipeFlipStore recipeFlips) {
+    StatsCache(long accountKey, RecipeFlipStore recipeFlips) {
         this.recipeFlips = recipeFlips;
-        this.conversionLedger = conversionLedger;
         this.accountKey = accountKey;
         this.deltaService = new StatsCacheDelta(
-            itemAggs, inventory, recentMatchedSellBySlot, totals, conversionLedger, accountKey);
+            itemAggs, inventory, recentMatchedSellBySlot, totals, accountKey);
     }
 
     synchronized void rebuild(List<Delta> deltas) {
@@ -123,7 +113,7 @@ final class StatsCache {
             return new StatsSnapshot(getSummary(), getItems());
         }
         // The window has to see the same conversions the live cache does.
-        StatsCache window = new StatsCache(conversionLedger, accountKey, recipeFlips);
+        StatsCache window = new StatsCache(accountKey, recipeFlips);
         for (Delta delta : sortedDeltas) {
             if (delta == null) {
                 continue;

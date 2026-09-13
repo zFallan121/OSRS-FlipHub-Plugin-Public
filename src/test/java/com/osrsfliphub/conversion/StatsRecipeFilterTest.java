@@ -101,20 +101,14 @@ public class StatsRecipeFilterTest {
      * half - the assembles returned 12.69% and the flip 5.38%.
      */
     private static Map<Integer, List<StatsFlipInstance>> guardianBootsCard() {
-        ConversionRecipe recipe = new ConversionRecipe(
-            ConversionKind.ASSEMBLE, "Guardian boots",
-            Collections.singletonList(new ConversionItem(11836, 1)),
-            Collections.singletonList(new ConversionItem(GUARDIAN_BOOTS, 1)), 0L);
-        Match match = new Match(recipe, 1L, 1_214_230L,
-            Collections.singletonList(new Match.Line(11836, 1L, 1_214_230L, false)),
-            Confidence.CONFIRMED);
-
         Map<Integer, List<StatsFlipInstance>> history = new HashMap<>();
         history.put(GUARDIAN_BOOTS, Arrays.asList(
             new StatsFlipInstance(GUARDIAN_BOOTS, 1_214_230L, 1_365_140L, 1_214_230L,
-                1_365_140L, 150_910L, 1, 5_000L, match),
+                1_365_140L, 150_910L, 1, 5_000L, false, 0L,
+                ConversionKind.ASSEMBLE, "Guardian boots"),
             new StatsFlipInstance(GUARDIAN_BOOTS, 1_210_514L, 1_367_394L, 1_210_514L,
-                1_367_394L, 156_880L, 1, 4_000L, match),
+                1_367_394L, 156_880L, 1, 4_000L, false, 0L,
+                ConversionKind.ASSEMBLE, "Guardian boots"),
             new StatsFlipInstance(GUARDIAN_BOOTS, 2_325_000L, 2_450_000L, 13_950_000L,
                 14_700_000L, 750_000L, 6, 3_000L)));
         return history;
@@ -171,21 +165,11 @@ public class StatsRecipeFilterTest {
         StatsItem item = new StatsItem();
         item.item_id = GUARDIAN_BOOTS;
 
-        ConversionRecipe recipe = new ConversionRecipe(
-            ConversionKind.ASSEMBLE,
-            "Guardian boots",
-            Collections.singletonList(new ConversionItem(11836, 1)),
-            Collections.singletonList(new ConversionItem(GUARDIAN_BOOTS, 1)),
-            0L);
-        Match match = new Match(
-            recipe, 1L, 1_214_230L,
-            Collections.singletonList(new Match.Line(11836, 1L, 1_214_230L, false)),
-            Confidence.CONFIRMED);
-
         Map<Integer, List<StatsFlipInstance>> history = new HashMap<>();
         history.put(GUARDIAN_BOOTS, Arrays.asList(
             new StatsFlipInstance(GUARDIAN_BOOTS, 1_214_230L, 1_365_140L, 1_214_230L,
-                1_365_140L, 150_910L, 1, 3_000L, match),
+                1_365_140L, 150_910L, 1, 3_000L, false, 0L,
+                ConversionKind.ASSEMBLE, "Guardian boots"),
             new StatsFlipInstance(GUARDIAN_BOOTS, 900L, 1_000L, 900L, 1_000L, 100L, 1, 4_000L)));
 
         List<StatsItem> items = new ArrayList<>(Collections.singletonList(item));

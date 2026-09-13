@@ -145,42 +145,4 @@ final class PanelPluginListener implements PanelListener {
         }
     }
 
-    @Override
-    public void onConversionRejected(StatsFlipInstance instance) {
-        ConversionRejection rejection = ConversionRejection.of(instance, System.currentTimeMillis());
-        if (rejection == null) {
-            return;
-        }
-        correctConversion(instance.accountKey, store -> store.add(instance.accountKey, rejection));
-    }
-
-    @Override
-    public void onConversionRestored(StatsFlipInstance instance) {
-        if (instance == null || instance.dismissed == null) {
-            return;
-        }
-        correctConversion(instance.accountKey, store -> store.remove(instance.accountKey, instance.dismissed));
-    }
-
-    /**
-     * Both ledgers are pure functions over the stored trades and the stored
-     * corrections, so correcting a guess is: change the stored fact, write it
-     * beside the trades it names, throw the aggregates away, and redraw. The
-     * accountwide summary the site gets is built from the reconciled snapshot,
-     * so marking it dirty is enough for it to follow.
-     */
-    private static void correctConversion(long accountKey, Predicate<RejectionStore> change) {
-        RejectionStore store = Bridge.get(RejectionStore.class);
-        if (store == null || !change.test(store)) {
-            return;
-        }
-        GeLifecyclePlugin plugin = plugin();
-        plugin.getLocalTradesRuntimeService().persistLocalTrades(accountKey);
-        LocalStatsCacheService statsCache = Bridge.get(LocalStatsCacheService.class);
-        if (statsCache != null) {
-            statsCache.invalidateAll();
-        }
-        plugin.markAccountwideUploadDirty();
-        plugin.refreshStatsData();
-    }
 }

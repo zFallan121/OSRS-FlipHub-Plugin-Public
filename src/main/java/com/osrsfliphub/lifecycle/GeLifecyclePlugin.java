@@ -233,21 +233,6 @@ public class GeLifecyclePlugin extends Plugin {
         // only keeps the number - per account, since the profile being viewed
         // is not always the one logged in.
         if (event.getSkill() == Skill.SMITHING) {
-            FeeService feeService = Bridge.get(FeeService.class);
-            long accountKey = client != null ? client.getAccountHash() : -1L;
-            if (feeService != null && feeService.onSmithingLevel(accountKey, event.getLevel())) {
-                // Every repair of this account was priced with the old level.
-                // The ledgers are pure functions over the deltas, so throwing
-                // the aggregates away is the whole of the migration.
-                LocalStatsCacheService statsCacheService = Bridge.get(LocalStatsCacheService.class);
-                if (statsCacheService != null) {
-                    statsCacheService.invalidateAll();
-                }
-                PanelRefresh coordinator = getPanelRefreshCoordinator();
-                if (coordinator != null) {
-                    coordinator.triggerStatsRefresh(scheduler);
-                }
-            }
         }
     }
 

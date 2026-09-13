@@ -53,10 +53,6 @@ public class PlainFlipCharacterisationTest {
     private static final int SHARK = 385;
     private static final int BONES = 526;
 
-    /** No recipes at all, so nothing can be inferred and only the plain path runs. */
-    private static Ledger emptyLedger() {
-        return new Ledger(new RecipeIndex(Collections.emptyList()));
-    }
 
     private static Delta buy(long tsMs, int slot, int itemId, int qty, long gp, long endMs) {
         return new Delta(tsMs, slot, itemId, true, qty, gp, "OFFER_COMPLETED",
@@ -75,10 +71,9 @@ public class PlainFlipCharacterisationTest {
         final List<StatsItem> items;
 
         Tab(List<Delta> deltas, Long sinceMs) {
-            Ledger ledger = emptyLedger();
-            Map<Integer, List<StatsFlipInstance>> history =
-                new LocalFlipHistoryService(ledger).buildHistory(deltas, sinceMs, 1L);
-            StatsCache cache = new StatsCache(ledger, 1L);
+                        Map<Integer, List<StatsFlipInstance>> history =
+                new LocalFlipHistoryService().buildHistory(deltas, sinceMs, 1L);
+            StatsCache cache = new StatsCache(1L);
             cache.rebuild(deltas);
             if (sinceMs == null) {
                 summary = cache.getSummary();

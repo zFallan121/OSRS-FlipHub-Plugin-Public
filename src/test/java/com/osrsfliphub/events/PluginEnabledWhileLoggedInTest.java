@@ -78,17 +78,15 @@ public class PluginEnabledWhileLoggedInTest {
     }
 
     @Test
-    public void startingWithTheGameAlreadyRunningStartsTheSessionAndLearnsTheSmithingLevel() {
+    public void startingWithTheGameAlreadyRunningStartsTheSession() {
         GeLifecyclePlugin plugin = wire();
 
         handler().catchUpWithAnAlreadyRunningGame();
 
         assertTrue("the session clock never started", plugin.sessionStartMs > 0L);
-        assertEquals("repairs would be priced at the full NPC rate",
-            SMITHING_LEVEL, feeService().smithingLevel(ACCOUNT_HASH));
     }
 
-    /** At the login screen there is nothing to catch up with, and nobody's level to read. */
+    /** At the login screen there is nothing to catch up with. */
     @Test
     public void startingAtTheLoginScreenChangesNothing() {
         gameState = GameState.LOGIN_SCREEN;
@@ -97,7 +95,6 @@ public class PluginEnabledWhileLoggedInTest {
         handler().catchUpWithAnAlreadyRunningGame();
 
         assertEquals(0L, plugin.sessionStartMs);
-        assertEquals(0, feeService().smithingLevel(ACCOUNT_HASH));
     }
 
     /** Running twice must not restart the clock, since a world hop comes through the same door. */
@@ -141,7 +138,6 @@ public class PluginEnabledWhileLoggedInTest {
                     .toInstance(new BookmarkState(null, config, state));
                 // The rest of the login work needs services this test does not stand up. Each
                 // of these is already guarded for absence on the path being exercised.
-                bind(RecipeIndex.class).toProvider(Providers.of(null));
                 bind(ItemLookup.class).toProvider(Providers.of(null));
                 bind(LocalStatsCacheService.class).toProvider(Providers.of(null));
                 bind(LinkStatus.class).toProvider(Providers.of(null));
@@ -172,9 +168,6 @@ public class PluginEnabledWhileLoggedInTest {
         return Bridge.get(GameStateChangedHandler.class);
     }
 
-    private static FeeService feeService() {
-        return Bridge.get(FeeService.class);
-    }
 
     private Client client() {
         return (Client) Proxy.newProxyInstance(

@@ -76,10 +76,6 @@ final class ProfileTradesLoad {
             pluginState.getLocalTradeDeltasByAccount().put(accountHash, new ArrayList<>(merged));
         }
         // Before the rebuild below, which has to honour them.
-        RejectionStore rejections = Bridge.get(RejectionStore.class);
-        if (rejections != null) {
-            rejections.replace(accountHash, loaded.rejectedConversions);
-        }
         RecipeFlipStore recorded = Bridge.get(RecipeFlipStore.class);
         if (recorded != null) {
             recorded.replace(accountHash, loaded.recipeFlips);

@@ -237,10 +237,6 @@ final class ProfileWorkflow {
                 sourceKey
             );
         }
-        RejectionStore rejections = Bridge.get(RejectionStore.class);
-        if (rejections != null) {
-            rejections.move(sourceKey, targetKey);
-        }
         if (mergeResult != null && mergeResult.mergedSnapshot != null) {
             localStatsCacheServiceSupplier.get().rebuild(targetKey, mergeResult.mergedSnapshot);
         }

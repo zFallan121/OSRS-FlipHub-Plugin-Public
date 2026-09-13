@@ -37,7 +37,6 @@ final class ProfileData {
      * left out again when there are none, so a file with nothing to say still
      * looks the way it always has.
      */
-    List<ConversionRejection> rejectedConversions;
     /**
      * Conversions the player recorded themselves. Replaces the guessed attribution that
      * {@link #rejectedConversions} used to correct; that field is still read so a file written

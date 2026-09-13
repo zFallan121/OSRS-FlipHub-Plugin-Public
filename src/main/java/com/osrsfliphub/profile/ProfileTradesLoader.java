@@ -43,8 +43,7 @@ final class ProfileTradesLoader {
          * history, and persisting afterwards would write that loss to disk.
          */
         final boolean unreadable;
-        /** The recipe guesses the file says the player dismissed; empty for a file that predates them. */
-        final List<ConversionRejection> rejectedConversions;
+        /** Conversions the player recorded; empty for a file that predates them. */
         final List<RecipeFlip> recipeFlips;
 
         Result(List<Delta> deltas, String resolvedDisplayName, long profileFileModifiedMs) {
@@ -62,22 +61,12 @@ final class ProfileTradesLoader {
                String resolvedDisplayName,
                long profileFileModifiedMs,
                boolean unreadable,
-               List<ConversionRejection> rejectedConversions) {
-            this(deltas, resolvedDisplayName, profileFileModifiedMs, unreadable, rejectedConversions, null);
-        }
-
-        Result(List<Delta> deltas,
-               String resolvedDisplayName,
-               long profileFileModifiedMs,
-               boolean unreadable,
-               List<ConversionRejection> rejectedConversions,
                List<RecipeFlip> recipeFlips) {
             this.recipeFlips = recipeFlips != null ? recipeFlips : new ArrayList<>();
             this.deltas = deltas != null ? deltas : new ArrayList<>();
             this.resolvedDisplayName = resolvedDisplayName;
             this.profileFileModifiedMs = profileFileModifiedMs;
             this.unreadable = unreadable;
-            this.rejectedConversions = rejectedConversions != null ? rejectedConversions : new ArrayList<>();
         }
     }
 
@@ -137,8 +126,7 @@ final class ProfileTradesLoader {
         if (profileName != null && !profileName.trim().isEmpty() && !placeholderName) {
             resolvedName = profileName.trim();
         }
-        List<ConversionRejection> corrections = profile != null ? profile.rejectedConversions : null;
         List<RecipeFlip> recorded = profile != null ? profile.recipeFlips : null;
-        return new Result(merged, resolvedName, Math.max(0L, fileMs), false, corrections, recorded);
+        return new Result(merged, resolvedName, Math.max(0L, fileMs), false, recorded);
     }
 }

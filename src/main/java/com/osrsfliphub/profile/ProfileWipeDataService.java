@@ -130,9 +130,9 @@ final class ProfileWipeDataService {
         statsCacheByAccount.remove(accountKey);
         loadedProfiles.remove(accountKey);
         loadedProfileFileMs.remove(accountKey);
-        RejectionStore rejections = Bridge.get(RejectionStore.class);
-        if (rejections != null) {
-            rejections.clear(accountKey);
+        RecipeFlipStore recorded = Bridge.get(RecipeFlipStore.class);
+        if (recorded != null) {
+            recorded.clear(accountKey);
         }
     }
 }

@@ -54,10 +54,6 @@ public class RecordedConversionHistoryTest {
         return new RecipeFlip.Part(TradeKey.of(delta), qty);
     }
 
-    /** No recipes, so nothing can be guessed and only what is recorded can appear. */
-    private static Ledger emptyLedger() {
-        return new Ledger(new RecipeIndex(Collections.emptyList()));
-    }
 
     private static List<StatsFlipInstance> allEntries(Map<Integer, List<StatsFlipInstance>> byItem) {
         List<StatsFlipInstance> out = new ArrayList<>();
@@ -82,7 +78,7 @@ public class RecordedConversionHistoryTest {
             Arrays.asList(part(blade, 1), part(hilt, 1)),
             Collections.singletonList(part(sale, 1)), 0L, 9_000L));
 
-        List<StatsFlipInstance> entries = allEntries(new LocalFlipHistoryService(emptyLedger(), store)
+        List<StatsFlipInstance> entries = allEntries(new LocalFlipHistoryService(store)
             .buildHistory(Arrays.asList(blade, hilt, sale), null, ACCOUNT));
 
         assertEquals(1, entries.size());
@@ -92,7 +88,7 @@ public class RecordedConversionHistoryTest {
         assertEquals(18_130_000L, activity.sellRevenueGp);
         assertEquals(3_130_000L, activity.profitGp);
         assertEquals(370_000L, activity.taxGp);
-        assertTrue(activity.counted());
+        
     }
 
     /**
@@ -111,7 +107,7 @@ public class RecordedConversionHistoryTest {
             Collections.singletonList(part(godswordSale, 1)), 0L, 9_000L));
 
         Map<Integer, List<StatsFlipInstance>> byItem =
-            new LocalFlipHistoryService(emptyLedger(), store)
+            new LocalFlipHistoryService(store)
                 .buildHistory(Arrays.asList(blades, hilt, godswordSale, bladeSale), null, ACCOUNT);
 
         StatsFlipInstance conversion = byItem.get(GODSWORD).get(0);
@@ -134,7 +130,7 @@ public class RecordedConversionHistoryTest {
             Collections.singletonList(new RecipeFlip.Part(new TradeKey(98L, 8, GODSWORD), 1)),
             0L, 9_000L));
 
-        List<StatsFlipInstance> entries = allEntries(new LocalFlipHistoryService(emptyLedger(), store)
+        List<StatsFlipInstance> entries = allEntries(new LocalFlipHistoryService(store)
             .buildHistory(Arrays.asList(blade, bladeSale), null, ACCOUNT));
 
         assertEquals(1, entries.size());
@@ -154,7 +150,7 @@ public class RecordedConversionHistoryTest {
             Collections.singletonList(part(sale, 1)), 0L, 9_000L));
 
         Map<Integer, List<StatsFlipInstance>> byItem =
-            new LocalFlipHistoryService(emptyLedger(), store)
+            new LocalFlipHistoryService(store)
                 .buildHistory(Arrays.asList(blade, hilt, sale), 10_000L, ACCOUNT);
 
         assertTrue(allEntries(byItem).isEmpty());
@@ -177,8 +173,8 @@ public class RecordedConversionHistoryTest {
             Collections.singletonList(part(sale, 1)), 0L, 9_000L));
 
         Map<Integer, List<StatsFlipInstance>> history =
-            new LocalFlipHistoryService(emptyLedger(), store).buildHistory(deltas, null, ACCOUNT);
-        StatsCache cache = new StatsCache(emptyLedger(), ACCOUNT, store);
+            new LocalFlipHistoryService(store).buildHistory(deltas, null, ACCOUNT);
+        StatsCache cache = new StatsCache(ACCOUNT, store);
         cache.rebuild(deltas);
         StatsSummary summary = cache.getSummary();
 
@@ -186,7 +182,7 @@ public class RecordedConversionHistoryTest {
         long historyTax = 0L;
         for (List<StatsFlipInstance> list : history.values()) {
             for (StatsFlipInstance entry : list) {
-                if (entry.counted()) {
+                if (entry != null) {
                     historyProfit += entry.profitGp;
                     historyTax += entry.taxGp;
                 }
@@ -214,8 +210,8 @@ public class RecordedConversionHistoryTest {
             Collections.singletonList(part(godswordSale, 1)), 0L, 9_000L));
 
         Map<Integer, List<StatsFlipInstance>> history =
-            new LocalFlipHistoryService(emptyLedger(), store).buildHistory(deltas, null, ACCOUNT);
-        StatsCache cache = new StatsCache(emptyLedger(), ACCOUNT, store);
+            new LocalFlipHistoryService(store).buildHistory(deltas, null, ACCOUNT);
+        StatsCache cache = new StatsCache(ACCOUNT, store);
         cache.rebuild(deltas);
         StatsSummary summary = cache.getSummary();
         List<StatsItem> items = cache.getItems();

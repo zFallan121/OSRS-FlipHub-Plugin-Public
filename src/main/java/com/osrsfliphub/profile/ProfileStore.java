@@ -158,14 +158,13 @@ final class ProfileStore {
     }
 
     long writeProfileData(long accountHash, long accountwideKey, String displayName, List<Delta> deltas) {
-        return writeProfileData(accountHash, accountwideKey, displayName, deltas, null, null);
+        return writeProfileData(accountHash, accountwideKey, displayName, deltas, null);
     }
 
     long writeProfileData(long accountHash,
                           long accountwideKey,
                           String displayName,
                           List<Delta> deltas,
-                          List<ConversionRejection> rejectedConversions,
                           List<RecipeFlip> recipeFlips) {
         Path file = getProfileFile(accountHash, accountwideKey);
         if (file == null || gson == null) {
@@ -175,9 +174,6 @@ final class ProfileStore {
         data.accountHash = accountHash;
         data.displayName = displayName;
         data.deltas = deltas;
-        data.rejectedConversions = rejectedConversions != null && !rejectedConversions.isEmpty()
-            ? rejectedConversions
-            : null;
         data.recipeFlips = recipeFlips != null && !recipeFlips.isEmpty() ? recipeFlips : null;
         data.updatedMs = System.currentTimeMillis();
         Object fileLock = fileLocks.computeIfAbsent(file.toAbsolutePath(), key -> new Object());
