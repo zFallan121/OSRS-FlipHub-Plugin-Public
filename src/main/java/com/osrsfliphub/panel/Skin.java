@@ -198,6 +198,15 @@ final class Skin {
     static final int CLEAR_MARK_SIZE = 11;
     static final int INLINE_CLEAR_SLOT = 18;
     static final int INLINE_CLEAR_GAP = 5;
+    /**
+     * The tick box that says a trade is part of the recipe being recorded, and the field beside
+     * it that says how much of that trade is. The box matches the clear mark rather than the
+     * 9.5px text it stands against: a mark the size of the type reads as a speck, and this one
+     * is the target for the whole row. The field holds five digits, which is more than a buy
+     * limit ever allows through one offer.
+     */
+    static final int PICK_MARK_SIZE = 11;
+    static final int QUANTITY_FIELD_WIDTH = 34;
     /** Pills are fully round. RoundedBorder clamps this to the control's short side. */
     static final int CHIP_ARC = 999;
     static final int AGE_TOOLTIP_LEFT_GAP = 8;

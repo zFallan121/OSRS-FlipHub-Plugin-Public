@@ -24,47 +24,31 @@
  */
 package com.osrsfliphub;
 
-import java.util.Locale;
+import org.junit.Test;
+
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 /**
- * The five ways a Grand Exchange trader turns items into other items.
+ * The recording screen builds and opens without a plugin behind it.
  *
- * <p>Three shapes cover all five: N to 1 (assemble, set combine), 1 to N
- * (disassemble, set break), and 1 to 1 plus a fee (repair). The shape is what
- * the ledger needs; the kind is what the panel says, which is why both exist.
+ * <p>Thin on purpose. What the screen works out is worked out by {@link RecipeFlipLedger}, which
+ * is tested directly; what this covers is the half that only fails when it is drawn - a Swing
+ * layout that throws on assembly, or a service call made before its null guard. The panel is
+ * built once at construction and never rebuilt, so a break here is a break that ships.
  */
-enum ConversionKind {
-    ASSEMBLE("Assembled"),
-    DISASSEMBLE("Disassembled"),
-    REPAIR("Repaired"),
-    SET_COMBINE("Combined a set"),
-    SET_BREAK("Broke up a set");
+public class RecipeRecorderTest {
+    @Test
+    public void theScreenBuildsAndOpensWithNoPluginBehindIt() {
+        RecipeRecorder recorder = new RecipeRecorder(new UiStyler(), new PanelValueFormat(), () -> {
+        });
 
-    private final String label;
+        assertNotNull(recorder.view());
 
-    ConversionKind(String label) {
-        this.label = label;
-    }
+        // Every service comes through Bridge, which hands back null outside the plugin. Opening
+        // has to survive that, because it is also what a player sees before they have logged in.
+        recorder.open();
 
-    /**
-     * What the player is told, in the past tense, because by the time it is written down the
-     * conversion has happened. The stored form is {@link #name()}, which this does not touch.
-     */
-    @Override
-    public String toString() {
-        return label;
-    }
-
-    static ConversionKind parse(String raw) {
-        if (raw == null) {
-            return null;
-        }
-        String key = raw.trim().toUpperCase(Locale.US);
-        for (ConversionKind kind : values()) {
-            if (kind.name().equals(key)) {
-                return kind;
-            }
-        }
-        return null;
+        assertTrue(recorder.view().getViewport().getView().getPreferredSize().height > 0);
     }
 }

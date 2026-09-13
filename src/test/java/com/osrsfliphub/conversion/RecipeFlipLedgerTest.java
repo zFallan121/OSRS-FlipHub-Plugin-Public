@@ -194,6 +194,54 @@ public class RecipeFlipLedgerTest {
             Collections.singletonList(flip)).isEmpty());
     }
 
+    /**
+     * The recording screen offers what is left of each trade once earlier records have taken
+     * their share, and names its picks from those leftovers. A record built that way is then
+     * replayed against the full stored list, which only works while a leftover keeps the
+     * identity of the trade it came from - so that is pinned here rather than assumed.
+     */
+    @Test
+    public void aRecordBuiltFromWhatIsLeftOfATradeStillNamesThatTrade() {
+        Delta blades = buy(1_000L, 1, BLADE, 4, 16_000_000L);
+        Delta hilts = buy(2_000L, 2, HILT, 2, 22_000_000L);
+        Delta first = sell(3_000L, 3, GODSWORD, 1, 18_500_000L);
+        Delta second = sell(4_000L, 4, GODSWORD, 1, 18_000_000L);
+        List<Delta> deltas = Arrays.asList(blades, hilts, first, second);
+        RecipeFlip older = new RecipeFlip(ConversionKind.ASSEMBLE, "Armadyl godsword",
+            Arrays.asList(part(blades, 1), part(hilts, 1)),
+            Collections.singletonList(part(first, 1)), 0L, 10L);
+
+        // What the screen would put in front of the player for a second conversion.
+        List<Delta> free = RecipeFlipLedger
+            .apply(deltas, Collections.singletonList(older))
+            .remainingTrades(deltas);
+        Delta bladesLeft = only(free, BLADE);
+        Delta hiltsLeft = only(free, HILT);
+        assertEquals("three of the four blades are still free", 3, bladesLeft.deltaQty);
+        assertEquals(1, hiltsLeft.deltaQty);
+
+        RecipeFlip newer = new RecipeFlip(ConversionKind.ASSEMBLE, "Armadyl godsword",
+            Arrays.asList(part(bladesLeft, 1), part(hiltsLeft, 1)),
+            Collections.singletonList(part(second, 1)), 0L, 20L);
+
+        RecipeFlipLedger.Result both = RecipeFlipLedger.apply(deltas, Arrays.asList(older, newer));
+
+        assertEquals(2, both.activities.size());
+        assertEquals("one blade and one hilt at what they really cost",
+            15_000_000L, both.activities.get(1).costGp);
+        assertEquals(2, both.claimedOn(blades));
+        assertEquals(2, both.claimedOn(hilts));
+    }
+
+    private static Delta only(List<Delta> deltas, int itemId) {
+        for (Delta delta : deltas) {
+            if (delta.itemId == itemId) {
+                return delta;
+            }
+        }
+        throw new AssertionError("no trade left for item " + itemId);
+    }
+
     @Test
     public void noRecordsMeansNothingChanges() {
         Delta blade = buy(1_000L, 1, BLADE, 1, 4_000_000L);
