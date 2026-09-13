@@ -54,13 +54,6 @@ final class UploadEventDispatch {
         Access.plugin().runtimeUtilityServices.requeue(this, batch);
     }
 
-    private SessionRefresh.Outcome attemptRefresh(String currentToken) {
-        SessionRefresh service = Bridge.get(SessionRefresh.class);
-        return service != null
-            ? service.attemptRefresh(currentToken)
-            : SessionRefresh.Outcome.UNAVAILABLE;
-    }
-
     private void clearSession() {
         SessionRefresh service = Bridge.get(SessionRefresh.class);
         if (service != null) {
@@ -231,7 +224,7 @@ final class UploadEventDispatch {
                                    List<GeEvent> batch,
                                    String currentToken,
                                    int initialStatus) throws IOException {
-        SessionRefresh.Outcome outcome = attemptRefresh(currentToken);
+        SessionRefresh.Outcome outcome = SessionRefresh.refreshOrUnavailable(currentToken);
         if (outcome == SessionRefresh.Outcome.REFRESHED) {
             String refreshedToken = config.sessionToken();
             String refreshedSecret = config.signingSecret();

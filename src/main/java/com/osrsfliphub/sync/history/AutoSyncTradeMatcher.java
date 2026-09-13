@@ -123,10 +123,6 @@ final class AutoSyncTradeMatcher {
         return new SelectionPlan(missingByIndex, missing);
     }
 
-    static List<Trade> selectMissingTrades(List<Trade> historyTrades, List<Delta> existingDeltas) {
-        return planMissingTrades(historyTrades, existingDeltas).missingTrades;
-    }
-
     static long toleranceCoins(int quantity) {
         return TOLERANCE_COINS_PER_UNIT * (long) Math.max(0, quantity);
     }

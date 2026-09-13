@@ -53,13 +53,6 @@ final class SummaryUploader {
         return runtime != null && runtime.isClientFullyReady();
     }
 
-    private SessionRefresh.Outcome attemptRefresh(String currentToken) {
-        SessionRefresh service = Bridge.get(SessionRefresh.class);
-        return service != null
-            ? service.attemptRefresh(currentToken)
-            : SessionRefresh.Outcome.UNAVAILABLE;
-    }
-
     private void clearSession() {
         SessionRefresh service = Bridge.get(SessionRefresh.class);
         if (service != null) {
@@ -121,7 +114,7 @@ final class SummaryUploader {
         try {
             int status = apiClient.sendAccountwideSummary(sessionToken, signingSecret, summary, items);
             if (ApiStatusPolicy.isAuthStatus(status)) {
-                SessionRefresh.Outcome outcome = attemptRefresh(sessionToken);
+                SessionRefresh.Outcome outcome = SessionRefresh.refreshOrUnavailable(sessionToken);
                 if (outcome == SessionRefresh.Outcome.REFRESHED) {
                     String refreshedToken = config.sessionToken();
                     String refreshedSecret = config.signingSecret();

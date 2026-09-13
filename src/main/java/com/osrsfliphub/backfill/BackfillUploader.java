@@ -59,13 +59,6 @@ final class BackfillUploader {
     BackfillUploader() {
     }
 
-    private SessionRefresh.Outcome attemptRefresh(String currentToken) {
-        SessionRefresh service = Bridge.get(SessionRefresh.class);
-        return service != null
-            ? service.attemptRefresh(currentToken)
-            : SessionRefresh.Outcome.UNAVAILABLE;
-    }
-
     private void clearSession() {
         Bridge.get(SessionRefresh.class).clearSession();
     }
@@ -174,7 +167,7 @@ final class BackfillUploader {
                 return Outcome.SENT;
             }
             if (ApiStatusPolicy.isAuthStatus(status)) {
-                SessionRefresh.Outcome outcome = attemptRefresh(sessionToken);
+                SessionRefresh.Outcome outcome = SessionRefresh.refreshOrUnavailable(sessionToken);
                 if (outcome == SessionRefresh.Outcome.REFRESHED) {
                     String refreshedToken = config.sessionToken();
                     String refreshedSecret = config.signingSecret();

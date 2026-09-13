@@ -66,6 +66,16 @@ final class SessionRefresh {
         UNAVAILABLE
     }
 
+    /**
+     * The refresh an upload path wants: ask the live service if there is one, and treat its
+     * absence as nobody having refused anything. All three upload paths carried their own
+     * identical copy of this.
+     */
+    static Outcome refreshOrUnavailable(String currentToken) {
+        SessionRefresh service = Bridge.get(SessionRefresh.class);
+        return service != null ? service.attemptRefresh(currentToken) : Outcome.UNAVAILABLE;
+    }
+
     Outcome attemptRefresh(String currentToken) {
         if (config == null || !config.enableFlipHubSync()) {
             return Outcome.UNAVAILABLE;

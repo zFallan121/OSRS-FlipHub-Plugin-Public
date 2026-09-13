@@ -77,7 +77,7 @@ public class GeHistoryAutoSyncTradeMatcherTest {
     }
 
     private static List<Trade> missing(List<Trade> historyTrades, List<Delta> deltas) {
-        return AutoSyncTradeMatcher.selectMissingTrades(historyTrades, deltas);
+        return AutoSyncTradeMatcher.planMissingTrades(historyTrades, deltas).missingTrades;
     }
 
     @Test

@@ -24,11 +24,7 @@
  */
 package com.osrsfliphub;
 
-import java.util.regex.*;
-
 final class ApiStatusPolicy {
-    private static final Pattern AUTH_STATUS_PATTERN = Pattern.compile("(^|\\D)(401|403)(\\D|$)");
-
     private ApiStatusPolicy() {
     }
 
@@ -66,39 +62,4 @@ final class ApiStatusPolicy {
         return Str.hasText(sessionToken) && Str.hasText(signingSecret);
     }
 
-
-    static boolean isAuthorizationFailure(Throwable error) {
-        Integer statusCode = extractAuthStatusCode(error);
-        return statusCode != null && isAuthStatus(statusCode);
-    }
-
-    static Integer extractAuthStatusCode(Throwable error) {
-        Throwable current = error;
-        while (current != null) {
-            if (current instanceof ApiClient.ApiException) {
-                return ((ApiClient.ApiException) current).statusCode;
-            }
-            Integer parsed = parseAuthStatusCode(current.getMessage());
-            if (parsed != null) {
-                return parsed;
-            }
-            current = current.getCause();
-        }
-        return null;
-    }
-
-    private static Integer parseAuthStatusCode(String message) {
-        if (!Str.hasText(message)) {
-            return null;
-        }
-        Matcher matcher = AUTH_STATUS_PATTERN.matcher(message);
-        if (!matcher.find()) {
-            return null;
-        }
-        try {
-            return Integer.parseInt(matcher.group(2));
-        } catch (NumberFormatException ex) {
-            return null;
-        }
-    }
 }
