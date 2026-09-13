@@ -193,28 +193,13 @@ final class StatsPanelContentBuilder {
         uiStyler.styleMicroLabel(heading, 9.5f);
         row.add(heading, BorderLayout.WEST);
 
-        JLabel link = new JLabel("Record a recipe", SwingConstants.RIGHT);
-        link.setForeground(ACCENT);
-        link.setFont(uiStyler.font(9.5f));
-        link.setToolTipText("Tell FlipHub that some of your trades were one conversion");
-        link.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
-        link.addMouseListener(new StatsClickMouseAdapter(() -> {
-            if (openRecorder != null) {
-                openRecorder.run();
-            }
-        }));
-        link.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseEntered(java.awt.event.MouseEvent event) {
-                link.setForeground(TEXT);
-            }
-
-            @Override
-            public void mouseExited(java.awt.event.MouseEvent event) {
-                link.setForeground(ACCENT);
-            }
-        });
-        row.add(link, BorderLayout.EAST);
+        row.add(uiStyler.actionLink("Record a recipe",
+            "Tell FlipHub that some of your trades were one conversion",
+            () -> {
+                if (openRecorder != null) {
+                    openRecorder.run();
+                }
+            }), BorderLayout.EAST);
         return row;
     }
 
@@ -230,7 +215,7 @@ final class StatsPanelContentBuilder {
 
         uiStyler.styleTextField(statsSearchField);
         statsSearchField.setToolTipText("Filter items");
-        installDocumentListener(statsSearchField, () -> {
+        uiStyler.onEdit(statsSearchField, () -> {
             if (panelStateService != null) {
                 panelStateService.onStatsSearchQueryChanged(panelState, statsSearchField.getText(), renderStatsItems);
             }
@@ -241,25 +226,6 @@ final class StatsPanelContentBuilder {
         searchRow.add(statsSearchField, BorderLayout.CENTER);
         searchRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, searchRow.getPreferredSize().height));
         return searchRow;
-    }
-
-    private void installDocumentListener(JTextField field, Runnable onChange) {
-        field.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            @Override
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                onChange.run();
-            }
-
-            @Override
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                onChange.run();
-            }
-
-            @Override
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                onChange.run();
-            }
-        });
     }
 
     private JPanel buildStatsSortRow(JComboBox<StatsItemSort> statsSortCombo,

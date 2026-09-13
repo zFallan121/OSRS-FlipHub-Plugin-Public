@@ -70,8 +70,8 @@ import javax.swing.SwingUtilities;
  * Both are visible here, and both can be undone here.
  */
 final class RecipeRecorder {
-    /** How many trades a side offers before the rest have to be searched for. */
-    private static final int MAX_ROWS = 30;
+    /** How many unpicked trades a side shows at once. The rest are a page away. */
+    private static final int PAGE_SIZE = 10;
 
     /** One stored trade the player may pick, and how much of it is still unspoken for. */
     private static final class Candidate {
@@ -98,7 +98,6 @@ final class RecipeRecorder {
     private final JPanel content = new TrackingPanel(SCROLL_UNIT_INCREMENT, SCROLL_BLOCK_INCREMENT);
     private final JScrollPane scrollPane = new JScrollPane(content);
     private final JComboBox<ConversionKind> kindCombo = new JComboBox<>(ConversionKind.values());
-    private final JTextField nameField = new PlaceholderTextField("What it was");
     private final JTextField feeField = new PlaceholderTextField("0");
     private final JTextField findField = new PlaceholderTextField("Find a trade");
     private final JPanel inputsBody = column();
@@ -114,6 +113,8 @@ final class RecipeRecorder {
     private final JPanel form = column();
     private final JPanel storedSection = column();
     private final JLabel nothingToDo = new JLabel();
+    private final JLabel blocker = new JLabel();
+    private final StatsPagerBuilder pager;
 
     private final List<Candidate> buys = new ArrayList<>();
     private final List<Candidate> sells = new ArrayList<>();
@@ -123,13 +124,15 @@ final class RecipeRecorder {
     private RecipeFlipLedger.Result applied = RecipeFlipLedger.empty();
     private long accountKey = -1L;
     private int appliedBefore;
-    private boolean nameEdited;
     private boolean waiting;
+    private int buyPage = 1;
+    private int sellPage = 1;
 
     RecipeRecorder(UiStyler uiStyler, PanelValueFormat valueFormat, Runnable onClose) {
         this.uiStyler = uiStyler;
         this.valueFormat = valueFormat;
         this.onClose = onClose;
+        this.pager = new StatsPagerBuilder(uiStyler);
         build();
     }
 
@@ -156,10 +159,10 @@ final class RecipeRecorder {
         buys.clear();
         sells.clear();
         kindCombo.setSelectedItem(ConversionKind.ASSEMBLE);
-        nameField.setText("");
         feeField.setText("");
         findField.setText("");
-        nameEdited = false;
+        buyPage = 1;
+        sellPage = 1;
         scrollPane.getVerticalScrollBar().setValue(0);
         refresh();
 
@@ -198,7 +201,7 @@ final class RecipeRecorder {
         content.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         content.add(headingRow("Record a recipe",
-            actionLink("Cancel", "Leave without recording anything", this::close)));
+            uiStyler.actionLink("Cancel", "Leave without recording anything", this::close)));
 
         nothingToDo.setForeground(MUTED_2);
         nothingToDo.setFont(uiStyler.font(10.5f));
@@ -209,31 +212,25 @@ final class RecipeRecorder {
         content.add(Box.createVerticalStrut(10));
         content.add(storedSection);
 
-        form.add(headingRow("What happened", null));
+        form.add(headingRow("Recipe type", null));
         uiStyler.styleComboBox(kindCombo);
         kindCombo.setBorder(uiStyler.roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
         stretch(kindCombo);
         kindCombo.addActionListener(event -> updateRecordButton());
         form.add(kindCombo);
 
-        form.add(headingRow("Called it", null));
-        field(nameField, () -> {
-            nameEdited = true;
-            updateRecordButton();
-        });
-        form.add(nameField);
+        // The same search the rest of the panel uses: the field alone, at full width, with the
+        // clear mark inside its own right edge. No heading over it - the placeholder says what
+        // it is, and the row it sits in is the one the Profile tab draws.
+        form.add(Box.createVerticalStrut(8));
+        form.add(searchRow());
 
-        form.add(headingRow("Find a trade", null));
-        field(findField, this::refresh);
-        uiStyler.installInlineClear(findField);
-        form.add(findField);
-
-        form.add(headingRow("What went in", inputsCount));
+        form.add(headingRow("What went in", pickedCount(inputsCount)));
         form.add(CardSection.of(inputsBody));
-        form.add(headingRow("What came out", outputsCount));
+        form.add(headingRow("What came out", pickedCount(outputsCount)));
         form.add(CardSection.of(outputsBody));
 
-        form.add(headingRow("Fee", null));
+        form.add(headingRow("Fee (if any)", null));
         field(feeField, this::price);
         feeField.setToolTipText("Coins the conversion itself cost, for the whole of this record");
         form.add(feeField);
@@ -245,7 +242,15 @@ final class RecipeRecorder {
         tally.add(detailLine("Tax", taxValue));
         tally.add(detailLine("Profit", profitValue));
         form.add(CardSection.of(tally));
-        form.add(Box.createVerticalStrut(8));
+        form.add(Box.createVerticalStrut(6));
+
+        // A disabled control that will not say why is a dead end. The tooltip said it, which is
+        // no use to anyone who has not already guessed there is something to hover.
+        blocker.setForeground(MUTED_2);
+        blocker.setFont(uiStyler.font(9.5f));
+        blocker.setAlignmentX(Component.LEFT_ALIGNMENT);
+        form.add(blocker);
+        form.add(Box.createVerticalStrut(4));
 
         // A ghost, like every other control in the panel. This is the first thing in the panel
         // that commits anything, so it is also the first that could have argued for a filled
@@ -283,54 +288,73 @@ final class RecipeRecorder {
                 ? "Log in to record a recipe."
                 : "No finished trades of yours are left to build one from.");
 
-        fillSide(inputsBody, buys, inputsCount);
-        fillSide(outputsBody, sells, outputsCount);
+        fillSide(inputsBody, buys, inputsCount, true);
+        fillSide(outputsBody, sells, outputsCount, false);
         fillStored();
-        autofillName();
         price();
 
         content.revalidate();
         content.repaint();
     }
 
-    private void fillSide(JPanel body, List<Candidate> candidates, JLabel count) {
+    /**
+     * One side's trades: everything picked, then a page of what is left.
+     *
+     * <p>Ten at a time, because a thousand-trade history rendered whole is a screen nobody can
+     * record anything from. Picks stay above the page rather than being paged with it: a tick
+     * whose coins are in the tally below but whose row is four pages away is how a record ends
+     * up naming trades the player can no longer see.
+     */
+    private void fillSide(JPanel body, List<Candidate> candidates, JLabel count, boolean buySide) {
         body.removeAll();
         String query = findField.getText() != null
             ? findField.getText().trim().toLowerCase(Locale.US)
             : "";
-        int picked = 0;
-        int shown = 0;
-        int hidden = 0;
+        List<Candidate> picked = new ArrayList<>();
+        List<Candidate> rest = new ArrayList<>();
         for (Candidate candidate : candidates) {
             if (candidate.picked()) {
-                picked++;
+                picked.add(candidate);
+            } else if (query.isEmpty()
+                || itemName(candidate.trade.itemId).toLowerCase(Locale.US).contains(query)) {
+                rest.add(candidate);
             }
-            boolean matches = query.isEmpty()
-                || itemName(candidate.trade.itemId).toLowerCase(Locale.US).contains(query);
-            // A pick is never hidden by the search or by the cap. Losing one off the end of the
-            // list while its coins are still in the tally is how a record ends up naming trades
-            // the player can no longer see.
-            if (!candidate.picked() && (!matches || shown >= MAX_ROWS)) {
-                if (matches) {
-                    hidden++;
-                }
-                continue;
-            }
-            if (shown > 0) {
+        }
+
+        int pages = Math.max(1, (rest.size() + PAGE_SIZE - 1) / PAGE_SIZE);
+        int page = Math.min(Math.max(1, buySide ? buyPage : sellPage), pages);
+        if (buySide) {
+            buyPage = page;
+        } else {
+            sellPage = page;
+        }
+        int from = (page - 1) * PAGE_SIZE;
+
+        List<Candidate> shown = new ArrayList<>(picked);
+        shown.addAll(rest.subList(from, Math.min(rest.size(), from + PAGE_SIZE)));
+        boolean first = true;
+        for (Candidate candidate : shown) {
+            if (!first) {
                 body.add(rule());
             }
+            first = false;
             body.add(tradeRow(candidate));
-            shown++;
         }
-        if (shown == 0) {
+        if (shown.isEmpty()) {
             body.add(wordRow(query.isEmpty() ? "Nothing left to pick." : "No trade by that name."));
-        } else if (hidden > 0) {
-            body.add(wordRow(query.isEmpty()
-                ? hidden + " more - search to reach them."
-                : hidden + " more match."));
         }
-        count.setText(picked + " picked");
-        uiStyler.styleMicroLabel(count, 9.5f);
+        if (pages > 1) {
+            body.add(pager.buildPager(page, pages, wanted -> {
+                if (buySide) {
+                    buyPage = wanted;
+                } else {
+                    sellPage = wanted;
+                }
+                refresh();
+            }));
+        }
+        count.setText(String.valueOf(picked.size()));
+        count.setForeground(picked.isEmpty() ? MUTED_2 : ACCENT);
     }
 
     /**
@@ -431,7 +455,7 @@ final class RecipeRecorder {
         used.setHorizontalAlignment(SwingConstants.RIGHT);
         used.setBorder(uiStyler.roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(1, 4, 1, 4)));
         used.setPreferredSize(new Dimension(QUANTITY_FIELD_WIDTH, used.getPreferredSize().height));
-        onEdit(used, () -> {
+        uiStyler.onEdit(used, () -> {
             // Clamped rather than refused: an empty box while the player retypes must not drop
             // the pick out from under them, and more than they bought is a typo, not a claim.
             candidate.used = (int) Math.max(1L,
@@ -486,7 +510,7 @@ final class RecipeRecorder {
         name.setFont(uiStyler.font(9.5f));
         name.setHorizontalAlignment(SwingConstants.LEFT);
         top.add(name, BorderLayout.CENTER);
-        top.add(actionLink("Forget", "Undo this record and give its trades back",
+        top.add(uiStyler.actionLink("Forget", "Undo this record and give its trades back",
             () -> forget(flip)), BorderLayout.EAST);
 
         // The one thing the player could not otherwise find out. A record whose trades have
@@ -557,34 +581,18 @@ final class RecipeRecorder {
     }
 
     private void updateRecordButton() {
-        boolean ready = buildFlip() != null && !name().isEmpty();
+        RecipeFlip flip = buildFlip();
+        boolean ready = flip != null;
+        String missing = pickedOn(buys).isEmpty()
+            ? "Tick what went in."
+            : pickedOn(sells).isEmpty() ? "Tick what came out." : "";
+        blocker.setText(missing);
+        blocker.setVisible(!missing.isEmpty());
         recordButton.setEnabled(ready);
         recordButton.setForeground(ready ? TEXT : MUTED_2);
         recordButton.setToolTipText(ready
-            ? "File this as one activity against " + name()
-            : "Pick at least one purchase and one sale, and say what it was");
-    }
-
-    /**
-     * Names the conversion after its subject, until the player types one of their own.
-     *
-     * <p>The subject is whatever {@link RecipeFlip#subjectItemId()} will file the activity
-     * against - what was made when one thing was made, and otherwise what was taken apart. Named
-     * off the sales alone, every disassemble came out blank, which is the one direction where
-     * there is more than one sale by definition.
-     */
-    private void autofillName() {
-        if (nameEdited) {
-            return;
-        }
-        List<Candidate> outputs = pickedOn(sells);
-        List<Candidate> subject = outputs.size() == 1 ? outputs : pickedOn(buys);
-        String suggested = subject.size() == 1 ? itemName(subject.get(0).trade.itemId) : "";
-        if (!suggested.equals(name())) {
-            nameField.setText(suggested);
-            // setText is an edit like any other, so the flag it has just set comes back off.
-            nameEdited = false;
-        }
+            ? "File this as one activity against " + flip.name
+            : "Pick at least one purchase and one sale");
     }
 
     private RecipeFlip buildFlip() {
@@ -596,12 +604,16 @@ final class RecipeRecorder {
         ConversionKind kind = (ConversionKind) kindCombo.getSelectedItem();
         RecipeFlip flip = new RecipeFlip(
             kind != null ? kind : ConversionKind.ASSEMBLE,
-            name(),
+            null,
             inputs,
             outputs,
             Math.max(0L, parseNumber(feeField.getText(), 0L)),
             System.currentTimeMillis());
-        return flip.isUsable() ? flip : null;
+        if (!flip.isUsable()) {
+            return null;
+        }
+        flip.name = nameFor(flip);
+        return flip;
     }
 
     private List<RecipeFlip.Part> partsOf(List<Candidate> candidates) {
@@ -727,8 +739,17 @@ final class RecipeRecorder {
             : valueFormat.formatDurationCompact(System.currentTimeMillis() - tsMs) + " ago";
     }
 
-    private String name() {
-        return nameField.getText() != null ? nameField.getText().trim() : "";
+    /**
+     * What to call the conversion: the item it is filed against.
+     *
+     * <p>There is no box to type this in, because there was never anything to say that the
+     * picks do not already say. {@link RecipeFlip#subjectItemId()} decides which item that is -
+     * what was made when one thing was made, what was taken apart otherwise - so the name is
+     * read back off the finished record rather than worked out a second way here.
+     */
+    private static String nameFor(RecipeFlip flip) {
+        int subject = flip.subjectItemId();
+        return subject > 0 ? itemName(subject) : "";
     }
 
     /** Digits only, so a player who types "1,500,000" or "1500000 gp" is understood either way. */
@@ -753,12 +774,46 @@ final class RecipeRecorder {
         uiStyler.styleTextField(input);
         input.setFont(uiStyler.font(10.5f));
         stretch(input);
-        onEdit(input, onChange);
+        uiStyler.onEdit(input, onChange);
     }
 
     private static void stretch(JComponent control) {
         control.setAlignmentX(Component.LEFT_ALIGNMENT);
         control.setMaximumSize(new Dimension(Integer.MAX_VALUE, control.getPreferredSize().height));
+    }
+
+    /** The panel's search field, exactly as the Profile tab draws it: alone, and full width. */
+    private JPanel searchRow() {
+        JPanel row = new JPanel(new BorderLayout(TRAILING_CONTROL_GAP, 0));
+        row.setOpaque(false);
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        uiStyler.styleTextField(findField);
+        uiStyler.installInlineClear(findField);
+        findField.setToolTipText("Narrow both lists to one item");
+        uiStyler.onEdit(findField, this::refresh);
+        row.add(findField, BorderLayout.CENTER);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
+        return row;
+    }
+
+    /**
+     * How many of a side are ticked, as a figure rather than a word.
+     *
+     * <p>Two labels instead of one string, so the count can carry the eye while the word stays
+     * in the heading ramp beside it - and so the pair cannot run into the heading on its left,
+     * which "WHAT WENT IN4 PICKED" is what happens when they share one.
+     */
+    private JPanel pickedCount(JLabel number) {
+        number.setFont(uiStyler.fontNumeric(9.5f));
+        number.setForeground(MUTED_2);
+        JLabel word = new JLabel("picked");
+        uiStyler.styleMicroLabel(word, 9.5f);
+        JPanel row = new JPanel(new BorderLayout(4, 0));
+        row.setOpaque(false);
+        row.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 0));
+        row.add(number, BorderLayout.WEST);
+        row.add(word, BorderLayout.EAST);
+        return row;
     }
 
     private JPanel headingRow(String text, JComponent trailing) {
@@ -819,46 +874,4 @@ final class RecipeRecorder {
         return panel;
     }
 
-    /** A word that does something, in the panel's one action colour and with no box of its own. */
-    private JLabel actionLink(String text, String tooltip, Runnable action) {
-        JLabel link = new JLabel(text, SwingConstants.RIGHT);
-        link.setForeground(ACCENT);
-        link.setFont(uiStyler.font(9.5f));
-        link.setToolTipText(tooltip);
-        link.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        link.addMouseListener(new StatsClickMouseAdapter(action));
-        // Under the pointer the word goes to plain text: the action colour says "this does
-        // something", white says "this one, the one you are on".
-        link.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseEntered(java.awt.event.MouseEvent event) {
-                link.setForeground(TEXT);
-            }
-
-            @Override
-            public void mouseExited(java.awt.event.MouseEvent event) {
-                link.setForeground(ACCENT);
-            }
-        });
-        return link;
-    }
-
-    private static void onEdit(JTextField input, Runnable onChange) {
-        input.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            @Override
-            public void insertUpdate(javax.swing.event.DocumentEvent event) {
-                onChange.run();
-            }
-
-            @Override
-            public void removeUpdate(javax.swing.event.DocumentEvent event) {
-                onChange.run();
-            }
-
-            @Override
-            public void changedUpdate(javax.swing.event.DocumentEvent event) {
-                onChange.run();
-            }
-        });
-    }
 }

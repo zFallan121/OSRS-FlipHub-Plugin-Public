@@ -426,6 +426,53 @@ final class UiStyler {
         field.setFont(font(11f));
     }
 
+    /**
+     * A word that does something. The panel has one action colour and this is where it goes;
+     * there is no rule around it, because a box inside a ledger row has nothing to earn itself
+     * with. Under the pointer the word goes to plain text: the action colour says "this does
+     * something", white says "this one, the one you are on".
+     */
+    JLabel actionLink(String text, String tooltip, Runnable action) {
+        JLabel link = new JLabel(text, javax.swing.SwingConstants.RIGHT);
+        link.setForeground(ACCENT);
+        link.setFont(font(9.5f));
+        link.setToolTipText(tooltip);
+        link.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        link.addMouseListener(new StatsClickMouseAdapter(action));
+        link.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent event) {
+                link.setForeground(TEXT);
+            }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent event) {
+                link.setForeground(ACCENT);
+            }
+        });
+        return link;
+    }
+
+    /** Run something whenever what is typed in a field changes, however it changed. */
+    void onEdit(JTextField field, Runnable onChange) {
+        field.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent event) {
+                onChange.run();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent event) {
+                onChange.run();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent event) {
+                onChange.run();
+            }
+        });
+    }
+
     Border roundedBorder(int arc, Color color, Insets padding) {
         return roundedBorder(arc, () -> color, padding);
     }
