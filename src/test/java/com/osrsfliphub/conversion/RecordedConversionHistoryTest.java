@@ -159,4 +159,73 @@ public class RecordedConversionHistoryTest {
 
         assertTrue(allEntries(byItem).isEmpty());
     }
+
+    /**
+     * The two ledgers must agree about what a conversion was worth. Under guessing they could
+     * not: they retried unmatched sales at different moments and split a mixed bucket's cost
+     * differently, so the header and the rows could disagree. Both now call one calculator.
+     */
+    @Test
+    public void bothLedgersAgreeOnARecordedConversion() {
+        Delta blade = buy(1_000L, 1, BLADE, 1, 4_000_000L);
+        Delta hilt = buy(2_000L, 2, HILT, 1, 11_000_000L);
+        Delta sale = sell(3_000L, 3, GODSWORD, 1, 18_500_000L);
+        List<Delta> deltas = Arrays.asList(blade, hilt, sale);
+        RecipeFlipStore store = new RecipeFlipStore();
+        store.add(ACCOUNT, new RecipeFlip(ConversionKind.ASSEMBLE, "Armadyl godsword",
+            Arrays.asList(part(blade, 1), part(hilt, 1)),
+            Collections.singletonList(part(sale, 1)), 0L, 9_000L));
+
+        Map<Integer, List<StatsFlipInstance>> history =
+            new LocalFlipHistoryService(emptyLedger(), store).buildHistory(deltas, null, ACCOUNT);
+        StatsCache cache = new StatsCache(emptyLedger(), ACCOUNT, store);
+        cache.rebuild(deltas);
+        StatsSummary summary = cache.getSummary();
+
+        long historyProfit = 0L;
+        long historyTax = 0L;
+        for (List<StatsFlipInstance> list : history.values()) {
+            for (StatsFlipInstance entry : list) {
+                if (entry.counted()) {
+                    historyProfit += entry.profitGp;
+                    historyTax += entry.taxGp;
+                }
+            }
+        }
+
+        assertEquals(3_130_000L, historyProfit);
+        assertEquals(Long.valueOf(historyProfit), summary.total_profit_gp);
+        assertEquals(Long.valueOf(historyTax), summary.tax_paid_gp);
+        assertEquals(Long.valueOf(15_000_000L), summary.total_cost_gp);
+        assertEquals(Integer.valueOf(1), summary.fill_count);
+    }
+
+    /** The rows the Profile tab shows have to add up to the header above them. */
+    @Test
+    public void theRowsStillSumToTheHeader() {
+        Delta blades = buy(1_000L, 1, BLADE, 2, 8_000_000L);
+        Delta hilt = buy(2_000L, 2, HILT, 1, 11_000_000L);
+        Delta godswordSale = sell(3_000L, 3, GODSWORD, 1, 18_500_000L);
+        Delta bladeSale = sell(4_000L, 4, BLADE, 1, 4_500_000L);
+        List<Delta> deltas = Arrays.asList(blades, hilt, godswordSale, bladeSale);
+        RecipeFlipStore store = new RecipeFlipStore();
+        store.add(ACCOUNT, new RecipeFlip(ConversionKind.ASSEMBLE, "Armadyl godsword",
+            Arrays.asList(part(blades, 1), part(hilt, 1)),
+            Collections.singletonList(part(godswordSale, 1)), 0L, 9_000L));
+
+        Map<Integer, List<StatsFlipInstance>> history =
+            new LocalFlipHistoryService(emptyLedger(), store).buildHistory(deltas, null, ACCOUNT);
+        StatsCache cache = new StatsCache(emptyLedger(), ACCOUNT, store);
+        cache.rebuild(deltas);
+        StatsSummary summary = cache.getSummary();
+        List<StatsItem> items = cache.getItems();
+        StatsView.reconcileWithFlipHistory(summary, items, history);
+
+        long rows = 0L;
+        for (StatsItem item : items) {
+            rows += item.total_profit_gp != null ? item.total_profit_gp : 0L;
+        }
+        assertEquals(summary.total_profit_gp.longValue(), rows);
+        assertEquals(3_130_000L + 410_000L, rows);
+    }
 }

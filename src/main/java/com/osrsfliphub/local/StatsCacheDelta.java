@@ -727,6 +727,41 @@ final class StatsCacheDelta {
         recentMatchedSellBySlot.remove(delta.slot);
     }
 
+    /**
+     * Fold one conversion the player recorded into the running aggregates.
+     *
+     * <p>It counts as one completed sale of the thing produced, carrying the cost of everything
+     * that went into it. The trades it used were taken out of the replay before it started, so
+     * nothing here is counted twice. Held time is deliberately not touched: the cache measures
+     * that from purchases it watched go in and out, and a conversion's own span is not a
+     * holding of the item it produced.</p>
+     */
+    static void addRecordedActivity(Map<Integer, ItemAgg> itemAggs,
+                                    Totals totals,
+                                    RecipeFlipLedger.Activity activity) {
+        if (activity == null || activity.itemId <= 0) {
+            return;
+        }
+        ItemAgg agg = itemAggs.computeIfAbsent(activity.itemId, ItemAgg::new);
+        agg.buyCost += activity.costGp;
+        agg.sellRevenue += activity.revenueGp;
+        agg.buyQty += activity.quantity;
+        agg.sellQty += activity.quantity;
+        agg.taxPaid += activity.taxGp;
+        agg.completedSells += 1;
+        if (agg.lastSellTs == null || activity.completionTsMs > agg.lastSellTs) {
+            agg.lastSellTs = activity.completionTsMs;
+        }
+        totals.totalProfit += activity.profitGp();
+        totals.totalCost += activity.costGp;
+        totals.totalQty += activity.quantity;
+        totals.totalTax += activity.taxGp;
+        totals.totalCompleted += 1;
+        if (totals.lastSellTs == null || activity.completionTsMs > totals.lastSellTs) {
+            totals.lastSellTs = activity.completionTsMs;
+        }
+    }
+
     static final class Totals {
         long totalProfit;
         long totalCost;

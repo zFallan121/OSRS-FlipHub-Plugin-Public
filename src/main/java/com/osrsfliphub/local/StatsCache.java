@@ -40,6 +40,9 @@ final class StatsCache {
     private final long accountKey;
     private final StatsCacheDelta deltaService;
     private long lastTs = Long.MIN_VALUE;
+    /** What the player's recorded conversions were worth, and which trades they used. */
+    private RecipeFlipLedger.Result recorded = RecipeFlipLedger.empty();
+    private final RecipeFlipStore recipeFlips;
 
     StatsCache() {
         this(0L);
@@ -56,6 +59,12 @@ final class StatsCache {
     }
 
     StatsCache(Ledger conversionLedger, long accountKey) {
+        this(conversionLedger, accountKey, null);
+    }
+
+    /** The store is passed in by tests; in the running plugin it is looked up. */
+    StatsCache(Ledger conversionLedger, long accountKey, RecipeFlipStore recipeFlips) {
+        this.recipeFlips = recipeFlips;
         this.conversionLedger = conversionLedger;
         this.accountKey = accountKey;
         this.deltaService = new StatsCacheDelta(
@@ -69,12 +78,29 @@ final class StatsCache {
         if (deltas == null || deltas.isEmpty()) {
             return;
         }
-        List<Delta> snapshot = new ArrayList<>(deltas);
+        // Price what the player recorded, then replay only what those conversions did not use.
+        recorded = RecipeFlipLedger.apply(deltas, recordedFlips());
+        List<Delta> snapshot = new ArrayList<>(recorded.remainingTrades(deltas));
         snapshot.sort(TradeDeltaUtils.replayOrder());
         sortedDeltas.addAll(snapshot);
         for (Delta delta : snapshot) {
             lastTs = Math.max(lastTs, TradeDeltaUtils.replayTimeMs(delta));
             deltaService.applyDelta(delta);
+        }
+        addRecordedConversions(null);
+    }
+
+    private List<RecipeFlip> recordedFlips() {
+        RecipeFlipStore store = recipeFlips != null ? recipeFlips : Bridge.get(RecipeFlipStore.class);
+        return store != null ? store.applicable(accountKey) : java.util.Collections.emptyList();
+    }
+
+    private void addRecordedConversions(Long sinceMs) {
+        for (RecipeFlipLedger.Activity activity : recorded.activities) {
+            if (sinceMs != null && activity.completionTsMs < sinceMs) {
+                continue;
+            }
+            StatsCacheDelta.addRecordedActivity(itemAggs, totals, activity);
         }
     }
 
@@ -97,13 +123,17 @@ final class StatsCache {
             return new StatsSnapshot(getSummary(), getItems());
         }
         // The window has to see the same conversions the live cache does.
-        StatsCache window = new StatsCache(conversionLedger, accountKey);
+        StatsCache window = new StatsCache(conversionLedger, accountKey, recipeFlips);
         for (Delta delta : sortedDeltas) {
             if (delta == null) {
                 continue;
             }
             window.deltaService.applyDelta(delta, sinceMs);
         }
+        // sortedDeltas already has the recorded conversions' trades taken out, so the window
+        // reuses what was priced rather than pricing it again.
+        window.recorded = recorded;
+        window.addRecordedConversions(sinceMs);
         return new StatsSnapshot(window.getSummary(), window.getItems());
     }
 
