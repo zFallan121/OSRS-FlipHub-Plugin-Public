@@ -38,7 +38,6 @@ import java.awt.font.LineMetrics;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.util.function.Consumer;
-import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
@@ -50,15 +49,13 @@ import javax.swing.JPanel;
 import javax.swing.JToggleButton;
 import javax.swing.border.EmptyBorder;
 import net.runelite.client.util.ImageUtil;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class PanelChromeBuilder {
     private static final String WORDMARK = "FlipHub OSRS";
 
     private final UiStyler uiStyler;
-
-    PanelChromeBuilder(UiStyler uiStyler) {
-        this.uiStyler = uiStyler;
-    }
 
     JPanel buildHeader(JButton profileButton, Runnable onProfileMenuRequested) {
         JPanel header = new JPanel(new BorderLayout());

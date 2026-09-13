@@ -27,8 +27,6 @@ package com.osrsfliphub;
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
 import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -238,5 +236,4 @@ final class ApiClientCore {
             return gson.fromJson(responseBody, ApiClient.StatsSummaryResponse.class);
         }
     }
-
 }

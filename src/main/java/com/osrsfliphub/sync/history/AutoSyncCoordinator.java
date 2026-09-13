@@ -32,19 +32,16 @@ import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.widgets.Widget;
 import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
 @Slf4j
 final class AutoSyncCoordinator {
 
+    @RequiredArgsConstructor
     static final class HistorySnapshot {
         final boolean visible;
         final Widget[] widgets;
-
-        HistorySnapshot(boolean visible, Widget[] widgets) {
-            this.visible = visible;
-            this.widgets = widgets;
-        }
     }
 
     private final AutoSyncState autoSyncState;
@@ -67,30 +64,18 @@ final class AutoSyncCoordinator {
         return new HistorySnapshot(true, historyContainer.getDynamicChildren());
     }
 
-    private GeHistoryCursorService cursorService() {
-        return Bridge.get(GeHistoryCursorService.class);
-    }
-
-    private AutoSyncMessage messageService() {
-        return Bridge.get(AutoSyncMessage.class);
-    }
-
-    private WipeStateStore wipeStore() {
-        return Bridge.get(WipeStateStore.class);
-    }
-
     private List<String> buildCursorSignatures(List<Trade> trades) {
-        GeHistoryCursorService service = cursorService();
+        GeHistoryCursorService service = Bridge.get(GeHistoryCursorService.class);
         return service != null ? service.buildCursorSignatures(trades) : new ArrayList<>();
     }
 
     private String syncResultMessage(int addedTrades) {
-        AutoSyncMessage service = messageService();
+        AutoSyncMessage service = Bridge.get(AutoSyncMessage.class);
         return service != null ? service.syncResultMessage(addedTrades) : "";
     }
 
     private void persistCursor(long accountKey, List<String> cursor) {
-        WipeStateStore store = wipeStore();
+        WipeStateStore store = Bridge.get(WipeStateStore.class);
         if (store != null) {
             store.persistCursor(accountKey, cursor);
         }
@@ -103,7 +88,7 @@ final class AutoSyncCoordinator {
 
     /** What to say when the current read becomes the cursor: why, if the old one was refused. */
     private String baselineSetMessage(GeHistoryCursorService.StoredCursor stored, List<String> currentCursor) {
-        AutoSyncMessage messages = messageService();
+        AutoSyncMessage messages = Bridge.get(AutoSyncMessage.class);
         if (messages == null) {
             return "";
         }
@@ -148,7 +133,7 @@ final class AutoSyncCoordinator {
         if (verdict == AutoSyncState.ReadVerdict.WAIT) {
             return;
         }
-        AutoSyncMessage messages = messageService();
+        AutoSyncMessage messages = Bridge.get(AutoSyncMessage.class);
         if (verdict == AutoSyncState.ReadVerdict.GIVE_UP) {
             autoSyncState.disarm();
             pushGameMessage(messages != null ? messages.readIncompleteMessage() : "");
@@ -156,12 +141,12 @@ final class AutoSyncCoordinator {
             return;
         }
 
-        WipeStateStore wipeStore = wipeStore();
+        WipeStateStore wipeStore = Bridge.get(WipeStateStore.class);
         GeHistoryCursorService.StoredCursor stored = wipeStore != null
             ? wipeStore.loadCursor(accountKey)
             : GeHistoryCursorService.StoredCursor.NONE;
         List<String> storedCursor = stored.signatures;
-        GeHistoryCursorService cursorService = cursorService();
+        GeHistoryCursorService cursorService = Bridge.get(GeHistoryCursorService.class);
         int overlap = cursorService != null ? cursorService.computeOverlap(currentCursor, storedCursor) : 0;
         boolean wipeBarrierArmed = wipeStore != null && wipeStore.isWipeBarrierArmed(accountKey);
         WipeBaselineDecision decisionService =

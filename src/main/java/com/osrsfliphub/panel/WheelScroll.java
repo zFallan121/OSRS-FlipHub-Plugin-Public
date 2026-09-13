@@ -41,17 +41,14 @@ import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JViewport;
 import javax.swing.SwingUtilities;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class WheelScroll {
     private final Supplier<JScrollPane> activeScrollSupplier;
     private final Component hostComponent;
     private final MouseWheelListener wheelForwarder = this::forwardWheelEvent;
     private AWTEventListener globalWheelListener;
-
-    WheelScroll(Supplier<JScrollPane> activeScrollSupplier, Component hostComponent) {
-        this.activeScrollSupplier = activeScrollSupplier;
-        this.hostComponent = hostComponent;
-    }
 
     MouseWheelListener wheelForwarder() {
         return wheelForwarder;

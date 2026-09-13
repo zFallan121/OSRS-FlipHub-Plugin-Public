@@ -28,9 +28,11 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.GrandExchangeOfferState;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
 final class OfferEventBuild {
+    @RequiredArgsConstructor
     static final class Input {
         final OfferSnapshot prev;
         final OfferSnapshot next;
@@ -39,24 +41,9 @@ final class OfferEventBuild {
         final boolean localTradesLoadedThisLogin;
         final long lastLoginMs;
         final int world;
-
-        Input(OfferSnapshot prev,
-              OfferSnapshot next,
-              Stamp stamp,
-              boolean unlinked,
-              boolean localTradesLoadedThisLogin,
-              long lastLoginMs,
-              int world) {
-            this.prev = prev;
-            this.next = next;
-            this.stamp = stamp;
-            this.unlinked = unlinked;
-            this.localTradesLoadedThisLogin = localTradesLoadedThisLogin;
-            this.lastLoginMs = lastLoginMs;
-            this.world = world;
-        }
     }
 
+    @RequiredArgsConstructor
     static final class Result {
         @Getter
         private final GeEvent event;
@@ -65,18 +52,6 @@ final class OfferEventBuild {
         private final boolean clearRecentSlot;
         private final boolean ignore;
         private final boolean shouldScheduleRefresh;
-
-        private Result(GeEvent event,
-                       boolean baselineSynthetic,
-                       boolean clearRecentSlot,
-                       boolean ignore,
-                       boolean shouldScheduleRefresh) {
-            this.event = event;
-            this.baselineSynthetic = baselineSynthetic;
-            this.clearRecentSlot = clearRecentSlot;
-            this.ignore = ignore;
-            this.shouldScheduleRefresh = shouldScheduleRefresh;
-        }
 
         static Result ignore(boolean clearRecentSlot) {
             return new Result(null, false, clearRecentSlot, true, false);
@@ -134,7 +109,7 @@ final class OfferEventBuild {
         boolean usedBaseline = false;
         int deltaQty;
         long deltaGp;
-        if (prevIsBaseline && input.stamp != null && stampMatchesSnapshot(input.stamp, next)) {
+        if (prevIsBaseline && input.stamp != null && (stampService != null && stampService.stampMatchesSnapshot(input.stamp, next))) {
             usedBaseline = true;
             deltaQty = Math.max(0, next.filledQty - input.stamp.filledQty);
             deltaGp = mathService.computeDeltaGpFromBaseline(next, input.stamp.spentGp, deltaQty);
@@ -234,10 +209,6 @@ final class OfferEventBuild {
             return true;
         }
         return prev.totalQty > 0 && next.totalQty > 0 && prev.totalQty != next.totalQty;
-    }
-
-    private boolean stampMatchesSnapshot(Stamp stamp, OfferSnapshot snapshot) {
-        return stampService != null && stampService.stampMatchesSnapshot(stamp, snapshot);
     }
 
     private boolean isWithinLoginGrace() {

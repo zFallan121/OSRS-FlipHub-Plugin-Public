@@ -42,9 +42,11 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.client.RuneLite;
 import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
 @Slf4j
+@RequiredArgsConstructor
 final class ProfileStore {
     private final Gson gson;
     private final String profileDirName;
@@ -71,13 +73,6 @@ final class ProfileStore {
 
     ProfileStore(Gson gson, String profileDirName, String legacyProfileDirName) {
         this(gson, profileDirName, legacyProfileDirName, RuneLite.RUNELITE_DIR.toPath());
-    }
-
-    ProfileStore(Gson gson, String profileDirName, String legacyProfileDirName, Path runeliteDir) {
-        this.gson = gson;
-        this.profileDirName = profileDirName;
-        this.legacyProfileDirName = legacyProfileDirName;
-        this.runeliteDir = runeliteDir;
     }
 
     Path getProfilesDir() {

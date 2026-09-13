@@ -29,15 +29,12 @@ import java.util.UUID;
 import okhttp3.MediaType;
 import okhttp3.Request;
 import okhttp3.RequestBody;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class ApiClientRequestFactory {
     private final String apiBaseUrl;
     private final MediaType jsonMediaType;
-
-    ApiClientRequestFactory(String apiBaseUrl, MediaType jsonMediaType) {
-        this.apiBaseUrl = apiBaseUrl;
-        this.jsonMediaType = jsonMediaType;
-    }
 
     Request newPostRequest(String path, String jsonBody) {
         return newPostBuilder(path, jsonBody).build();

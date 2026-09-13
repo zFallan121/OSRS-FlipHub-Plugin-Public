@@ -28,7 +28,6 @@ import java.io.IOException;
 import java.util.List;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
-import net.runelite.api.GameState;
 
 final class RuntimeUtilityServices {
     void scheduleRefreshSoon(PanelRefresh coordinator, java.util.concurrent.ScheduledExecutorService scheduler) {
@@ -99,12 +98,8 @@ final class RuntimeUtilityServices {
         return panel != null && panel.isShowing();
     }
 
-    boolean isClientLoggedIn(Client client) {
-        return client != null && client.getGameState() == GameState.LOGGED_IN;
-    }
-
     boolean isClientFullyReady(Client client) {
-        return isClientLoggedIn(client) && client.getLocalPlayer() != null;
+        return Access.loggedIn(client) && client.getLocalPlayer() != null;
     }
 
     void pushGameMessage(Client client, String message) {

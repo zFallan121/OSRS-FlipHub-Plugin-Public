@@ -27,7 +27,6 @@ package com.osrsfliphub;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.Client;
-import net.runelite.api.GameState;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetSizeMode;
 
@@ -56,21 +55,9 @@ final class ChatboxSuggestionPresentation {
         return Bridge.get(RemainingLimitSuggestion.class);
     }
 
-    private boolean isClientLoggedIn() {
-        return client != null && client.getGameState() == GameState.LOGGED_IN;
-    }
-
     private Widget getChatboxContainer() {
         ChatboxSuggestionRuntimeState service = runtimeState();
         return service != null ? service.getChatboxContainer() : null;
-    }
-
-    private Integer getOfferPreviewItemId() {
-        return Access.plugin().offerPreviewItemId;
-    }
-
-    private FlipHubItem getOfferPreviewItem() {
-        return Access.plugin().offerPreviewItem;
     }
 
     private Widget ensurePriceSuggestionWidget(Widget container) {
@@ -169,7 +156,7 @@ final class ChatboxSuggestionPresentation {
     }
 
     void updatePriceSuggestion(Widget promptWidget, Boolean isBuy) {
-        if (!isClientLoggedIn()) {
+        if (!Access.loggedIn(client)) {
             clearPriceSuggestion();
             return;
         }
@@ -186,8 +173,8 @@ final class ChatboxSuggestionPresentation {
             clearPriceSuggestion();
             return;
         }
-        Integer previewItemId = getOfferPreviewItemId();
-        FlipHubItem previewItem = getOfferPreviewItem();
+        Integer previewItemId = Access.plugin().offerPreviewItemId;
+        FlipHubItem previewItem = Access.plugin().offerPreviewItem;
         if (previewItem == null || previewItemId == null || previewItem.item_id != previewItemId) {
             clearPriceSuggestion();
             return;
@@ -219,7 +206,7 @@ final class ChatboxSuggestionPresentation {
     }
 
     void updateLimitSuggestion(Widget promptWidget, Boolean isBuy) {
-        if (!isClientLoggedIn()) {
+        if (!Access.loggedIn(client)) {
             clearLimitSuggestion();
             clearAffordableLimitSuggestion();
             return;
@@ -241,8 +228,8 @@ final class ChatboxSuggestionPresentation {
             return;
         }
 
-        Integer previewItemId = getOfferPreviewItemId();
-        FlipHubItem previewItem = getOfferPreviewItem();
+        Integer previewItemId = Access.plugin().offerPreviewItemId;
+        FlipHubItem previewItem = Access.plugin().offerPreviewItem;
         if (previewItem == null || previewItemId == null || previewItem.item_id != previewItemId) {
             clearLimitSuggestion();
             clearAffordableLimitSuggestion();

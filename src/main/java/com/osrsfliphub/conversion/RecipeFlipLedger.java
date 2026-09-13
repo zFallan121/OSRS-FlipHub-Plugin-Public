@@ -29,6 +29,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
 
 /**
  * Works out what the player's recorded conversions are worth, and which of their trades are
@@ -47,6 +48,7 @@ import java.util.Map;
  */
 final class RecipeFlipLedger {
     /** One conversion, priced. */
+    @RequiredArgsConstructor
     static final class Activity {
         final int itemId;
         final ConversionKind kind;
@@ -57,32 +59,16 @@ final class RecipeFlipLedger {
         final int quantity;
         final long completionTsMs;
 
-        Activity(int itemId, ConversionKind kind, String name, long costGp, long revenueGp,
-                 long taxGp, int quantity, long completionTsMs) {
-            this.itemId = itemId;
-            this.kind = kind;
-            this.name = name;
-            this.costGp = costGp;
-            this.revenueGp = revenueGp;
-            this.taxGp = taxGp;
-            this.quantity = quantity;
-            this.completionTsMs = completionTsMs;
-        }
-
         long profitGp() {
             return revenueGp - costGp;
         }
     }
 
+    @RequiredArgsConstructor
     static final class Result {
         /** How much of each trade a conversion has taken, so the plain replay can skip it. */
         final Map<TradeKey, Integer> claimed;
         final List<Activity> activities;
-
-        Result(Map<TradeKey, Integer> claimed, List<Activity> activities) {
-            this.claimed = claimed;
-            this.activities = activities;
-        }
 
         int claimedOn(Delta delta) {
             if (delta == null) {

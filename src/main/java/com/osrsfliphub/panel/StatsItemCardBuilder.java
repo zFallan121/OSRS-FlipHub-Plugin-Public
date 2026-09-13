@@ -35,7 +35,6 @@ import java.awt.Font;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import java.util.function.Supplier;
 import javax.swing.BorderFactory;
@@ -81,10 +80,6 @@ final class StatsItemCardBuilder {
     private boolean isStatsItemExpanded(int itemId) {
         Integer expandedId = expandedStatsItemIdSupplier != null ? expandedStatsItemIdSupplier.get() : null;
         return expandedId != null && expandedId == itemId;
-    }
-
-    private boolean isStatsHistoryExpanded(int itemId) {
-        return expandedStatsHistoryItems != null && expandedStatsHistoryItems.contains(itemId);
     }
 
     /**
@@ -219,7 +214,7 @@ final class StatsItemCardBuilder {
         // the panel width, which is not enough for most item names to survive.
         EllipsisLabel nameLabel = new EllipsisLabel(name);
         nameLabel.setForeground(TEXT);
-        nameLabel.setFont(fontBold(12.5f));
+        nameLabel.setFont(uiStyler.fontBold(12.5f));
 
         long profit = item.total_profit_gp != null ? item.total_profit_gp : 0;
         JLabel profitLabel = new JLabel(valueFormatService.formatGpCompact(profit), SwingConstants.RIGHT);
@@ -227,7 +222,7 @@ final class StatsItemCardBuilder {
         // One point up from where it was, and tracked. This is the figure the card is read for
         // and the one that was losing its decimal point, but it must not grow to the size of
         // the item's own name above it, which leads.
-        profitLabel.setFont(fontNumeric(11.5f));
+        profitLabel.setFont(uiStyler.fontNumeric(11.5f));
 
         EllipsisLabel metaLabel = new EllipsisLabel(formattingService.buildStatsItemMetaShort(item));
         metaLabel.setForeground(MUTED_2);
@@ -367,14 +362,14 @@ final class StatsItemCardBuilder {
         if (history == null) {
             history = new ArrayList<>();
         }
-        boolean expanded = isStatsHistoryExpanded(itemId);
+        boolean expanded = expandedStatsHistoryItems != null && expandedStatsHistoryItems.contains(itemId);
 
         JPanel header = new JPanel(new BorderLayout(6, 0));
         header.setOpaque(false);
         header.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
         JLabel title = new JLabel(historySectionTitle(history));
         title.setForeground(MUTED);
-        title.setFont(fontSemiBold(10f));
+        title.setFont(uiStyler.fontSemiBold(10f));
         JLabel chevron = new JLabel(expanded ? "\u25B2" : "\u25BC", SwingConstants.RIGHT);
         chevron.setForeground(MUTED_2);
         chevron.setFont(font(10f));
@@ -488,7 +483,7 @@ final class StatsItemCardBuilder {
         JLabel profitLabel = new JLabel("Profit: " + valueFormatService.formatGp(instance.profitGp),
             SwingConstants.RIGHT);
         profitLabel.setForeground(profitColor);
-        profitLabel.setFont(fontNumeric(10.5f));
+        profitLabel.setFont(uiStyler.fontNumeric(10.5f));
         profitRow.add(profitLabel, BorderLayout.EAST);
 
         entry.add(topRow);
@@ -556,86 +551,6 @@ final class StatsItemCardBuilder {
     }
 
     /**
-     * A word that does something. The panel has one action colour and this is
-     * where it goes; there is no rule around it, because a box inside a ledger
-     * row has nothing to earn itself with.
-     */
-    private JLabel actionLink(String text, String tooltip, Runnable action) {
-        JLabel link = new JLabel(text, SwingConstants.RIGHT);
-        link.setForeground(ACCENT);
-        link.setFont(font(9.5f));
-        link.setToolTipText(tooltip);
-        link.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        link.addMouseListener(new StatsClickMouseAdapter(action));
-        // Under the pointer the word goes to plain text. The action colour says "this does
-        // something"; white says "this one, the one you are on".
-        link.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseEntered(java.awt.event.MouseEvent event) {
-                link.setForeground(TEXT);
-            }
-
-            @Override
-            public void mouseExited(java.awt.event.MouseEvent event) {
-                link.setForeground(ACCENT);
-            }
-        });
-        return link;
-    }
-
-    /** The word an unnumbered entry gets where a numbered one has its profit row. */
-    private JPanel buildEntryWordRow(String label) {
-        JLabel word = new JLabel(label);
-        word.setForeground(MUTED_2);
-        word.setFont(font(9.5f));
-        JPanel row = new JPanel(new BorderLayout(6, 0));
-        row.setOpaque(false);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 14));
-        row.add(word, BorderLayout.WEST);
-        return row;
-    }
-
-    /**
-     * The refusal, in the direction's own words. "Not a recipe" would be true
-     * of all five and clear about none; the player is correcting a specific
-     * claim, and the control should repeat the claim it withdraws.
-     */
-    static String rejectLabel(ConversionKind kind) {
-        if (kind == null) {
-            return "Not a recipe";
-        }
-        switch (kind) {
-            case DISASSEMBLE:
-                return "Not disassembled";
-            case SET_BREAK:
-                return "Not broken up";
-            case REPAIR:
-                return "Not repaired";
-            case SET_COMBINE:
-                return "Not combined";
-            case ASSEMBLE:
-            default:
-                return "Not assembled";
-        }
-    }
-
-    private static String rejectTooltip(ConversionKind kind) {
-        boolean takenApart = kind == ConversionKind.SET_BREAK || kind == ConversionKind.DISASSEMBLE;
-        return takenApart
-            ? "The plugin guessed this was taken apart from what was bought and sold. If it was not, "
-                + "click: the pieces' sales stand on their own, the whole item stays as bought, and "
-                + "every total is recomputed. It can be restored."
-            : "The plugin guessed this was made from those parts. If it was not, click: the sale "
-                + "stands on its own, the parts stay as bought, and every total is recomputed. It can "
-                + "be restored.";
-    }
-
-    private static String resolveItemName(int itemId) {
-        ItemLookup lookup = Bridge.get(ItemLookup.class);
-        return lookup != null ? lookup.getCachedItemName(itemId) : null;
-    }
-
-    /**
      * Which way the block reads. An activity that made one thing is filed
      * against that thing and lists what went into it; one that made several is
      * filed against the thing taken apart and lists what came out.
@@ -671,7 +586,7 @@ final class StatsItemCardBuilder {
         left.setFont(font(10f));
         JLabel right = new JLabel(value != null ? value : "N/A", SwingConstants.RIGHT);
         right.setForeground(valueColor != null ? valueColor : TEXT);
-        right.setFont(fontNumeric(10.5f));
+        right.setFont(uiStyler.fontNumeric(10.5f));
         row.add(left, BorderLayout.CENTER);
         row.add(right, BorderLayout.EAST);
         return row;
@@ -681,16 +596,5 @@ final class StatsItemCardBuilder {
         return uiStyler.font(size);
     }
 
-    private Font fontBold(float size) {
-        return uiStyler.fontBold(size);
-    }
-
-    private Font fontSemiBold(float size) {
-        return uiStyler.fontSemiBold(size);
-    }
-
-    /** Type for a figure: see {@link UiStyler#fontNumeric(float)}. */
-    private Font fontNumeric(float size) {
-        return uiStyler.fontNumeric(size);
-    }
+    /** Type for a figure: see {@link UiStyler#uiStyler.fontNumeric(float)}. */
 }

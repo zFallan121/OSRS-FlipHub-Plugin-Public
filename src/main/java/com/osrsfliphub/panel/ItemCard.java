@@ -26,6 +26,7 @@ package com.osrsfliphub;
 
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import lombok.RequiredArgsConstructor;
 
 /**
  * One built item row, and the parts of it a refresh is allowed to change.
@@ -35,6 +36,7 @@ import javax.swing.JPanel;
  * labels here is what lets a refresh write the numbers into the row the pointer is already on,
  * instead of replacing that row with an identical one.
  */
+@RequiredArgsConstructor
 final class ItemCard {
     final JPanel panel;
     final int itemId;
@@ -54,34 +56,4 @@ final class ItemCard {
     final Runnable repaintBookmark;
     AgePairEntry agePair;
     CountdownEntry countdown;
-
-    ItemCard(JPanel panel,
-                    int itemId,
-                    boolean compactRightPadding,
-                    JLabel nameLabel,
-                    JLabel sellValue,
-                    JLabel buyValue,
-                    JLabel lastSellValue,
-                    JLabel lastBuyValue,
-                    JLabel marginValue,
-                    JLabel marginLimitValue,
-                    JLabel roiValue,
-                    JLabel limitRemainingValue,
-                    JLabel countdownValue,
-                    Runnable repaintBookmark) {
-        this.panel = panel;
-        this.itemId = itemId;
-        this.compactRightPadding = compactRightPadding;
-        this.nameLabel = nameLabel;
-        this.sellValue = sellValue;
-        this.buyValue = buyValue;
-        this.lastSellValue = lastSellValue;
-        this.lastBuyValue = lastBuyValue;
-        this.marginValue = marginValue;
-        this.marginLimitValue = marginLimitValue;
-        this.roiValue = roiValue;
-        this.limitRemainingValue = limitRemainingValue;
-        this.countdownValue = countdownValue;
-        this.repaintBookmark = repaintBookmark;
-    }
 }

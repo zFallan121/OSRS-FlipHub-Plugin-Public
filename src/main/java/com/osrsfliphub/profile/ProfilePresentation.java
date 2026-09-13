@@ -41,12 +41,8 @@ final class ProfilePresentation {
     ProfilePresentation() {
     }
 
-    private ProfileSelectionPresentation facade() {
-        return Bridge.get(ProfileSelectionPresentation.class);
-    }
-
     private String buildProfileKey(long accountHash) {
-        ProfileSelectionPresentation service = facade();
+        ProfileSelectionPresentation service = Bridge.get(ProfileSelectionPresentation.class);
         return service != null ? service.buildProfileKey(accountHash) : String.valueOf(accountHash);
     }
 

@@ -42,22 +42,6 @@ final class FlipHistory {
         this.state = state;
     }
 
-    private static ProfileSelectionPresentation profileSelectionFacade() {
-        return Bridge.get(ProfileSelectionPresentation.class);
-    }
-
-    private static ProfileStorage profileStorage() {
-        return Bridge.get(ProfileStorage.class);
-    }
-
-    private void ensureProfileLoaded(long accountKey) {
-        Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
-    }
-
-    private List<Delta> snapshotLocalTradeDeltas(long accountKey) {
-        return Bridge.get(TradeSession.class).snapshotLocalTradeDeltas(accountKey);
-    }
-
     private Map<Integer, List<StatsFlipInstance>> buildLocalHistory(List<Delta> deltas,
                                                                      Long sinceMs,
                                                                      long accountKey) {
@@ -65,18 +49,18 @@ final class FlipHistory {
     }
 
     private Set<Long> collectAccountwideProfileKeys() {
-        ProfileStorage storage = profileStorage();
+        ProfileStorage storage = Bridge.get(ProfileStorage.class);
         return Bridge.get(ProfileKeyCollector.class).collect(
             storage != null ? storage.getProfilesDir() : null,
             storage != null ? storage.getLegacyProfilesDir() : null,
             state.getLocalTradeDeltasByAccount(),
             state.getLocalStatsLock(),
-            () -> profileSelectionFacade().loadProfilesFromDisk());
+            () -> Bridge.get(ProfileSelectionPresentation.class).loadProfilesFromDisk());
     }
 
     Map<Integer, List<StatsFlipInstance>> buildAccountwideHistory(Long sinceMs) {
         long accountwideKey = Const.ACCOUNTWIDE_KEY;
-        ensureProfileLoaded(accountwideKey);
+        Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountwideKey);
 
         Map<Integer, List<StatsFlipInstance>> merged = new HashMap<>();
         Set<Long> profileKeys = collectAccountwideProfileKeys();
@@ -85,9 +69,9 @@ final class FlipHistory {
                 if (key == null || key <= 0 || key == accountwideKey) {
                     continue;
                 }
-                ensureProfileLoaded(key);
+                Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(key);
                 Map<Integer, List<StatsFlipInstance>> perProfile = buildLocalHistory(
-                    snapshotLocalTradeDeltas(key),
+                    (Bridge.get(TradeSession.class).snapshotLocalTradeDeltas(key)),
                     sinceMs,
                     key
                 );
@@ -100,7 +84,7 @@ final class FlipHistory {
         }
 
         Map<Integer, List<StatsFlipInstance>> accountwide = buildLocalHistory(
-            snapshotLocalTradeDeltas(accountwideKey),
+            (Bridge.get(TradeSession.class).snapshotLocalTradeDeltas(accountwideKey)),
             sinceMs,
             accountwideKey
         );

@@ -76,17 +76,13 @@ final class ProfileTradesLoader {
     ProfileTradesLoader() {
     }
 
-    private ProfileStorage storage() {
-        return Bridge.get(ProfileStorage.class);
-    }
-
     Result load(long accountHash,
                 long localEventBucketMs,
                 long duplicateTradeWindowMs) {
         if (accountHash < 0) {
             return null;
         }
-        ProfileStorage storage = storage();
+        ProfileStorage storage = Bridge.get(ProfileStorage.class);
         long fileMs = 0L;
         Path file = storage != null ? storage.getProfileFile(accountHash) : null;
         if (file != null) {

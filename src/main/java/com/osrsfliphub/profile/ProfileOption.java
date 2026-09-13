@@ -23,13 +23,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package com.osrsfliphub;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class ProfileOption {
     final String key;
     final String label;
-
-    ProfileOption(String key, String label) {
-        this.key = key;
-        this.label = label;
-    }
 }

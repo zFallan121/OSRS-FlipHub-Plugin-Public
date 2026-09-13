@@ -41,9 +41,11 @@ import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
 @Slf4j
+@RequiredArgsConstructor
 final class WikiPrice {
 
     interface Fetcher {
@@ -74,13 +76,6 @@ final class WikiPrice {
             httpFetcher(httpClient, gson,
                 Const.WIKI_LATEST_URL,
                 Const.WIKI_USER_AGENT));
-    }
-
-    WikiPrice(long cacheTtlMs, long minRefreshMs, PluginRuntime runtime, Fetcher fetcher) {
-        this.cacheTtlMs = cacheTtlMs;
-        this.minRefreshMs = minRefreshMs;
-        this.runtime = runtime;
-        this.fetcher = fetcher;
     }
 
     private static Fetcher httpFetcher(OkHttpClient httpClient, Gson gson, String latestUrl, String userAgent) {

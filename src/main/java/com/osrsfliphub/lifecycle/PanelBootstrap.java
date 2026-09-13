@@ -46,7 +46,6 @@ final class PanelBootstrap {
             this.navButton = navButton;
             this.offerTimerOverlay = offerTimerOverlay;
         }
-
     }
 
     UiState initialize(

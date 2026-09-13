@@ -32,11 +32,9 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
-import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
-import java.awt.RenderingHints;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
@@ -53,7 +51,9 @@ import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class ItemCardBuilder {
     private final PanelValueFormat valueFormatService;
     private final UiStyler uiStyler;
@@ -65,32 +65,6 @@ final class ItemCardBuilder {
     private final Runnable renderItems;
     private final AgeTooltip ageTooltipCoordinator;
     private final WheelScroll wheelScrollCoordinator;
-
-    ItemCardBuilder(PanelValueFormat valueFormatService,
-                           UiStyler uiStyler,
-                           ItemIconResolver itemIconResolver,
-                           ExternalLink externalLinkCoordinator,
-                           PanelBookmarkStore bookmarkStore,
-                           PanelHiddenItemStore hiddenItemStore,
-                           PanelMutableState panelState,
-                           Runnable renderItems,
-                           AgeTooltip ageTooltipCoordinator,
-                           WheelScroll wheelScrollCoordinator) {
-        this.valueFormatService = valueFormatService;
-        this.uiStyler = uiStyler;
-        this.itemIconResolver = itemIconResolver;
-        this.externalLinkCoordinator = externalLinkCoordinator;
-        this.bookmarkStore = bookmarkStore;
-        this.hiddenItemStore = hiddenItemStore;
-        this.panelState = panelState;
-        this.renderItems = renderItems;
-        this.ageTooltipCoordinator = ageTooltipCoordinator;
-        this.wheelScrollCoordinator = wheelScrollCoordinator;
-    }
-
-    private boolean isBookmarked(int itemId) {
-        return bookmarkStore != null && bookmarkStore.isBookmarked(itemId);
-    }
 
     private void renderItems() {
         if (renderItems != null) {
@@ -137,7 +111,7 @@ final class ItemCardBuilder {
         String resolvedName = resolveName(item);
         EllipsisLabel nameLabel = new EllipsisLabel(resolvedName);
         nameLabel.setForeground(TEXT);
-        nameLabel.setFont(fontBold(13f));
+        nameLabel.setFont(uiStyler.fontBold(13f));
         if (externalLinkCoordinator != null) {
             externalLinkCoordinator.attachOpenItemPageHandler(nameLabel, item.item_id, resolvedName);
         }
@@ -153,7 +127,7 @@ final class ItemCardBuilder {
         bookmarkButton.setOpaque(false);
         // The star the filter at the top of the panel is typed at: one control appearing twice,
         // once per row and once for all of them, so it cannot read as two different marks.
-        bookmarkButton.setFont(fontSymbol(BOOKMARK_GLYPH_SIZE));
+        bookmarkButton.setFont(uiStyler.fontSymbol(BOOKMARK_GLYPH_SIZE));
         bookmarkButton.setPreferredSize(new Dimension(TRAILING_CONTROL_WIDTH, 24));
         bookmarkButton.setToolTipText("Bookmark");
         bookmarkButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -162,7 +136,7 @@ final class ItemCardBuilder {
         // colour stays with the state the row is actually in, so a grey fill is always an offer
         // and the gold one is always the fact.
         final Runnable paintBookmark = () -> {
-            boolean on = isBookmarked(item.item_id);
+            boolean on = isBookmarked(item);
             ButtonModel model = bookmarkButton.getModel();
             boolean previewing = model.isRollover() || model.isPressed();
             bookmarkButton.setText(previewing != on ? BOOKMARK_GLYPH : BOOKMARK_GLYPH_EMPTY);
@@ -174,7 +148,7 @@ final class ItemCardBuilder {
             if (bookmarkStore != null) {
                 bookmarkStore.toggleBookmark(item.item_id);
                 paintBookmark.run();
-                if (panelState != null && panelState.showBookmarkedOnly && !isBookmarked(item.item_id)) {
+                if (panelState != null && panelState.showBookmarkedOnly && !isBookmarked(item)) {
                     renderItems();
                 }
             }
@@ -380,11 +354,11 @@ final class ItemCardBuilder {
         // row shortens the wording instead of printing the two halves over each other.
         EllipsisLabel left = new EllipsisLabel(label);
         left.setForeground(MUTED);
-        left.setFont(font(10.5f));
+        left.setFont(uiStyler.font(10.5f));
 
         JLabel right = new JLabel(value, SwingConstants.RIGHT);
         right.setForeground(valueColor);
-        right.setFont(fontSemiBold(12f));
+        right.setFont(uiStyler.fontSemiBold(12f));
         right.setBorder(new EmptyBorder(0, 0, 0, rightPadding));
 
         row.add(left, BorderLayout.CENTER);
@@ -408,7 +382,7 @@ final class ItemCardBuilder {
                     return;
                 }
                 Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                Skin.smooth(g2);
                 g2.setColor(ICON_SCRIM);
                 g2.fillOval(0, 0, size, size);
                 g2.setColor(getModel().isRollover() ? CONTROL_BORDER_HOVER : CONTROL_BORDER);
@@ -491,19 +465,9 @@ final class ItemCardBuilder {
         removeButton.setVisible(iconLayer.contains(pointer));
     }
 
-    private Font font(float size) {
-        return uiStyler.font(size);
+
+    private boolean isBookmarked(FlipHubItem item) {
+        return bookmarkStore != null && bookmarkStore.isBookmarked(item.item_id);
     }
 
-    private Font fontBold(float size) {
-        return uiStyler.fontBold(size);
-    }
-
-    private Font fontSemiBold(float size) {
-        return uiStyler.fontSemiBold(size);
-    }
-
-    private Font fontSymbol(float size) {
-        return uiStyler.fontSymbol(size);
-    }
 }

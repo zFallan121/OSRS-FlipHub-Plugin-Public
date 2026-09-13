@@ -27,13 +27,11 @@ package com.osrsfliphub;
 import java.awt.Cursor;
 import javax.swing.JComponent;
 import net.runelite.client.util.LinkBrowser;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class ExternalLink {
     private final String baseUrl;
-
-    ExternalLink(String baseUrl) {
-        this.baseUrl = baseUrl;
-    }
 
     void attachOpenItemPageHandler(JComponent component, int itemId, String itemName) {
         if (component == null || itemId <= 0) {

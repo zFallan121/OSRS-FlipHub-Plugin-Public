@@ -52,4 +52,14 @@ final class Access {
     static GeLifecyclePlugin pluginOrNull() {
         return plugin;
     }
+
+    /**
+     * Whether there is a logged-in character behind this client.
+     *
+     * <p>One place, because a dozen callers ask it and each one that spelled it out was another
+     * chance to forget that the client reference itself can be null before start-up finishes.
+     */
+    static boolean loggedIn(net.runelite.api.Client client) {
+        return client != null && client.getGameState() == net.runelite.api.GameState.LOGGED_IN;
+    }
 }

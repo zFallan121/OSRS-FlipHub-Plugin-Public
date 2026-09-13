@@ -35,8 +35,10 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
+import lombok.RequiredArgsConstructor;
 
 final class StatsPanelBuilder {
+    @RequiredArgsConstructor
     static final class BuildResult {
         final JPanel panel;
         final JScrollPane scrollPane;
@@ -46,24 +48,6 @@ final class StatsPanelBuilder {
         final JLabel taxValue;
         final JLabel sessionTimeValue;
         final JLabel hourlyValue;
-
-        BuildResult(JPanel panel,
-                    JScrollPane scrollPane,
-                    JLabel totalProfitValue,
-                    JLabel roiValue,
-                    JLabel flipsValue,
-                    JLabel taxValue,
-                    JLabel sessionTimeValue,
-                    JLabel hourlyValue) {
-            this.panel = panel;
-            this.scrollPane = scrollPane;
-            this.totalProfitValue = totalProfitValue;
-            this.roiValue = roiValue;
-            this.flipsValue = flipsValue;
-            this.taxValue = taxValue;
-            this.sessionTimeValue = sessionTimeValue;
-            this.hourlyValue = hourlyValue;
-        }
     }
 
     private static final String TAB_CARD = "tab";

@@ -34,26 +34,6 @@ final class OfferPreviewSync {
     OfferPreviewSync() {
     }
 
-    private Integer getOfferPreviewItemId() {
-        return Access.plugin().offerPreviewItemId;
-    }
-
-    private FlipHubItem getOfferPreviewItem() {
-        return Access.plugin().offerPreviewItem;
-    }
-
-    private void setOfferPreviewItemId(Integer itemId) {
-        Access.plugin().offerPreviewItemId = itemId;
-    }
-
-    private void setOfferPreviewItem(FlipHubItem item) {
-        Access.plugin().offerPreviewItem = item;
-    }
-
-    private FlipHubItem buildLocalOfferPreview(int itemId) {
-        return Bridge.get(PanelDataRuntime.class).buildLocalOfferPreview(itemId);
-    }
-
     private void setPanelOfferPreview(FlipHubItem item, long asOfMs, Long priceCacheMs) {
         Panel panel = Access.plugin().panel;
         if (panel != null) {
@@ -78,11 +58,11 @@ final class OfferPreviewSync {
     }
 
     void clearPreview() {
-        if (getOfferPreviewItemId() == null) {
+        if ((Access.plugin().offerPreviewItemId) == null) {
             return;
         }
-        setOfferPreviewItemId(null);
-        setOfferPreviewItem(null);
+        Access.plugin().offerPreviewItemId = null;
+        Access.plugin().offerPreviewItem = null;
         setPanelOfferPreview(null, 0L, null);
         // Returning from offer setup should show the same prices the setup view just used.
         scheduleRefreshSoon();
@@ -92,24 +72,24 @@ final class OfferPreviewSync {
         if (itemId <= 0) {
             return false;
         }
-        Integer currentItemId = getOfferPreviewItemId();
-        FlipHubItem currentItem = getOfferPreviewItem();
+        Integer currentItemId = Access.plugin().offerPreviewItemId;
+        FlipHubItem currentItem = Access.plugin().offerPreviewItem;
         if (currentItemId != null && currentItemId == itemId && currentItem != null) {
             updateLocalPreview(itemId);
             return true;
         }
-        setOfferPreviewItemId(itemId);
+        Access.plugin().offerPreviewItemId = itemId;
         updateLocalPreview(itemId);
         return true;
     }
 
     private void updateLocalPreview(int itemId) {
-        FlipHubItem previous = getOfferPreviewItem();
-        FlipHubItem next = buildLocalOfferPreview(itemId);
+        FlipHubItem previous = Access.plugin().offerPreviewItem;
+        FlipHubItem next = Bridge.get(PanelDataRuntime.class).buildLocalOfferPreview(itemId);
         boolean changed = !isOfferPreviewEquivalent(previous, next);
         boolean pricesChanged = !isOfferPreviewPricesEquivalent(previous, next);
 
-        setOfferPreviewItem(next);
+        Access.plugin().offerPreviewItem = next;
         if (changed) {
             markSuggestionDirty();
             setPanelOfferPreview(next, System.currentTimeMillis(), null);

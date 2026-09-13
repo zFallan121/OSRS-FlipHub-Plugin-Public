@@ -71,5 +71,4 @@ final class PanelComponentBundle {
         this.statsPanelBuilder = statsPanelBuilder;
         this.statsItemCardBuilder = statsItemCardBuilder;
     }
-
 }

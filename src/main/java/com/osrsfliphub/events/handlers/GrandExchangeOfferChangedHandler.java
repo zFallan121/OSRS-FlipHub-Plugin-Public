@@ -43,14 +43,6 @@ final class GrandExchangeOfferChangedHandler {
         this.state = state;
     }
 
-    private static OfferStampStateServices offerStampState() {
-        return Access.plugin().getOfferStampStateServices();
-    }
-
-    private static RecentTradeDeduper recentTradeDeduper() {
-        return Bridge.get(RecentTradeDeduper.class);
-    }
-
     private boolean hasSessionToken() {
         ProfileSelectionPresentation service =
             Bridge.get(ProfileSelectionPresentation.class);
@@ -63,7 +55,7 @@ final class GrandExchangeOfferChangedHandler {
     }
 
     private void clearRecentTradeEvent(int slot) {
-        RecentTradeDeduper deduper = recentTradeDeduper();
+        RecentTradeDeduper deduper = Bridge.get(RecentTradeDeduper.class);
         if (deduper != null) {
             deduper.clearSlot(slot);
         }
@@ -81,7 +73,7 @@ final class GrandExchangeOfferChangedHandler {
             && client != null && client.getGameState() != GameState.LOGGED_IN) {
             return;
         }
-        offerStampState().loadOfferUpdateTimesForCurrentAccount();
+        (Access.plugin().getOfferStampStateServices()).loadOfferUpdateTimesForCurrentAccount();
         int slot = event.getSlot();
 
         OfferSnapshot previous = state.getSnapshots().get(slot);
@@ -90,7 +82,7 @@ final class GrandExchangeOfferChangedHandler {
         // to `next` in place, so the delta has to be derived from a copy taken before that.
         Stamp stampBeforeUpdate = Stamp.copyOf(state.getOfferUpdateStamps().get(slot));
         state.getSnapshots().put(slot, next);
-        offerStampState().trackOfferUpdate(slot, previous, next);
+        (Access.plugin().getOfferStampStateServices()).trackOfferUpdate(slot, previous, next);
 
         boolean hasSessionToken = hasSessionToken();
         if (!hasSessionToken) {
@@ -107,7 +99,7 @@ final class GrandExchangeOfferChangedHandler {
                 stampBeforeUpdate,
                 !hasSessionToken,
                 Access.plugin().localTradesLoadedThisLogin,
-                offerStampState().getLastLoginMs(),
+                (Access.plugin().getOfferStampStateServices()).getLastLoginMs(),
                 client != null ? client.getWorld() : 0
             )
         );
@@ -119,7 +111,7 @@ final class GrandExchangeOfferChangedHandler {
         }
 
         GeEvent geEvent = result.getEvent();
-        RecentTradeDeduper deduper = recentTradeDeduper();
+        RecentTradeDeduper deduper = Bridge.get(RecentTradeDeduper.class);
         if (deduper != null && deduper.normalizeOrSuppress(geEvent)) {
             if (result.shouldClearRecentSlot()) {
                 clearRecentTradeEvent(slot);

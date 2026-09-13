@@ -30,8 +30,10 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
+import lombok.RequiredArgsConstructor;
 
 final class PanelBodyBuilder {
+    @RequiredArgsConstructor
     static final class BuildResult {
         final JPanel panel;
         final JPanel footerPanel;
@@ -42,26 +44,6 @@ final class PanelBodyBuilder {
         final JLabel taxValue;
         final JLabel sessionTimeValue;
         final JLabel hourlyValue;
-
-        BuildResult(JPanel panel,
-                    JPanel footerPanel,
-                    JScrollPane statsScrollPane,
-                    JLabel totalProfitValue,
-                    JLabel roiValue,
-                    JLabel flipsValue,
-                    JLabel taxValue,
-                    JLabel sessionTimeValue,
-                    JLabel hourlyValue) {
-            this.panel = panel;
-            this.footerPanel = footerPanel;
-            this.statsScrollPane = statsScrollPane;
-            this.totalProfitValue = totalProfitValue;
-            this.roiValue = roiValue;
-            this.flipsValue = flipsValue;
-            this.taxValue = taxValue;
-            this.sessionTimeValue = sessionTimeValue;
-            this.hourlyValue = hourlyValue;
-        }
     }
 
     BuildResult build(JPanel cardPanel,

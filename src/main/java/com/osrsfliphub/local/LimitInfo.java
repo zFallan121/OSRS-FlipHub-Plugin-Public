@@ -23,13 +23,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package com.osrsfliphub;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class LimitInfo {
     final int itemId;
     long buyQty;
     Long firstBuyTs;
-
-    LimitInfo(int itemId) {
-        this.itemId = itemId;
-    }
 }

@@ -28,8 +28,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Supplier;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
@@ -38,7 +36,7 @@ import net.runelite.api.GrandExchangeOfferState;
 
 @javax.inject.Singleton
 final class ProfileWorkflow {
-    private final long accountwideKey;
+    private final long accountwideKey = Const.ACCOUNTWIDE_KEY;
     private final Object localStatsLock;
     private final Set<Long> loadedProfiles;
     private final Map<Long, List<Delta>> localTradeDeltasByAccount;
@@ -46,108 +44,25 @@ final class ProfileWorkflow {
     private final Map<Long, StatsCache> statsCacheByAccount;
     private final Set<Integer> bookmarkedItems;
     private final Map<Integer, OfferSnapshot> snapshots;
-    private final Supplier<LocalTradesRuntime> localTradesRuntimeServiceSupplier;
-    private final Supplier<SummaryUploader> accountwideSummaryUploaderSupplier;
-    private final Supplier<ProfileSelectionPresentation> profileSelectionPresentationFacadeServiceSupplier;
-    private final Supplier<UploadBackfillDispatch> uploadBackfillDispatchServiceSupplier;
-    private final Supplier<ScheduledExecutorService> schedulerSupplier;
-    private final Supplier<LocalStatsSnapshotService> localStatsSnapshotServiceSupplier;
-    private final Supplier<TradeSession> localTradeSessionFacadeServiceSupplier;
-    private final Supplier<ProfileSelectionPersistence> profileSelectionPersistenceServiceSupplier;
     private final ProfileSelectionState profileSelection;
-    private final Supplier<ProfileLogin> profileLoginServiceSupplier;
-    private final Supplier<BookmarkState> bookmarkStateServiceSupplier;
-    private final Supplier<ProfileUi> profileUiCoordinatorSupplier;
-    private final Supplier<Panel> panelSupplier;
-    private final Supplier<AccountMerge> localAccountMergeServiceSupplier;
-    private final Supplier<LocalStatsCacheService> localStatsCacheServiceSupplier;
-    private final Supplier<Client> clientSupplier;
 
     @javax.inject.Inject
     ProfileWorkflow(PluginState pluginState) {
-        this(Const.ACCOUNTWIDE_KEY,
-            pluginState.getLocalStatsLock(),
-            pluginState.getLoadedProfiles(),
-            pluginState.getLocalTradeDeltasByAccount(),
-            pluginState.getLocalSessionStartByAccount(),
-            pluginState.getStatsCacheByAccount(),
-            pluginState.getBookmarkedItems(),
-            pluginState.getSnapshots(),
-            () -> Bridge.get(LocalTradesRuntime.class),
-            () -> Bridge.get(SummaryUploader.class),
-            () -> Bridge.get(ProfileSelectionPresentation.class),
-            () -> Bridge.get(UploadBackfillDispatch.class),
-            () -> Access.plugin().scheduler,
-            () -> Bridge.get(LocalStatsSnapshotService.class),
-            () -> Bridge.get(TradeSession.class),
-            () -> Bridge.get(ProfileSelectionPersistence.class),
-            pluginState.getProfileSelection(),
-            () -> Bridge.get(ProfileLogin.class),
-            () -> Bridge.get(BookmarkState.class),
-            () -> Bridge.get(ProfileUi.class),
-            () -> Access.plugin().panel,
-            () -> Bridge.get(AccountMerge.class),
-            () -> Bridge.get(LocalStatsCacheService.class),
-            () -> Access.plugin().client);
-    }
-
-    ProfileWorkflow(
-        long accountwideKey,
-        Object localStatsLock,
-        Set<Long> loadedProfiles,
-        Map<Long, List<Delta>> localTradeDeltasByAccount,
-        Map<Long, Long> localSessionStartByAccount,
-        Map<Long, StatsCache> statsCacheByAccount,
-        Set<Integer> bookmarkedItems,
-        Map<Integer, OfferSnapshot> snapshots,
-        Supplier<LocalTradesRuntime> localTradesRuntimeServiceSupplier,
-        Supplier<SummaryUploader> accountwideSummaryUploaderSupplier,
-        Supplier<ProfileSelectionPresentation> profileSelectionPresentationFacadeServiceSupplier,
-        Supplier<UploadBackfillDispatch> uploadBackfillDispatchServiceSupplier,
-        Supplier<ScheduledExecutorService> schedulerSupplier,
-        Supplier<LocalStatsSnapshotService> localStatsSnapshotServiceSupplier,
-        Supplier<TradeSession> localTradeSessionFacadeServiceSupplier,
-        Supplier<ProfileSelectionPersistence> profileSelectionPersistenceServiceSupplier,
-        ProfileSelectionState profileSelection,
-        Supplier<ProfileLogin> profileLoginServiceSupplier,
-        Supplier<BookmarkState> bookmarkStateServiceSupplier,
-        Supplier<ProfileUi> profileUiCoordinatorSupplier,
-        Supplier<Panel> panelSupplier,
-        Supplier<AccountMerge> localAccountMergeServiceSupplier,
-        Supplier<LocalStatsCacheService> localStatsCacheServiceSupplier,
-        Supplier<Client> clientSupplier
-    ) {
-        this.accountwideKey = accountwideKey;
-        this.localStatsLock = localStatsLock;
-        this.loadedProfiles = loadedProfiles;
-        this.localTradeDeltasByAccount = localTradeDeltasByAccount;
-        this.localSessionStartByAccount = localSessionStartByAccount;
-        this.statsCacheByAccount = statsCacheByAccount;
-        this.bookmarkedItems = bookmarkedItems;
-        this.snapshots = snapshots;
-        this.localTradesRuntimeServiceSupplier = localTradesRuntimeServiceSupplier;
-        this.accountwideSummaryUploaderSupplier = accountwideSummaryUploaderSupplier;
-        this.profileSelectionPresentationFacadeServiceSupplier = profileSelectionPresentationFacadeServiceSupplier;
-        this.uploadBackfillDispatchServiceSupplier = uploadBackfillDispatchServiceSupplier;
-        this.schedulerSupplier = schedulerSupplier;
-        this.localStatsSnapshotServiceSupplier = localStatsSnapshotServiceSupplier;
-        this.localTradeSessionFacadeServiceSupplier = localTradeSessionFacadeServiceSupplier;
-        this.profileSelectionPersistenceServiceSupplier = profileSelectionPersistenceServiceSupplier;
-        this.profileSelection = profileSelection;
-        this.profileLoginServiceSupplier = profileLoginServiceSupplier;
-        this.bookmarkStateServiceSupplier = bookmarkStateServiceSupplier;
-        this.profileUiCoordinatorSupplier = profileUiCoordinatorSupplier;
-        this.panelSupplier = panelSupplier;
-        this.localAccountMergeServiceSupplier = localAccountMergeServiceSupplier;
-        this.localStatsCacheServiceSupplier = localStatsCacheServiceSupplier;
-        this.clientSupplier = clientSupplier;
+        this.localStatsLock = pluginState.getLocalStatsLock();
+        this.loadedProfiles = pluginState.getLoadedProfiles();
+        this.localTradeDeltasByAccount = pluginState.getLocalTradeDeltasByAccount();
+        this.localSessionStartByAccount = pluginState.getLocalSessionStartByAccount();
+        this.statsCacheByAccount = pluginState.getStatsCacheByAccount();
+        this.bookmarkedItems = pluginState.getBookmarkedItems();
+        this.snapshots = pluginState.getSnapshots();
+        this.profileSelection = pluginState.getProfileSelection();
     }
 
     void reloadProfileFromDisk(long accountKey) {
         if (accountKey < 0) {
             return;
         }
-        LocalTradesRuntime localTradesRuntime = localTradesRuntimeServiceSupplier.get();
+        LocalTradesRuntime localTradesRuntime = Bridge.get(LocalTradesRuntime.class);
         if (localTradesRuntime == null) {
             return;
         }
@@ -159,63 +74,63 @@ final class ProfileWorkflow {
         }
         updateProfileOptionsUI();
         updateProfileHeader();
-        accountwideSummaryUploaderSupplier.get().markDirty();
-        if (profileSelectionPresentationFacadeServiceSupplier.get().isLinked()) {
-            uploadBackfillDispatchServiceSupplier.get().requestAccountwideSync();
-            uploadBackfillDispatchServiceSupplier.get().requestBackfillAttempt(schedulerSupplier.get(), 10, true);
+        Bridge.get(SummaryUploader.class).markDirty();
+        if (Bridge.get(ProfileSelectionPresentation.class).isLinked()) {
+            Bridge.get(UploadBackfillDispatch.class).requestAccountwideSync();
+            Bridge.get(UploadBackfillDispatch.class).requestBackfillAttempt(Access.plugin().scheduler, 10, true);
         }
     }
 
     StatsSnapshot buildReconciledAccountwideSnapshot() {
-        StatsSnapshot snapshot = localStatsSnapshotServiceSupplier.get()
+        StatsSnapshot snapshot = Bridge.get(LocalStatsSnapshotService.class)
             .buildSnapshot(accountwideKey, null, StatsItemSort.COMPLETION);
         StatsSummary summary = snapshot != null && snapshot.summary != null ? snapshot.summary : new StatsSummary();
         List<StatsItem> items = snapshot != null && snapshot.items != null ? snapshot.items : new ArrayList<>();
-        Map<Integer, List<StatsFlipInstance>> flipHistory = localTradeSessionFacadeServiceSupplier.get()
+        Map<Integer, List<StatsFlipInstance>> flipHistory = Bridge.get(TradeSession.class)
             .buildStatsFlipHistory(accountwideKey, null);
         StatsView.reconcileWithFlipHistory(summary, items, flipHistory);
         return new StatsSnapshot(summary, items);
     }
 
     void loadProfileSelectionState() {
-        boolean migratedFromLegacy = profileSelectionPersistenceServiceSupplier.get().load(profileSelection);
+        boolean migratedFromLegacy = Bridge.get(ProfileSelectionPersistence.class).load(profileSelection);
         if (migratedFromLegacy) {
             persistProfileSelectionState();
         }
     }
 
     void persistProfileSelectionState() {
-        profileSelectionPersistenceServiceSupplier.get().persist(profileSelection);
+        Bridge.get(ProfileSelectionPersistence.class).persist(profileSelection);
     }
 
     void updateProfileForLogin() {
-        profileLoginServiceSupplier.get().handleLogin(
+        Bridge.get(ProfileLogin.class).handleLogin(
             profileSelection,
-            localTradeSessionFacadeServiceSupplier.get().resolveAccountHash(),
-            profileSelectionPresentationFacadeServiceSupplier.get().resolveDisplayName()
+            Bridge.get(TradeSession.class).resolveAccountHash(),
+            Bridge.get(ProfileSelectionPresentation.class).resolveDisplayName()
         );
-        bookmarkStateServiceSupplier.get().loadSelectedBookmarks(
-            profileSelectionPresentationFacadeServiceSupplier.get().resolveSelectedProfileKey(),
+        Bridge.get(BookmarkState.class).loadSelectedBookmarks(
+            Bridge.get(ProfileSelectionPresentation.class).resolveSelectedProfileKey(),
             bookmarkedItems
         );
     }
 
     void updateProfileOptionsUI() {
-        profileUiCoordinatorSupplier.get().updateProfileOptionsUi();
+        Bridge.get(ProfileUi.class).updateProfileOptionsUi();
     }
 
     void updateProfileHeader() {
-        profileUiCoordinatorSupplier.get().updateProfileHeader();
+        Bridge.get(ProfileUi.class).updateProfileHeader();
     }
 
     void ensureSelectedProfileLoaded() {
-        localTradesRuntimeServiceSupplier.get().ensureProfileLoaded(
-            profileSelectionPresentationFacadeServiceSupplier.get().resolveSelectedProfileKey()
+        Bridge.get(LocalTradesRuntime.class).ensureProfileLoaded(
+            Bridge.get(ProfileSelectionPresentation.class).resolveSelectedProfileKey()
         );
     }
 
     void showManageDataError(String message) {
-        Panel panel = panelSupplier.get();
+        Panel panel = Access.plugin().panel;
         if (panel == null) {
             return;
         }
@@ -230,7 +145,7 @@ final class ProfileWorkflow {
     void mergeLocalAccountData(long targetKey, long sourceKey) {
         AccountMerge.Result mergeResult;
         synchronized (localStatsLock) {
-            mergeResult = localAccountMergeServiceSupplier.get().merge(
+            mergeResult = Bridge.get(AccountMerge.class).merge(
                 localTradeDeltasByAccount,
                 localSessionStartByAccount,
                 targetKey,
@@ -238,19 +153,19 @@ final class ProfileWorkflow {
             );
         }
         if (mergeResult != null && mergeResult.mergedSnapshot != null) {
-            localStatsCacheServiceSupplier.get().rebuild(targetKey, mergeResult.mergedSnapshot);
+            Bridge.get(LocalStatsCacheService.class).rebuild(targetKey, mergeResult.mergedSnapshot);
         }
         statsCacheByAccount.remove(sourceKey);
         if (mergeResult != null && mergeResult.changed && targetKey > 0) {
-            accountwideSummaryUploaderSupplier.get().markDirty();
-            if (profileSelectionPresentationFacadeServiceSupplier.get().isLinked()) {
-                uploadBackfillDispatchServiceSupplier.get().requestAccountwideSync();
+            Bridge.get(SummaryUploader.class).markDirty();
+            if (Bridge.get(ProfileSelectionPresentation.class).isLinked()) {
+                Bridge.get(UploadBackfillDispatch.class).requestAccountwideSync();
             }
         }
     }
 
     void primeOfferSnapshots() {
-        Client client = clientSupplier.get();
+        Client client = Access.plugin().client;
         if (client == null) {
             return;
         }

@@ -57,16 +57,8 @@ final class StatsView {
     StatsView() {
     }
 
-    private static ProfileSelectionPresentation profileSelectionFacade() {
-        return Bridge.get(ProfileSelectionPresentation.class);
-    }
-
-    private static TradeSession localTradeSessionFacade() {
-        return Bridge.get(TradeSession.class);
-    }
-
     private void ensureSelectedProfileLoaded() {
-        ProfileSelectionPresentation facade = profileSelectionFacade();
+        ProfileSelectionPresentation facade = Bridge.get(ProfileSelectionPresentation.class);
         if (facade != null) {
             Access.plugin().getLocalTradesRuntimeService()
                 .ensureProfileLoaded(facade.resolveSelectedProfileKey());
@@ -74,12 +66,12 @@ final class StatsView {
     }
 
     private long resolveSelectedProfileKey() {
-        ProfileSelectionPresentation facade = profileSelectionFacade();
+        ProfileSelectionPresentation facade = Bridge.get(ProfileSelectionPresentation.class);
         return facade != null ? facade.resolveSelectedProfileKey() : -1L;
     }
 
     private long resolveSessionStartMs(long accountKey, long nowMs) {
-        TradeSession service = localTradeSessionFacade();
+        TradeSession service = Bridge.get(TradeSession.class);
         return service != null ? service.resolveStatsSessionStartMs(accountKey, nowMs) : 0L;
     }
 
@@ -89,7 +81,7 @@ final class StatsView {
     }
 
     private Map<Integer, List<StatsFlipInstance>> buildStatsFlipHistory(long accountKey, Long sinceMs) {
-        TradeSession service = localTradeSessionFacade();
+        TradeSession service = Bridge.get(TradeSession.class);
         return service != null ? service.buildStatsFlipHistory(accountKey, sinceMs) : null;
     }
 
@@ -103,7 +95,7 @@ final class StatsView {
         StatsItemSort effectiveSort = sort != null ? sort : StatsItemSort.COMPLETION;
         long accountKey = resolveSelectedProfileKey();
         if (accountKey < 0) {
-            return emptyResult(nowMs);
+            return new Result(new StatsSummary(), new ArrayList<>(), new HashMap<>(), nowMs);
         }
 
         long sessionStartMs = resolveSessionStartMs(accountKey, nowMs);
@@ -286,7 +278,4 @@ final class StatsView {
         }
     }
 
-    private static Result emptyResult(long nowMs) {
-        return new Result(new StatsSummary(), new ArrayList<>(), new HashMap<>(), nowMs);
-    }
 }

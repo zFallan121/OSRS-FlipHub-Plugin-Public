@@ -34,17 +34,14 @@ import java.util.Map;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.Client;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
 final class AutoSync {
+    @RequiredArgsConstructor
     static final class SyncResult {
         final int parsedTrades;
         final int addedTrades;
-
-        SyncResult(int parsedTrades, int addedTrades) {
-            this.parsedTrades = parsedTrades;
-            this.addedTrades = addedTrades;
-        }
     }
 
     private static final int SYNTHETIC_SLOT_START = Const.GE_HISTORY_SYNTHETIC_SLOT_START;
@@ -58,25 +55,11 @@ final class AutoSync {
         this.client = client;
     }
 
-    private static GeLifecyclePlugin plugin() {
-        return Access.plugin();
-    }
-
-    private void ensureProfileLoaded(long accountKey) {
-        plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
-    }
-
     private void ensureLocalSessionStart(long accountKey, long tsClientMs) {
         TradeSession service = Bridge.get(TradeSession.class);
         if (service != null) {
             service.ensureLocalSessionStart(accountKey, tsClientMs);
         }
-    }
-
-    private TradeOfferCollapser.Outcome appendTradeDeltaPair(long accountKey,
-                                                                  long accountwideKey,
-                                                                  Delta delta) {
-        return plugin().getLocalTradesRuntimeService().appendTradeDeltaPair(accountKey, accountwideKey, delta);
     }
 
     private void applyDeltaToStatsCache(long accountKey, Delta delta) {
@@ -131,8 +114,8 @@ final class AutoSync {
             return new SyncResult(historyTrades.size(), 0);
         }
 
-        ensureProfileLoaded(accountKey);
-        ensureProfileLoaded(accountwideKey);
+        Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
+        Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountwideKey);
 
         List<Delta> existingDeltas = snapshotLocalTradeDeltas(accountKey);
         AutoSyncTradeMatcher.SelectionPlan selectionPlan =
@@ -205,7 +188,7 @@ final class AutoSync {
                 completionTsMs
             );
             cacheItemName(trade.itemId);
-            if (appendTradeDeltaPair(accountKey, accountwideKey, storedDelta)
+            if ((Access.plugin().getLocalTradesRuntimeService().appendTradeDeltaPair(accountKey, accountwideKey, storedDelta))
                 != TradeOfferCollapser.Outcome.DROPPED) {
                 applyDeltaToStatsCache(accountKey, storedDelta);
                 if (accountwideKey != accountKey) {
@@ -225,16 +208,16 @@ final class AutoSync {
             addedTrades++;
         }
 
-        plugin().getLocalTradesRuntimeService().persistLocalTrades(accountKey);
-        plugin().getLocalTradesRuntimeService().persistLocalTrades(accountwideKey);
+        Access.plugin().getLocalTradesRuntimeService().persistLocalTrades(accountKey);
+        Access.plugin().getLocalTradesRuntimeService().persistLocalTrades(accountwideKey);
         UploadBackfillDispatch dispatch = Bridge.get(UploadBackfillDispatch.class);
         if (dispatch != null) {
             dispatch.requestEventFlush();
         }
-        PanelRefresh coordinator = plugin().getPanelRefreshCoordinator();
+        PanelRefresh coordinator = Access.plugin().getPanelRefreshCoordinator();
         if (coordinator != null) {
-            coordinator.triggerStatsRefresh(plugin().scheduler);
-            coordinator.triggerPanelRefresh(plugin().scheduler);
+            coordinator.triggerStatsRefresh(Access.plugin().scheduler);
+            coordinator.triggerPanelRefresh(Access.plugin().scheduler);
         }
         return new SyncResult(validTrades.size(), addedTrades);
     }

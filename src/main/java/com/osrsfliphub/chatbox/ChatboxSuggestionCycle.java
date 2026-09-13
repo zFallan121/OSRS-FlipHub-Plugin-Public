@@ -27,7 +27,6 @@ package com.osrsfliphub;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.Client;
-import net.runelite.api.GameState;
 import net.runelite.api.widgets.ComponentID;
 import net.runelite.api.widgets.Widget;
 
@@ -44,14 +43,6 @@ final class ChatboxSuggestionCycle {
 
     private static ChatboxSuggestionRuntimeState runtimeState() {
         return Bridge.get(ChatboxSuggestionRuntimeState.class);
-    }
-
-    private static ChatboxSuggestionPresentation presentation() {
-        return Bridge.get(ChatboxSuggestionPresentation.class);
-    }
-
-    private boolean isClientLoggedIn() {
-        return client != null && client.getGameState() == GameState.LOGGED_IN;
     }
 
     private boolean isGeInputPromptActive() {
@@ -84,7 +75,7 @@ final class ChatboxSuggestionCycle {
     }
 
     private void clearSuggestions() {
-        ChatboxSuggestionPresentation presentation = presentation();
+        ChatboxSuggestionPresentation presentation = Bridge.get(ChatboxSuggestionPresentation.class);
         if (presentation != null) {
             presentation.clearPriceSuggestion();
             presentation.clearLimitSuggestion();
@@ -124,7 +115,7 @@ final class ChatboxSuggestionCycle {
     }
 
     private void updatePreparedSuggestions(Boolean isBuy) {
-        ChatboxSuggestionPresentation service = presentation();
+        ChatboxSuggestionPresentation service = Bridge.get(ChatboxSuggestionPresentation.class);
         if (service != null) {
             service.updatePriceSuggestion(preparedPricePrompt, isBuy);
             service.updateLimitSuggestion(preparedQuantityPrompt, isBuy);
@@ -138,7 +129,7 @@ final class ChatboxSuggestionCycle {
         }
         setLastSuggestionUpdateMs(nowMs);
 
-        if (!isClientLoggedIn()) {
+        if (!Access.loggedIn(client)) {
             clearSuggestions();
             setSuggestionDirty(false);
             return;

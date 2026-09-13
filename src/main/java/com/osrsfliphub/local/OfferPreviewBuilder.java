@@ -37,18 +37,6 @@ final class OfferPreviewBuilder {
     OfferPreviewBuilder() {
     }
 
-    private ItemEnrichment enrichment() {
-        return Bridge.get(ItemEnrichment.class);
-    }
-
-    private TradeSession tradeSession() {
-        return Bridge.get(TradeSession.class);
-    }
-
-    private ItemLookup itemLookup() {
-        return Bridge.get(ItemLookup.class);
-    }
-
     FlipHubItem build(int itemId) {
         if (itemId <= 0) {
             return null;
@@ -62,12 +50,12 @@ final class OfferPreviewBuilder {
 
         FlipHubItem item = new FlipHubItem();
         item.item_id = itemId;
-        ItemLookup itemLookup = itemLookup();
+        ItemLookup itemLookup = Bridge.get(ItemLookup.class);
         String itemName = itemLookup != null ? itemLookup.lookupItemNameSafe(itemId) : null;
         if (itemName != null && !itemName.trim().isEmpty()) {
             item.item_name = itemName;
         }
-        ItemEnrichment enrichment = enrichment();
+        ItemEnrichment enrichment = Bridge.get(ItemEnrichment.class);
         if (enrichment != null) {
             enrichment.applyGuidePrices(item, itemId, false);
         }
@@ -81,7 +69,7 @@ final class OfferPreviewBuilder {
 
         LimitInfo limitInfoForItem = null;
         if (tradeAccountKey >= 0) {
-            TradeSession tradeSession = tradeSession();
+            TradeSession tradeSession = Bridge.get(TradeSession.class);
             Map<Integer, TradeInfo> tradeInfo =
                 tradeSession != null ? tradeSession.buildLocalTradeInfo(tradeAccountKey) : null;
             if (enrichment != null) {
@@ -90,7 +78,7 @@ final class OfferPreviewBuilder {
         }
         if (limitAccountKey >= 0) {
             Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(limitAccountKey);
-            TradeSession tradeSession = tradeSession();
+            TradeSession tradeSession = Bridge.get(TradeSession.class);
             Map<Integer, LimitInfo> limitInfo =
                 tradeSession != null ? tradeSession.buildLocalLimitInfo(limitAccountKey, nowMs) : null;
             limitInfoForItem = limitInfo != null ? limitInfo.get(itemId) : null;

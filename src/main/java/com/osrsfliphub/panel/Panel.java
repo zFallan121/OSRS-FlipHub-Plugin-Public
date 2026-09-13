@@ -399,6 +399,5 @@ public class Panel extends PluginPanel {
         renderActions.toggleStatsHistoryExpanded(statsRenderCoordinator, expandedStatsHistoryItems, itemId);
         renderStatsItems();
     }
-
 }
 

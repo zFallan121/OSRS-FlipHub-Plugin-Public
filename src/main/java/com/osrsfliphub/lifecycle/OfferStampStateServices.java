@@ -32,8 +32,10 @@ import javax.inject.Singleton;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.client.config.ConfigManager;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
+@RequiredArgsConstructor
 final class OfferStampStateServices {
     private final String configGroup;
     private final String legacyDevConfigGroup;
@@ -59,26 +61,6 @@ final class OfferStampStateServices {
             () -> Access.plugin().config,
             () -> Bridge.get(OfferUpdateStampPersistence.class),
             () -> Bridge.get(OfferUpdateStamp.class));
-    }
-
-    OfferStampStateServices(
-        String configGroup,
-        String legacyDevConfigGroup,
-        long loginGraceMs,
-        Map<Integer, Stamp> offerUpdateStamps,
-        Supplier<ConfigManager> configManagerSupplier,
-        Supplier<PluginConfig> configSupplier,
-        Supplier<OfferUpdateStampPersistence> offerUpdateStampPersistenceServiceSupplier,
-        Supplier<OfferUpdateStamp> offerUpdateStampServiceSupplier
-    ) {
-        this.configGroup = configGroup;
-        this.legacyDevConfigGroup = legacyDevConfigGroup;
-        this.loginGraceMs = loginGraceMs;
-        this.offerUpdateStamps = offerUpdateStamps;
-        this.configManagerSupplier = configManagerSupplier;
-        this.configSupplier = configSupplier;
-        this.offerUpdateStampPersistenceServiceSupplier = offerUpdateStampPersistenceServiceSupplier;
-        this.offerUpdateStampServiceSupplier = offerUpdateStampServiceSupplier;
     }
 
     void resetForStartup() {

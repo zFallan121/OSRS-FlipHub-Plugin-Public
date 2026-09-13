@@ -39,10 +39,6 @@ final class ConfigChangedHandler {
         this.state = state;
     }
 
-    private boolean isPanelAvailable() {
-        return Access.plugin().panel != null;
-    }
-
     private void refreshBookmarksUi() {
         Panel panel = Access.plugin().panel;
         if (panel != null) {
@@ -85,7 +81,7 @@ final class ConfigChangedHandler {
                 }
             }
             refreshLinkStatus();
-            if (isPanelAvailable()) {
+            if ((Access.plugin().panel != null)) {
                 Access.plugin().getProfileWorkflowService().updateProfileHeader();
             }
             GeLifecyclePlugin plugin = Access.plugin();
@@ -112,7 +108,7 @@ final class ConfigChangedHandler {
                 bookmarkStateService.loadSelectedBookmarks(
                     profileSelectionService.resolveSelectedProfileKey(), state.getBookmarkedItems());
             }
-            if (isPanelAvailable()) {
+            if ((Access.plugin().panel != null)) {
                 refreshBookmarksUi();
             }
         }
@@ -138,7 +134,7 @@ final class ConfigChangedHandler {
                 state.getHiddenItems().addAll(
                     state.getHiddenItemConfigStore().parseItemIds(config.hiddenItems()));
             }
-            if (isPanelAvailable()) {
+            if ((Access.plugin().panel != null)) {
                 refreshBookmarksUi();
             }
         }

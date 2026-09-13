@@ -66,10 +66,6 @@ final class PanelRefresh {
     PanelRefresh() {
     }
 
-    private boolean isEventDispatchThread() {
-        return EventQueue.isDispatchThread();
-    }
-
     /**
      * Reads the readiness flag the client thread photographs each tick, because refreshes run on
      * the scheduler and {@code client.getLocalPlayer()} must not be called from there.
@@ -118,10 +114,6 @@ final class PanelRefresh {
 
     private void renderLocalStats() {
         Bridge.get(PanelDataRuntime.class).renderLocalStats();
-    }
-
-    private void executeAsync(Runnable task) {
-        Access.plugin().executeAsync(task);
     }
 
     private void logWarn(String message, Throwable error) {
@@ -215,7 +207,7 @@ final class PanelRefresh {
     }
 
     void refreshPanelData(ScheduledExecutorService scheduler) {
-        if (isEventDispatchThread()) {
+        if (EventQueue.isDispatchThread()) {
             submit(scheduler, () -> refreshPanelData(scheduler));
             return;
         }
@@ -252,7 +244,7 @@ final class PanelRefresh {
     }
 
     void refreshStatsData(ScheduledExecutorService scheduler) {
-        if (isEventDispatchThread()) {
+        if (EventQueue.isDispatchThread()) {
             submit(scheduler, () -> refreshStatsData(scheduler));
             return;
         }
@@ -286,6 +278,6 @@ final class PanelRefresh {
             scheduler.execute(task);
             return;
         }
-        executeAsync(task);
+        Access.plugin().executeAsync(task);
     }
 }

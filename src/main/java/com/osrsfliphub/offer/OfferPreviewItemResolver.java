@@ -57,7 +57,6 @@ final class OfferPreviewItemResolver {
         boolean shouldClear() {
             return clear;
         }
-
     }
 
     private final Client client;
@@ -72,18 +71,10 @@ final class OfferPreviewItemResolver {
             ? Const.OFFER_SETUP_BLOCKERS : new String[0];
     }
 
-    private static ItemLookup itemLookupService() {
-        return Bridge.get(ItemLookup.class);
-    }
-
     private Widget getVisibleGeRoot() {
         return facade != null
             ? facade.getVisibleGeRoot(client, ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER)
             : null;
-    }
-
-    private boolean isOfferStatusOpen(Widget geRoot) {
-        return facade != null && facade.isOfferStatusOpen(geRoot, Const.OFFER_STATUS_MARKERS);
     }
 
     private int getNewOfferTypeVarbit() {
@@ -111,7 +102,7 @@ final class OfferPreviewItemResolver {
     }
 
     private String findItemNameCandidate(Widget geRoot) {
-        ItemLookup itemLookupService = itemLookupService();
+        ItemLookup itemLookupService = Bridge.get(ItemLookup.class);
         if (facade == null || itemLookupService == null) {
             return null;
         }
@@ -122,7 +113,7 @@ final class OfferPreviewItemResolver {
     }
 
     private int resolveItemIdFromName(String name) {
-        ItemLookup itemLookupService = itemLookupService();
+        ItemLookup itemLookupService = Bridge.get(ItemLookup.class);
         return itemLookupService != null ? itemLookupService.resolveItemIdFromName(name) : -1;
     }
 
@@ -131,7 +122,7 @@ final class OfferPreviewItemResolver {
         Widget offerContainer = getOfferContainer();
         boolean offerVisible = offerContainer != null && !offerContainer.isHidden();
         boolean geOpen = geRoot != null;
-        boolean offerStatusOpen = geOpen && isOfferStatusOpen(geRoot);
+        boolean offerStatusOpen = geOpen && (facade != null && facade.isOfferStatusOpen(geRoot, Const.OFFER_STATUS_MARKERS));
         // Some client builds can lag the setup varbit while the setup container is already visible.
         boolean setupMode = getNewOfferTypeVarbit() > 0 || offerVisible;
         int selectedSlot = getSelectedSlotVarbit();

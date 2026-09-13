@@ -24,16 +24,12 @@
  */
 package com.osrsfliphub;
 
-import java.util.function.Predicate;
 import net.runelite.client.config.ConfigManager;
 
 final class PanelPluginListener implements PanelListener {
-    private static GeLifecyclePlugin plugin() {
-        return Access.plugin();
-    }
 
     private static ProfileWorkflow workflow() {
-        return plugin().getProfileWorkflowService();
+        return Access.plugin().getProfileWorkflowService();
     }
 
     @Override
@@ -54,7 +50,7 @@ final class PanelPluginListener implements PanelListener {
 
     @Override
     public void onSearchChanged(String query) {
-        GeLifecyclePlugin plugin = plugin();
+        GeLifecyclePlugin plugin = Access.plugin();
         plugin.currentQuery = query == null ? "" : query;
         plugin.currentPage = 1;
         plugin.refreshPanelData();
@@ -62,14 +58,14 @@ final class PanelPluginListener implements PanelListener {
 
     @Override
     public void onPageChanged(int page) {
-        GeLifecyclePlugin plugin = plugin();
+        GeLifecyclePlugin plugin = Access.plugin();
         plugin.currentPage = Math.max(1, page);
         plugin.refreshPanelData();
     }
 
     @Override
     public void onBookmarkFilterChanged(boolean enabled) {
-        GeLifecyclePlugin plugin = plugin();
+        GeLifecyclePlugin plugin = Access.plugin();
         plugin.bookmarkFilterEnabled = enabled;
         plugin.currentPage = 1;
         plugin.refreshPanelData();
@@ -77,7 +73,7 @@ final class PanelPluginListener implements PanelListener {
 
     @Override
     public void onItemSortChanged(StatsItemSort sort, boolean ascending) {
-        GeLifecyclePlugin plugin = plugin();
+        GeLifecyclePlugin plugin = Access.plugin();
         plugin.currentItemSort = sort != null ? sort : StatsItemSort.COMPLETION;
         plugin.currentItemSortAscending = ascending;
         plugin.currentPage = 1;
@@ -93,14 +89,14 @@ final class PanelPluginListener implements PanelListener {
 
     @Override
     public void onStatsRangeChanged(StatsRange range) {
-        GeLifecyclePlugin plugin = plugin();
+        GeLifecyclePlugin plugin = Access.plugin();
         plugin.currentStatsRange = range != null ? range : StatsRange.SESSION;
         plugin.refreshStatsData();
     }
 
     @Override
     public void onStatsSortChanged(StatsItemSort sort) {
-        GeLifecyclePlugin plugin = plugin();
+        GeLifecyclePlugin plugin = Access.plugin();
         plugin.currentStatsSort = sort != null ? sort : StatsItemSort.COMPLETION;
         plugin.refreshStatsData();
     }
@@ -110,7 +106,7 @@ final class PanelPluginListener implements PanelListener {
         if (profileKey == null || profileKey.trim().isEmpty()) {
             return;
         }
-        GeLifecyclePlugin plugin = plugin();
+        GeLifecyclePlugin plugin = Access.plugin();
         PluginState state = Bridge.get(PluginState.class);
         if (state != null) {
             state.getProfileSelection().selectManual(profileKey);
@@ -144,5 +140,4 @@ final class PanelPluginListener implements PanelListener {
             service.showManageDataDialog();
         }
     }
-
 }

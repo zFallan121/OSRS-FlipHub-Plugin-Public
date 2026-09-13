@@ -32,7 +32,6 @@ import static com.osrsfliphub.Skin.TEXT;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.Font;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.BorderFactory;
@@ -40,6 +39,7 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import lombok.RequiredArgsConstructor;
 
 /**
  * The list of item rows, kept between refreshes.
@@ -51,6 +51,7 @@ import javax.swing.JPanel;
  * rebuilt when the shape genuinely changes: a different set of items, a different order, a
  * filter turned on, the offer preview taking over.
  */
+@RequiredArgsConstructor
 final class ItemListContentRenderer {
     private final UiStyler uiStyler;
     private final PanelHiddenItemStore hiddenItemStore;
@@ -62,19 +63,8 @@ final class ItemListContentRenderer {
     private String renderedShape;
     private List<ItemCard> renderedCards = new ArrayList<>();
 
-    ItemListContentRenderer(UiStyler uiStyler,
-                                   PanelHiddenItemStore hiddenItemStore,
-                                   PanelBookmarkStore bookmarkStore,
-                                   ItemCardBuilder itemCardBuilder,
-                                   AgeTooltip ageTooltipCoordinator) {
-        this.uiStyler = uiStyler;
-        this.hiddenItemStore = hiddenItemStore;
-        this.bookmarkStore = bookmarkStore;
-        this.itemCardBuilder = itemCardBuilder;
-        this.ageTooltipCoordinator = ageTooltipCoordinator;
-    }
-
     /** What the panel should hold, worked out before anything is touched. */
+    @RequiredArgsConstructor
     private static final class Plan {
         final String shape;
         final List<FlipHubItem> items;
@@ -82,16 +72,6 @@ final class ItemListContentRenderer {
         final boolean sectionHeader;
         final String emptyTitle;
         final String emptyBody;
-
-        Plan(String shape, List<FlipHubItem> items, boolean offerPreview, boolean sectionHeader,
-             String emptyTitle, String emptyBody) {
-            this.shape = shape;
-            this.items = items;
-            this.offerPreview = offerPreview;
-            this.sectionHeader = sectionHeader;
-            this.emptyTitle = emptyTitle;
-            this.emptyBody = emptyBody;
-        }
     }
 
     /**
@@ -132,10 +112,10 @@ final class ItemListContentRenderer {
         }
         List<FlipHubItem> itemsToShow = new ArrayList<>();
         for (FlipHubItem item : lastItems) {
-            if (item == null || isHidden(item.item_id)) {
+            if (item == null || (hiddenItemStore != null && hiddenItemStore.isHidden(item.item_id))) {
                 continue;
             }
-            if (showBookmarkedOnly && !isBookmarked(item.item_id)) {
+            if (showBookmarkedOnly && !isBookmarked(item)) {
                 continue;
             }
             itemsToShow.add(item);
@@ -227,7 +207,6 @@ final class ItemListContentRenderer {
         return items;
     }
 
-
     private JPanel buildSectionHeader(String text) {
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
@@ -250,11 +229,11 @@ final class ItemListContentRenderer {
 
         JLabel titleLabel = new JLabel(title);
         titleLabel.setForeground(TEXT);
-        titleLabel.setFont(fontSemiBold(12f));
+        titleLabel.setFont(uiStyler.fontSemiBold(12f));
 
         JLabel bodyLabel = new JLabel(body);
         bodyLabel.setForeground(MUTED);
-        bodyLabel.setFont(font(10.5f));
+        bodyLabel.setFont(uiStyler.font(10.5f));
 
         card.add(titleLabel);
         card.add(Box.createVerticalStrut(4));
@@ -262,19 +241,9 @@ final class ItemListContentRenderer {
         return card;
     }
 
-    private boolean isHidden(int itemId) {
-        return hiddenItemStore != null && hiddenItemStore.isHidden(itemId);
+
+    private boolean isBookmarked(FlipHubItem item) {
+        return bookmarkStore != null && bookmarkStore.isBookmarked(item.item_id);
     }
 
-    private boolean isBookmarked(int itemId) {
-        return bookmarkStore != null && bookmarkStore.isBookmarked(itemId);
-    }
-
-    private Font font(float size) {
-        return uiStyler.font(size);
-    }
-
-    private Font fontSemiBold(float size) {
-        return uiStyler.fontSemiBold(size);
-    }
 }

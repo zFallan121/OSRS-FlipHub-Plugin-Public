@@ -27,7 +27,9 @@ package com.osrsfliphub;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class PanelLayoutResult {
     final JPanel footerPanel;
     final JScrollPane statsScrollPane;
@@ -37,24 +39,4 @@ final class PanelLayoutResult {
     final JLabel taxValue;
     final JLabel sessionTimeValue;
     final JLabel hourlyValue;
-
-    PanelLayoutResult(
-        JPanel footerPanel,
-        JScrollPane statsScrollPane,
-        JLabel totalProfitValue,
-        JLabel roiValue,
-        JLabel flipsValue,
-        JLabel taxValue,
-        JLabel sessionTimeValue,
-        JLabel hourlyValue
-    ) {
-        this.footerPanel = footerPanel;
-        this.statsScrollPane = statsScrollPane;
-        this.totalProfitValue = totalProfitValue;
-        this.roiValue = roiValue;
-        this.flipsValue = flipsValue;
-        this.taxValue = taxValue;
-        this.sessionTimeValue = sessionTimeValue;
-        this.hourlyValue = hourlyValue;
-    }
 }

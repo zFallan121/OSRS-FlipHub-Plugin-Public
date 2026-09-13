@@ -39,7 +39,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class ProfileWatcher {
     private static final long SCAN_INTERVAL_MS = 2_000L;
 
@@ -51,11 +53,6 @@ final class ProfileWatcher {
     private volatile WatchService watchService;
     private volatile Thread watchThread;
     private volatile ScheduledFuture<?> scanTask;
-
-    ProfileWatcher(ScheduledExecutorService scheduler, long debounceMs) {
-        this.scheduler = scheduler;
-        this.debounceMs = debounceMs;
-    }
 
     private Path getProfilesDir() {
         ProfileStorage service = Bridge.get(ProfileStorage.class);
@@ -96,10 +93,6 @@ final class ProfileWatcher {
     Long getLoadedProfileFileMs(long accountKey) {
         PluginState state = Bridge.get(PluginState.class);
         return state != null ? state.getLoadedProfileFileMs().get(accountKey) : null;
-    }
-
-    private void reloadProfile(long accountKey) {
-        Access.plugin().getProfileWorkflowService().reloadProfileFromDisk(accountKey);
     }
 
     void start() {
@@ -220,7 +213,7 @@ final class ProfileWatcher {
         }
         ScheduledFuture<?> future = scheduler.schedule(() -> {
             pendingReloads.remove(accountKey);
-            reloadProfile(accountKey);
+            Access.plugin().getProfileWorkflowService().reloadProfileFromDisk(accountKey);
         }, debounceMs, TimeUnit.MILLISECONDS);
         pendingReloads.put(accountKey, future);
     }

@@ -31,15 +31,12 @@ import javax.swing.JLabel;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.util.AsyncBufferedImage;
 import net.runelite.client.util.ImageUtil;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class ItemIconResolver {
     private final ItemManager itemManager;
     private final Map<Integer, ImageIcon> iconCache;
-
-    ItemIconResolver(ItemManager itemManager, Map<Integer, ImageIcon> iconCache) {
-        this.itemManager = itemManager;
-        this.iconCache = iconCache;
-    }
 
     void setItemIcon(JLabel label, int itemId) {
         if (label == null) {

@@ -28,7 +28,6 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.RenderingHints;
 import java.awt.geom.RoundRectangle2D;
 import javax.swing.Icon;
 
@@ -69,7 +68,7 @@ final class SortIcon implements Icon {
     @Override
     public void paintIcon(Component c, Graphics g, int x, int y) {
         Graphics2D g2 = (Graphics2D) g.create();
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        Skin.smooth(g2);
         g2.translate(x, y);
         double scale = size / GRID;
         g2.scale(scale, scale);
@@ -92,7 +91,7 @@ final class SortIcon implements Icon {
      * caller's fallback.
      */
     static int sizeForMarkHeight(double inkHeight, int fallback) {
-        if (!(inkHeight > 0)) {
+        if (inkHeight <= 0) {
             return fallback;
         }
         return (int) Math.round(inkHeight * GRID / MARK_HEIGHT);

@@ -30,6 +30,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
 
 @javax.inject.Singleton
 final class AccountMerge {
@@ -37,14 +38,10 @@ final class AccountMerge {
     AccountMerge() {
     }
 
+    @RequiredArgsConstructor
     static final class Result {
         final List<Delta> mergedSnapshot;
         final boolean changed;
-
-        Result(List<Delta> mergedSnapshot, boolean changed) {
-            this.mergedSnapshot = mergedSnapshot;
-            this.changed = changed;
-        }
     }
 
     Result merge(Map<Long, List<Delta>> localTradeDeltasByAccount,

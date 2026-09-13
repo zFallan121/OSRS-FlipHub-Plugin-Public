@@ -251,4 +251,3 @@ public class GeOfferTimerOverlay extends Overlay {
     }
 }
 
-

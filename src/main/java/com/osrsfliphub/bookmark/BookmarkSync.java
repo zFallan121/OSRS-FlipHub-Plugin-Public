@@ -25,25 +25,17 @@
 package com.osrsfliphub;
 
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
 
 final class BookmarkSync {
     static final long ACCOUNTWIDE_KEY = 0L;
 
+    @RequiredArgsConstructor
     static final class ToggleResult {
         final boolean nowBookmarked;
         final boolean selectedChanged;
         final boolean accountwideChanged;
         final boolean mirroredProfileChanged;
-
-        private ToggleResult(boolean nowBookmarked,
-                             boolean selectedChanged,
-                             boolean accountwideChanged,
-                             boolean mirroredProfileChanged) {
-            this.nowBookmarked = nowBookmarked;
-            this.selectedChanged = selectedChanged;
-            this.accountwideChanged = accountwideChanged;
-            this.mirroredProfileChanged = mirroredProfileChanged;
-        }
     }
 
     private BookmarkSync() {

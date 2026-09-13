@@ -34,8 +34,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
 import net.runelite.client.callback.ClientThread;
 import okhttp3.OkHttpClient;
 import org.slf4j.Logger;
@@ -83,27 +81,18 @@ final class RuntimeSchedulerServices {
             this.scheduler = scheduler;
             this.ioExecutor = ioExecutor;
         }
-
     }
 
     RuntimeState start(
         OkHttpClient httpClient,
         Gson gson,
-        Supplier<UploadBackfillDispatch> uploadBackfillDispatchServiceSupplier,
         Runnable refreshPanelData,
         Runnable refreshStatsData,
-        Supplier<OfferPreviewRuntime> offerPreviewRuntimeFacadeServiceSupplier,
-        Supplier<ClientThread> clientThreadSupplier,
-        Supplier<OfferPreviewItemResolver> offerPreviewItemResolverSupplier,
-        Supplier<ProfileSelectionPresentation> profileSelectionPresentationFacadeServiceSupplier,
         long accountwideUploadIntervalSeconds,
         long offerPollIntervalMs,
-        Supplier<WikiPrice> wikiPriceServiceSupplier,
-        Runnable startProfileWatcher,
-        Supplier<LinkAttempt> linkAttemptServiceSupplier,
-        Supplier<PluginConfig> configSupplier
+        Runnable startProfileWatcher
     ) {
-        ApiClient apiClient = new ApiClient(httpClient, gson, resolve(configSupplier));
+        ApiClient apiClient = new ApiClient(httpClient, gson, Access.plugin().config);
         // Graceful shutdown() must not leave queued delayed tasks to fire later
         // (thread interruption is not allowed), so drop them at shutdown instead.
         ScheduledThreadPoolExecutor schedulerImpl = new ScheduledThreadPoolExecutor(1);
@@ -113,7 +102,7 @@ final class RuntimeSchedulerServices {
 
         scheduler.scheduleAtFixedRate(
             guarded("event flush", () -> {
-                UploadBackfillDispatch service = resolve(uploadBackfillDispatchServiceSupplier);
+                UploadBackfillDispatch service = Bridge.get(UploadBackfillDispatch.class);
                 if (service != null) {
                     service.requestEventFlush();
                 }
@@ -124,7 +113,7 @@ final class RuntimeSchedulerServices {
         );
         scheduler.scheduleAtFixedRate(
             guarded("accountwide sync", () -> {
-                UploadBackfillDispatch service = resolve(uploadBackfillDispatchServiceSupplier);
+                UploadBackfillDispatch service = Bridge.get(UploadBackfillDispatch.class);
                 if (service != null) {
                     service.requestAccountwideSync();
                 }
@@ -145,13 +134,13 @@ final class RuntimeSchedulerServices {
         }
         scheduler.scheduleAtFixedRate(
             guarded("offer preview poll", () -> {
-                OfferPreviewRuntime runtime = resolve(offerPreviewRuntimeFacadeServiceSupplier);
+                OfferPreviewRuntime runtime = Bridge.get(OfferPreviewRuntime.class);
                 if (runtime == null) {
                     return;
                 }
                 runtime.pollAndUpdate(
-                    resolve(clientThreadSupplier),
-                    resolve(offerPreviewItemResolverSupplier),
+                    Access.plugin().clientThread,
+                    Bridge.get(OfferPreviewItemResolver.class),
                     itemId -> {
                         OfferPreviewSync sync = Bridge.get(OfferPreviewSync.class);
                         if (sync == null) {
@@ -173,16 +162,16 @@ final class RuntimeSchedulerServices {
             TimeUnit.MILLISECONDS
         );
 
-        ProfileSelectionPresentation profileSelection = resolve(profileSelectionPresentationFacadeServiceSupplier);
+        ProfileSelectionPresentation profileSelection = Bridge.get(ProfileSelectionPresentation.class);
         if (profileSelection != null && profileSelection.isLinked()) {
-            UploadBackfillDispatch service = resolve(uploadBackfillDispatchServiceSupplier);
+            UploadBackfillDispatch service = Bridge.get(UploadBackfillDispatch.class);
             if (service != null) {
                 service.requestBackfillAttempt(scheduler, 12, true);
                 scheduler.schedule(service::requestAccountwideSync, 10, TimeUnit.SECONDS);
             }
         }
 
-        WikiPrice wikiPriceService = resolve(wikiPriceServiceSupplier);
+        WikiPrice wikiPriceService = Bridge.get(WikiPrice.class);
         if (wikiPriceService != null) {
             wikiPriceService.start(scheduler);
         }
@@ -190,8 +179,8 @@ final class RuntimeSchedulerServices {
             startProfileWatcher.run();
         }
 
-        LinkAttempt linkAttemptService = resolve(linkAttemptServiceSupplier);
-        PluginConfig config = resolve(configSupplier);
+        LinkAttempt linkAttemptService = Bridge.get(LinkAttempt.class);
+        PluginConfig config = Access.plugin().config;
         if (linkAttemptService != null && config != null) {
             linkAttemptService.attemptLink(config.licenseKey());
         }
@@ -203,25 +192,18 @@ final class RuntimeSchedulerServices {
         ApiClient apiClient,
         ScheduledExecutorService scheduler,
         ExecutorService ioExecutor,
-        Supplier<ClientThread> clientThreadSupplier,
-        Supplier<WikiPrice> wikiPriceServiceSupplier,
         Runnable stopProfileWatcher,
-        Supplier<UploadBackfillDispatch> uploadBackfillDispatchServiceSupplier,
-        Supplier<UploadEventDispatch> uploadEventDispatchFacadeServiceSupplier,
-        Supplier<PluginConfig> configSupplier,
-        Supplier<Logger> loggerSupplier,
         Map<Integer, OfferSnapshot> snapshots,
         Runnable persistOfferUpdateTimes,
         Map<Integer, Stamp> offerUpdateStamps,
-        Supplier<RecentTradeDeduper> recentTradeDeduperSupplier,
         UploadDiagnosticsState uploadState
     ) {
-        ClientThread clientThread = resolve(clientThreadSupplier);
+        ClientThread clientThread = Access.plugin().clientThread;
         if (clientThread != null) {
             clientThread.invokeLater(this::clearSuggestions);
         }
 
-        WikiPrice wikiPriceService = resolve(wikiPriceServiceSupplier);
+        WikiPrice wikiPriceService = Bridge.get(WikiPrice.class);
         if (wikiPriceService != null) {
             wikiPriceService.stop();
         }
@@ -229,7 +211,7 @@ final class RuntimeSchedulerServices {
             stopProfileWatcher.run();
         }
 
-        UploadBackfillDispatch backfillDispatch = resolve(uploadBackfillDispatchServiceSupplier);
+        UploadBackfillDispatch backfillDispatch = Bridge.get(UploadBackfillDispatch.class);
         if (backfillDispatch != null) {
             backfillDispatch.resetBackfillRetryState();
         }
@@ -241,10 +223,10 @@ final class RuntimeSchedulerServices {
         // there. A final upload therefore has to be handed to the IO pool rather than run here,
         // and handed over before that pool is shut down: shutdown() lets already-queued work
         // finish, it just refuses anything new.
-        UploadEventDispatch uploadDispatch = resolve(uploadEventDispatchFacadeServiceSupplier);
+        UploadEventDispatch uploadDispatch = Bridge.get(UploadEventDispatch.class);
         if (uploadDispatch != null && ioExecutor != null && !ioExecutor.isShutdown()) {
-            PluginConfig shutdownConfig = resolve(configSupplier);
-            Logger shutdownLog = resolve(loggerSupplier);
+            PluginConfig shutdownConfig = Access.plugin().config;
+            Logger shutdownLog = GeLifecyclePlugin.log;
             try {
                 ioExecutor.execute(() ->
                     uploadDispatch.flushEvents(apiClient, shutdownConfig, shutdownLog));
@@ -266,7 +248,7 @@ final class RuntimeSchedulerServices {
             offerUpdateStamps.clear();
         }
 
-        RecentTradeDeduper deduper = resolve(recentTradeDeduperSupplier);
+        RecentTradeDeduper deduper = Bridge.get(RecentTradeDeduper.class);
         if (deduper != null) {
             deduper.clearAll();
         }
@@ -291,7 +273,4 @@ final class RuntimeSchedulerServices {
         runtimeState.setSuggestionDirty(false);
     }
 
-    private <T> T resolve(Supplier<T> supplier) {
-        return supplier != null ? supplier.get() : null;
-    }
 }

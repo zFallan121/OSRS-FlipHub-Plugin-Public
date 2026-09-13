@@ -24,8 +24,6 @@
  */
 package com.osrsfliphub;
 
-import java.util.Objects;
-
 /**
  * What identifies one stored trade across restarts and replays.
  *
@@ -44,6 +42,7 @@ import java.util.Objects;
  * replaced a stored row rather than matching it - after which a correction
  * keyed on the old stamp would silently stop applying.
  */
+@lombok.EqualsAndHashCode
 final class TradeKey {
     long tsMs;
     int slot;
@@ -60,23 +59,6 @@ final class TradeKey {
 
     static TradeKey of(Delta delta) {
         return delta != null ? new TradeKey(delta.tsClientMs, delta.slot, delta.itemId) : null;
-    }
-
-    @Override
-    public boolean equals(Object other) {
-        if (this == other) {
-            return true;
-        }
-        if (!(other instanceof TradeKey)) {
-            return false;
-        }
-        TradeKey that = (TradeKey) other;
-        return tsMs == that.tsMs && slot == that.slot && itemId == that.itemId;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(tsMs, slot, itemId);
     }
 
     @Override

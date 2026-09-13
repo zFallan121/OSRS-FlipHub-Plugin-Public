@@ -24,22 +24,16 @@
  */
 package com.osrsfliphub;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Deque;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import lombok.RequiredArgsConstructor;
 
 @javax.inject.Singleton
+@RequiredArgsConstructor
 final class LocalFlipHistoryService {
     private final RecipeFlipStore recipeFlips;
 
@@ -49,9 +43,6 @@ final class LocalFlipHistoryService {
     }
 
     /** The store is passed in by tests; in the running plugin it is looked up. */
-    LocalFlipHistoryService(RecipeFlipStore recipeFlips) {
-        this.recipeFlips = recipeFlips;
-    }
 
     private List<RecipeFlip> recordedFlips(long accountKey) {
         RecipeFlipStore store = recipeFlips != null ? recipeFlips : Bridge.get(RecipeFlipStore.class);
@@ -280,13 +271,12 @@ final class LocalFlipHistoryService {
         byItem.computeIfAbsent(itemId, ignored -> new ArrayList<>()).add(instance);
     }
 
-
     private static final class InventoryState {
         private long qty;
         private long cost;
     }
 
-
+    @RequiredArgsConstructor
     private static final class PendingSellFlip {
         private final int itemId;
         private long matchedQty;
@@ -295,9 +285,5 @@ final class LocalFlipHistoryService {
         private long matchedTax;
         private long lastSellPriceGp;
         private long lastSellTsMs;
-
-        private PendingSellFlip(int itemId) {
-            this.itemId = itemId;
-        }
     }
 }

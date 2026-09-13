@@ -25,13 +25,10 @@
 package com.osrsfliphub;
 
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class StatsSnapshot {
     final StatsSummary summary;
     final List<StatsItem> items;
-
-    StatsSnapshot(StatsSummary summary, List<StatsItem> items) {
-        this.summary = summary;
-        this.items = items;
-    }
 }

@@ -46,10 +46,6 @@ final class UploadEventDispatch {
         this.uploadState = pluginState.getUploadState();
     }
 
-    private boolean isClientLoggedIn() {
-        return Access.plugin().runtimeUtilityServices.isClientLoggedIn(Access.plugin().client);
-    }
-
     private void backOff() {
         if (uploadState != null) {
             uploadState.backOff(System.currentTimeMillis(), UPLOAD_BACKOFF_INITIAL_MS, UPLOAD_BACKOFF_MAX_MS);
@@ -72,10 +68,6 @@ final class UploadEventDispatch {
         if (service != null) {
             service.clearSession();
         }
-    }
-
-    private boolean isPanelVisible() {
-        return Access.plugin().runtimeUtilityServices.isPanelVisible(Access.plugin().panel);
     }
 
     private void updateProfileHeader() {
@@ -181,7 +173,7 @@ final class UploadEventDispatch {
         if (uploadState == null || apiClient == null || config == null || log == null) {
             return;
         }
-        if (onlyWhileLoggedIn && !isClientLoggedIn()) {
+        if (onlyWhileLoggedIn && !Access.loggedIn(Access.plugin().client)) {
             return;
         }
         if (!config.enableFlipHubSync()) {
@@ -267,7 +259,7 @@ final class UploadEventDispatch {
             markFailure(initialStatus, "Could not reach FlipHub to refresh the session. Events queued for retry.",
                 false, 0);
         }
-        if (isPanelVisible()) {
+        if ((Access.plugin().runtimeUtilityServices.isPanelVisible(Access.plugin().panel))) {
             updateProfileHeader();
         }
     }
@@ -288,7 +280,7 @@ final class UploadEventDispatch {
         if (ApiStatusPolicy.isAuthStatus(retryStatus)) {
             log.warn("FlipHub event upload unauthorized after refresh; clearing session to force relink");
             clearSession();
-            if (isPanelVisible()) {
+            if ((Access.plugin().runtimeUtilityServices.isPanelVisible(Access.plugin().panel))) {
                 updateProfileHeader();
             }
         }

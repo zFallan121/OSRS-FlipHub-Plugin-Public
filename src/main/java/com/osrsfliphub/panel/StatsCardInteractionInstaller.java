@@ -24,9 +24,7 @@
  */
 package com.osrsfliphub;
 
-import static com.osrsfliphub.Skin.MUTED;
 import static com.osrsfliphub.Skin.STATS_CARD_TOGGLE_SKIP_KEY;
-import static com.osrsfliphub.Skin.TEXT;
 
 import java.awt.Component;
 import java.awt.Container;
@@ -36,16 +34,12 @@ import java.util.function.IntConsumer;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class StatsCardInteractionInstaller {
     private final IntConsumer toggleStatsItemExpanded;
     private final IntConsumer toggleStatsHistoryExpanded;
-
-    StatsCardInteractionInstaller(IntConsumer toggleStatsItemExpanded,
-                                         IntConsumer toggleStatsHistoryExpanded) {
-        this.toggleStatsItemExpanded = toggleStatsItemExpanded;
-        this.toggleStatsHistoryExpanded = toggleStatsHistoryExpanded;
-    }
 
     void installStatsCardToggle(JComponent root, int itemId) {
         MouseAdapter clickHandler = new StatsClickMouseAdapter(() -> {

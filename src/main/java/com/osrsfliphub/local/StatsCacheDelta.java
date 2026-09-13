@@ -24,14 +24,10 @@
  */
 package com.osrsfliphub;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class StatsCacheDelta {
     private static final long COMPLETION_MARKER_MAX_AGE_MS = 5_000L;
 
@@ -48,20 +44,6 @@ final class StatsCacheDelta {
         Totals totals
     ) {
         this(itemAggs, inventory, recentMatchedSellBySlot, totals, 0L);
-    }
-
-    StatsCacheDelta(
-        Map<Integer, ItemAgg> itemAggs,
-        Map<Integer, LocalInventoryState> inventory,
-        Map<Integer, MatchedSellMarker> recentMatchedSellBySlot,
-        Totals totals,
-        long accountKey
-    ) {
-        this.itemAggs = itemAggs;
-        this.inventory = inventory;
-        this.recentMatchedSellBySlot = recentMatchedSellBySlot;
-        this.totals = totals;
-        this.accountKey = accountKey;
     }
 
     void reset() {
@@ -187,7 +169,7 @@ final class StatsCacheDelta {
         agg.buyQty += matchQty;
         agg.sellRevenue += Math.max(0L, matchRevenue);
         agg.sellQty += matchQty;
-        long tax = salesTax(delta.itemId, delta.price, matchQty);
+        long tax = GeTax.forSale(delta.itemId, delta.price, matchQty);
         agg.taxPaid += Math.max(0L, tax);
         if (matchedBuyTs == null) {
             matchedBuyTs = delta.tsClientMs;
@@ -197,7 +179,7 @@ final class StatsCacheDelta {
         }
         long duration = heldShare(delta.closedAtMs() - matchedBuyTs, matchQty, positionQty);
         agg.activeMs += duration;
-        totals.totalProfit += (Math.max(0L, matchRevenue) - matchCost);
+        totals.totalProfit += Math.max(0L, matchRevenue) - matchCost;
         totals.totalCost += matchCost;
         totals.totalQty += matchQty;
         totals.totalTax += Math.max(0L, tax);
@@ -216,10 +198,6 @@ final class StatsCacheDelta {
         if (agg.lastSellTs != null && (totals.lastSellTs == null || agg.lastSellTs > totals.lastSellTs)) {
             totals.lastSellTs = agg.lastSellTs;
         }
-    }
-
-    private static long salesTax(int itemId, int unitPrice, long quantity) {
-        return GeTax.forSale(itemId, unitPrice, quantity);
     }
 
     /**
@@ -349,7 +327,7 @@ final class StatsCacheDelta {
         }
     }
 
-
+    @RequiredArgsConstructor
     static final class ItemAgg {
         final int itemId;
         long buyCost;
@@ -361,21 +339,12 @@ final class StatsCacheDelta {
         int completedSells;
         Long firstBuyTs;
         Long lastSellTs;
-
-        private ItemAgg(int itemId) {
-            this.itemId = itemId;
-        }
     }
 
+    @RequiredArgsConstructor
     static final class MatchedSellMarker {
         private final int itemId;
         private final int price;
         private final long tsClientMs;
-
-        private MatchedSellMarker(int itemId, int price, long tsClientMs) {
-            this.itemId = itemId;
-            this.price = price;
-            this.tsClientMs = tsClientMs;
-        }
     }
 }

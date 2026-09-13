@@ -29,7 +29,6 @@ import java.util.Map;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.Client;
-import net.runelite.api.GameState;
 
 @Singleton
 final class AccountSession {
@@ -43,7 +42,7 @@ final class AccountSession {
     }
 
     private boolean isLoggedIn() {
-        return client != null && client.getGameState() == GameState.LOGGED_IN;
+        return Access.loggedIn(client);
     }
 
     long resolveLocalAccountKey() {

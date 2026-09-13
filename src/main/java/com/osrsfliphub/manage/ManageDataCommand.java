@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import javax.inject.Singleton;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
 final class ManageDataCommand {
@@ -43,28 +44,18 @@ final class ManageDataCommand {
         CANCEL
     }
 
+    @RequiredArgsConstructor
     static final class DialogModel {
         final String body;
         final List<String> options;
         final String defaultOption;
-
-        private DialogModel(String body, List<String> options, String defaultOption) {
-            this.body = body;
-            this.options = options;
-            this.defaultOption = defaultOption;
-        }
     }
 
+    @RequiredArgsConstructor
     static final class ConfirmationRequest {
         final String expectedPhrase;
         final String promptBody;
         final String title;
-
-        private ConfirmationRequest(String expectedPhrase, String promptBody, String title) {
-            this.expectedPhrase = expectedPhrase;
-            this.promptBody = promptBody;
-            this.title = title;
-        }
     }
 
     DialogModel buildDialog(String selectedLabel, boolean linked) {

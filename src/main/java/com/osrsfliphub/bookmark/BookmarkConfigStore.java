@@ -27,16 +27,14 @@ package com.osrsfliphub;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class BookmarkConfigStore {
     private static final String BOOKMARKS_KEY = "bookmarks";
     private static final String BOOKMARKS_KEY_PREFIX = "bookmarks_";
 
     private final long accountwideKey;
-
-    BookmarkConfigStore(long accountwideKey) {
-        this.accountwideKey = accountwideKey;
-    }
 
     long normalizeProfileKey(long profileKey) {
         return profileKey > 0 ? profileKey : accountwideKey;

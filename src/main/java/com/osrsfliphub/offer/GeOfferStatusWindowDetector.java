@@ -27,15 +27,12 @@ package com.osrsfliphub;
 import net.runelite.api.Client;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.util.Text;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class GeOfferStatusWindowDetector {
     private final Client client;
     private final String[] markers;
-
-    GeOfferStatusWindowDetector(Client client, String[] markers) {
-        this.client = client;
-        this.markers = markers;
-    }
 
     boolean isOfferStatusWindowOpen() {
         if (client == null) {

@@ -27,15 +27,12 @@ package com.osrsfliphub;
 import java.util.function.BooleanSupplier;
 import java.util.function.LongSupplier;
 import net.runelite.api.GrandExchangeOffer;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class OfferUpdateStampRuleEvaluator {
     private final LongSupplier nowMsSupplier;
     private final BooleanSupplier loginGraceSupplier;
-
-    OfferUpdateStampRuleEvaluator(LongSupplier nowMsSupplier, BooleanSupplier loginGraceSupplier) {
-        this.nowMsSupplier = nowMsSupplier;
-        this.loginGraceSupplier = loginGraceSupplier;
-    }
 
     boolean shouldPreserveStamp(Stamp stamp, OfferSnapshot snapshot) {
         if (snapshot == null) {
@@ -207,11 +204,11 @@ final class OfferUpdateStampRuleEvaluator {
         if (stamp.itemId != itemId || stamp.isBuy != isBuy) {
             return false;
         }
-        boolean metadataIncomplete = hasIncompleteMetadata(price, totalQty);
+        boolean metadataIncomplete = price <= 0 || totalQty <= 0;
         if (!metadataIncomplete && !isMetadataCompatible(stamp, price, totalQty)) {
             return false;
         }
-        if (!stampHasProgress(stamp)) {
+        if (!hasProgress(stamp)) {
             return false;
         }
         boolean candidateHasProgress = filledQty > 0 || spentGp > 0;
@@ -255,7 +252,7 @@ final class OfferUpdateStampRuleEvaluator {
             return false;
         }
         boolean candidateHasProgress = filledQty > 0 || spentGp > 0;
-        return !candidateHasProgress && !stampHasProgress(stamp);
+        return !candidateHasProgress && !hasProgress(stamp);
     }
 
     private boolean shouldPreserveStampAfterEmptyInternal(
@@ -271,7 +268,7 @@ final class OfferUpdateStampRuleEvaluator {
         if (itemId <= 0 || stamp.itemId != itemId) {
             return false;
         }
-        boolean metadataIncomplete = hasIncompleteMetadata(price, totalQty);
+        boolean metadataIncomplete = price <= 0 || totalQty <= 0;
         if (!metadataIncomplete && !isMetadataCompatible(stamp, price, totalQty)) {
             return false;
         }
@@ -291,10 +288,6 @@ final class OfferUpdateStampRuleEvaluator {
         return true;
     }
 
-    private boolean hasIncompleteMetadata(int price, int totalQty) {
-        return price <= 0 || totalQty <= 0;
-    }
-
     private boolean isMetadataCompatible(Stamp stamp, int price, int totalQty) {
         if (stamp == null) {
             return false;
@@ -308,10 +301,6 @@ final class OfferUpdateStampRuleEvaluator {
         return true;
     }
 
-    private boolean stampHasProgress(Stamp stamp) {
-        return stamp != null && (stamp.filledQty > 0 || stamp.spentGp > 0);
-    }
-
     private long nowMs() {
         return nowMsSupplier != null ? nowMsSupplier.getAsLong() : System.currentTimeMillis();
     }
@@ -319,4 +308,10 @@ final class OfferUpdateStampRuleEvaluator {
     private boolean isWithinLoginGrace() {
         return loginGraceSupplier != null && loginGraceSupplier.getAsBoolean();
     }
+
+    /** Whether anything has actually been bought or sold against this stamp yet. */
+    private static boolean hasProgress(Stamp stamp) {
+        return stamp != null && (stamp.filledQty > 0 || stamp.spentGp > 0);
+    }
+
 }

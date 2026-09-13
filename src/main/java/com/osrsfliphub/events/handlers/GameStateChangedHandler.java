@@ -27,7 +27,6 @@ package com.osrsfliphub;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.GameState;
-import net.runelite.api.Skill;
 
 @Singleton
 final class GameStateChangedHandler {
@@ -38,18 +37,9 @@ final class GameStateChangedHandler {
         this.config = config;
     }
 
-    private static OfferStampStateServices offerStampState() {
-        return Access.plugin().getOfferStampStateServices();
-    }
-
     private static ProfileWorkflow profileWorkflow() {
         return Access.plugin().getProfileWorkflowService();
     }
-
-    private static ProfileSelectionPresentation profileSelectionFacade() {
-        return Bridge.get(ProfileSelectionPresentation.class);
-    }
-
 
     /**
      * Do the login work for a player who was already in the game when the plugin was
@@ -72,7 +62,6 @@ final class GameStateChangedHandler {
         handle(GameState.LOGGED_IN);
     }
 
-
     void handle(GameState gameState) {
         if (gameState == null) {
             return;
@@ -92,8 +81,8 @@ final class GameStateChangedHandler {
                     endingSession.clearLocalAccountSessionStarts();
                 }
             }
-            offerStampState().persistOfferUpdateTimes();
-            offerStampState().resetOfferUpdateStampsOnLogout();
+            (Access.plugin().getOfferStampStateServices()).persistOfferUpdateTimes();
+            (Access.plugin().getOfferStampStateServices()).resetOfferUpdateStampsOnLogout();
             // The live map, the one the offer handler diffs against. Clearing a copy left the
             // last offers in place, so the client's EMPTY reports at logout diffed against a
             // real offer and could emit a completion for a trade that never happened.
@@ -118,8 +107,8 @@ final class GameStateChangedHandler {
             plugin.sessionStartMs = System.currentTimeMillis();
         }
         Bridge.get(AutoSyncState.class).arm();
-        offerStampState().setLastLoginNow();
-        offerStampState().loadOfferUpdateTimesForCurrentAccount();
+        (Access.plugin().getOfferStampStateServices()).setLastLoginNow();
+        (Access.plugin().getOfferStampStateServices()).loadOfferUpdateTimesForCurrentAccount();
         TradeSession tradeSession = Bridge.get(TradeSession.class);
         if (tradeSession != null) {
             tradeSession.updateLocalAccountSessionStart();
@@ -127,7 +116,7 @@ final class GameStateChangedHandler {
         profileWorkflow().updateProfileForLogin();
         profileWorkflow().primeOfferSnapshots();
 
-        ProfileSelectionPresentation selectionFacade = profileSelectionFacade();
+        ProfileSelectionPresentation selectionFacade = Bridge.get(ProfileSelectionPresentation.class);
         if (selectionFacade == null || !selectionFacade.hasSessionToken()) {
             plugin.localTradesLoadedThisLogin = false;
             PluginState loadState = Bridge.get(PluginState.class);

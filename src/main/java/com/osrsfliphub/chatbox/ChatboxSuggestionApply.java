@@ -44,16 +44,12 @@ final class ChatboxSuggestionApply {
         return resolver != null ? resolver.resolveOfferType() : null;
     }
 
-    private FlipHubItem getOfferPreviewItem() {
-        return Access.plugin().offerPreviewItem;
-    }
-
     void applySuggestedPriceToChat() {
         if (client == null) {
             return;
         }
         Boolean isBuy = resolveOfferType();
-        FlipHubItem previewItem = getOfferPreviewItem();
+        FlipHubItem previewItem = Access.plugin().offerPreviewItem;
         if (isBuy == null || previewItem == null) {
             return;
         }
@@ -69,7 +65,7 @@ final class ChatboxSuggestionApply {
             return;
         }
         Boolean isBuy = resolveOfferType();
-        FlipHubItem previewItem = getOfferPreviewItem();
+        FlipHubItem previewItem = Access.plugin().offerPreviewItem;
         if (isBuy == null || !isBuy || previewItem == null) {
             return;
         }
@@ -85,7 +81,7 @@ final class ChatboxSuggestionApply {
             return;
         }
         Boolean isBuy = resolveOfferType();
-        FlipHubItem previewItem = getOfferPreviewItem();
+        FlipHubItem previewItem = Access.plugin().offerPreviewItem;
         if (isBuy == null || !isBuy || previewItem == null) {
             return;
         }

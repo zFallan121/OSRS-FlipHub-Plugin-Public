@@ -37,22 +37,6 @@ final class ManageDataDialog {
     ManageDataDialog() {
     }
 
-    private static ProfileSelectionPresentation profileSelectionFacade() {
-        return Bridge.get(ProfileSelectionPresentation.class);
-    }
-
-    private int showOptionDialog(String body, Object[] options, Object defaultOption) {
-        return JOptionPane.showOptionDialog(
-            Access.plugin().panel,
-            body,
-            "FlipHub Manage Data",
-            JOptionPane.DEFAULT_OPTION,
-            JOptionPane.WARNING_MESSAGE,
-            null,
-            options,
-            defaultOption);
-    }
-
     private String showInputDialog(String body, String title) {
         return JOptionPane.showInputDialog(Access.plugin().panel, body, title, JOptionPane.WARNING_MESSAGE);
     }
@@ -61,16 +45,12 @@ final class ManageDataDialog {
         Access.plugin().getProfileWorkflowService().showManageDataError(message);
     }
 
-    private ProfileWipe wipeService() {
-        return Bridge.get(ProfileWipe.class);
-    }
-
     void showManageDataDialog() {
         if (Access.plugin().panel == null) {
             return;
         }
         SwingUtilities.invokeLater(() -> {
-            ProfileSelectionPresentation facade = profileSelectionFacade();
+            ProfileSelectionPresentation facade = Bridge.get(ProfileSelectionPresentation.class);
             long selectedKey = facade != null ? facade.resolveSelectedProfileKey() : -1L;
             String selectedLabel = facade != null ? facade.resolveSelectedProfileLabel() : "";
             boolean linked = facade != null && facade.isLinked();
@@ -82,7 +62,15 @@ final class ManageDataDialog {
 
             ManageDataCommand.DialogModel dialogModel = commandService.buildDialog(selectedLabel, linked);
             Object[] options = dialogModel.options.toArray();
-            int choice = showOptionDialog(dialogModel.body, options, dialogModel.defaultOption);
+            int choice = JOptionPane.showOptionDialog(
+            Access.plugin().panel,
+            dialogModel.body,
+            "FlipHub Manage Data",
+            JOptionPane.DEFAULT_OPTION,
+            JOptionPane.WARNING_MESSAGE,
+            null,
+            options,
+            dialogModel.defaultOption);
             if (choice < 0 || choice >= options.length) {
                 return;
             }
@@ -116,7 +104,7 @@ final class ManageDataDialog {
             return;
         }
         Access.plugin().invokeOnClientThread(() -> {
-            ProfileWipe service = wipeService();
+            ProfileWipe service = Bridge.get(ProfileWipe.class);
             if (service != null) {
                 service.wipeSingleLocalProfile(selectedKey, label);
             }
@@ -134,7 +122,7 @@ final class ManageDataDialog {
             return;
         }
         Access.plugin().invokeOnClientThread(() -> {
-            ProfileWipe service = wipeService();
+            ProfileWipe service = Bridge.get(ProfileWipe.class);
             if (service != null) {
                 service.wipeAllLocalProfiles();
             }

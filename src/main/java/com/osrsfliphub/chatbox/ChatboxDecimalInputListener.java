@@ -97,9 +97,6 @@ final class ChatboxDecimalInputListener implements KeyListener {
      * client state from there is both a plugin hub review point and a genuine race: the prompt
      * can close between the check and the write.</p>
      */
-    private boolean isAmountPromptActive() {
-        return client.getVarcIntValue(VarClientID.MESLAYERMODE) == INPUT_TYPE_AMOUNT_PROMPT;
-    }
 
     /**
      * Reads what the prompt holds, converts it and writes it back, all on the client thread.
@@ -114,7 +111,7 @@ final class ChatboxDecimalInputListener implements KeyListener {
      */
     private void rewriteInputText(UnaryOperator<String> conversion, boolean redraw) {
         clientThread.invoke(() -> {
-            if (!isAmountPromptActive()) {
+            if (client.getVarcIntValue(VarClientID.MESLAYERMODE) != INPUT_TYPE_AMOUNT_PROMPT) {
                 return;
             }
             String converted = conversion.apply(client.getVarcStrValue(VarClientID.MESLAYERINPUT));

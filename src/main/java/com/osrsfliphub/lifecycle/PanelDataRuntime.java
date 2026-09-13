@@ -27,11 +27,6 @@ package com.osrsfliphub;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.function.BooleanSupplier;
-import java.util.function.IntSupplier;
-import java.util.function.LongSupplier;
-import java.util.function.Supplier;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.Client;
@@ -40,81 +35,23 @@ import net.runelite.api.widgets.Widget;
 
 @Singleton
 final class PanelDataRuntime {
-    private final Supplier<OfferPreviewBuilder> localOfferPreviewBuilderSupplier;
-    private final Supplier<ItemsResponseBuilder> localItemsResponseBuilderSupplier;
-    private final Supplier<String> currentQuerySupplier;
-    private final BooleanSupplier bookmarkFilterEnabledSupplier;
-    private final Supplier<Set<Integer>> bookmarkedItemsSupplier;
-    private final Supplier<StatsItemSort> itemSortSupplier;
-    private final BooleanSupplier itemSortAscendingSupplier;
-    private final IntSupplier currentPageSupplier;
-    private final Supplier<Panel> panelSupplier;
-    private final Supplier<StatsView> localStatsViewServiceSupplier;
-    private final Supplier<OfferPreviewRuntime> offerPreviewRuntimeFacadeServiceSupplier;
-    private final Supplier<Client> clientSupplier;
-    private final Supplier<Map<Integer, Stamp>> offerUpdateStampsSupplier;
-    private final Supplier<OfferStampFallbackBuilder> offerStampFallbackBuilderSupplier;
-    private final LongSupplier nowSupplier;
-
     @Inject
     PanelDataRuntime() {
-        this(
-            () -> Bridge.get(OfferPreviewBuilder.class),
-            () -> Bridge.get(ItemsResponseBuilder.class),
-            () -> Access.plugin().currentQuery,
-            () -> Access.plugin().bookmarkFilterEnabled,
-            () -> Bridge.get(PluginState.class).getBookmarkedItems(),
-            () -> Access.plugin().currentItemSort,
-            () -> Access.plugin().currentItemSortAscending,
-            () -> Access.plugin().currentPage,
-            () -> Access.plugin().panel,
-            () -> Bridge.get(StatsView.class),
-            () -> Bridge.get(OfferPreviewRuntime.class),
-            () -> Access.plugin().client,
-            () -> {
-                PluginState state = Bridge.get(PluginState.class);
-                return state != null ? state.getOfferUpdateStamps() : null;
-            },
-            () -> Bridge.get(OfferStampFallbackBuilder.class),
-            System::currentTimeMillis);
     }
 
-    PanelDataRuntime(
-        Supplier<OfferPreviewBuilder> localOfferPreviewBuilderSupplier,
-        Supplier<ItemsResponseBuilder> localItemsResponseBuilderSupplier,
-        Supplier<String> currentQuerySupplier,
-        BooleanSupplier bookmarkFilterEnabledSupplier,
-        Supplier<Set<Integer>> bookmarkedItemsSupplier,
-        Supplier<StatsItemSort> itemSortSupplier,
-        BooleanSupplier itemSortAscendingSupplier,
-        IntSupplier currentPageSupplier,
-        Supplier<Panel> panelSupplier,
-        Supplier<StatsView> localStatsViewServiceSupplier,
-        Supplier<OfferPreviewRuntime> offerPreviewRuntimeFacadeServiceSupplier,
-        Supplier<Client> clientSupplier,
-        Supplier<Map<Integer, Stamp>> offerUpdateStampsSupplier,
-        Supplier<OfferStampFallbackBuilder> offerStampFallbackBuilderSupplier,
-        LongSupplier nowSupplier
-    ) {
-        this.localOfferPreviewBuilderSupplier = localOfferPreviewBuilderSupplier;
-        this.localItemsResponseBuilderSupplier = localItemsResponseBuilderSupplier;
-        this.currentQuerySupplier = currentQuerySupplier;
-        this.bookmarkFilterEnabledSupplier = bookmarkFilterEnabledSupplier;
-        this.bookmarkedItemsSupplier = bookmarkedItemsSupplier;
-        this.itemSortSupplier = itemSortSupplier;
-        this.itemSortAscendingSupplier = itemSortAscendingSupplier;
-        this.currentPageSupplier = currentPageSupplier;
-        this.panelSupplier = panelSupplier;
-        this.localStatsViewServiceSupplier = localStatsViewServiceSupplier;
-        this.offerPreviewRuntimeFacadeServiceSupplier = offerPreviewRuntimeFacadeServiceSupplier;
-        this.clientSupplier = clientSupplier;
-        this.offerUpdateStampsSupplier = offerUpdateStampsSupplier;
-        this.offerStampFallbackBuilderSupplier = offerStampFallbackBuilderSupplier;
-        this.nowSupplier = nowSupplier;
+    /**
+     * The stamps, or null when there is no state to hold them yet.
+     *
+     * <p>The only one of these that is not a single expression, and the reason is that the
+     * state itself can be absent - during start-up, and after a wipe.
+     */
+    private Map<Integer, Stamp> offerUpdateStamps() {
+        PluginState state = Bridge.get(PluginState.class);
+        return state != null ? state.getOfferUpdateStamps() : null;
     }
 
     FlipHubItem buildLocalOfferPreview(int itemId) {
-        OfferPreviewBuilder builder = localOfferPreviewBuilderSupplier.get();
+        OfferPreviewBuilder builder = Bridge.get(OfferPreviewBuilder.class);
         if (builder == null) {
             return null;
         }
@@ -122,24 +59,24 @@ final class PanelDataRuntime {
     }
 
     ApiClient.ItemsResponse buildLocalItemsResponse(boolean includeEmptyFallback) {
-        ItemsResponseBuilder builder = localItemsResponseBuilderSupplier.get();
+        ItemsResponseBuilder builder = Bridge.get(ItemsResponseBuilder.class);
         if (builder == null) {
-            return emptyItemsResponse(nowSupplier.getAsLong(), null);
+            return emptyItemsResponse(System.currentTimeMillis(), null);
         }
         return builder.build(
             includeEmptyFallback,
-            currentQuerySupplier.get(),
-            bookmarkFilterEnabledSupplier.getAsBoolean(),
-            bookmarkedItemsSupplier.get(),
-            itemSortSupplier.get(),
-            itemSortAscendingSupplier.getAsBoolean(),
-            currentPageSupplier.getAsInt()
+            Access.plugin().currentQuery,
+            Access.plugin().bookmarkFilterEnabled,
+            Bridge.get(PluginState.class).getBookmarkedItems(),
+            Access.plugin().currentItemSort,
+            Access.plugin().currentItemSortAscending,
+            Access.plugin().currentPage
         );
     }
 
     void updateLocalItemsPanel() {
         ApiClient.ItemsResponse local = buildLocalItemsResponse(true);
-        Panel panel = panelSupplier.get();
+        Panel panel = Access.plugin().panel;
         if (panel == null) {
             return;
         }
@@ -147,17 +84,17 @@ final class PanelDataRuntime {
             local != null ? local.items : null,
             local != null ? local.page : 1,
             local != null ? local.total_pages : 1,
-            local != null ? local.as_of_ms : nowSupplier.getAsLong(),
+            local != null ? local.as_of_ms : System.currentTimeMillis(),
             local != null ? local.price_cache_ms : null
         );
     }
 
     void renderLocalStats() {
-        Panel panel = panelSupplier.get();
+        Panel panel = Access.plugin().panel;
         if (panel == null) {
             return;
         }
-        StatsView statsService = localStatsViewServiceSupplier.get();
+        StatsView statsService = Bridge.get(StatsView.class);
         if (statsService == null) {
             return;
         }
@@ -166,24 +103,24 @@ final class PanelDataRuntime {
     }
 
     ApiClient.ItemsResponse buildOfferStatusFallback() {
-        OfferPreviewRuntime offerPreviewRuntimeFacadeService = offerPreviewRuntimeFacadeServiceSupplier.get();
-        Client client = clientSupplier.get();
+        OfferPreviewRuntime offerPreviewRuntimeFacadeService = Bridge.get(OfferPreviewRuntime.class);
+        Client client = Access.plugin().client;
         if (offerPreviewRuntimeFacadeService == null || client == null) {
-            return emptyItemsResponse(nowSupplier.getAsLong(), null);
+            return emptyItemsResponse(System.currentTimeMillis(), null);
         }
         Widget geRoot = offerPreviewRuntimeFacadeService
             .getVisibleGeRoot(client, ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
         if (geRoot == null) {
-            return emptyItemsResponse(nowSupplier.getAsLong(), null);
+            return emptyItemsResponse(System.currentTimeMillis(), null);
         }
         int itemId = offerPreviewRuntimeFacadeService.findFirstItemId(geRoot);
         if (itemId <= 0) {
-            return emptyItemsResponse(nowSupplier.getAsLong(), null);
+            return emptyItemsResponse(System.currentTimeMillis(), null);
         }
 
         FlipHubItem item = buildLocalOfferPreview(itemId);
         if (item == null) {
-            return emptyItemsResponse(nowSupplier.getAsLong(), null);
+            return emptyItemsResponse(System.currentTimeMillis(), null);
         }
 
         return buildPagedItemsResponse(
@@ -192,28 +129,28 @@ final class PanelDataRuntime {
             1,
             1,
             1,
-            nowSupplier.getAsLong(),
+            System.currentTimeMillis(),
             null
         );
     }
 
     ApiClient.ItemsResponse buildOfferStampFallback() {
-        Map<Integer, Stamp> offerUpdateStamps = offerUpdateStampsSupplier.get();
+        Map<Integer, Stamp> offerUpdateStamps = offerUpdateStamps();
         if (offerUpdateStamps == null || offerUpdateStamps.isEmpty()) {
-            return emptyItemsResponse(nowSupplier.getAsLong(), null);
+            return emptyItemsResponse(System.currentTimeMillis(), null);
         }
 
-        OfferStampFallbackBuilder offerStampFallbackBuilder = offerStampFallbackBuilderSupplier.get();
+        OfferStampFallbackBuilder offerStampFallbackBuilder = Bridge.get(OfferStampFallbackBuilder.class);
         if (offerStampFallbackBuilder == null) {
-            return emptyItemsResponse(nowSupplier.getAsLong(), null);
+            return emptyItemsResponse(System.currentTimeMillis(), null);
         }
         List<FlipHubItem> items = offerStampFallbackBuilder.buildItems(offerUpdateStamps.values());
         if (items.isEmpty()) {
-            return emptyItemsResponse(nowSupplier.getAsLong(), null);
+            return emptyItemsResponse(System.currentTimeMillis(), null);
         }
 
         int total = items.size();
-        return buildPagedItemsResponse(items, 1, total, total, 1, nowSupplier.getAsLong(), null);
+        return buildPagedItemsResponse(items, 1, total, total, 1, System.currentTimeMillis(), null);
     }
 
     ApiClient.ItemsResponse emptyItemsResponse(long asOfMs, Long priceCacheMs) {

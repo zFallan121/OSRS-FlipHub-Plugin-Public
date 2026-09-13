@@ -61,10 +61,6 @@ final class BackfillUploader {
     BackfillUploader() {
     }
 
-    private static UploadEventDispatch uploadEventDispatchFacade() {
-        return Bridge.get(UploadEventDispatch.class);
-    }
-
     private SessionRefresh.Outcome attemptRefresh(String currentToken) {
         SessionRefresh service = Bridge.get(SessionRefresh.class);
         return service != null
@@ -77,28 +73,28 @@ final class BackfillUploader {
     }
 
     private void setUploadBlocked(String reason) {
-        UploadEventDispatch service = uploadEventDispatchFacade();
+        UploadEventDispatch service = Bridge.get(UploadEventDispatch.class);
         if (service != null) {
             service.markBlocked(reason);
         }
     }
 
     private void recordUploadAttempt() {
-        UploadEventDispatch service = uploadEventDispatchFacade();
+        UploadEventDispatch service = Bridge.get(UploadEventDispatch.class);
         if (service != null) {
             service.markAttempt();
         }
     }
 
     private void recordUploadSuccess(int uploadedCount, int statusCode) {
-        UploadEventDispatch service = uploadEventDispatchFacade();
+        UploadEventDispatch service = Bridge.get(UploadEventDispatch.class);
         if (service != null) {
             service.markSuccess(uploadedCount, statusCode);
         }
     }
 
     private void recordUploadFailure(Integer statusCode, String errorMessage, boolean dropped, int droppedCount) {
-        UploadEventDispatch service = uploadEventDispatchFacade();
+        UploadEventDispatch service = Bridge.get(UploadEventDispatch.class);
         if (service != null) {
             service.markFailure(statusCode, errorMessage, dropped, droppedCount);
         }

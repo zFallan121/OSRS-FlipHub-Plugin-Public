@@ -53,7 +53,9 @@ import javax.swing.JToolTip;
 import javax.swing.JWindow;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class AgeTooltip {
     private final PanelValueFormat valueFormatService;
     private final List<CountdownEntry> countdownEntries = new ArrayList<>();
@@ -73,10 +75,6 @@ final class AgeTooltip {
      * again at nothing each time it appears keeps one long row from bloating the next.
      */
     private int ageTooltipWidth;
-
-    AgeTooltip(PanelValueFormat valueFormatService) {
-        this.valueFormatService = valueFormatService;
-    }
 
     /**
      * Drops the rows a rebuild is about to discard, and deliberately leaves any popup on screen.
@@ -302,7 +300,7 @@ final class AgeTooltip {
         for (CountdownEntry entry : countdownEntries) {
             updateCountdownEntry(entry, now);
         }
-        refreshAgeTooltip(now);
+        syncAgeTooltip(now);
     }
 
     private void updateCountdownEntry(CountdownEntry entry, long now) {
@@ -316,10 +314,6 @@ final class AgeTooltip {
             // running any more, and the rebuild that would re-colour it may be half a minute off.
             entry.label.setForeground(MUTED_2);
         }
-    }
-
-    private void refreshAgeTooltip(long now) {
-        syncAgeTooltip(now);
     }
 
     /**

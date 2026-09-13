@@ -29,20 +29,16 @@ import java.util.Map;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.Client;
-import net.runelite.api.GameState;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.client.config.ConfigManager;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
 final class OfferUpdateStampPersistence {
+    @RequiredArgsConstructor
     static final class LoadState {
         final long accountKey;
         final boolean loaded;
-
-        LoadState(long accountKey, boolean loaded) {
-            this.accountKey = accountKey;
-            this.loaded = loaded;
-        }
     }
 
     private static final int MIN_SLOT = 0;
@@ -71,7 +67,7 @@ final class OfferUpdateStampPersistence {
         if (destination == null) {
             return new LoadState(loadedAccountKey, loaded);
         }
-        if (!isClientLoggedIn()) {
+        if (!Access.loggedIn(client)) {
             return new LoadState(loadedAccountKey, loaded);
         }
         long accountKey = resolveCurrentAccountKey();
@@ -83,8 +79,7 @@ final class OfferUpdateStampPersistence {
         }
 
         destination.clear();
-        Gson gson = gson();
-        if (gson == null || configStore == null || !hasConfigurationAccess()) {
+        if (gson == null || configStore == null || configManager == null) {
             return new LoadState(accountKey, false);
         }
 
@@ -92,7 +87,7 @@ final class OfferUpdateStampPersistence {
         String raw = readConfiguration(configGroup, perAccountKey);
         boolean migrated = false;
 
-        if (isBlank(raw)) {
+        if ((raw == null || raw.trim().isEmpty())) {
             migrated = tryLoadMatchedLegacy(destination, readConfiguration(configGroup, configStore.legacyGlobalKey()), gson);
             if (!migrated) {
                 migrated = tryLoadMatchedLegacy(
@@ -112,12 +107,11 @@ final class OfferUpdateStampPersistence {
     }
 
     long persistForCurrentAccount(Map<Integer, Stamp> stamps, long knownAccountKey) {
-        Gson gson = gson();
-        if (gson == null || configStore == null || !hasConfigurationAccess()) {
+        if (gson == null || configStore == null || configManager == null) {
             return knownAccountKey;
         }
         long accountKey = knownAccountKey;
-        if (accountKey <= 0 && isClientLoggedIn()) {
+        if (accountKey <= 0 && Access.loggedIn(client)) {
             accountKey = resolveCurrentAccountKey();
         }
         if (accountKey <= 0) {
@@ -141,23 +135,11 @@ final class OfferUpdateStampPersistence {
     }
 
     private void persistForAccount(Map<Integer, Stamp> stamps, long accountKey, Gson gson) {
-        if (accountKey <= 0 || configStore == null || !hasConfigurationAccess()) {
+        if (accountKey <= 0 || configStore == null || configManager == null) {
             return;
         }
         String json = OfferUpdateStampStore.serialize(stamps, gson);
         writeConfiguration(configGroup, configStore.perAccountKey(accountKey), json);
-    }
-
-    private Gson gson() {
-        return gson;
-    }
-
-    private boolean hasConfigurationAccess() {
-        return configManager != null;
-    }
-
-    private boolean isClientLoggedIn() {
-        return client != null && client.getGameState() == GameState.LOGGED_IN;
     }
 
     private long resolveCurrentAccountKey() {
@@ -184,7 +166,4 @@ final class OfferUpdateStampPersistence {
         }
     }
 
-    private boolean isBlank(String value) {
-        return value == null || value.trim().isEmpty();
-    }
 }

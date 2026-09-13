@@ -143,6 +143,18 @@ final class Skin {
         return age >= STALE_PRICE_AGE_MS ? WARNING : TEXT;
     }
 
+    /**
+     * Turn on smoothing for a surface about to be drawn by hand.
+     *
+     * <p>Every rounded panel, every drawn mark and the backdrop's washes need it, and a shape
+     * drawn without it is visibly stepped at these sizes - so it is asked for once, by name,
+     * rather than spelled out at each of the dozen places that paint something.
+     */
+    static void smooth(java.awt.Graphics2D g2) {
+        g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+            java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+    }
+
     /** The same colour as a web page would write it, for the tooltips built out of HTML. */
     static String toHex(Color color) {
         return String.format("#%06X", color != null ? color.getRGB() & 0xFFFFFF : 0xFFFFFF);

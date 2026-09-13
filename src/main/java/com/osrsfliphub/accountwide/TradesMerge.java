@@ -40,14 +40,10 @@ final class TradesMerge {
     TradesMerge() {
     }
 
-    private static ProfileStorage profileStorage() {
-        return Bridge.get(ProfileStorage.class);
-    }
-
     List<Delta> buildAccountwideFromDisk() {
         List<Delta> merged = new ArrayList<>();
         Set<String> seen = new HashSet<>();
-        ProfileStorage storage = profileStorage();
+        ProfileStorage storage = Bridge.get(ProfileStorage.class);
         mergeAccountwideFromDir(merged, seen, storage != null ? storage.getProfilesDir() : null);
         mergeAccountwideFromDir(merged, seen, storage != null ? storage.getLegacyProfilesDir() : null);
         if (merged.isEmpty()) {
@@ -58,7 +54,7 @@ final class TradesMerge {
     }
 
     private void mergeAccountwideFromDir(List<Delta> merged, Set<String> seen, Path dir) {
-        ProfileStorage storage = profileStorage();
+        ProfileStorage storage = Bridge.get(ProfileStorage.class);
         if (storage == null) {
             return;
         }

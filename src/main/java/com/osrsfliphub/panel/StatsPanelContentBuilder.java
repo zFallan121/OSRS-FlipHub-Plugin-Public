@@ -29,7 +29,6 @@ import static com.osrsfliphub.Skin.*;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.Font;
 import java.awt.Insets;
 import java.awt.event.MouseWheelListener;
 import javax.swing.BorderFactory;
@@ -45,8 +44,10 @@ import javax.swing.JTextField;
 import javax.swing.JViewport;
 import javax.swing.SwingConstants;
 import javax.swing.border.Border;
+import lombok.RequiredArgsConstructor;
 
 final class StatsPanelContentBuilder {
+    @RequiredArgsConstructor
     static final class ContentResult {
         final JScrollPane scrollPane;
         final JLabel totalProfitValue;
@@ -55,24 +56,6 @@ final class StatsPanelContentBuilder {
         final JLabel taxValue;
         final JLabel sessionTimeValue;
         final JLabel hourlyValue;
-
-        ContentResult(
-            JScrollPane scrollPane,
-            JLabel totalProfitValue,
-            JLabel roiValue,
-            JLabel flipsValue,
-            JLabel taxValue,
-            JLabel sessionTimeValue,
-            JLabel hourlyValue
-        ) {
-            this.scrollPane = scrollPane;
-            this.totalProfitValue = totalProfitValue;
-            this.roiValue = roiValue;
-            this.flipsValue = flipsValue;
-            this.taxValue = taxValue;
-            this.sessionTimeValue = sessionTimeValue;
-            this.hourlyValue = hourlyValue;
-        }
     }
 
     private final UiStyler uiStyler;
@@ -212,7 +195,7 @@ final class StatsPanelContentBuilder {
 
         JLabel link = new JLabel("Record a recipe", SwingConstants.RIGHT);
         link.setForeground(ACCENT);
-        link.setFont(font(9.5f));
+        link.setFont(uiStyler.font(9.5f));
         link.setToolTipText("Tell FlipHub that some of your trades were one conversion");
         link.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
         link.addMouseListener(new StatsClickMouseAdapter(() -> {
@@ -324,7 +307,6 @@ final class StatsPanelContentBuilder {
             }
         });
 
-
         // No container: the mark is the control. Half the trailing width, because what the slot
         // gives up here is what the filter beside it was short of - the mark itself is the same
         // size the flipping tab draws, so one control does not read as two.
@@ -417,7 +399,7 @@ final class StatsPanelContentBuilder {
                     entry.setOpaque(true);
                     entry.setBackground(OVERLAY_BASE);
                     entry.setForeground(filter == active ? ACCENT : TEXT);
-                    entry.setFont(font(UiStyler.DROPDOWN_TEXT_SIZE));
+                    entry.setFont(uiStyler.font(UiStyler.DROPDOWN_TEXT_SIZE));
                     entry.setBorder(javax.swing.BorderFactory.createEmptyBorder(3, 10, 3, 14));
                     entry.addChangeListener(e -> entry.setBackground(
                         entry.getModel().isArmed() ? SURFACE_TOP : OVERLAY_BASE));
@@ -462,7 +444,7 @@ final class StatsPanelContentBuilder {
         installProfitFilterMenu(labelView);
 
         totalProfitValue.setForeground(SUCCESS);
-        totalProfitValue.setFont(fontBold(20f));
+        totalProfitValue.setFont(uiStyler.fontBold(20f));
 
         JPanel labelRow = new JPanel(new BorderLayout());
         labelRow.setOpaque(false);
@@ -488,29 +470,17 @@ final class StatsPanelContentBuilder {
 
         JLabel labelView = new JLabel(label);
         labelView.setForeground(MUTED);
-        labelView.setFont(font(10.5f));
+        labelView.setFont(uiStyler.font(10.5f));
 
         valueView.setHorizontalAlignment(SwingConstants.RIGHT);
         valueView.setForeground(valueColor);
-        valueView.setFont(fontSemiBold(12f));
+        valueView.setFont(uiStyler.fontSemiBold(12f));
 
         row.add(labelView, BorderLayout.WEST);
         row.add(valueView, BorderLayout.EAST);
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
         row.setPreferredSize(new Dimension(0, 28));
         return row;
-    }
-
-    private Font font(float size) {
-        return uiStyler.font(size);
-    }
-
-    private Font fontBold(float size) {
-        return uiStyler.fontBold(size);
-    }
-
-    private Font fontSemiBold(float size) {
-        return uiStyler.fontSemiBold(size);
     }
 
     private Border roundedBorder(int arc, Color color, Insets padding) {

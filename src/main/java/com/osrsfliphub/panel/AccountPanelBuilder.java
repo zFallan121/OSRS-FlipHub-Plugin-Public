@@ -42,6 +42,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.SwingConstants;
+import lombok.RequiredArgsConstructor;
 
 /**
  * The account card: linking lives here rather than in the RuneLite settings window.
@@ -75,6 +76,7 @@ final class AccountPanelBuilder {
             + "Nothing else is sent, and you can unlink at any time."
             + "</div></html>";
 
+    @RequiredArgsConstructor
     static final class BuildResult {
         final JPanel panel;
         final JLabel stateLabel;
@@ -82,20 +84,6 @@ final class AccountPanelBuilder {
         final JLabel messageLabel;
         final JPanel linkedRows;
         final JPanel unlinkedRows;
-
-        BuildResult(JPanel panel,
-                    JLabel stateLabel,
-                    JLabel keyHintLabel,
-                    JLabel messageLabel,
-                    JPanel linkedRows,
-                    JPanel unlinkedRows) {
-            this.panel = panel;
-            this.stateLabel = stateLabel;
-            this.keyHintLabel = keyHintLabel;
-            this.messageLabel = messageLabel;
-            this.linkedRows = linkedRows;
-            this.unlinkedRows = unlinkedRows;
-        }
     }
 
     private final UiStyler uiStyler;

@@ -56,10 +56,6 @@ final class SummaryUploader {
         return runtime != null && runtime.isClientFullyReady();
     }
 
-    private StatsSnapshot buildAccountwideSnapshot() {
-        return Access.plugin().getProfileWorkflowService().buildReconciledAccountwideSnapshot();
-    }
-
     private SessionRefresh.Outcome attemptRefresh(String currentToken) {
         SessionRefresh service = Bridge.get(SessionRefresh.class);
         return service != null
@@ -108,7 +104,7 @@ final class SummaryUploader {
             return;
         }
 
-        StatsSnapshot snapshot = buildAccountwideSnapshot();
+        StatsSnapshot snapshot = Access.plugin().getProfileWorkflowService().buildReconciledAccountwideSnapshot();
         StatsSummary summary = snapshot != null && snapshot.summary != null ? snapshot.summary : new StatsSummary();
         List<StatsItem> items = snapshot != null ? snapshot.items : null;
         if (items == null) {

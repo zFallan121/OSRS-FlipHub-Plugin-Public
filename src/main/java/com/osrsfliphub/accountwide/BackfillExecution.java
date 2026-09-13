@@ -29,7 +29,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.Client;
-import net.runelite.api.GameState;
 import net.runelite.client.config.ConfigManager;
 
 @Singleton
@@ -49,26 +48,14 @@ final class BackfillExecution {
         this.configManager = configManager;
     }
 
-    private static UploadBackfillDispatch uploadBackfillDispatch() {
-        return Bridge.get(UploadBackfillDispatch.class);
-    }
-
-    private boolean isClientLoggedIn() {
-        return client != null && client.getGameState() == GameState.LOGGED_IN;
-    }
-
     private boolean isLinked() {
         ProfileSelectionPresentation service =
             Bridge.get(ProfileSelectionPresentation.class);
         return service != null && service.isLinked();
     }
 
-    private boolean isBackfillReady() {
-        return apiClient != null && configManager != null;
-    }
-
     private void requestBackfillAttempt(long delaySeconds, boolean resetBackoff) {
-        UploadBackfillDispatch service = uploadBackfillDispatch();
+        UploadBackfillDispatch service = Bridge.get(UploadBackfillDispatch.class);
         if (service != null) {
             service.requestBackfillAttempt(Access.plugin().scheduler, delaySeconds, resetBackoff);
         }
@@ -80,7 +67,7 @@ final class BackfillExecution {
     }
 
     private void scheduleBackfillRetry() {
-        UploadBackfillDispatch service = uploadBackfillDispatch();
+        UploadBackfillDispatch service = Bridge.get(UploadBackfillDispatch.class);
         if (service != null) {
             service.scheduleBackfillRetry(Access.plugin().scheduler);
         }
@@ -88,7 +75,7 @@ final class BackfillExecution {
 
     void attemptIfNeeded() {
         boolean shouldRetry = false;
-        if (!isClientLoggedIn() || !isLinked() || !isBackfillReady()) {
+        if (!Access.loggedIn(client) || !isLinked() || !(apiClient != null && configManager != null)) {
             return;
         }
         long nowMs = System.currentTimeMillis();

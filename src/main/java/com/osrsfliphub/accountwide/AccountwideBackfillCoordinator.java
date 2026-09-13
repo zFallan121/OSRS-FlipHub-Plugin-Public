@@ -32,19 +32,16 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import net.runelite.client.config.ConfigManager;
 import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
 @Slf4j
 final class AccountwideBackfillCoordinator {
 
+    @RequiredArgsConstructor
     static final class Result {
         final boolean shouldRetry;
-
-        Result(boolean shouldRetry) {
-            this.shouldRetry = shouldRetry;
-        }
     }
 
     private final int maxBackfillProfileCount =
@@ -58,10 +55,6 @@ final class AccountwideBackfillCoordinator {
         this.apiClient = apiClient;
         this.config = config;
         this.state = state;
-    }
-
-    private static BackfilledProfilesStore backfilledProfilesStore() {
-        return Bridge.get(BackfilledProfilesStore.class);
     }
 
     private Set<Long> collectAccountwideProfileKeys() {
@@ -81,12 +74,8 @@ final class AccountwideBackfillCoordinator {
     }
 
     private Set<Long> loadBackfilledProfileKeys() {
-        BackfilledProfilesStore store = backfilledProfilesStore();
+        BackfilledProfilesStore store = Bridge.get(BackfilledProfilesStore.class);
         return store != null ? store.load() : null;
-    }
-
-    private void ensureProfileLoaded(long key) {
-        Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(key);
     }
 
     private StatsSnapshot buildLocalStatsSnapshot(long key) {
@@ -119,7 +108,7 @@ final class AccountwideBackfillCoordinator {
     }
 
     private void persistBackfilledProfileKeys(Set<Long> keys) {
-        BackfilledProfilesStore store = backfilledProfilesStore();
+        BackfilledProfilesStore store = Bridge.get(BackfilledProfilesStore.class);
         if (store != null) {
             store.persist(keys);
         }
@@ -199,12 +188,12 @@ final class AccountwideBackfillCoordinator {
                 if (key == null || key <= 0) {
                     continue;
                 }
-                ensureProfileLoaded(key);
+                Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(key);
                 StatsSnapshot snapshot = buildLocalStatsSnapshot(key);
                 localSummaries.put(key, snapshot != null && snapshot.summary != null ? snapshot.summary : new StatsSummary());
             }
 
-            String token = (config != null ? config.sessionToken() : null);
+            String token = config != null ? config.sessionToken() : null;
             ApiClient.StatsSummaryResponse remoteResponse = fetchRemoteStatsSummary(token);
             if (remoteResponse == null || remoteResponse.summary == null) {
                 return new Result(true);

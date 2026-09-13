@@ -35,17 +35,15 @@ import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import lombok.RequiredArgsConstructor;
 
 /**
  * The completed-flip list scrolls with the rest of the Flip Profile tab rather than sitting in a
  * fixed footer like the Activity tab, so its pager is rendered as the last row of the list.
  */
+@RequiredArgsConstructor
 final class StatsPagerBuilder {
     private final UiStyler uiStyler;
-
-    StatsPagerBuilder(UiStyler uiStyler) {
-        this.uiStyler = uiStyler;
-    }
 
     JPanel buildPager(int page, int totalPages, IntConsumer onPageSelected) {
         JPanel pager = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));

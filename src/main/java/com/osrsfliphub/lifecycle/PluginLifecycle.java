@@ -75,19 +75,11 @@ final class PluginLifecycle {
         RuntimeSchedulerServices.RuntimeState runtimeState = plugin.runtimeSchedulerServices.start(
             plugin.httpClient,
             plugin.gson,
-            () -> Bridge.get(UploadBackfillDispatch.class),
             plugin::refreshPanelData,
             plugin::refreshStatsData,
-            () -> Bridge.get(OfferPreviewRuntime.class),
-            () -> plugin.clientThread,
-            () -> Bridge.get(OfferPreviewItemResolver.class),
-            () -> Bridge.get(ProfileSelectionPresentation.class),
             Const.ACCOUNTWIDE_UPLOAD_INTERVAL_SECONDS,
             Const.OFFER_POLL_INTERVAL_MS,
-            () -> Bridge.get(WikiPrice.class),
-            plugin::startProfileWatcher,
-            () -> Bridge.get(LinkAttempt.class),
-            () -> plugin.config
+            plugin::startProfileWatcher
         );
         plugin.apiClient = runtimeState.getApiClient();
         plugin.scheduler = runtimeState.getScheduler();
@@ -151,17 +143,10 @@ final class PluginLifecycle {
             plugin.apiClient,
             plugin.scheduler,
             plugin.ioExecutor,
-            () -> plugin.clientThread,
-            () -> Bridge.get(WikiPrice.class),
             plugin::stopProfileWatcher,
-            () -> Bridge.get(UploadBackfillDispatch.class),
-            () -> Bridge.get(UploadEventDispatch.class),
-            () -> plugin.config,
-            () -> GeLifecyclePlugin.log,
             lifecycleState != null ? lifecycleState.getSnapshots() : null,
             () -> plugin.getOfferStampStateServices().persistOfferUpdateTimes(),
             lifecycleState != null ? lifecycleState.getOfferUpdateStamps() : null,
-            () -> Bridge.get(RecentTradeDeduper.class),
             lifecycleState != null ? lifecycleState.getUploadState() : null
         );
 

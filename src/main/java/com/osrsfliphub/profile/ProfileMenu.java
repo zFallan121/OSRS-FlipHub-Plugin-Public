@@ -31,24 +31,19 @@ import static com.osrsfliphub.Skin.MUTED;
 import static com.osrsfliphub.Skin.SUCCESS;
 import static com.osrsfliphub.Skin.TEXT;
 
-import java.awt.Font;
 import java.util.List;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.JButton;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class ProfileMenu {
     private final JButton profileButton;
     private final UiStyler uiStyler;
     private final PanelListener listener;
     private JPopupMenu profileMenu;
     private String selectedProfileKey;
-
-    ProfileMenu(JButton profileButton, UiStyler uiStyler, PanelListener listener) {
-        this.profileButton = profileButton;
-        this.uiStyler = uiStyler;
-        this.listener = listener;
-    }
 
     void showProfileMenu() {
         if (profileButton == null || profileMenu == null || profileMenu.getComponentCount() == 0) {
@@ -99,12 +94,12 @@ final class ProfileMenu {
                 continue;
             }
             JMenuItem item = new JMenuItem(label);
-            item.setFont(font(11f));
+            item.setFont(uiStyler.font(11f));
             item.setForeground(TEXT);
             item.setBackground(OVERLAY_BASE);
             item.setOpaque(true);
             if (selectedProfileKey != null && selectedProfileKey.equals(key)) {
-                item.setFont(fontSemiBold(11f));
+                item.setFont(uiStyler.fontSemiBold(11f));
                 item.setForeground(ACCENT);
             }
             item.addActionListener(e -> {
@@ -117,7 +112,7 @@ final class ProfileMenu {
         }
 
         JMenuItem manageData = new JMenuItem("Manage data...");
-        manageData.setFont(font(11f));
+        manageData.setFont(uiStyler.font(11f));
         manageData.setForeground(TEXT);
         manageData.setBackground(OVERLAY_BASE);
         manageData.setOpaque(true);
@@ -129,12 +124,5 @@ final class ProfileMenu {
         profileMenu.add(manageData);
     }
 
-    private Font font(float size) {
-        return uiStyler.font(size);
-    }
-
-    private Font fontSemiBold(float size) {
-        return uiStyler.fontSemiBold(size);
-    }
 }
 

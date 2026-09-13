@@ -93,5 +93,4 @@ final class PluginState {
     Map<Long, List<Delta>> getLocalTradeDeltasByAccount() {
         return localTradeDeltasByAccount;
     }
-
 }

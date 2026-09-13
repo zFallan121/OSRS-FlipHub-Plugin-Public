@@ -32,6 +32,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import lombok.EqualsAndHashCode;
+import lombok.RequiredArgsConstructor;
 
 /**
  * Which rows of the in-game history the plugin has not already recorded.
@@ -460,69 +462,20 @@ final class AutoSyncTradeMatcher {
         }
     }
 
+    @EqualsAndHashCode
+    @RequiredArgsConstructor
     private static final class ItemSide {
         private final int itemId;
         private final boolean isBuy;
-
-        ItemSide(int itemId, boolean isBuy) {
-            this.itemId = itemId;
-            this.isBuy = isBuy;
-        }
-
-        @Override
-        public boolean equals(Object other) {
-            if (this == other) {
-                return true;
-            }
-            if (!(other instanceof ItemSide)) {
-                return false;
-            }
-            ItemSide that = (ItemSide) other;
-            return itemId == that.itemId && isBuy == that.isBuy;
-        }
-
-        @Override
-        public int hashCode() {
-            return 31 * Integer.hashCode(itemId) + Boolean.hashCode(isBuy);
-        }
     }
 
+    @EqualsAndHashCode
+    @RequiredArgsConstructor
     static final class TradeSignature {
         private final int itemId;
         private final boolean isBuy;
         private final int quantity;
         private final int unitPrice;
-
-        TradeSignature(int itemId, boolean isBuy, int quantity, int unitPrice) {
-            this.itemId = itemId;
-            this.isBuy = isBuy;
-            this.quantity = quantity;
-            this.unitPrice = unitPrice;
-        }
-
-        @Override
-        public boolean equals(Object other) {
-            if (this == other) {
-                return true;
-            }
-            if (!(other instanceof TradeSignature)) {
-                return false;
-            }
-            TradeSignature that = (TradeSignature) other;
-            return itemId == that.itemId
-                && isBuy == that.isBuy
-                && quantity == that.quantity
-                && unitPrice == that.unitPrice;
-        }
-
-        @Override
-        public int hashCode() {
-            int hash = Integer.hashCode(itemId);
-            hash = 31 * hash + Boolean.hashCode(isBuy);
-            hash = 31 * hash + Integer.hashCode(quantity);
-            hash = 31 * hash + Integer.hashCode(unitPrice);
-            return hash;
-        }
     }
 
     static final class SelectionPlan {

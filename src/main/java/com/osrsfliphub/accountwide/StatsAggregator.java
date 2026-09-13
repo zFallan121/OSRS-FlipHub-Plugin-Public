@@ -39,20 +39,8 @@ final class StatsAggregator {
     StatsAggregator() {
     }
 
-    private static LocalStatsCacheService cacheService() {
-        return Bridge.get(LocalStatsCacheService.class);
-    }
-
-    private static LocalStatsSnapshotService snapshotService() {
-        return Bridge.get(LocalStatsSnapshotService.class);
-    }
-
-    private void ensureProfileLoaded(long accountKey) {
-        Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
-    }
-
     private StatsSnapshot buildSnapshotForProfile(long accountKey, Long sinceMs) {
-        LocalStatsCacheService cacheService = cacheService();
+        LocalStatsCacheService cacheService = Bridge.get(LocalStatsCacheService.class);
         StatsCache cache = cacheService != null ? cacheService.getOrBuild(accountKey) : null;
         if (cache == null) {
             return new StatsSnapshot(new StatsSummary(), new ArrayList<>());
@@ -61,14 +49,14 @@ final class StatsAggregator {
     }
 
     private void hydrateItemNames(List<StatsItem> items) {
-        LocalStatsSnapshotService snapshotService = snapshotService();
+        LocalStatsSnapshotService snapshotService = Bridge.get(LocalStatsSnapshotService.class);
         if (snapshotService != null) {
             snapshotService.hydrateItemNames(items);
         }
     }
 
     private Comparator<StatsItem> buildComparator(StatsItemSort sort) {
-        LocalStatsSnapshotService snapshotService = snapshotService();
+        LocalStatsSnapshotService snapshotService = Bridge.get(LocalStatsSnapshotService.class);
         return snapshotService != null ? snapshotService.buildComparator(sort) : null;
     }
 
@@ -91,7 +79,7 @@ final class StatsAggregator {
             if (key == null || key <= 0) {
                 continue;
             }
-            ensureProfileLoaded(key);
+            Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(key);
             StatsSnapshot snapshot = buildSnapshotForProfile(key, sinceMs);
             if (snapshot == null) {
                 continue;
@@ -170,25 +158,6 @@ final class StatsAggregator {
             lastSellTs
         );
         return new StatsSnapshot(summary, aggregatedItems);
-    }
-
-    static boolean hasMeaningfulStats(StatsSnapshot snapshot) {
-        if (snapshot == null) {
-            return false;
-        }
-        if (snapshot.items != null && !snapshot.items.isEmpty()) {
-            return true;
-        }
-        StatsSummary summary = snapshot.summary;
-        if (summary == null) {
-            return false;
-        }
-        long profit = summary.total_profit_gp != null ? summary.total_profit_gp : 0L;
-        long cost = summary.total_cost_gp != null ? summary.total_cost_gp : 0L;
-        long tax = summary.tax_paid_gp != null ? summary.tax_paid_gp : 0L;
-        long qty = summary.total_qty != null ? summary.total_qty : 0L;
-        long flips = summary.fill_count != null ? summary.fill_count : 0L;
-        return profit != 0L || cost != 0L || tax != 0L || qty != 0L || flips != 0L;
     }
 
     private StatsSummary finalizeSnapshot(List<StatsItem> items,

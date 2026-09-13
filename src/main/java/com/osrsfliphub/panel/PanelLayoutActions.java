@@ -32,7 +32,6 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
-import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -60,7 +59,7 @@ final class PanelLayoutActions {
         if (icon == null) {
             BufferedImage fallback = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
             Graphics2D g = fallback.createGraphics();
-            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            Skin.smooth(g);
             g.setColor(ACCENT);
             g.fillRoundRect(0, 0, 16, 16, 4, 4);
             g.setColor(Color.WHITE);

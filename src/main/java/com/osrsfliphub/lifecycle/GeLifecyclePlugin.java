@@ -28,8 +28,6 @@ import static com.osrsfliphub.Const.*;
 
 import com.google.gson.Gson;
 import com.google.inject.Provides;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -273,7 +271,6 @@ public class GeLifecyclePlugin extends Plugin {
         return previewFacade.isOfferStatusOpen(geRoot, OFFER_STATUS_MARKERS);
     }
 
-
     LocalTradesRuntime getLocalTradesRuntimeService() {
         return Bridge.get(LocalTradesRuntime.class);
     }
@@ -290,8 +287,6 @@ public class GeLifecyclePlugin extends Plugin {
     private void ensureProfileLoaded(long accountKey) {
         getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
     }
-
-
 
     void executeOnScheduler(ScheduledExecutorService scheduler, Runnable task) {
         if (scheduler != null && task != null) {
@@ -315,7 +310,6 @@ public class GeLifecyclePlugin extends Plugin {
     PanelRefresh getPanelRefreshCoordinator() {
         return Bridge.get(PanelRefresh.class);
     }
-
 
     long getProfileFileModifiedMs(Path file) {
         return Bridge.get(ProfileStore.class).getProfileFileModifiedMs(file);
@@ -394,10 +388,5 @@ public class GeLifecyclePlugin extends Plugin {
     ProfileWorkflow getProfileWorkflowService() {
         return Bridge.get(ProfileWorkflow.class);
     }
-
 }
-
-
-
-
 

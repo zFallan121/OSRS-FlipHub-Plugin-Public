@@ -23,21 +23,15 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package com.osrsfliphub;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class Trade {
     final int itemId;
     final boolean isBuy;
     final int quantity;
     final int price;
     final long totalGp;
-
-    Trade(int itemId, boolean isBuy, int quantity, int price, long totalGp) {
-        this.itemId = itemId;
-        this.isBuy = isBuy;
-        this.quantity = quantity;
-        this.price = price;
-        this.totalGp = totalGp;
-    }
 
     boolean isValid() {
         return itemId > 0

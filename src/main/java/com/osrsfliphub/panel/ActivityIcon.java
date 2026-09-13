@@ -93,7 +93,7 @@ final class ActivityIcon implements Icon {
     public void paintIcon(Component component, Graphics graphics, int x, int y) {
         Graphics2D g = (Graphics2D) graphics.create();
         try {
-            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            Skin.smooth(g);
             g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
             g.translate(x, y);
             double scale = size / GRID;

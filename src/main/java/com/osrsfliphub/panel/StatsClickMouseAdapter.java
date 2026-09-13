@@ -29,6 +29,7 @@ import java.awt.Point;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import javax.swing.SwingUtilities;
+import lombok.RequiredArgsConstructor;
 
 /**
  * A click on part of a card, as a person means it rather than as the toolkit defines it.
@@ -43,6 +44,7 @@ import javax.swing.SwingUtilities;
  * the thing that was pressed. That is the same rule a button follows: press it, slide off it
  * and let go, and nothing happens; let go while still on it, and it fires.
  */
+@RequiredArgsConstructor
 final class StatsClickMouseAdapter extends MouseAdapter {
     /**
      * How far the pointer may sit outside the pressed component and still count.
@@ -54,10 +56,6 @@ final class StatsClickMouseAdapter extends MouseAdapter {
 
     private final Runnable action;
     private boolean pressed;
-
-    StatsClickMouseAdapter(Runnable action) {
-        this.action = action;
-    }
 
     @Override
     public void mousePressed(MouseEvent e) {

@@ -61,7 +61,7 @@ final class RecentTradeDeduper {
             return false;
         }
         long ts = event.ts_client_ms > 0 ? event.ts_client_ms : System.currentTimeMillis();
-        String tradeKey = buildEventTradeKey(event);
+        String tradeKey = event.slot + "|" + event.item_id + "|" + event.is_buy + "|" + event.price;
         RecentTradeEvent previous = recentTradeEventsBySlot.get(event.slot);
         if (previous != null
             && Math.abs(ts - previous.tsClientMs) <= duplicateTradeWindowMs
@@ -83,7 +83,4 @@ final class RecentTradeDeduper {
         return false;
     }
 
-    private String buildEventTradeKey(GeEvent event) {
-        return event.slot + "|" + event.item_id + "|" + event.is_buy + "|" + event.price;
-    }
 }

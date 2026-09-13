@@ -23,14 +23,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package com.osrsfliphub;
+import lombok.RequiredArgsConstructor;
 
-
+@RequiredArgsConstructor
 final class StatsItemFormatting {
     private final PanelValueFormat valueFormatService;
-
-    StatsItemFormatting(PanelValueFormat valueFormatService) {
-        this.valueFormatService = valueFormatService;
-    }
 
     String buildStatsItemMeta(StatsItem item) {
         String roi = valueFormatService.formatPercent(item.roi_percent);

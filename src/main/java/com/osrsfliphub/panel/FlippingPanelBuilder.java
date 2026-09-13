@@ -45,17 +45,14 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.JViewport;
 import javax.swing.border.Border;
+import lombok.RequiredArgsConstructor;
 
 final class FlippingPanelBuilder {
 
+    @RequiredArgsConstructor
     static final class BuildResult {
         final JPanel panel;
         final JPanel footerPanel;
-
-        BuildResult(JPanel panel, JPanel footerPanel) {
-            this.panel = panel;
-            this.footerPanel = footerPanel;
-        }
     }
 
     private final UiStyler uiStyler;
@@ -109,7 +106,7 @@ final class FlippingPanelBuilder {
 
         uiStyler.styleGhostControl(
             bookmarkFilterButton, BOOKMARK_GLYPH_SIZE, new Insets(3, 6, 3, 6), INPUT_ARC);
-        bookmarkFilterButton.setFont(fontSymbol(BOOKMARK_GLYPH_SIZE));
+        bookmarkFilterButton.setFont(uiStyler.fontSymbol(BOOKMARK_GLYPH_SIZE));
         bookmarkFilterButton.setForeground(ACCENT);
         bookmarkFilterButton.setToolTipText("Show bookmarks only");
         uiStyler.matchFieldHeight(bookmarkFilterButton, searchField);
@@ -131,7 +128,7 @@ final class FlippingPanelBuilder {
         searchRow.add(bookmarkFilterButton, BorderLayout.EAST);
 
         refreshLabel.setForeground(MUTED_2);
-        refreshLabel.setFont(font(10.5f));
+        refreshLabel.setFont(uiStyler.font(10.5f));
 
         JPanel top = new JPanel();
         top.setOpaque(false);
@@ -193,7 +190,7 @@ final class FlippingPanelBuilder {
         });
 
         pageLabel.setForeground(MUTED);
-        pageLabel.setFont(font(10.5f));
+        pageLabel.setFont(uiStyler.font(10.5f));
         pager.add(prevButton);
         pager.add(pageLabel);
         pager.add(nextButton);
@@ -284,17 +281,8 @@ final class FlippingPanelBuilder {
         button.setMaximumSize(size);
     }
 
-
-    private Font font(float size) {
-        return uiStyler.font(size);
-    }
-
     private Font fontSemiBold(float size) {
         return uiStyler.fontSemiBold(size);
-    }
-
-    private Font fontSymbol(float size) {
-        return uiStyler.fontSymbol(size);
     }
 
     private Border roundedBorder(int arc, Color color, Insets padding) {

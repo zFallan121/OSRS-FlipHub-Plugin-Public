@@ -35,25 +35,15 @@ import javax.swing.BoxLayout;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class StatsPanelHeaderBuilder {
     private final UiStyler uiStyler;
     private final PanelState panelStateService;
     private final PanelMutableState panelState;
     private final PanelListener listener;
     private final Runnable renderStatsItems;
-
-    StatsPanelHeaderBuilder(UiStyler uiStyler,
-                                   PanelState panelStateService,
-                                   PanelMutableState panelState,
-                                   PanelListener listener,
-                                   Runnable renderStatsItems) {
-        this.uiStyler = uiStyler;
-        this.panelStateService = panelStateService;
-        this.panelState = panelState;
-        this.listener = listener;
-        this.renderStatsItems = renderStatsItems;
-    }
 
     JPanel buildHeader(
         JComboBox<StatsRange> statsRangeCombo,
@@ -80,7 +70,7 @@ final class StatsPanelHeaderBuilder {
         rangeRow.add(statsRangeCombo, BorderLayout.WEST);
 
         statsUpdatedLabel.setForeground(MUTED_2);
-        statsUpdatedLabel.setFont(font(10.5f));
+        statsUpdatedLabel.setFont(uiStyler.font(10.5f));
         statsUpdatedLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         // The range is the only thing pinned above the list now: it says which trades the whole
@@ -90,12 +80,7 @@ final class StatsPanelHeaderBuilder {
         return header;
     }
 
-    private Font font(float size) {
-        return uiStyler.font(size);
-    }
-
     private Font fontSemiBold(float size) {
         return uiStyler.fontSemiBold(size);
     }
-
 }

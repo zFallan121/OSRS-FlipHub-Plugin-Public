@@ -34,10 +34,6 @@ final class WebsiteStatsWipe {
     WebsiteStatsWipe() {
     }
 
-    private ProfileSelectionPresentation facade() {
-        return Bridge.get(ProfileSelectionPresentation.class);
-    }
-
     private void runOnClientThread(Runnable task) {
         if (task != null) {
             Access.plugin().invokeOnClientThread(task);
@@ -53,7 +49,7 @@ final class WebsiteStatsWipe {
     }
 
     void wipeWebsiteStatsAsync() {
-        ProfileSelectionPresentation facade = facade();
+        ProfileSelectionPresentation facade = Bridge.get(ProfileSelectionPresentation.class);
         if (facade == null || !facade.isLinked()) {
             showError("Website wipe is only available when linked.");
             return;

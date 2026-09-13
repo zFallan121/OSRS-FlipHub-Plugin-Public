@@ -44,10 +44,6 @@ final class RemainingLimitSuggestion {
     RemainingLimitSuggestion() {
     }
 
-    private static GeLimit geLimitService() {
-        return Bridge.get(GeLimit.class);
-    }
-
     private long resolveLocalAccountKey() {
         AccountSession service = Bridge.get(AccountSession.class);
         return service != null ? service.resolveLocalAccountKey() : 0L;
@@ -59,19 +55,15 @@ final class RemainingLimitSuggestion {
         return service != null ? service.resolveSelectedProfileKey() : 0L;
     }
 
-    private void ensureProfileLoaded(long accountKey) {
-        Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
-    }
-
     private void requestGeLimits(Set<Integer> itemIds) {
-        GeLimit service = geLimitService();
+        GeLimit service = Bridge.get(GeLimit.class);
         if (service != null) {
             service.requestGeLimits(itemIds);
         }
     }
 
     private Integer getCachedGeLimit(int itemId) {
-        GeLimit service = geLimitService();
+        GeLimit service = Bridge.get(GeLimit.class);
         return service != null ? service.getCachedGeLimit(itemId) : null;
     }
 
@@ -83,10 +75,6 @@ final class RemainingLimitSuggestion {
     private Map<Integer, LimitInfo> buildLocalLimitInfo(long accountKey, long nowMs) {
         TradeSession service = Bridge.get(TradeSession.class);
         return service != null ? service.buildLocalLimitInfo(accountKey, nowMs) : null;
-    }
-
-    private FlipHubItem getOfferPreviewItem() {
-        return Access.plugin().offerPreviewItem;
     }
 
     Integer getThrottledSuggestion(int itemId) {
@@ -137,7 +125,7 @@ final class RemainingLimitSuggestion {
         if (itemId <= 0 || accountKey < 0) {
             return null;
         }
-        ensureProfileLoaded(accountKey);
+        Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
         requestGeLimits(Collections.singleton(itemId));
         Integer geLimit = getCachedGeLimit(itemId);
         if (geLimit == null || geLimit <= 0) {
@@ -152,7 +140,7 @@ final class RemainingLimitSuggestion {
         if (info != null && info.buyQty > 0) {
             remaining = (int) Math.max(0L, geLimit - info.buyQty);
         }
-        FlipHubItem previewItem = getOfferPreviewItem();
+        FlipHubItem previewItem = Access.plugin().offerPreviewItem;
         if (previewItem != null && previewItem.item_id == itemId) {
             previewItem.ge_limit_total = geLimit;
             previewItem.ge_limit_remaining = remaining;

@@ -32,16 +32,12 @@ import java.awt.Component;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import javax.swing.JLabel;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class StatsHistoryHoverMouseAdapter extends MouseAdapter {
     private final JLabel title;
     private final JLabel chevron;
-
-
-    StatsHistoryHoverMouseAdapter(JLabel title, JLabel chevron) {
-        this.title = title;
-        this.chevron = chevron;
-    }
 
     /**
      * Hover is answered from where the pointer actually is, not counted.

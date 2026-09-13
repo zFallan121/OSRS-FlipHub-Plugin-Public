@@ -140,7 +140,7 @@ final class RecipeRecorder {
     void open() {
         accountKey = resolveAccountKey();
         trades = snapshotTrades(accountKey);
-        RecipeFlipStore store = recordStore();
+        RecipeFlipStore store = Bridge.get(RecipeFlipStore.class);
         stored = store != null && accountKey > 0 ? store.applicable(accountKey) : new ArrayList<>();
         RecipeFlipLedger.Result already = RecipeFlipLedger.apply(trades, stored);
         appliedBefore = already.activities.size();
@@ -554,7 +554,7 @@ final class RecipeRecorder {
 
     private void record() {
         RecipeFlip flip = buildFlip();
-        RecipeFlipStore store = recordStore();
+        RecipeFlipStore store = Bridge.get(RecipeFlipStore.class);
         if (flip == null || store == null || accountKey <= 0 || !store.add(accountKey, flip)) {
             return;
         }
@@ -563,7 +563,7 @@ final class RecipeRecorder {
     }
 
     private void forget(RecipeFlip flip) {
-        RecipeFlipStore store = recordStore();
+        RecipeFlipStore store = Bridge.get(RecipeFlipStore.class);
         if (store == null || accountKey <= 0 || !store.remove(accountKey, flip)) {
             return;
         }
@@ -594,10 +594,6 @@ final class RecipeRecorder {
         if (onClose != null) {
             onClose.run();
         }
-    }
-
-    private static RecipeFlipStore recordStore() {
-        return Bridge.get(RecipeFlipStore.class);
     }
 
     /**

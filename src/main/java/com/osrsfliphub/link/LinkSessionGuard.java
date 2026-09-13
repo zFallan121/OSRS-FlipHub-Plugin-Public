@@ -26,17 +26,14 @@ package com.osrsfliphub;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
 final class LinkSessionGuard {
+    @RequiredArgsConstructor
     static final class Credentials {
         final String sessionToken;
         final String signingSecret;
-
-        Credentials(String sessionToken, String signingSecret) {
-            this.sessionToken = sessionToken;
-            this.signingSecret = signingSecret;
-        }
     }
 
     private final PluginConfig config;

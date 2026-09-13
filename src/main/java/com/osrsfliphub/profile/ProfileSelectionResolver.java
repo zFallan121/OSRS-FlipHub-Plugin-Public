@@ -39,14 +39,14 @@ final class ProfileSelectionResolver {
         if (state == null) {
             return accountwideKeyString;
         }
-        return state.resolveSelectedProfileKeyForUi(isClientLoggedIn());
+        return state.resolveSelectedProfileKeyForUi(Access.loggedIn(client));
     }
 
     long resolveSelectedProfileKey(ProfileSelectionState state) {
         if (state == null) {
             return accountwideKey;
         }
-        return state.resolveSelectedProfileKey(isClientLoggedIn(), accountwideKey);
+        return state.resolveSelectedProfileKey((client != null && client.getGameState() == net.runelite.api.GameState.LOGGED_IN), accountwideKey);
     }
 
     String buildProfileKey(ProfileSelectionState state, long accountHash) {
@@ -56,7 +56,4 @@ final class ProfileSelectionResolver {
         return state.buildProfileKey(accountHash);
     }
 
-    private boolean isClientLoggedIn() {
-        return client != null && client.getGameState() == net.runelite.api.GameState.LOGGED_IN;
-    }
 }

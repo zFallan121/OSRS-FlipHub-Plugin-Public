@@ -87,18 +87,6 @@ final class ItemLookup {
         return null;
     }
 
-    private Integer lookupGuidePrice(int itemId) {
-        if (itemManager == null || itemId <= 0) {
-            return null;
-        }
-        int guidePrice = itemManager.getItemPrice(itemId);
-        return guidePrice > 0 ? guidePrice : null;
-    }
-
-    private boolean canCacheItemNamesAsync() {
-        return itemManager != null && clientThread != null;
-    }
-
     private void invokeOnClientThread(Runnable task) {
         if (task != null && clientThread != null) {
             clientThread.invokeLater(task);
@@ -188,7 +176,7 @@ final class ItemLookup {
     }
 
     void cacheItemName(int itemId) {
-        if (itemId <= 0 || !canCacheItemNamesAsync()) {
+        if (itemId <= 0 || !(itemManager != null && clientThread != null)) {
             return;
         }
         if (itemNameCache != null && itemNameCache.containsKey(itemId)) {

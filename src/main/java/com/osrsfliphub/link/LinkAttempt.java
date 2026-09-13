@@ -32,7 +32,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.Client;
-import net.runelite.api.GameState;
 import lombok.extern.slf4j.Slf4j;
 
 @Singleton
@@ -57,32 +56,12 @@ final class LinkAttempt {
         this.apiClient = apiClient;
     }
 
-    private static ScheduledExecutorService scheduler() {
-        return Access.plugin().scheduler;
-    }
-
-    private static UploadBackfillDispatch uploadBackfillDispatch() {
-        return Bridge.get(UploadBackfillDispatch.class);
-    }
-
-    private static UploadEventDispatch uploadEventDispatchFacade() {
-        return Bridge.get(UploadEventDispatch.class);
-    }
-
-    private boolean isClientLoggedIn() {
-        return client != null && client.getGameState() == GameState.LOGGED_IN;
-    }
-
     private String currentDeviceId() {
         return config != null ? config.deviceId() : null;
     }
 
     private ApiClient.LinkResponse linkDevice(String licenseKey, String deviceId) throws IOException {
         return apiClient != null ? apiClient.linkDevice(licenseKey, deviceId, PLUGIN_VERSION) : null;
-    }
-
-    private void persistLinkedSession(String sessionToken, String signingSecret) {
-        Bridge.get(LinkSessionConfigStore.class).persistLinkedSession(sessionToken, signingSecret);
     }
 
     private void resetAccountwideUploadSnapshot() {
@@ -93,30 +72,30 @@ final class LinkAttempt {
     }
 
     private void resetUploadDiagnosticsState() {
-        UploadEventDispatch service = uploadEventDispatchFacade();
+        UploadEventDispatch service = Bridge.get(UploadEventDispatch.class);
         if (service != null) {
             service.resetStatus();
         }
     }
 
     private void updateUploadDiagnosticsUi() {
-        UploadEventDispatch service = uploadEventDispatchFacade();
+        UploadEventDispatch service = Bridge.get(UploadEventDispatch.class);
         if (service != null) {
             service.updateUploadDiagnosticsUi();
         }
     }
 
     private void requestBackfillAttempt(long delaySeconds, boolean resetBackoff) {
-        ScheduledExecutorService scheduler = scheduler();
-        UploadBackfillDispatch dispatch = uploadBackfillDispatch();
+        ScheduledExecutorService scheduler = Access.plugin().scheduler;
+        UploadBackfillDispatch dispatch = Bridge.get(UploadBackfillDispatch.class);
         if (scheduler != null && dispatch != null) {
             dispatch.requestBackfillAttempt(scheduler, delaySeconds, resetBackoff);
         }
     }
 
     private void scheduleAccountwideSync(long delaySeconds) {
-        ScheduledExecutorService scheduler = scheduler();
-        UploadBackfillDispatch dispatch = uploadBackfillDispatch();
+        ScheduledExecutorService scheduler = Access.plugin().scheduler;
+        UploadBackfillDispatch dispatch = Bridge.get(UploadBackfillDispatch.class);
         if (scheduler != null && dispatch != null) {
             scheduler.schedule(dispatch::requestAccountwideSync, delaySeconds, TimeUnit.SECONDS);
         }
@@ -126,12 +105,8 @@ final class LinkAttempt {
         Access.plugin().refreshPanelData();
     }
 
-    private static LinkStatus linkStatus() {
-        return Bridge.get(LinkStatus.class);
-    }
-
     private void reportStatus(String status) {
-        LinkStatus service = linkStatus();
+        LinkStatus service = Bridge.get(LinkStatus.class);
         if (service != null) {
             service.markFailed(status);
         }
@@ -156,13 +131,6 @@ final class LinkAttempt {
      * Whether FlipHub itself said no to this key, as opposed to nobody answering. Only the
      * first is a reason to forget the key.
      */
-    private boolean isRefusalOfTheKey(Throwable ex) {
-        return ApiRefusedException.refusedTheRequest(ex);
-    }
-
-    private boolean syncIsOff() {
-        return config == null || !config.enableFlipHubSync();
-    }
 
     private void logTimeout() {
         if (log.isDebugEnabled()) {
@@ -170,16 +138,12 @@ final class LinkAttempt {
         }
     }
 
-    private void logFailure(Throwable ex) {
-        log.warn("FlipHub link failed", ex);
-    }
-
     private boolean executeIo(Runnable task) {
         return Access.plugin().executeIo(task);
     }
 
     private void scheduleRetry(Runnable task, long delaySeconds) {
-        ScheduledExecutorService scheduler = scheduler();
+        ScheduledExecutorService scheduler = Access.plugin().scheduler;
         if (scheduler != null && task != null) {
             scheduler.schedule(task, delaySeconds, TimeUnit.SECONDS);
         }
@@ -191,7 +155,7 @@ final class LinkAttempt {
      */
     void linkFromPanel(String licenseKey) {
         String normalized = normalize(licenseKey);
-        LinkStatus status = linkStatus();
+        LinkStatus status = Bridge.get(LinkStatus.class);
         if (isBlank(normalized)) {
             if (status != null) {
                 status.markPanelMessage("Paste your license key first.");
@@ -202,7 +166,7 @@ final class LinkAttempt {
         if (store != null) {
             store.enableSync(normalized);
         }
-        if (!isClientLoggedIn()) {
+        if (!Access.loggedIn(client)) {
             reportStatus(LinkStatus.NEEDS_LOGIN);
             return;
         }
@@ -238,11 +202,11 @@ final class LinkAttempt {
         if (uploader != null) {
             uploader.resetUploadSnapshot();
         }
-        UploadEventDispatch uploadFacade = uploadEventDispatchFacade();
+        UploadEventDispatch uploadFacade = Bridge.get(UploadEventDispatch.class);
         if (uploadFacade != null) {
             uploadFacade.markBlocked("Unlinked. Event uploads paused until relinked.");
         }
-        LinkStatus status = linkStatus();
+        LinkStatus status = Bridge.get(LinkStatus.class);
         if (status != null) {
             status.refresh();
         }
@@ -265,14 +229,14 @@ final class LinkAttempt {
         if (isBlank(normalized)) {
             return;
         }
-        if (!isClientLoggedIn()) {
+        if (!Access.loggedIn(client)) {
             // The login handler retries the stored key, so this is a wait rather than a failure.
             reportStatus(LinkStatus.NEEDS_LOGIN);
             updateProfileHeader();
             return;
         }
 
-        LinkStatus status = linkStatus();
+        LinkStatus status = Bridge.get(LinkStatus.class);
         if (status != null) {
             status.markLinking();
         }
@@ -294,15 +258,15 @@ final class LinkAttempt {
         try {
             String deviceId = currentDeviceId();
             ApiClient.LinkResponse response = linkDevice(licenseKey, deviceId);
-            if (response != null && hasText(response.session_token) && hasText(response.signing_secret)) {
-                persistLinkedSession(response.session_token, response.signing_secret);
+            if (response != null && (!isBlank(response.session_token)) && (!isBlank(response.signing_secret))) {
+                Bridge.get(LinkSessionConfigStore.class).persistLinkedSession(response.session_token, response.signing_secret);
                 resetAccountwideUploadSnapshot();
                 resetUploadDiagnosticsState();
                 updateUploadDiagnosticsUi();
                 requestBackfillAttempt(POST_LINK_BACKFILL_DELAY_SECONDS, true);
                 scheduleAccountwideSync(POST_LINK_SYNC_DELAY_SECONDS);
                 refreshPanelData();
-                LinkStatus status = linkStatus();
+                LinkStatus status = Bridge.get(LinkStatus.class);
                 if (status != null) {
                     status.markLinked(licenseKey);
                 }
@@ -322,14 +286,14 @@ final class LinkAttempt {
                 scheduleRetry(licenseKey);
                 return;
             }
-            if (!isRefusalOfTheKey(ex)) {
+            if (!ApiRefusedException.refusedTheRequest(ex)) {
                 // Nobody said the key was wrong. The machine is offline, the name did not
                 // resolve, the handshake failed, the server had a bad minute, or sync is
                 // switched off. Erasing the key here made the player go and find it again for
                 // a problem that had nothing to do with it.
-                reportStatus(syncIsOff() ? LinkStatus.SYNC_OFF : LinkStatus.UNREACHABLE);
+                reportStatus((config == null || !config.enableFlipHubSync()) ? LinkStatus.SYNC_OFF : LinkStatus.UNREACHABLE);
                 updateProfileHeader();
-                logFailure(ex);
+                log.warn("FlipHub link failed", ex);
                 linkInFlight.set(false);
                 scheduleRetry(licenseKey);
                 return;
@@ -339,7 +303,7 @@ final class LinkAttempt {
             discardRejectedKey();
             reportStatus(LinkStatus.FAILED);
             updateProfileHeader();
-            logFailure(ex);
+            log.warn("FlipHub link failed", ex);
         } finally {
             linkInFlight.set(false);
         }
@@ -357,10 +321,6 @@ final class LinkAttempt {
             return;
         }
         scheduleRetry(() -> attemptLink(licenseKey), RETRY_DELAY_SECONDS);
-    }
-
-    private boolean hasText(String value) {
-        return !isBlank(value);
     }
 
     private String normalize(String value) {

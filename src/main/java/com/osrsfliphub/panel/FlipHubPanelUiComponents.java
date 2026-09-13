@@ -50,6 +50,7 @@ import javax.swing.JTextField;
 import javax.swing.Scrollable;
 import javax.swing.border.Border;
 import javax.swing.plaf.basic.BasicComboBoxUI;
+import lombok.RequiredArgsConstructor;
 
 /**
  * A label counting down, and the point it is counting from.
@@ -86,26 +87,17 @@ final class AgePairEntry {
     }
 }
 
+@RequiredArgsConstructor
 final class LineComponents {
     final JPanel row;
     final JLabel left;
     final JLabel right;
-
-    LineComponents(JPanel row, JLabel left, JLabel right) {
-        this.row = row;
-        this.left = left;
-        this.right = right;
-    }
 }
 
+@RequiredArgsConstructor
 final class TrackingPanel extends JPanel implements Scrollable {
     private final int scrollUnitIncrement;
     private final int scrollBlockIncrement;
-
-    TrackingPanel(int scrollUnitIncrement, int scrollBlockIncrement) {
-        this.scrollUnitIncrement = scrollUnitIncrement;
-        this.scrollBlockIncrement = scrollBlockIncrement;
-    }
 
     @Override
     public Dimension getPreferredScrollableViewportSize() {
@@ -301,7 +293,7 @@ final class RoundedPanel extends JPanel {
         }
         int radius = clampArc(arc, width, height);
         Graphics2D g2 = (Graphics2D) g.create();
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        Skin.smooth(g2);
         if (topColor != null) {
             g2.setPaint(topColor.equals(bottomColor)
                 ? topColor
@@ -327,7 +319,7 @@ final class RoundedPanel extends JPanel {
             return;
         }
         Graphics2D g2 = (Graphics2D) g.create();
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        Skin.smooth(g2);
         g2.setColor(edge);
         int radius = clampArc(arc, getWidth(), getHeight());
         g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, radius, radius);
@@ -349,7 +341,7 @@ final class ComboBoxUI extends BasicComboBoxUI {
     @Override
     public void update(Graphics g, JComponent c) {
         Graphics2D g2 = (Graphics2D) g.create();
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        Skin.smooth(g2);
         g2.setColor(Skin.CONTROL_FILL);
         int arc = RoundedPanel.clampArc(Skin.INPUT_ARC, c.getWidth(), c.getHeight());
         g2.fillRoundRect(0, 0, c.getWidth(), c.getHeight(), arc, arc);
@@ -372,7 +364,7 @@ final class ComboBoxUI extends BasicComboBoxUI {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                Skin.smooth(g2);
                 g2.setColor(Skin.MUTED);
                 int cx = getWidth() / 2;
                 int cy = getHeight() / 2;
@@ -394,14 +386,11 @@ final class ComboBoxUI extends BasicComboBoxUI {
 }
 
 /** The popup's rows: the overlay ground, the action colour on the one that is current. */
+@RequiredArgsConstructor
 final class ComboRenderer extends DefaultListCellRenderer {
     private static final Color TRANSPARENT = new Color(0, 0, 0, 0);
 
     private final Font font;
-
-    ComboRenderer(Font font) {
-        this.font = font;
-    }
 
     @Override
     public Component getListCellRendererComponent(JList<?> list, Object value, int index,
@@ -445,6 +434,7 @@ final class TabHoverAdapter extends java.awt.event.MouseAdapter {
     }
 }
 
+@RequiredArgsConstructor
 final class RoundedBorder implements Border {
     private final int arc;
     private final Supplier<Color> color;
@@ -462,11 +452,6 @@ final class RoundedBorder implements Border {
      * it: a button given extra spacing above it lost that spacing the first time the pointer
      * touched it, and jumped upward by however much the spacing was.
      */
-    RoundedBorder(int arc, Supplier<Color> color, Insets insets) {
-        this.arc = arc;
-        this.color = color;
-        this.insets = insets;
-    }
 
     @Override
     public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
@@ -475,7 +460,7 @@ final class RoundedBorder implements Border {
             return;
         }
         Graphics2D g2 = (Graphics2D) g.create();
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        Skin.smooth(g2);
         g2.setColor(color);
         // CHIP_ARC is 999 so a pill stays a pill at any height; clamping is what turns that into
         // the short side rather than a Java2D artefact.
@@ -543,7 +528,7 @@ final class PlaceholderTextField extends JTextField {
         }
         Graphics2D g2 = (Graphics2D) g.create();
         try {
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            Skin.smooth(g2);
             g2.setPaint(new GradientPaint(
                 0f, 0f, Skin.INPUT_WELL_TOP,
                 0f, height, Skin.INPUT_WELL_BOTTOM));

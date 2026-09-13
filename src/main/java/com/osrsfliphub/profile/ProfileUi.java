@@ -40,13 +40,9 @@ final class ProfileUi {
         return plugin != null ? plugin.panel : null;
     }
 
-    private ProfileSelectionPresentation facade() {
-        return Bridge.get(ProfileSelectionPresentation.class);
-    }
-
     void updateProfileOptionsUi() {
         Panel panel = panel();
-        ProfileSelectionPresentation service = facade();
+        ProfileSelectionPresentation service = Bridge.get(ProfileSelectionPresentation.class);
         if (panel == null) {
             return;
         }
@@ -58,7 +54,7 @@ final class ProfileUi {
 
     void updateProfileHeader() {
         Panel panel = panel();
-        ProfileSelectionPresentation service = facade();
+        ProfileSelectionPresentation service = Bridge.get(ProfileSelectionPresentation.class);
         if (panel == null) {
             return;
         }

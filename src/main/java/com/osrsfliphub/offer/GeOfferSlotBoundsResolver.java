@@ -33,7 +33,9 @@ import net.runelite.api.Client;
 import net.runelite.api.Point;
 import net.runelite.api.widgets.InterfaceID;
 import net.runelite.api.widgets.Widget;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 final class GeOfferSlotBoundsResolver {
     private static final int MIN_SLOT_WIDTH = 80;
     private static final int MAX_SLOT_WIDTH = 200;
@@ -43,10 +45,6 @@ final class GeOfferSlotBoundsResolver {
     private static final int SLOT_SCAN_COMPONENT_LIMIT = 300;
 
     private final Client client;
-
-    GeOfferSlotBoundsResolver(Client client) {
-        this.client = client;
-    }
 
     List<Rectangle> findSlotBounds(Widget root) {
         if (root == null) {

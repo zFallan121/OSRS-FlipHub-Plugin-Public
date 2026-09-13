@@ -45,12 +45,8 @@ final class ItemsResponseBuilder {
     ItemsResponseBuilder() {
     }
 
-    private PanelDataRuntime panelData() {
-        return Bridge.get(PanelDataRuntime.class);
-    }
-
     private ApiClient.ItemsResponse emptyItemsResponse(long asOfMs, Long priceCacheMs) {
-        PanelDataRuntime service = panelData();
+        PanelDataRuntime service = Bridge.get(PanelDataRuntime.class);
         return service != null ? service.emptyItemsResponse(asOfMs, priceCacheMs) : null;
     }
 
@@ -127,7 +123,7 @@ final class ItemsResponseBuilder {
             }
         }
 
-        PanelDataRuntime panelData = panelData();
+        PanelDataRuntime panelData = Bridge.get(PanelDataRuntime.class);
         // The fallbacks answer "the list is empty because nothing has been traded yet" with the
         // offer on screen. Once a filter is in force an empty list means "nothing you asked for
         // is here", and an item that was not asked for is not an answer to that.

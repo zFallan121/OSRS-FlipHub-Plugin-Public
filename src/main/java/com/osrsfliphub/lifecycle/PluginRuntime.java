@@ -50,5 +50,4 @@ final class PluginRuntime {
     @Inject
     PluginRuntime() {
     }
-
 }
