@@ -107,6 +107,7 @@ final class PanelComponentsFactory {
 
         StatsPanelBuilder statsPanelBuilder = new StatsPanelBuilder(
             uiStyler,
+            valueFormatService,
             panelStateService,
             panelState,
             listener,

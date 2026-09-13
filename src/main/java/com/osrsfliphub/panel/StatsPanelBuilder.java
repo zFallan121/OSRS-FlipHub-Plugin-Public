@@ -27,6 +27,7 @@ package com.osrsfliphub;
 import static com.osrsfliphub.Skin.*;
 
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.event.MouseWheelListener;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -65,10 +66,18 @@ final class StatsPanelBuilder {
         }
     }
 
+    private static final String TAB_CARD = "tab";
+    private static final String RECORDER_CARD = "recorder";
+
     private final StatsPanelHeaderBuilder headerBuilder;
     private final StatsPanelContentBuilder contentBuilder;
+    private final RecipeRecorder recorder;
+    private final CardLayout deckLayout = new CardLayout();
+    private final JPanel deck = new JPanel(deckLayout);
+    private boolean recorderOpen;
 
     StatsPanelBuilder(UiStyler uiStyler,
+                             PanelValueFormat valueFormatService,
                              PanelState panelStateService,
                              PanelMutableState panelState,
                              PanelListener listener,
@@ -78,9 +87,35 @@ final class StatsPanelBuilder {
                              MouseWheelListener wheelForwarder) {
         this.headerBuilder = new StatsPanelHeaderBuilder(
             uiStyler, panelStateService, panelState, listener, renderStatsItems);
+        this.recorder = new RecipeRecorder(uiStyler, valueFormatService, this::showTab);
         this.contentBuilder = new StatsPanelContentBuilder(
             uiStyler, panelStateService, panelState, listener,
-            renderStatsItems, updateStatsSummary, wheelScrollCoordinator, wheelForwarder);
+            renderStatsItems, updateStatsSummary, wheelScrollCoordinator, wheelForwarder,
+            this::showRecorder);
+    }
+
+    /**
+     * Recording takes the whole tab rather than opening over it.
+     *
+     * <p>A dialog would be the usual answer, but the column is 201px wide: anything floating in
+     * it either covers what it is about or is too narrow to pick trades in. Swapping the tab's
+     * body keeps the panel's one surface and gives the form the full width, and the tabs above
+     * stay live, so leaving is never a trap.
+     */
+    private void showRecorder() {
+        recorder.open();
+        recorderOpen = true;
+        deckLayout.show(deck, RECORDER_CARD);
+    }
+
+    private void showTab() {
+        recorderOpen = false;
+        deckLayout.show(deck, TAB_CARD);
+    }
+
+    /** The recorder's own scroll surface while it is up, so the wheel reaches it. Null otherwise. */
+    JScrollPane openRecorderPane() {
+        return recorderOpen ? recorder.view() : null;
     }
 
     BuildResult build(
@@ -106,8 +141,15 @@ final class StatsPanelBuilder {
             statsSortDirectionButton
         );
 
-        panel.add(header, BorderLayout.NORTH);
-        panel.add(content.scrollPane, BorderLayout.CENTER);
+        JPanel tabCard = new JPanel(new BorderLayout());
+        tabCard.setOpaque(false);
+        tabCard.add(header, BorderLayout.NORTH);
+        tabCard.add(content.scrollPane, BorderLayout.CENTER);
+
+        deck.setOpaque(false);
+        deck.add(tabCard, TAB_CARD);
+        deck.add(recorder.view(), RECORDER_CARD);
+        panel.add(deck, BorderLayout.CENTER);
         return new BuildResult(
             panel,
             content.scrollPane,

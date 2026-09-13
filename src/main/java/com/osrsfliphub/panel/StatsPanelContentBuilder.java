@@ -83,6 +83,7 @@ final class StatsPanelContentBuilder {
     private final Runnable updateStatsSummary;
     private final WheelScroll wheelScrollCoordinator;
     private final MouseWheelListener wheelForwarder;
+    private final Runnable openRecorder;
 
     StatsPanelContentBuilder(UiStyler uiStyler,
                                     PanelState panelStateService,
@@ -91,7 +92,9 @@ final class StatsPanelContentBuilder {
                                     Runnable renderStatsItems,
                                     Runnable updateStatsSummary,
                                     WheelScroll wheelScrollCoordinator,
-                                    MouseWheelListener wheelForwarder) {
+                                    MouseWheelListener wheelForwarder,
+                                    Runnable openRecorder) {
+        this.openRecorder = openRecorder;
         this.uiStyler = uiStyler;
         this.panelStateService = panelStateService;
         this.panelState = panelState;
@@ -142,6 +145,8 @@ final class StatsPanelContentBuilder {
         statsContentPanel.add(Box.createVerticalStrut(8));
         statsContentPanel.add(buildStatsSortRow(statsSortCombo, statsFilterCombo, statsSortDirectionButton));
         statsContentPanel.add(Box.createVerticalStrut(8));
+        statsContentPanel.add(buildItemsHeadingRow());
+        statsContentPanel.add(Box.createVerticalStrut(4));
 
         statsItemsListPanel.setOpaque(false);
         statsItemsListPanel.setLayout(new BoxLayout(statsItemsListPanel, BoxLayout.Y_AXIS));
@@ -185,6 +190,49 @@ final class StatsPanelContentBuilder {
             statsSessionTimeValue,
             statsHourlyValue
         );
+    }
+
+    /**
+     * The heading over the item list, and the way into recording a recipe.
+     *
+     * <p>One accent word on a heading the list had been going without, rather than a control of
+     * its own: recording is a rare thing to do next to reading the list, and a button would take
+     * a row of a 201px column every time the tab is opened to say so. The heading it hangs on is
+     * the same micro label every other block in the panel gets.
+     */
+    private JPanel buildItemsHeadingRow() {
+        JPanel row = new JPanel(new BorderLayout(TRAILING_CONTROL_GAP, 0));
+        row.setOpaque(false);
+        row.setAlignmentX(JPanel.LEFT_ALIGNMENT);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
+
+        JLabel heading = new JLabel("Items");
+        uiStyler.styleMicroLabel(heading, 9.5f);
+        row.add(heading, BorderLayout.WEST);
+
+        JLabel link = new JLabel("Record a recipe", SwingConstants.RIGHT);
+        link.setForeground(ACCENT);
+        link.setFont(font(9.5f));
+        link.setToolTipText("Tell FlipHub that some of your trades were one conversion");
+        link.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        link.addMouseListener(new StatsClickMouseAdapter(() -> {
+            if (openRecorder != null) {
+                openRecorder.run();
+            }
+        }));
+        link.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent event) {
+                link.setForeground(TEXT);
+            }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent event) {
+                link.setForeground(ACCENT);
+            }
+        });
+        row.add(link, BorderLayout.EAST);
+        return row;
     }
 
     /**

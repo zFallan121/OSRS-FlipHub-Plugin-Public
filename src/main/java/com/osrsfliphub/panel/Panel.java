@@ -134,7 +134,7 @@ public class Panel extends PluginPanel {
             searchField,
             statsTab,
             scrollPane,
-            () -> statsScrollPane,
+            this::activeStatsScrollPane,
             iconCache,
             expandedStatsHistoryItems,
             () -> expandedStatsItemId,
@@ -206,6 +206,18 @@ public class Panel extends PluginPanel {
         addMouseWheelListener(wheelForwarder);
         cardPanel.addMouseWheelListener(wheelForwarder);
         wheelScrollCoordinator.installGlobalWheelListener();
+    }
+
+    /**
+     * Which surface the wheel scrolls while the Profile tab is up.
+     *
+     * <p>The tab has two: its own list, and the recipe recorder that takes its place. Both hide
+     * their scrollbars, so neither scrolls itself - the wheel is delivered by hand to whichever
+     * of them is showing, and pointing at the wrong one leaves the form on screen frozen.
+     */
+    private JScrollPane activeStatsScrollPane() {
+        JScrollPane recorder = statsPanelBuilder != null ? statsPanelBuilder.openRecorderPane() : null;
+        return recorder != null ? recorder : statsScrollPane;
     }
 
     @Override
