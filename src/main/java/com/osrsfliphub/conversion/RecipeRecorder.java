@@ -190,7 +190,28 @@ final class RecipeRecorder {
         for (Delta trade : offerable(trades, applied)) {
             picks.add(new Candidate(trade));
         }
+        warmNames();
         refresh();
+    }
+
+    /**
+     * Ask the game for every name on the list, not only the ten being drawn.
+     *
+     * <p>A name nothing has looked up yet reads as "Item 4151", and the search matches on what
+     * a row says - so it could only ever find the items the player had already paged past,
+     * which is the opposite of what a search is for. The names land on the game's thread one
+     * hop behind this one, so the redraw is asked for on a hop of its own, which puts it behind
+     * all of them. Names already known cost nothing.
+     */
+    private void warmNames() {
+        GeLifecyclePlugin plugin = Access.pluginOrNull();
+        if (plugin == null) {
+            return;
+        }
+        for (Candidate candidate : picks) {
+            warmName(candidate.trade.itemId);
+        }
+        plugin.invokeOnClientThread(() -> SwingUtilities.invokeLater(this::refresh));
     }
 
     private void build() {
@@ -801,7 +822,12 @@ final class RecipeRecorder {
         uiStyler.styleTextField(findField);
         uiStyler.installInlineClear(findField);
         findField.setToolTipText("Find one item");
-        uiStyler.onEdit(findField, this::refresh);
+        // Back to the first page: a search answered on page four is a search answered out
+        // of sight.
+        uiStyler.onEdit(findField, () -> {
+            page = 1;
+            refresh();
+        });
         row.add(findField, BorderLayout.CENTER);
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
         return row;

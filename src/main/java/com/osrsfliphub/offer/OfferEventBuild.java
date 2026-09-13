@@ -214,8 +214,4 @@ final class OfferEventBuild {
     private boolean isWithinLoginGrace() {
         return Access.plugin().getOfferStampStateServices().isWithinLoginGrace();
     }
-
-    private long nowMs() {
-        return System.currentTimeMillis();
-    }
 }
