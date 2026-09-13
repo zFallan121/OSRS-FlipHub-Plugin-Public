@@ -58,10 +58,10 @@ Bought a blade and a hilt, made a godsword, sold it? The game never tells a plug
 became one, so the three trades would otherwise be counted as three separate flips — one of them
 looking like a windfall and the others like losses.
 
-**Record a recipe** on the Profile tab. Tick the purchases that went in, tick the sales the result
-went out through, name it, and it becomes one activity with one profit. Assembling,
-disassembling, repairing and making or breaking sets are all covered, and a repair fee counts
-towards the cost.
+**Record a recipe** on the Profile tab. Your finished trades are listed newest first; tick the
+ones the recipe was made from — the purchases that went in and the sales the result went out
+through — and they become one activity with one profit. Assembling, disassembling, repairing and
+making or breaking sets are all covered, and a repair fee counts towards the cost.
 
 Nothing is guessed and nothing is recorded for you. Everything you record is listed underneath,
 and any of it can be undone.

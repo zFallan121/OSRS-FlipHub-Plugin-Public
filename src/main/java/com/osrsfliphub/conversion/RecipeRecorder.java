@@ -31,6 +31,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Insets;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -100,11 +101,10 @@ final class RecipeRecorder {
     private final JComboBox<ConversionKind> kindCombo = new JComboBox<>(ConversionKind.values());
     private final JTextField feeField = new PlaceholderTextField("0");
     private final JTextField findField = new PlaceholderTextField("Find a trade");
-    private final JPanel inputsBody = column();
-    private final JPanel outputsBody = column();
+    private final JPanel tradesBody = column();
     private final JPanel storedBody = column();
-    private final JLabel inputsCount = new JLabel();
-    private final JLabel outputsCount = new JLabel();
+    private final JLabel inCount = new JLabel();
+    private final JLabel outCount = new JLabel();
     private final JLabel costValue = new JLabel();
     private final JLabel receivedValue = new JLabel();
     private final JLabel taxValue = new JLabel();
@@ -113,11 +113,9 @@ final class RecipeRecorder {
     private final JPanel form = column();
     private final JPanel storedSection = column();
     private final JLabel nothingToDo = new Line();
-    private final JLabel blocker = new Line();
     private final StatsPagerBuilder pager;
 
-    private final List<Candidate> buys = new ArrayList<>();
-    private final List<Candidate> sells = new ArrayList<>();
+    private final List<Candidate> picks = new ArrayList<>();
     private List<Delta> trades = new ArrayList<>();
     private List<RecipeFlip> stored = new ArrayList<>();
     /** What the stored records claim of those trades. Only changes when a record does. */
@@ -125,8 +123,7 @@ final class RecipeRecorder {
     private long accountKey = -1L;
     private int appliedBefore;
     private boolean waiting;
-    private int buyPage = 1;
-    private int sellPage = 1;
+    private int page = 1;
 
     RecipeRecorder(UiStyler uiStyler, PanelValueFormat valueFormat, Runnable onClose) {
         this.uiStyler = uiStyler;
@@ -156,13 +153,11 @@ final class RecipeRecorder {
         stored = new ArrayList<>();
         applied = RecipeFlipLedger.empty();
         appliedBefore = 0;
-        buys.clear();
-        sells.clear();
+        picks.clear();
         kindCombo.setSelectedItem(ConversionKind.ASSEMBLE);
         feeField.setText("");
         findField.setText("");
-        buyPage = 1;
-        sellPage = 1;
+        page = 1;
         scrollPane.getVerticalScrollBar().setValue(0);
         refresh();
 
@@ -187,10 +182,9 @@ final class RecipeRecorder {
         applied = RecipeFlipLedger.apply(trades, stored);
         appliedBefore = applied.activities.size();
 
-        buys.clear();
-        sells.clear();
+        picks.clear();
         for (Delta trade : offerable(trades, applied)) {
-            (trade.isBuy ? buys : sells).add(new Candidate(trade));
+            picks.add(new Candidate(trade));
         }
         refresh();
     }
@@ -211,7 +205,9 @@ final class RecipeRecorder {
         content.add(Box.createVerticalStrut(10));
         content.add(storedSection);
 
-        form.add(headingRow("Recipe type", null));
+        // The heading over this said only what the dropdown itself says. What it also did
+        // was hold the dropdown off the title above it, so the room stays and the words go.
+        form.add(Box.createVerticalStrut(18));
         uiStyler.styleComboBox(kindCombo);
         kindCombo.setBorder(uiStyler.roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
         stretch(kindCombo);
@@ -223,12 +219,12 @@ final class RecipeRecorder {
         // it is, and the row it sits in is the one the Profile tab draws.
         form.add(Box.createVerticalStrut(8));
         form.add(searchRow());
+        form.add(Box.createVerticalStrut(10));
 
-        form.add(headingRow("What went in", pickedCount(inputsCount)));
-        form.add(CardSection.of(inputsBody));
-        form.add(headingRow("What came out", pickedCount(outputsCount)));
-        form.add(CardSection.of(outputsBody));
+        form.add(headingRow("Your trades", picked()));
+        form.add(CardSection.of(tradesBody));
 
+        form.add(Box.createVerticalStrut(8));
         form.add(headingRow("Fee (if any)", null));
         field(feeField, this::price);
         feeField.setToolTipText("Coins the conversion itself cost, for the whole of this record");
@@ -241,14 +237,7 @@ final class RecipeRecorder {
         tally.add(detailLine("Tax", taxValue));
         tally.add(detailLine("Profit", profitValue));
         form.add(CardSection.of(tally));
-        form.add(Box.createVerticalStrut(6));
-
-        // A disabled control that will not say why is a dead end. The tooltip said it, which is
-        // no use to anyone who has not already guessed there is something to hover.
-        blocker.setForeground(MUTED_2);
-        blocker.setFont(uiStyler.font(9.5f));
-        form.add(blocker);
-        form.add(Box.createVerticalStrut(4));
+        form.add(Box.createVerticalStrut(8));
 
         // A ghost, like every other control in the panel. This is the first thing in the panel
         // that commits anything, so it is also the first that could have argued for a filled
@@ -275,9 +264,9 @@ final class RecipeRecorder {
         bar.setBlockIncrement(SCROLL_BLOCK_INCREMENT);
     }
 
-    /** Redraw the two trade lists, the tally and the recorded list from the current picks. */
+    /** Redraw the trade list, the tally and the recorded list from the current picks. */
     private void refresh() {
-        boolean hasTrades = !buys.isEmpty() || !sells.isEmpty();
+        boolean hasTrades = !picks.isEmpty();
         form.setVisible(hasTrades);
         nothingToDo.setVisible(!hasTrades);
         nothingToDo.setText(waiting
@@ -286,8 +275,7 @@ final class RecipeRecorder {
                 ? "Log in to record a recipe."
                 : "No finished trades of yours are left to build one from.");
 
-        fillSide(inputsBody, buys, inputsCount, true);
-        fillSide(outputsBody, sells, outputsCount, false);
+        fillTrades();
         fillStored();
         price();
 
@@ -296,28 +284,43 @@ final class RecipeRecorder {
     }
 
     /**
-     * One side's trades, ten rows to a page.
+     * Every trade on offer, in one list, ten rows to a page.
      *
-     * <p>Ten, because a thousand-trade history rendered whole is a screen nobody can record
-     * anything from. Ticked trades sort to the front of the whole list rather than being pinned
-     * on top of each page, which keeps the page exactly ten rows and still puts every tick on
-     * the first page: a tick whose coins are in the tally below but whose row is four pages
-     * away is how a record ends up naming trades the player can no longer see.
+     * <p>One list and not one per side. The game already knows which side a trade is on, so
+     * sorting them into two lists asked the player to do again what had been done for them
+     * already, and cost the screen two of everything - two headings, two wells, two pagers, in
+     * a column narrow enough that the pair read as one table printed over the other. Worse, it
+     * put the sale that finished a recipe thirty rows below the purchases that went into it
+     * when the two had happened minutes apart. In one list, in the order they happened, a
+     * recipe's trades sit beside each other, which is where the player looks for them.
+     *
+     * <p>Ten rows, because a thousand-trade history rendered whole is a screen nobody can
+     * record anything from. Ticked trades sort to the front of the whole list rather than being
+     * pinned on top of every page, which keeps the page exactly ten rows and still puts every
+     * tick on the first page: a tick whose coins are in the tally below but whose row is four
+     * pages away is how a record ends up naming trades the player can no longer see.
      *
      * <p>The search narrows what is still pickable and never what is already picked, for the
      * same reason - typing a name must not take a tick off the screen while its money stays in
      * the tally.
      */
-    private void fillSide(JPanel body, List<Candidate> candidates, JLabel count, boolean buySide) {
-        body.removeAll();
+    private void fillTrades() {
+        tradesBody.removeAll();
         String query = findField.getText() != null
             ? findField.getText().trim().toLowerCase(Locale.US)
             : "";
         List<Candidate> ordered = new ArrayList<>();
-        int pickedCount = 0;
-        for (Candidate candidate : candidates) {
+        int pickedRows = 0;
+        int bought = 0;
+        int sold = 0;
+        for (Candidate candidate : picks) {
             if (candidate.picked()) {
-                ordered.add(pickedCount++, candidate);
+                ordered.add(pickedRows++, candidate);
+                if (candidate.trade.isBuy) {
+                    bought++;
+                } else {
+                    sold++;
+                }
             } else if (query.isEmpty()
                 || itemName(candidate.trade.itemId).toLowerCase(Locale.US).contains(query)) {
                 ordered.add(candidate);
@@ -325,12 +328,7 @@ final class RecipeRecorder {
         }
 
         int pages = Math.max(1, (ordered.size() + PAGE_SIZE - 1) / PAGE_SIZE);
-        int page = Math.min(Math.max(1, buySide ? buyPage : sellPage), pages);
-        if (buySide) {
-            buyPage = page;
-        } else {
-            sellPage = page;
-        }
+        page = Math.min(Math.max(1, page), pages);
         int from = (page - 1) * PAGE_SIZE;
 
         List<Candidate> shown =
@@ -338,30 +336,34 @@ final class RecipeRecorder {
         boolean first = true;
         for (Candidate candidate : shown) {
             if (!first) {
-                body.add(rule());
+                tradesBody.add(rule());
             }
             first = false;
-            body.add(tradeRow(candidate));
+            tradesBody.add(tradeRow(candidate));
         }
         if (shown.isEmpty()) {
-            body.add(wordRow(query.isEmpty() ? "Nothing left to pick." : "No trade by that name."));
+            tradesBody.add(wordRow(query.isEmpty()
+                ? "Nothing left to pick."
+                : "No trade by that name."));
         }
         if (pages > 1) {
             // Built for a list that lines its rows up against the left edge, where this one
             // does not; the column it is going into settles that. Left to disagree, the pager
             // gets handed half the width, which is enough to wrap its Older button onto a
             // second line and off the bottom of its own row. See Column.
-            body.add(pager.buildPager(page, pages, wanted -> {
-                if (buySide) {
-                    buyPage = wanted;
-                } else {
-                    sellPage = wanted;
-                }
+            tradesBody.add(pager.buildPager(page, pages, wanted -> {
+                page = wanted;
                 refresh();
             }));
         }
-        count.setText(String.valueOf(pickedCount));
-        count.setForeground(pickedCount == 0 ? MUTED_2 : ACCENT);
+        figure(inCount, bought);
+        figure(outCount, sold);
+    }
+
+    /** A count beside the heading, lit only when there is something to count. */
+    private void figure(JLabel count, int value) {
+        count.setText(String.valueOf(value));
+        count.setForeground(value == 0 ? MUTED_2 : ACCENT);
     }
 
     /**
@@ -394,7 +396,10 @@ final class RecipeRecorder {
         top.add(split ? quantityField(candidate) : quantityLabel(candidate), BorderLayout.EAST);
         middle.add(top);
 
-        JLabel detail = new Line(valueFormat.formatGpCompact(candidate.trade.deltaGp)
+        // Which side a trade is on decides which half of the recipe it lands in. It used to be
+        // said by which of two lists the row was in; with one list, it is said here.
+        JLabel detail = new Line((candidate.trade.isBuy ? "Bought" : "Sold")
+            + " · " + valueFormat.formatGpCompact(candidate.trade.deltaGp)
             + " · " + age(candidate.trade.closedAtMs()));
         detail.setForeground(MUTED_2);
         detail.setFont(uiStyler.font(9.5f));
@@ -588,11 +593,6 @@ final class RecipeRecorder {
     private void updateRecordButton() {
         RecipeFlip flip = buildFlip();
         boolean ready = flip != null;
-        String missing = pickedOn(buys).isEmpty()
-            ? "Tick what went in."
-            : pickedOn(sells).isEmpty() ? "Tick what came out." : "";
-        blocker.setText(missing);
-        blocker.setVisible(!missing.isEmpty());
         recordButton.setEnabled(ready);
         recordButton.setForeground(ready ? TEXT : MUTED_2);
         recordButton.setToolTipText(ready
@@ -601,8 +601,8 @@ final class RecipeRecorder {
     }
 
     private RecipeFlip buildFlip() {
-        List<RecipeFlip.Part> inputs = partsOf(buys);
-        List<RecipeFlip.Part> outputs = partsOf(sells);
+        List<RecipeFlip.Part> inputs = partsOf(true);
+        List<RecipeFlip.Part> outputs = partsOf(false);
         if (inputs.isEmpty() || outputs.isEmpty()) {
             return null;
         }
@@ -621,22 +621,15 @@ final class RecipeRecorder {
         return flip;
     }
 
-    private List<RecipeFlip.Part> partsOf(List<Candidate> candidates) {
+    /** The ticked purchases, or the ticked sales. Which side a trade is on is the game's. */
+    private List<RecipeFlip.Part> partsOf(boolean bought) {
         List<RecipeFlip.Part> parts = new ArrayList<>();
-        for (Candidate candidate : pickedOn(candidates)) {
-            parts.add(new RecipeFlip.Part(candidate.key, candidate.used));
-        }
-        return parts;
-    }
-
-    private static List<Candidate> pickedOn(List<Candidate> candidates) {
-        List<Candidate> picked = new ArrayList<>();
-        for (Candidate candidate : candidates) {
-            if (candidate.picked()) {
-                picked.add(candidate);
+        for (Candidate candidate : picks) {
+            if (candidate.picked() && candidate.trade.isBuy == bought) {
+                parts.add(new RecipeFlip.Part(candidate.key, candidate.used));
             }
         }
-        return picked;
+        return parts;
     }
 
     private void record() {
@@ -800,32 +793,37 @@ final class RecipeRecorder {
     }
 
     /**
-     * How many of a side are ticked, as a figure rather than a word.
+     * How many trades are ticked on each side, as two figures beside the heading.
      *
-     * <p>Two labels instead of one string, so the count can carry the eye while the word stays
-     * in the heading ramp beside it - and so the pair cannot run into the heading on its left,
-     * which "WHAT WENT IN4 PICKED" is what happens when they share one.
+     * <p>This is also the only thing that says why Record will not go. A recipe needs something
+     * bought and something sold, and a nought against one of them says so in the place the
+     * player is already looking - which a line of instructions under the button did not, and
+     * which the colour on the figure does without spending any words at all.
      */
-    private JPanel pickedCount(JLabel number) {
-        number.setFont(uiStyler.fontNumeric(9.5f));
-        number.setForeground(MUTED_2);
-        JLabel word = new JLabel("picked");
-        uiStyler.styleMicroLabel(word, 9.5f);
-        JPanel row = new JPanel(new BorderLayout(4, 0));
+    private JPanel picked() {
+        inCount.setFont(uiStyler.fontNumeric(9.5f));
+        outCount.setFont(uiStyler.fontNumeric(9.5f));
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.RIGHT, 3, 0));
         row.setOpaque(false);
-        row.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 0));
-        row.add(number, BorderLayout.WEST);
-        row.add(word, BorderLayout.EAST);
+        row.add(inCount);
+        row.add(micro("in"));
+        row.add(micro("·"));
+        row.add(outCount);
+        row.add(micro("out"));
         return row;
+    }
+
+    private JLabel micro(String text) {
+        JLabel label = new JLabel(text);
+        uiStyler.styleMicroLabel(label, 9.5f);
+        return label;
     }
 
     private JPanel headingRow(String text, JComponent trailing) {
         JPanel row = new JPanel(new BorderLayout(6, 0));
         row.setOpaque(false);
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
-        JLabel label = new JLabel(text);
-        uiStyler.styleMicroLabel(label, 9.5f);
-        row.add(label, BorderLayout.WEST);
+        row.add(micro(text), BorderLayout.WEST);
         if (trailing != null) {
             row.add(trailing, BorderLayout.EAST);
         }
