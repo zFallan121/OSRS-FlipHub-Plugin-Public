@@ -33,6 +33,8 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Insets;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -510,6 +512,16 @@ final class RecipeRecorder {
                 Math.min(candidate.available, parseNumber(used.getText(), 1L)));
             price();
         });
+        // Typing is left alone while it is happening, because correcting a half-written number
+        // under the cursor is worse than showing one that is briefly wrong. The box is squared
+        // with what is actually being counted once the player leaves it, so it cannot sit there
+        // reading 9999 against four that were bought.
+        used.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent event) {
+                used.setText(String.valueOf(candidate.used));
+            }
+        });
 
         JLabel total = new JLabel("/ " + candidate.available);
         total.setForeground(MUTED_2);
@@ -695,14 +707,18 @@ final class RecipeRecorder {
      * ledger replays this account's trades too and would otherwise keep the old total.
      */
     private void commit() {
-        Access.plugin().getLocalTradesRuntimeService().persistLocalTrades(accountKey);
+        GeLifecyclePlugin plugin = Access.pluginOrNull();
+        if (plugin == null) {
+            return;
+        }
+        plugin.getLocalTradesRuntimeService().persistLocalTrades(accountKey);
         LocalStatsCacheService caches = Bridge.get(LocalStatsCacheService.class);
         if (caches != null) {
             caches.invalidateAll();
         }
-        PanelRefresh refresh = Access.plugin().getPanelRefreshCoordinator();
+        PanelRefresh refresh = plugin.getPanelRefreshCoordinator();
         if (refresh != null) {
-            refresh.triggerStatsRefresh(Access.plugin().scheduler);
+            refresh.triggerStatsRefresh(plugin.scheduler);
         }
     }
 

@@ -38,7 +38,12 @@ import okhttp3.Response;
 
 final class ApiClientCore {
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
-    private static final String API_BASE_URL = "https://osrs-fliphub-production.up.railway.app";
+    // The site's own front door, and the same one the panel's links open. It used to be the
+    // hosting provider's address for the deployment behind it, which is a thing that moves: a
+    // redeploy elsewhere would have stranded every plugin already installed, with no way to
+    // tell them the new one. It also made the privacy note in the README wrong, since that
+    // says trade data goes to osrsfliphub.com and it was going somewhere else.
+    private static final String API_BASE_URL = Skin.DEFAULT_BASE_URL;
     private static final String PATH_LINK = "/api/plugin/link";
     private static final String PATH_REFRESH = "/api/plugin/refresh";
     private static final String PATH_EVENTS = "/api/plugin/events";
