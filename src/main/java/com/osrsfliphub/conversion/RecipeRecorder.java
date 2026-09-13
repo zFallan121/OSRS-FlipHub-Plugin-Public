@@ -112,8 +112,8 @@ final class RecipeRecorder {
     private final JButton recordButton = new JButton("Record");
     private final JPanel form = column();
     private final JPanel storedSection = column();
-    private final JLabel nothingToDo = new JLabel();
-    private final JLabel blocker = new JLabel();
+    private final JLabel nothingToDo = new Line();
+    private final JLabel blocker = new Line();
     private final StatsPagerBuilder pager;
 
     private final List<Candidate> buys = new ArrayList<>();
@@ -198,14 +198,13 @@ final class RecipeRecorder {
     private void build() {
         content.setOpaque(false);
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
-        content.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         content.add(headingRow("Record a recipe",
             uiStyler.actionLink("Cancel", "Leave without recording anything", this::close)));
 
         nothingToDo.setForeground(MUTED_2);
         nothingToDo.setFont(uiStyler.font(10.5f));
-        nothingToDo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        nothingToDo.setAlignmentX(JComponent.CENTER_ALIGNMENT);
         content.add(nothingToDo);
 
         content.add(form);
@@ -248,7 +247,6 @@ final class RecipeRecorder {
         // no use to anyone who has not already guessed there is something to hover.
         blocker.setForeground(MUTED_2);
         blocker.setFont(uiStyler.font(9.5f));
-        blocker.setAlignmentX(Component.LEFT_ALIGNMENT);
         form.add(blocker);
         form.add(Box.createVerticalStrut(4));
 
@@ -298,30 +296,35 @@ final class RecipeRecorder {
     }
 
     /**
-     * One side's trades: everything picked, then a page of what is left.
+     * One side's trades, ten rows to a page.
      *
-     * <p>Ten at a time, because a thousand-trade history rendered whole is a screen nobody can
-     * record anything from. Picks stay above the page rather than being paged with it: a tick
-     * whose coins are in the tally below but whose row is four pages away is how a record ends
-     * up naming trades the player can no longer see.
+     * <p>Ten, because a thousand-trade history rendered whole is a screen nobody can record
+     * anything from. Ticked trades sort to the front of the whole list rather than being pinned
+     * on top of each page, which keeps the page exactly ten rows and still puts every tick on
+     * the first page: a tick whose coins are in the tally below but whose row is four pages
+     * away is how a record ends up naming trades the player can no longer see.
+     *
+     * <p>The search narrows what is still pickable and never what is already picked, for the
+     * same reason - typing a name must not take a tick off the screen while its money stays in
+     * the tally.
      */
     private void fillSide(JPanel body, List<Candidate> candidates, JLabel count, boolean buySide) {
         body.removeAll();
         String query = findField.getText() != null
             ? findField.getText().trim().toLowerCase(Locale.US)
             : "";
-        List<Candidate> picked = new ArrayList<>();
-        List<Candidate> rest = new ArrayList<>();
+        List<Candidate> ordered = new ArrayList<>();
+        int pickedCount = 0;
         for (Candidate candidate : candidates) {
             if (candidate.picked()) {
-                picked.add(candidate);
+                ordered.add(pickedCount++, candidate);
             } else if (query.isEmpty()
                 || itemName(candidate.trade.itemId).toLowerCase(Locale.US).contains(query)) {
-                rest.add(candidate);
+                ordered.add(candidate);
             }
         }
 
-        int pages = Math.max(1, (rest.size() + PAGE_SIZE - 1) / PAGE_SIZE);
+        int pages = Math.max(1, (ordered.size() + PAGE_SIZE - 1) / PAGE_SIZE);
         int page = Math.min(Math.max(1, buySide ? buyPage : sellPage), pages);
         if (buySide) {
             buyPage = page;
@@ -330,8 +333,8 @@ final class RecipeRecorder {
         }
         int from = (page - 1) * PAGE_SIZE;
 
-        List<Candidate> shown = new ArrayList<>(picked);
-        shown.addAll(rest.subList(from, Math.min(rest.size(), from + PAGE_SIZE)));
+        List<Candidate> shown =
+            ordered.subList(from, Math.min(ordered.size(), from + PAGE_SIZE));
         boolean first = true;
         for (Candidate candidate : shown) {
             if (!first) {
@@ -344,6 +347,10 @@ final class RecipeRecorder {
             body.add(wordRow(query.isEmpty() ? "Nothing left to pick." : "No trade by that name."));
         }
         if (pages > 1) {
+            // Built for a list that lines its rows up against the left edge, where this one
+            // does not; the column it is going into settles that. Left to disagree, the pager
+            // gets handed half the width, which is enough to wrap its Older button onto a
+            // second line and off the bottom of its own row. See Column.
             body.add(pager.buildPager(page, pages, wanted -> {
                 if (buySide) {
                     buyPage = wanted;
@@ -353,8 +360,8 @@ final class RecipeRecorder {
                 refresh();
             }));
         }
-        count.setText(String.valueOf(picked.size()));
-        count.setForeground(picked.isEmpty() ? MUTED_2 : ACCENT);
+        count.setText(String.valueOf(pickedCount));
+        count.setForeground(pickedCount == 0 ? MUTED_2 : ACCENT);
     }
 
     /**
@@ -387,11 +394,10 @@ final class RecipeRecorder {
         top.add(split ? quantityField(candidate) : quantityLabel(candidate), BorderLayout.EAST);
         middle.add(top);
 
-        JLabel detail = new JLabel(valueFormat.formatGpCompact(candidate.trade.deltaGp)
+        JLabel detail = new Line(valueFormat.formatGpCompact(candidate.trade.deltaGp)
             + " · " + age(candidate.trade.closedAtMs()));
         detail.setForeground(MUTED_2);
         detail.setFont(uiStyler.font(9.5f));
-        detail.setAlignmentX(Component.LEFT_ALIGNMENT);
         middle.add(detail);
 
         row.add(mark, BorderLayout.WEST);
@@ -516,12 +522,11 @@ final class RecipeRecorder {
         // The one thing the player could not otherwise find out. A record whose trades have
         // gone - a wiped history, a re-synced one - stops applying by itself and quietly takes
         // its profit back out of every total, with nothing anywhere saying that it happened.
-        JLabel state = new JLabel(applies
+        JLabel state = new Line(applies
             ? String.valueOf(flip.kind)
             : flip.kind + " · its trades are gone");
         state.setForeground(applies ? MUTED_2 : WARNING);
         state.setFont(uiStyler.font(9.5f));
-        state.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JPanel middle = column();
         middle.add(top);
@@ -778,7 +783,6 @@ final class RecipeRecorder {
     }
 
     private static void stretch(JComponent control) {
-        control.setAlignmentX(Component.LEFT_ALIGNMENT);
         control.setMaximumSize(new Dimension(Integer.MAX_VALUE, control.getPreferredSize().height));
     }
 
@@ -786,7 +790,6 @@ final class RecipeRecorder {
     private JPanel searchRow() {
         JPanel row = new JPanel(new BorderLayout(TRAILING_CONTROL_GAP, 0));
         row.setOpaque(false);
-        row.setAlignmentX(Component.LEFT_ALIGNMENT);
         uiStyler.styleTextField(findField);
         uiStyler.installInlineClear(findField);
         findField.setToolTipText("Narrow both lists to one item");
@@ -819,7 +822,6 @@ final class RecipeRecorder {
     private JPanel headingRow(String text, JComponent trailing) {
         JPanel row = new JPanel(new BorderLayout(6, 0));
         row.setOpaque(false);
-        row.setAlignmentX(Component.LEFT_ALIGNMENT);
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
         JLabel label = new JLabel(text);
         uiStyler.styleMicroLabel(label, 9.5f);
@@ -867,11 +869,61 @@ final class RecipeRecorder {
     }
 
     private static JPanel column() {
-        JPanel panel = new JPanel();
-        panel.setOpaque(false);
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return panel;
+        return new Column();
+    }
+
+    /**
+     * A line of text that takes the whole width it is offered, not just the width of its words.
+     *
+     * <p>A label can only ever be as wide as what it says, and a stack of rows centres a row
+     * that cannot grow - so a label dropped into one arrives in the middle, while every other
+     * line of text in the panel starts at the left edge. Given the room, a label puts its words
+     * on the left by itself.
+     */
+    private static final class Line extends JLabel {
+        Line() {
+        }
+
+        Line(String text) {
+            super(text);
+        }
+
+        @Override
+        public Dimension getMaximumSize() {
+            return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+        }
+    }
+
+    /**
+     * A stack of rows, every one of them the full width of the stack.
+     *
+     * <p>A stack of this kind lines its rows up on their alignment points, so a row that asks
+     * to sit against the left edge standing next to a block that asks to be centred cannot have
+     * both. The stack widens to hold the two demands at once and hands each row a fraction of
+     * itself: rows come out half width and shoved into the right of the panel, and a row drawn
+     * left-and-right in that space puts its two ends on top of one another - which is how a
+     * heading shipped reading "WHAT WENT IN4PICKED", a search field shipped at half length, and
+     * a pager shipped with its Older button wrapped off the bottom of its own row.
+     *
+     * <p>Nothing in the panel makes that visible, because no row is wrong on its own; it is
+     * only wrong next to its neighbours. Rather than trust every row to be written the same way
+     * - a default is not the same thing as a decision, and a plain label does not carry the same
+     * one a plain panel does - the stack settles it for them as they go in.
+     */
+    private static final class Column extends JPanel {
+        Column() {
+            setOpaque(false);
+            setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+            setAlignmentX(CENTER_ALIGNMENT);
+        }
+
+        @Override
+        protected void addImpl(Component child, Object constraints, int index) {
+            if (child instanceof JComponent) {
+                ((JComponent) child).setAlignmentX(CENTER_ALIGNMENT);
+            }
+            super.addImpl(child, constraints, index);
+        }
     }
 
 }
