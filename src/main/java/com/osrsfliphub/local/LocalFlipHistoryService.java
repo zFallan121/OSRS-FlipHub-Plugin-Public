@@ -44,7 +44,15 @@ final class LocalFlipHistoryService {
     private final Ledger conversionLedger;
 
     @javax.inject.Inject
+    private final RecipeFlipStore recipeFlips;
+
     LocalFlipHistoryService(Ledger conversionLedger) {
+        this(conversionLedger, null);
+    }
+
+    /** The store is passed in by tests; in the running plugin it is looked up. */
+    LocalFlipHistoryService(Ledger conversionLedger, RecipeFlipStore recipeFlips) {
+        this.recipeFlips = recipeFlips;
         this.conversionLedger = conversionLedger;
     }
 
@@ -55,6 +63,37 @@ final class LocalFlipHistoryService {
      */
     LocalFlipHistoryService() {
         this(null);
+    }
+
+    private List<RecipeFlip> recordedFlips(long accountKey) {
+        RecipeFlipStore store = recipeFlips != null ? recipeFlips : Bridge.get(RecipeFlipStore.class);
+        return store != null ? store.applicable(accountKey) : java.util.Collections.emptyList();
+    }
+
+    /** One entry per conversion the player recorded, filed against what it produced. */
+    private void appendRecordedConversions(Map<Integer, List<StatsFlipInstance>> byItem,
+                                                  RecipeFlipLedger.Result recorded,
+                                                  Long sinceMs,
+                                                  long accountKey) {
+        for (RecipeFlipLedger.Activity activity : recorded.activities) {
+            if (sinceMs != null && activity.completionTsMs < sinceMs) {
+                continue;
+            }
+            int quantity = Math.max(1, activity.quantity);
+            byItem.computeIfAbsent(activity.itemId, ignored -> new ArrayList<>())
+                .add(new StatsFlipInstance(
+                    activity.itemId,
+                    activity.costGp / quantity,
+                    activity.revenueGp / quantity,
+                    activity.costGp,
+                    activity.revenueGp,
+                    activity.profitGp(),
+                    activity.quantity,
+                    activity.completionTsMs,
+                    null,
+                    false,
+                    activity.taxGp));
+        }
     }
 
     Map<Integer, List<StatsFlipInstance>> buildHistory(List<Delta> deltas, Long sinceMs) {
@@ -72,8 +111,13 @@ final class LocalFlipHistoryService {
             return byItem;
         }
 
-        List<Delta> snapshot = new ArrayList<>(deltas);
+        // Conversions the player recorded are priced first, and the trades they used are taken
+        // out of what follows, so the ordinary replay below never sees a unit that has already
+        // been accounted for and needs to know nothing about conversions at all.
+        RecipeFlipLedger.Result recorded = RecipeFlipLedger.apply(deltas, recordedFlips(accountKey));
+        List<Delta> snapshot = new ArrayList<>(recorded.remainingTrades(deltas));
         snapshot.sort(TradeDeltaUtils.replayOrder());
+        appendRecordedConversions(byItem, recorded, sinceMs, accountKey);
 
         Map<Integer, InventoryState> inventoryByItem = new HashMap<>();
         Map<Integer, PendingSellFlip> pendingSellBySlot = new HashMap<>();

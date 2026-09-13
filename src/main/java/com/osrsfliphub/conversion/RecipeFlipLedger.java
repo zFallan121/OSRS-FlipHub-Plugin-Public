@@ -95,6 +95,47 @@ final class RecipeFlipLedger {
         boolean isEmpty() {
             return activities.isEmpty();
         }
+
+        /**
+         * The trades with the recorded conversions' share taken out, so the ordinary
+         * buying-and-selling replay sees only what is left and cannot count a unit twice.
+         *
+         * <p>Doing it here, once, is why the plain replay needed no changes at all: it still
+         * receives a list of trades and knows nothing about conversions.</p>
+         */
+        List<Delta> remainingTrades(List<Delta> deltas) {
+            if (deltas == null || claimed.isEmpty()) {
+                return deltas;
+            }
+            List<Delta> out = new ArrayList<>(deltas.size());
+            Map<TradeKey, Integer> left = new HashMap<>(claimed);
+            for (Delta delta : deltas) {
+                if (delta == null) {
+                    continue;
+                }
+                TradeKey key = TradeKey.of(delta);
+                Integer taken = left.get(key);
+                if (taken == null || taken <= 0 || delta.deltaQty <= 0) {
+                    out.add(delta);
+                    continue;
+                }
+                int take = Math.min(taken, delta.deltaQty);
+                left.put(key, taken - take);
+                int keptQty = delta.deltaQty - take;
+                boolean completion = "OFFER_COMPLETED".equals(delta.eventType);
+                if (keptQty <= 0 && !completion) {
+                    // Wholly spoken for, and nothing else to say about it.
+                    continue;
+                }
+                long keptGp = delta.deltaQty > 0
+                    ? (Math.max(0L, delta.deltaGp) * keptQty) / delta.deltaQty
+                    : 0L;
+                out.add(new Delta(delta.tsClientMs, delta.slot, delta.itemId, delta.isBuy,
+                    keptQty, keptGp, delta.eventType, delta.price, delta.baselineSynthetic,
+                    delta.offerStartMs, delta.endMs));
+            }
+            return out;
+        }
     }
 
     private static final Result EMPTY = new Result(new HashMap<>(), new ArrayList<>());
