@@ -24,126 +24,25 @@
  */
 package com.osrsfliphub;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ScheduledExecutorService;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import net.runelite.client.callback.ClientThread;
-import net.runelite.client.ui.NavigationButton;
 
 /**
- * Singleton holder for the late-bound runtime objects that are created during
- * {@code startUp} (panel, executors, overlay) and the small pieces of volatile
- * UI state shared across services. Replaces the {@code Supplier<>}/setter lambdas
- * the old hand-rolled DI threaded through every factory. Threading helpers keep
- * the previous plugin-owned scheduler semantics (with a ForkJoinPool fallback)
- * rather than switching to RuneLite's shared scheduler.
+ * The handful of flags the client thread records for everyone else to read.
+ *
+ * <p>This used to hold a second copy of most of the plugin's late-bound state - panel, nav
+ * button, overlay, both executors, the query, the page, the sorts - left over from the
+ * hand-rolled injection it replaced. None of it was ever read, and its executor helpers fell
+ * back to the common pool, which is exactly the behaviour the plugin removed elsewhere because
+ * work outlived a disabled plugin. Only these two flags were ever used, so only these remain.
  */
 @Singleton
 final class PluginRuntime {
-    private final ClientThread clientThread;
-
-    private volatile Panel panel;
-    private volatile NavigationButton navButton;
-    private volatile GeOfferTimerOverlay offerTimerOverlay;
-    private volatile ScheduledExecutorService scheduler;
-    private volatile ExecutorService ioExecutor;
-
-    private volatile Integer offerPreviewItemId;
-    private volatile FlipHubItem offerPreviewItem;
-    private volatile String currentQuery = "";
-    private volatile int currentPage = 1;
-    private volatile boolean bookmarkFilterEnabled = false;
-    private volatile boolean panelVisible = false;
-    private volatile boolean clientFullyReady = false;
-    private volatile StatsRange currentStatsRange = StatsRange.SESSION;
-    private volatile StatsItemSort currentStatsSort = StatsItemSort.COMPLETION;
-    private volatile boolean localTradesLoadedThisLogin = false;
+    private volatile boolean panelVisible;
+    private volatile boolean clientFullyReady;
 
     @Inject
-    PluginRuntime(ClientThread clientThread) {
-        this.clientThread = clientThread;
-    }
-
-    Panel getPanel() {
-        return panel;
-    }
-
-    void setPanel(Panel panel) {
-        this.panel = panel;
-    }
-
-    NavigationButton getNavButton() {
-        return navButton;
-    }
-
-    void setNavButton(NavigationButton navButton) {
-        this.navButton = navButton;
-    }
-
-    GeOfferTimerOverlay getOfferTimerOverlay() {
-        return offerTimerOverlay;
-    }
-
-    void setOfferTimerOverlay(GeOfferTimerOverlay offerTimerOverlay) {
-        this.offerTimerOverlay = offerTimerOverlay;
-    }
-
-    ScheduledExecutorService getScheduler() {
-        return scheduler;
-    }
-
-    void setScheduler(ScheduledExecutorService scheduler) {
-        this.scheduler = scheduler;
-    }
-
-    ExecutorService getIoExecutor() {
-        return ioExecutor;
-    }
-
-    void setIoExecutor(ExecutorService ioExecutor) {
-        this.ioExecutor = ioExecutor;
-    }
-
-    Integer getOfferPreviewItemId() {
-        return offerPreviewItemId;
-    }
-
-    void setOfferPreviewItemId(Integer offerPreviewItemId) {
-        this.offerPreviewItemId = offerPreviewItemId;
-    }
-
-    FlipHubItem getOfferPreviewItem() {
-        return offerPreviewItem;
-    }
-
-    void setOfferPreviewItem(FlipHubItem offerPreviewItem) {
-        this.offerPreviewItem = offerPreviewItem;
-    }
-
-    String getCurrentQuery() {
-        return currentQuery;
-    }
-
-    void setCurrentQuery(String currentQuery) {
-        this.currentQuery = currentQuery;
-    }
-
-    int getCurrentPage() {
-        return currentPage;
-    }
-
-    void setCurrentPage(int currentPage) {
-        this.currentPage = currentPage;
-    }
-
-    boolean isBookmarkFilterEnabled() {
-        return bookmarkFilterEnabled;
-    }
-
-    void setBookmarkFilterEnabled(boolean bookmarkFilterEnabled) {
-        this.bookmarkFilterEnabled = bookmarkFilterEnabled;
+    PluginRuntime() {
     }
 
     boolean isPanelVisible() {
@@ -161,8 +60,8 @@ final class PluginRuntime {
      * <p>Background threads must read this rather than calling {@code client.getLocalPlayer()}
      * themselves. That returns a mutable object the client can swap mid-frame, so reading it off
      * the client thread is the one call in this area a plugin hub reviewer will challenge. The
-     * post-client-tick handler refreshes this every tick, so it is never more than one tick
-     * stale, and every consumer only uses it to decide whether to skip work this pass.</p>
+     * post-client-tick handler refreshes it every tick, so it is never more than one tick stale,
+     * and every consumer only uses it to decide whether to skip work this pass.
      */
     boolean isClientFullyReady() {
         return clientFullyReady;
@@ -170,66 +69,5 @@ final class PluginRuntime {
 
     void setClientFullyReady(boolean clientFullyReady) {
         this.clientFullyReady = clientFullyReady;
-    }
-
-    StatsRange getCurrentStatsRange() {
-        return currentStatsRange;
-    }
-
-    void setCurrentStatsRange(StatsRange currentStatsRange) {
-        this.currentStatsRange = currentStatsRange;
-    }
-
-    StatsItemSort getCurrentStatsSort() {
-        return currentStatsSort;
-    }
-
-    void setCurrentStatsSort(StatsItemSort currentStatsSort) {
-        this.currentStatsSort = currentStatsSort;
-    }
-
-    boolean isLocalTradesLoadedThisLogin() {
-        return localTradesLoadedThisLogin;
-    }
-
-    void setLocalTradesLoadedThisLogin(boolean localTradesLoadedThisLogin) {
-        this.localTradesLoadedThisLogin = localTradesLoadedThisLogin;
-    }
-
-    void invokeOnClientThread(Runnable task) {
-        if (clientThread != null && task != null) {
-            clientThread.invokeLater(task);
-        }
-    }
-
-    void executeOnScheduler(Runnable task) {
-        ScheduledExecutorService activeScheduler = scheduler;
-        if (activeScheduler != null && task != null) {
-            activeScheduler.execute(task);
-        }
-    }
-
-    void executeAsync(Runnable task) {
-        if (task == null) {
-            return;
-        }
-        ScheduledExecutorService activeScheduler = scheduler;
-        if (activeScheduler != null && !activeScheduler.isShutdown()) {
-            activeScheduler.execute(task);
-            return;
-        }
-        ForkJoinPool.commonPool().execute(task);
-    }
-
-    void executeIo(Runnable task) {
-        if (task == null) {
-            return;
-        }
-        ExecutorService activeIoExecutor = ioExecutor;
-        if (activeIoExecutor != null && !activeIoExecutor.isShutdown()) {
-            activeIoExecutor.execute(task);
-            return;
-        }
-        executeAsync(task);
     }
 }

@@ -37,7 +37,7 @@ import static org.junit.Assert.assertNotNull;
 public class WikiPriceServiceTest {
     @Test
     public void getPriceEntryTriggersFetchWhenStale() {
-        PluginRuntime runtime = new PluginRuntime(null);
+        PluginRuntime runtime = new PluginRuntime();
         runtime.setPanelVisible(true);
         ImmediateSuccessFetcher fetcher = new ImmediateSuccessFetcher();
         fetcher.entries.put(4151, entry(1200, 1000));
@@ -54,7 +54,7 @@ public class WikiPriceServiceTest {
 
     @Test
     public void refreshSkipsWhenPanelHidden() {
-        PluginRuntime runtime = new PluginRuntime(null);
+        PluginRuntime runtime = new PluginRuntime();
         runtime.setPanelVisible(false);
         ImmediateSuccessFetcher fetcher = new ImmediateSuccessFetcher();
         fetcher.entries.put(100, entry(10, 9));
@@ -67,7 +67,7 @@ public class WikiPriceServiceTest {
 
     @Test
     public void refreshRespectsMinRefreshInterval() {
-        PluginRuntime runtime = new PluginRuntime(null);
+        PluginRuntime runtime = new PluginRuntime();
         runtime.setPanelVisible(true);
         ImmediateSuccessFetcher fetcher = new ImmediateSuccessFetcher();
         fetcher.entries.put(100, entry(10, 9));
@@ -81,7 +81,7 @@ public class WikiPriceServiceTest {
 
     @Test
     public void startSchedulesAndStopCancels() {
-        PluginRuntime runtime = new PluginRuntime(null);
+        PluginRuntime runtime = new PluginRuntime();
         runtime.setPanelVisible(true);
         ImmediateSuccessFetcher fetcher = new ImmediateSuccessFetcher();
         WikiPrice service = new WikiPrice(1000L, 0L, runtime, fetcher);
