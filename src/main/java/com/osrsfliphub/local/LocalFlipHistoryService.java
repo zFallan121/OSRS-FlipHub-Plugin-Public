@@ -42,10 +42,9 @@ import java.util.Set;
 @javax.inject.Singleton
 final class LocalFlipHistoryService {
     private final Ledger conversionLedger;
-
-    @javax.inject.Inject
     private final RecipeFlipStore recipeFlips;
 
+    @javax.inject.Inject
     LocalFlipHistoryService(Ledger conversionLedger) {
         this(conversionLedger, null);
     }
