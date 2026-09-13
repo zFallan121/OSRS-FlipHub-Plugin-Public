@@ -1,27 +1,3 @@
-/*
- * Copyright (c) 2026, zFallan121
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
- * ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
 package com.osrsfliphub;
 
 import java.util.ArrayList;
@@ -31,25 +7,6 @@ import java.util.Map;
 
 /**
  * One thing taken apart into several, and the pieces it is still waiting on.
- *
- * <p>A set break is one activity, not four. The player bought a set at one
- * price and got four items back; what they made is what the four sold for less
- * what the set cost, and that number does not exist until the last piece has
- * gone. So the pieces carry no cost of their own - the break holds all of it -
- * and selling one records nothing except the coins it brought in. When the last
- * piece sells the break is finished and becomes a single activity against the
- * set.
- *
- * <p>That is also why there is no guide price anywhere near this. Dividing the
- * set's cost between the pieces was only ever needed to give each piece its own
- * profit line, and there are no per-piece lines any more - so there is nothing
- * left to estimate, and the activity is made entirely of numbers the player
- * actually traded at.
- *
- * <p>A piece that is never sold leaves its break unfinished for good, and an
- * unfinished break reports nothing. That is the deliberate side of the trade:
- * an activity that shows up late is better than one that shows a loss it is
- * only halfway through making.
  */
 final class ConversionBreak {
     private final ConversionRecipe recipe;

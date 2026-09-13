@@ -57,15 +57,6 @@ final class LocalTradeDeltaUtils {
     /**
      * The order both ledgers replay deltas in, so a rebuild sees what the live
      * cache saw.
-     *
-     * <p>Two live fills in one client tick can be reported in either order, so
-     * inside a 600 ms bucket a buy goes before a sell: the purchase a sale drew
-     * on is then in the pool first. Trades imported from the in-game history
-     * get no such favour. The sync invents their timestamps a few milliseconds
-     * apart, which lands a whole batch in one bucket - and the order those
-     * timestamps encode is the history's own, which is the evidence. Replaying
-     * a batch buys-first would put every imported buy ahead of every imported
-     * sale and turn a sale the history put before its parts into an assemble.
      */
     static Comparator<LocalTradeDelta> replayOrder() {
         long bucketMs = GeLifecyclePluginConstants.LOCAL_EVENT_BUCKET_MS;
@@ -134,14 +125,6 @@ final class LocalTradeDeltaUtils {
     /**
      * Whether a live record repeats one just stored: the same event, in the same 600 ms
      * bucket, for the same slot, item, side, quantity, price and value.
-     *
-     * <p>Only the same event type counts. An update followed by a completion of the
-     * same size used to be taken for a repeat too, but the pipeline computes a
-     * completion's quantity as what was still outstanding, so two equal chunks are two
-     * chunks - and the completion is what folds the offer's fills into one record, so
-     * dropping it lost both the last chunk and the collapse. A completion that really
-     * does repeat the update's cumulative fill is zeroed upstream by
-     * {@link RecentTradeDeduper}, which can see the cumulative figures this cannot.
      */
     static boolean isLikelyDuplicateTradeDelta(List<LocalTradeDelta> deltas,
                                                LocalTradeDelta candidate,

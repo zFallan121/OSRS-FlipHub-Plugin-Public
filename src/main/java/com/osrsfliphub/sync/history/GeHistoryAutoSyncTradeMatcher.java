@@ -35,49 +35,11 @@ import java.util.Set;
 
 /**
  * Which rows of the in-game history the plugin has not already recorded.
- *
- * <p>A row imported twice is a trade counted twice, so every rule here is asked one
- * question: could this row be an offer already stored? The stored side is one record
- * per completed offer; a row is one offer. What was watched live can still be lying
- * around as separate fills - an offer cancelled part way through, say - so the stored
- * records are first folded into one lot per offer by the same rule the store uses
- * ({@link LocalTradeOfferCollapser#sameOffer}), and rows are matched against lots.
- *
- * <p>The tiers, in the order tried. The first two both match a single lot of the row's
- * own quantity, and they run for every row before the rest are tried at all, so a row
- * that one lot explains outright always claims that lot and a looser rule can never
- * take it away from that row.
- * <ol>
- *   <li>A lot of the same quantity at the same coins-per-unit.</li>
- *   <li>A lot of the same quantity whose coins sit within
- *       {@link #TOLERANCE_COINS_PER_UNIT} of the row's. An offer that fills at more
- *       than one price has no single unit price, so the two sides round it
- *       differently; this is the rule that keeps such an offer from being imported
- *       a second time.</li>
- *   <li>Lots of one offer, at that coins-per-unit, that between them cover the row's
- *       quantity: the row is one offer whose fills the store kept apart. Only lots
- *       from the same slot are pooled. Pooling across slots let two separate offers
- *       at the same price "explain" a third, larger row that was never recorded, and
- *       that row was then silently never imported.</li>
- *   <li>Whatever the lots at that unit price do cover is taken, and only the
- *       shortfall is imported.</li>
- * </ol>
  */
 final class GeHistoryAutoSyncTradeMatcher {
     /**
      * How far a lot's coins may sit from a row's before they stop being the same
      * offer: one coin per unit traded.
-     *
-     * <p>That is exactly the rounding the two sides can disagree by, and no more.
-     * The history reports what an offer made in total; the plugin recorded it fill
-     * by fill. Where the two differ for one offer it is by a rounding of one coin
-     * per item: the widget's "each" price is a rounded average that the parser may
-     * have to multiply back out, and on a sale the game taxes each item at the
-     * price it actually went for while the plugin can only tax the average, and
-     * the tax rounds down per item. Both are bounded by one coin an item. Anything
-     * wider starts to cover two offers of the same size at genuinely different
-     * prices - a flipper's bread and butter - and would judge a real trade already
-     * recorded.
      */
     static final long TOLERANCE_COINS_PER_UNIT = 1L;
 
@@ -156,11 +118,6 @@ final class GeHistoryAutoSyncTradeMatcher {
 
     /**
      * One offer's fills, kept apart by the store, that between them cover the row.
-     *
-     * <p>Confined to a single slot. The game runs one offer per slot at a time, so lots
-     * sharing a slot are the only ones that can be pieces of the same offer. Pooling every
-     * lot at the price let two genuinely separate offers cover a third, larger row that was
-     * never recorded at all, and that row was then dropped instead of imported.
      */
     private static boolean claimCoveredWithinOneOffer(List<OfferLot> lots, GeHistoryTrade trade, int unitPrice) {
         if (lots == null || unitPrice <= 0) {
@@ -284,12 +241,6 @@ final class GeHistoryAutoSyncTradeMatcher {
 
     /**
      * The stored records as one lot per offer, oldest first.
-     *
-     * <p>The same walk the store makes when it loads: records on one slot that are one
-     * offer's are summed until that offer's completion, or until the slot is seen to
-     * have moved on. The one difference is that a run with no completion is summed
-     * too, because a cancelled offer is in the history as one row however many fills
-     * it managed. Records with no quantity are no offer's fill and are left out.
      */
     static List<OfferLot> groupOffers(List<LocalTradeDelta> deltas) {
         List<OfferLot> lots = new ArrayList<>();
@@ -354,15 +305,6 @@ final class GeHistoryAutoSyncTradeMatcher {
 
     /**
      * What one unit of this trade actually came to, in coins that moved.
-     *
-     * <p>Deliberately not {@code delta.price}. That is the price the offer was
-     * listed at, and an offer very rarely fills at it - a buy fills at or under,
-     * a sell at or over. The history widget reports what the trade really made,
-     * so a listed price and a realised one are two different numbers, and
-     * comparing them made every trade already recorded live look missing: a
-     * blue dragonhide set bought at a 23,401 offer for 15,000 matched nothing,
-     * and got imported a second time. The coins are the one figure both sides
-     * state the same way, tax and all.
      */
     private static int resolveUnitPrice(LocalTradeDelta delta) {
         if (delta == null || delta.deltaQty <= 0) {

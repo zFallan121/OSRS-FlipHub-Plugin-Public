@@ -92,10 +92,6 @@ final class ChatboxDecimalInputListener implements KeyListener {
 
     /**
      * Whether the chatbox is currently showing an "enter an amount" prompt.
-     *
-     * <p>Only ever called on the client thread. Key events arrive on the AWT thread, and reading
-     * client state from there is both a plugin hub review point and a genuine race: the prompt
-     * can close between the check and the write.</p>
      */
     private boolean isAmountPromptActive() {
         return client.getVarcIntValue(VarClientID.MESLAYERMODE) == INPUT_TYPE_AMOUNT_PROMPT;
@@ -103,11 +99,6 @@ final class ChatboxDecimalInputListener implements KeyListener {
 
     /**
      * Reads what the prompt holds, converts it and writes it back, all on the client thread.
-     *
-     * <p>Key events arrive on the AWT thread, ahead of the game applying the keystrokes it has
-     * already queued. Reading here and deferring only the write meant a fast "9.4" then "m"
-     * could be read as "9", converted to 9, and then have the game append its own "m" to give
-     * nine million instead of nine point four.
      *
      * @param redraw whether the prompt still has to show the new text. A converted amount is read
      *               by the game and the prompt closes, so only the typed decimal point needs it.

@@ -53,9 +53,6 @@ import javax.swing.plaf.basic.BasicComboBoxUI;
 
 /**
  * A label counting down, and the point it is counting from.
- *
- * <p>The base moves rather than the entry being replaced: a refresh brings a new remaining time
- * for the same row, and re-registering would mean discarding the label the row is built from.
  */
 final class CountdownEntry {
     final JLabel label;
@@ -190,11 +187,6 @@ final class BackdropPanel extends JPanel {
  */
 /**
  * A block of rows inside a card, set in from its left edge and sunk into its surface.
- *
- * <p>The card's own heading, its picture and its name, stays at full width; everything below is
- * held in one of these. That does two jobs with one move: it gives the rows somewhere to sit so
- * the card has a front and a back rather than being flat, and it separates one block of rows
- * from the next without needing a line drawn between them.
  */
 final class CardSection extends JPanel {
     private CardSection() {
@@ -456,11 +448,6 @@ final class RoundedBorder implements Border {
 
     /**
      * A border whose colour is asked for each time it is drawn.
-     *
-     * <p>So a control that changes colour under the pointer can keep one border for its whole
-     * life and simply repaint. Swapping the border instead throws away anything wrapped around
-     * it: a button given extra spacing above it lost that spacing the first time the pointer
-     * touched it, and jumped upward by however much the spacing was.
      */
     RoundedBorder(int arc, Supplier<Color> color, Insets insets) {
         this.arc = arc;
@@ -530,10 +517,6 @@ final class PlaceholderTextField extends JTextField {
 
     /**
      * The floor of the field, painted before the text so it sits behind it.
-     *
-     * <p>The field is not opaque, so without this it is an outline with the panel showing
-     * through and reads as flat. The rounded fill stops at the same corner the border draws,
-     * which leaves the corners outside it transparent rather than square.
      */
     private void paintWell(Graphics g) {
         int width = getWidth();

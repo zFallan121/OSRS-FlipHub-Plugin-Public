@@ -234,10 +234,6 @@ final class LocalFlipHistoryService {
      * unless exactly one recipe produces this item and the buckets hold every
      * input it needs, so the common case - no recipe, or no ingredients - costs
      * a map lookup and returns.
-     *
-     * <p>The match is not read here. A conversion can produce several items and
-     * every one of their buckets has to remember what made it, so the buckets
-     * record that as they are credited - including the one asked about.
      */
     private void coverShortfallByConversion(Map<Integer, InventoryState> inventoryByItem,
                                             LocalTradeDelta sale,
@@ -254,21 +250,6 @@ final class LocalFlipHistoryService {
 
     /**
      * The breaks still waiting on their pieces, shown where they will be filed.
-     *
-     * <p>A break is booked whole against the thing taken apart, once its last
-     * piece has sold, so until then it reports nothing - and a wrong guess at
-     * a break is then unreachable: the set is gone, its own sale finds nothing
-     * to match, and there is no entry to correct it from. So an unfinished
-     * break gets an entry on the card of the thing taken apart, carrying the
-     * sales the guess rests on and no figures at all, because it has no honest
-     * ones yet. Rejecting it is what stops the break being guessed on the next
-     * replay, which leaves the whole item in stock for its own sale.
-     *
-     * <p>Filed against the thing taken apart, not the piece sold, because that
-     * is where the finished activity goes and where its dismissal then stands
-     * - and because the stranded cost is the set's. One break is credited to
-     * every piece it made, so the same one sits in several buckets and is
-     * collected once.
      */
     private static void appendOpenBreaks(Map<Integer, List<StatsFlipInstance>> byItem,
                                          Map<Integer, InventoryState> inventoryByItem,
@@ -299,13 +280,6 @@ final class LocalFlipHistoryService {
 
     /**
      * The guesses the player dismissed, shown where they used to be.
-     *
-     * <p>A dismissed guess has already done its work by now: the sale it named
-     * was refused a recipe above and stands unmatched. What is left is to show
-     * that the correction exists and can be undone, so each one whose sale is
-     * still in the list gets an entry on the card it used to be filed against
-     * - an entry that counts for nothing. One whose sale is gone shows nothing,
-     * because there is nothing left to correct.
      */
     private void appendDismissedGuesses(Map<Integer, List<StatsFlipInstance>> byItem,
                                         List<LocalTradeDelta> deltas,
@@ -375,18 +349,6 @@ final class LocalFlipHistoryService {
     /**
      * Second pass: retry sales nothing could cover, against history-synced stock
      * only.
-     *
-     * <p>This is the trade made on a phone and sold on the desktop. The sale was
-     * watched live and carries a real timestamp; the ingredient buys arrive at
-     * the next GE History sync, stamped after it. Refusing them throws away a
-     * real activity over a timestamp the plugin made up - while the restriction
-     * to synced stock is what stops a live buy that genuinely followed a sale
-     * from being raided for parts.
-     *
-     * <p>A sale that was itself synced is placed by its own import: the parts
-     * that import lists after it were bought after it, as the history says,
-     * and the buckets refuse them. Parts from another import are still taken,
-     * because nothing orders two imports against each other.
      */
     private void resolveDeferredSales(Map<Integer, List<StatsFlipInstance>> byItem,
                                       Map<Integer, InventoryState> inventoryByItem,
@@ -498,11 +460,6 @@ final class LocalFlipHistoryService {
 
     /**
      * Sell units that came out of a break.
-     *
-     * <p>The piece gets nothing of its own. It never had a cost - the break kept
-     * all of it - so there is no flip here to record, only coins to hand over.
-     * Oldest break first, so two sets broken in a row are filled in the order
-     * they were broken.
      */
     private static void sellFromBreaks(Map<Integer, List<StatsFlipInstance>> byItem,
                                        InventoryState inventory,
@@ -611,12 +568,6 @@ final class LocalFlipHistoryService {
     /**
      * Sell offers that have filled part-way and are still sitting in the Grand
      * Exchange when the replay runs out of deltas.
-     *
-     * <p>The coins are real and the running totals already hold them, so the
-     * ledger has to hold them too: the totals are reconciled against it, and
-     * what the ledger has never heard of is erased. Recorded as in progress
-     * rather than as a flip - the offer has not finished, and it will be
-     * finalized properly by the completion when it arrives.
      */
     private static void flushOpenSellFlips(Map<Integer, List<StatsFlipInstance>> byItem,
                                            Map<Integer, PendingSellFlip> pendingSellBySlot,

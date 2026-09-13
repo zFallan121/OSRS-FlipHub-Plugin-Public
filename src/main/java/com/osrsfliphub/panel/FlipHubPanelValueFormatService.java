@@ -67,11 +67,6 @@ final class FlipHubPanelValueFormatService {
 
     /**
      * Two decimal places, except for a return too small to show at that width.
-     *
-     * <p>Rounding alone printed a negative return as "-0.00%", which reads as a visible
-     * negative zero and was painted red; and it printed a real, if tiny, gain as "0.00%",
-     * which claims there was no return at all. A one-coin margin on an expensive item lands
-     * in that band routinely.</p>
      */
     String formatPercent(Double value) {
         if (value == null) {
@@ -113,10 +108,6 @@ final class FlipHubPanelValueFormatService {
 
     /**
      * A span of time in the largest two units that carry any of it: "3d 4h", "4h 12m", "45m".
-     *
-     * <p>The clock form beside this one is right for a countdown, where the seconds are the
-     * point. For "how long does a flip of this take" they are noise, and a flip that took two
-     * days reads as "51:20:00" there, which nobody parses as two days.
      */
     String formatDurationCompact(Long ms) {
         if (ms == null || ms <= 0L) {

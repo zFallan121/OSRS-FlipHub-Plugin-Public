@@ -1,27 +1,3 @@
-/*
- * Copyright (c) 2026, zFallan121
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
- * ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
 package com.osrsfliphub;
 
 import com.google.gson.JsonArray;
@@ -47,21 +23,6 @@ import javax.inject.Singleton;
 
 /**
  * The conversion table, indexed by the item a conversion produces.
- *
- * <p>The table ships as a bundled resource because the plugin works offline,
- * and it is generated - never hand-written. {@code assembly_recipes.py},
- * {@code repairables.py} and {@code item_sets.py} on the website stay the
- * single source of truth; {@code tools/export_conversions_for_plugin.py}
- * projects them into {@code conversions.json}.
- *
- * <p>Items are stored by exact Grand Exchange name and resolved against
- * {@link ItemLookupService} at runtime. A conversion whose names do not all
- * resolve is dropped, which is the same never-half-priced rule the website
- * endpoints use: a mapping rename should make a conversion disappear rather
- * than attach a wrong cost to a real trade.
- *
- * <p>Until {@link #resolve()} has run the index is empty, and an empty index
- * makes both ledgers behave exactly as they did before conversions existed.
  */
 @Singleton
 final class ConversionRecipeIndex {
@@ -72,16 +33,6 @@ final class ConversionRecipeIndex {
      * (ASSEMBLE, SET_COMBINE) sums its inputs; 1 -> 1 plus a fee (REPAIR) adds
      * the fee; 1 -> N (DISASSEMBLE, SET_BREAK) divides the one purchase between
      * the things it became, by what each of them is worth.
-     *
-     * <p>None of them needs a number the trade history does not contain. A
-     * 1 -> N conversion is one activity filed against the thing taken apart, so
-     * the pieces never need a cost of their own and there is nothing to
-     * estimate - see {@link ConversionBreak}.
-     *
-     * <p>A recipe's {@code fee} is the NPC price, which is the only one that is
-     * the same for everybody; what the player actually paid is
-     * {@code ConversionFeeService}'s question, because an armour stand charges
-     * by Smithing level.
      */
     private static final Set<ConversionKind> ENABLED_KINDS = EnumSet.allOf(ConversionKind.class);
 
@@ -169,13 +120,18 @@ final class ConversionRecipeIndex {
                 if (root == null || !root.isJsonObject()) {
                     return Collections.emptyList();
                 }
-                JsonElement rows = root.getAsJsonObject().get("conversions");
+                JsonObject rootObject = root.getAsJsonObject();
+                JsonElement rows = rootObject.get("conversions");
                 if (rows == null || !rows.isJsonArray()) {
                     return Collections.emptyList();
                 }
+                // Names are held once in a table and referred to by position. They repeat
+                // heavily - a godsword blade is an input to six recipes - and spelling every
+                // one out made the shipped file two and a half times its size.
+                String[] names = parseNames(rootObject.get("names"));
                 List<Definition> parsed = new ArrayList<>();
                 for (JsonElement row : rows.getAsJsonArray()) {
-                    Definition definition = Definition.parse(row);
+                    Definition definition = Definition.parse(row, names);
                     if (definition != null && ENABLED_KINDS.contains(definition.kind)) {
                         parsed.add(definition);
                     }
@@ -188,6 +144,19 @@ final class ConversionRecipeIndex {
             // fail a trade.
             return Collections.emptyList();
         }
+    }
+
+    private static String[] parseNames(JsonElement element) {
+        if (element == null || !element.isJsonArray()) {
+            return new String[0];
+        }
+        JsonArray array = element.getAsJsonArray();
+        String[] names = new String[array.size()];
+        for (int i = 0; i < array.size(); i++) {
+            JsonElement entry = array.get(i);
+            names[i] = entry != null && entry.isJsonPrimitive() ? entry.getAsString() : null;
+        }
+        return names;
     }
 
     private static Map<Integer, List<ConversionRecipe>> indexRecipes(List<ConversionRecipe> recipes) {
@@ -248,8 +217,33 @@ final class ConversionRecipeIndex {
             this.feeGp = feeGp;
         }
 
-        static Definition parse(JsonElement element) {
-            if (element == null || !element.isJsonObject()) {
+        /**
+         * Reads one row. Schema 2 is an array - kind, name, inputs, outputs and an optional
+         * fee - with every name given as its position in the file's name table. The object
+         * form of schema 1 is still accepted, so a resource from an older build still loads.
+         */
+        static Definition parse(JsonElement element, String[] names) {
+            if (element == null) {
+                return null;
+            }
+            if (element.isJsonArray()) {
+                JsonArray row = element.getAsJsonArray();
+                if (row.size() < 4) {
+                    return null;
+                }
+                ConversionKind kind = ConversionKind.parse(asString(row.get(0)));
+                if (kind == null) {
+                    return null;
+                }
+                List<String[]> inputs = parsePairs(row.get(2), names);
+                List<String[]> outputs = parsePairs(row.get(3), names);
+                if (inputs.isEmpty() || outputs.isEmpty()) {
+                    return null;
+                }
+                long fee = row.size() > 4 && row.get(4).isJsonPrimitive() ? row.get(4).getAsLong() : 0L;
+                return new Definition(kind, nameAt(names, row.get(1)), inputs, outputs, fee);
+            }
+            if (!element.isJsonObject()) {
                 return null;
             }
             JsonObject row = element.getAsJsonObject();
@@ -257,13 +251,30 @@ final class ConversionRecipeIndex {
             if (kind == null) {
                 return null;
             }
-            List<String[]> inputs = parsePairs(row.get("inputs"));
-            List<String[]> outputs = parsePairs(row.get("outputs"));
+            List<String[]> inputs = parsePairs(row.get("inputs"), names);
+            List<String[]> outputs = parsePairs(row.get("outputs"), names);
             if (inputs.isEmpty() || outputs.isEmpty()) {
                 return null;
             }
             long fee = row.has("fee") && row.get("fee").isJsonPrimitive() ? row.get("fee").getAsLong() : 0L;
             return new Definition(kind, optString(row, "name"), inputs, outputs, fee);
+        }
+
+        private static String asString(JsonElement element) {
+            return element != null && element.isJsonPrimitive() ? element.getAsString() : null;
+        }
+
+        /** A name is either its position in the table, or the name itself. */
+        private static String nameAt(String[] names, JsonElement element) {
+            if (element == null || !element.isJsonPrimitive()) {
+                return null;
+            }
+            try {
+                int position = element.getAsInt();
+                return position >= 0 && position < names.length ? names[position] : null;
+            } catch (NumberFormatException ex) {
+                return element.getAsString();
+            }
         }
 
         ConversionRecipe resolve(ToIntFunction<String> lookup) {
@@ -301,20 +312,38 @@ final class ConversionRecipeIndex {
             return items;
         }
 
-        private static List<String[]> parsePairs(JsonElement element) {
+        /**
+         * An ingredient list. Each entry is either a bare name reference, meaning one of it,
+         * or a name-and-quantity pair. Quantity one is by far the common case and spelling it
+         * out cost more than the rest of the row.
+         */
+        private static List<String[]> parsePairs(JsonElement element, String[] names) {
             if (element == null || !element.isJsonArray()) {
                 return Collections.emptyList();
             }
             List<String[]> pairs = new ArrayList<>();
             for (JsonElement entry : element.getAsJsonArray()) {
-                if (entry == null || !entry.isJsonArray()) {
+                if (entry == null) {
+                    continue;
+                }
+                if (entry.isJsonPrimitive()) {
+                    String name = nameAt(names, entry);
+                    if (name != null) {
+                        pairs.add(new String[]{name, "1"});
+                    }
+                    continue;
+                }
+                if (!entry.isJsonArray()) {
                     continue;
                 }
                 JsonArray pair = entry.getAsJsonArray();
                 if (pair.size() < 2) {
                     continue;
                 }
-                pairs.add(new String[]{pair.get(0).getAsString(), pair.get(1).getAsString()});
+                String name = nameAt(names, pair.get(0));
+                if (name != null) {
+                    pairs.add(new String[]{name, pair.get(1).getAsString()});
+                }
             }
             return pairs;
         }

@@ -244,11 +244,6 @@ final class FlipHubItemCardBuilder {
 
     /**
      * Writes an item into a row that already exists.
-     *
-     * <p>This is the whole point of keeping the row: a refresh brings new prices for the same
-     * item, and every label already showing the right value is left alone, so Swing repaints the
-     * figures that moved and nothing else. Rebuilding the row instead takes the pointer's hover,
-     * the open tooltip and the icon with it, to end up drawing the same card back.
      */
     void applyValues(FlipHubItemCard card, FlipHubItem item, long asOfMs) {
         if (card == null || item == null) {
@@ -324,10 +319,6 @@ final class FlipHubItemCardBuilder {
 
     /**
      * The money ramp: green is a gain, red is a loss, and an absent figure stays on --text.
-     *
-     * <p>Exactly zero stays on --text too. Colour marks state on a value, and break-even has
-     * no state: a margin that came to nothing after tax, or a spent buy limit showing
-     * "0 gp", both used to read as gains.</p>
      */
     private Color moneyColor(Number value) {
         if (value == null) {

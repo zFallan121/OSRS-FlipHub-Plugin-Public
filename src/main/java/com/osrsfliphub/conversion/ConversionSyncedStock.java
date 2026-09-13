@@ -1,27 +1,3 @@
-/*
- * Copyright (c) 2026, zFallan121
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
- * ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
 package com.osrsfliphub;
 
 import java.util.ArrayDeque;
@@ -31,19 +7,6 @@ import java.util.Iterator;
 /**
  * The history-synced units of one item, each remembered with the import it
  * came from and its place in that import.
- *
- * <p>Only synced stock may satisfy a sale that already happened, because only
- * synced stock has a timestamp the plugin invented. But the history's own
- * order is not invented, and inside one import the sync preserves it: a
- * higher synthetic slot is a later row. So a synced part the history lists
- * after a synced sale was bought after it, as surely as a live buy with a
- * later timestamp, and is no evidence the sale was made from it. Across two
- * imports nothing relates the slots, and the retry keeps its original
- * reasoning.
- *
- * <p>Units leave oldest first, except that a conversion drawing on this stock
- * spends the units it was entitled to before any it was not - so what is left
- * behind is what the next sale may still be refused.
  */
 final class ConversionSyncedStock {
     private static final class Lot {

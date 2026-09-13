@@ -59,11 +59,6 @@ final class FlipHubStatsCardInteractionInstaller {
 
     /**
      * Hover for a whole card, installed on every descendant.
-     *
-     * <p>Swing does not bubble mouse events, so the card only learns about the
-     * pointer through its children - and moving between two of them fires an
-     * exit before the next enter. Asking whether the pointer is still inside the
-     * card, rather than trusting the exit, is what stops that flickering.
      */
     private void installCardHover(JComponent root) {
         if (!(root instanceof RoundedPanel)) {

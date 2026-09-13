@@ -52,10 +52,6 @@ final class FlipHubStatsItemFormattingService {
 
     /**
      * How long a flip of this item takes, from the money going out to the sale completing.
-     *
-     * <p>The stored figure is the total across every completed flip, so it is divided by the
-     * number of them. This replaced the time of day the last sale finished, which was a bare
-     * clock with no date on it and told the reader nothing they could act on.
      */
     String formatStatsTimeToComplete(StatsItem item) {
         if (item == null || item.active_ms == null || item.active_ms <= 0L) {

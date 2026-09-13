@@ -121,14 +121,6 @@ final class UploadDiagnosticsState {
 
     /**
      * Forget the failure state when the plugin stops, but keep the queued events.
-     *
-     * <p>These are completed trades that have not reached the server yet. The final flush is
-     * handed to the IO pool and finishes after this runs, and it can also decline outright
-     * while a backoff is standing or while logged out. Emptying the queue here therefore threw
-     * the events away, and nothing resends them: once a profile is marked backfilled they are
-     * gone for good. They are bounded already, they carry deterministic ids so a resend cannot
-     * double-count, and this object outlives a disable, so holding them costs nothing and a
-     * re-enable can still deliver them.</p>
      */
     void resetForPluginStop() {
         clearBackOff();

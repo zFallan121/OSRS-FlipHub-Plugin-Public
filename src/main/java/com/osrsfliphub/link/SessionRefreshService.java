@@ -52,11 +52,6 @@ final class SessionRefreshService {
 
     /**
      * What came of asking the server for a new session.
-     *
-     * <p>The distinction matters because only one of these means the link is actually dead.
-     * Treating a timeout or a bad gateway as a rejection throws away credentials that were
-     * never refused, and since the licence key is cleared once linking succeeds, the user has
-     * to go and find it again to recover from what was a moment of bad network.
      */
     enum Outcome {
         /** New credentials are stored; retry the request. */

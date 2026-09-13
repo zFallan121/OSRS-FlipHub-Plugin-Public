@@ -42,13 +42,6 @@ final class AccountwideProfileBackfillService {
     /** How many of a profile's events the server has already taken, so a retry can resume. */
     /**
      * The last event of this profile that the server is known to have taken, by its id.
-     *
-     * <p>It used to be a count of events sent, which only holds while the stored list keeps
-     * the same shape. The list is rebuilt from the profile on every attempt, sorted by time
-     * and collapsed into offers, and the in-game history sync inserts trades with older
-     * timestamps: anything inserted before the mark shifted everything after it, and the next
-     * attempt skipped exactly that many events and never sent them. The id survives all of
-     * that, because it is derived from the trade itself.
      */
     private final Map<Long, String> sentEventsByProfile = new ConcurrentHashMap<>();
 
@@ -64,10 +57,6 @@ final class AccountwideProfileBackfillService {
 
     /**
      * Sends one profile's stored trades, picking up where the last attempt stopped.
-     *
-     * <p>Every batch used to be rebuilt and re-sent from the first one on each retry, so a
-     * batch the server would not take meant everything before it was uploaded again on every
-     * cycle, forever. The server discards the repeats by event id, but the requests were real.
      */
     BackfillUploader.Outcome backfillProfileTrades(long profileKey,
                                                    ApiClient apiClient,

@@ -38,10 +38,6 @@ public class StatsItem {
     public Long last_sell_ts_ms;
     /**
      * How long this item's money was tied up, summed over its completed flips.
-     *
-     * <p>Weighted per unit, so one purchase sold off in ten parts counts as one holding rather
-     * than ten. Divided by the flip count it is what a flip of this item takes to come round,
-     * which is the reading the card shows.
      */
     public Long active_ms;
 

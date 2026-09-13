@@ -338,10 +338,6 @@ public class GeLifecyclePlugin extends Plugin {
 
     /**
      * Runs work on the plugin's own scheduler, or drops it.
-     *
-     * <p>It used to fall back to the common pool, which meant that once the plugin was disabled
-     * its stragglers carried on running there, reaching for a client and a panel that were on
-     * their way out. Nothing here is important enough to outlive the plugin.
      */
     /**
      * @return whether the task was accepted. A caller that raised an "in flight" flag before

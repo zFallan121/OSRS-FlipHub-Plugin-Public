@@ -179,14 +179,15 @@ public class ConversionRecipeIndexTest {
         // have stock - so a duplicate does not attribute twice, it never
         // attributes at all. Read the file itself rather than the index, which
         // collapses duplicates and would hide the export error this catches.
+        String[] names = shippedNames();
         Set<String> seen = new HashSet<>();
         List<String> duplicates = new java.util.ArrayList<>();
         for (JsonElement row : shippedConversions()) {
-            JsonObject conversion = row.getAsJsonObject();
-            String key = multisetKey(conversion.getAsJsonArray("inputs"))
-                + " -> " + multisetKey(conversion.getAsJsonArray("outputs"));
+            JsonArray conversion = row.getAsJsonArray();
+            String key = multisetKey(conversion.get(2).getAsJsonArray(), names)
+                + " -> " + multisetKey(conversion.get(3).getAsJsonArray(), names);
             if (!seen.add(key)) {
-                duplicates.add(conversion.get("kind").getAsString() + " " + key);
+                duplicates.add(conversion.get(0).getAsString() + " " + key);
             }
         }
         assertTrue("recipes exported twice: " + duplicates, duplicates.isEmpty());
@@ -236,19 +237,37 @@ public class ConversionRecipeIndexTest {
         assertEquals(ConversionKind.REPAIR, recipes.get(0).kind);
     }
 
-    private static JsonArray shippedConversions() throws Exception {
+    private static JsonObject shippedRoot() throws Exception {
         try (InputStream stream = ConversionRecipeIndex.class.getResourceAsStream("/com/osrsfliphub/conversions.json");
              Reader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
-            return new JsonParser().parse(reader).getAsJsonObject().getAsJsonArray("conversions");
+            return new JsonParser().parse(reader).getAsJsonObject();
         }
     }
 
+    private static JsonArray shippedConversions() throws Exception {
+        return shippedRoot().getAsJsonArray("conversions");
+    }
+
+    /** The file's name table. Rows refer to a name by its position in this. */
+    private static String[] shippedNames() throws Exception {
+        JsonArray array = shippedRoot().getAsJsonArray("names");
+        String[] names = new String[array.size()];
+        for (int i = 0; i < array.size(); i++) {
+            names[i] = array.get(i).getAsString();
+        }
+        return names;
+    }
+
     /** Names to summed quantities, in name order: the same however a row lists them. */
-    private static String multisetKey(JsonArray pairs) {
+    private static String multisetKey(JsonArray pairs, String[] names) {
         Map<String, Long> quantities = new TreeMap<>();
         for (JsonElement pair : pairs) {
+            if (pair.isJsonPrimitive()) {
+                quantities.merge(names[pair.getAsInt()], 1L, Long::sum);
+                continue;
+            }
             JsonArray entry = pair.getAsJsonArray();
-            quantities.merge(entry.get(0).getAsString(), entry.get(1).getAsLong(), Long::sum);
+            quantities.merge(names[entry.get(0).getAsInt()], entry.get(1).getAsLong(), Long::sum);
         }
         return quantities.toString();
     }

@@ -73,19 +73,10 @@ final class FlipHubPanelConstants {
     static final Color SURFACE_SEAT = new Color(0, 0, 0, 110);
     /**
      * The floor of a section inside a card.
-     *
-     * <p>Black rather than white, so a section reads as cut into the card rather than laid on
-     * top of it. Every other surface in the panel lightens; this is the only one that sinks,
-     * which is what lets it group a block of rows and separate it from the next block without
-     * a rule or a gap doing the work.
      */
     static final Color SURFACE_WELL = new Color(0, 0, 0, 54);
     /**
      * A search field, cut into the panel rather than laid on it.
-     *
-     * <p>Darker along the top and lighter towards the bottom, because that is where light
-     * coming from above would fall inside a recess. A gradient rather than a drawn line: the
-     * depth reads the same and there is no edge to catch the eye as a rule or a divider.
      */
     static final Color INPUT_WELL_TOP = new Color(0, 0, 0, 86);
     static final Color INPUT_WELL_BOTTOM = new Color(0, 0, 0, 28);
@@ -121,14 +112,6 @@ final class FlipHubPanelConstants {
 
     /**
      * What colour a price of this age, and the age itself, should be drawn in.
-     *
-     * <p>Three bands, because "current" and "old" was not enough to act on: plain under half an
-     * hour, amber to the hour, red past it. The number is the best one available at every
-     * stage, so none of these say it is wrong; they say how much weight to put on it.
-     *
-     * <p>One rule in one place, because the price on the card and the age in its tooltip are
-     * the same fact said twice. If they were allowed to decide separately they could disagree
-     * across a threshold, and an amber price beside a white age says nothing at all.
      *
      * @param tradeTimeMs when the price was last traded, or null when nobody knows
      */

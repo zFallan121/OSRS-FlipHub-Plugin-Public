@@ -95,11 +95,6 @@ final class FlipHubStatsItemCardBuilder {
 
     /**
      * The activities this card is allowed to show.
-     *
-     * <p>Filtering only the list of items was half an answer: an item that was
-     * both flipped and assembled still opened onto all of it, so "Assembled"
-     * showed a flip sitting under two assembles and the card's own total added
-     * up all three.
      */
     private List<StatsFlipInstance> getStatsFlipHistory(int itemId) {
         if (panelState == null || panelState.statsFlipHistoryByItem == null) {
@@ -127,10 +122,6 @@ final class FlipHubStatsItemCardBuilder {
     /**
      * The activity kinds behind this card, most profitable first. Null is a
      * flip.
-     *
-     * <p>Capped at two marks: an item that was flipped, assembled and repaired
-     * is real but rare, and three icons would cost the name more room than a
-     * third mark is worth. The tooltip on each names it in full.
      */
     private List<ConversionKind> visibleKinds(int itemId) {
         java.util.Map<ConversionKind, Long> profitByKind = new java.util.HashMap<>();
@@ -544,11 +535,6 @@ final class FlipHubStatsItemCardBuilder {
     /**
      * What the cost basis is actually made of, for an item that was made rather
      * than bought.
-     *
-     * <p>The direction is spelled out rather than iconified. FlipHubUiStyler
-     * leads its family list with Inter, which has no U+2692, so a hammer glyph
-     * would render as a tofu box on most Windows clients - in the one place the
-     * feature has to explain itself.
      */
     private JPanel buildConversionBreakdown(StatsFlipInstance instance) {
         JPanel breakdown = new JPanel();

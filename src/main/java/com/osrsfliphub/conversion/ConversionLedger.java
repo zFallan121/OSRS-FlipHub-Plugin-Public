@@ -1,27 +1,3 @@
-/*
- * Copyright (c) 2026, zFallan121
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
- * ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
 package com.osrsfliphub;
 
 import java.util.ArrayList;
@@ -32,22 +8,6 @@ import javax.inject.Singleton;
 /**
  * Turns purchases into the thing they were bought to make - but only when a
  * sale asks for it.
- *
- * <p>The obvious design converts as soon as a player owns the ingredients, and
- * that design eats an ordinary Bandos boots flip. This one is demand-driven:
- * both ledgers consume real purchased inventory first, and only a shortfall
- * reaches {@link #coverShortfall}. To be converted, a purchase therefore has to
- * be an input to a recipe whose output was sold without ever being bought,
- * which is a pattern with no other explanation.
- *
- * <p>Ordering needs no timestamps. Both ledgers replay deltas in chronological
- * order, so at the moment a sell is processed the buckets hold exactly the buys
- * that preceded it. An ingredient bought after the sale simply is not there.
- *
- * <p>A conversion that produces several things - a set broken into its
- * pieces - is still triggered by one sale, but it credits every piece it
- * made, not only the one that asked. The others are sold later against stock
- * that no purchase covers, and the set they came out of is gone by then.
  */
 @Singleton
 final class ConversionLedger {
@@ -87,9 +47,6 @@ final class ConversionLedger {
      * Try to produce {@code neededQuantity} of {@code outputItemId} out of what
      * the buckets hold. Returns false - and touches nothing - when the evidence
      * does not support exactly one answer.
-     *
-     * <p>What was made is left on the buckets rather than handed back, because
-     * one conversion can credit several of them and each is sold separately.
      */
     boolean coverShortfall(int outputItemId, long neededQuantity, ConversionBuckets buckets) {
         return coverShortfall(outputItemId, neededQuantity, buckets, ConversionEvidence.ORDERED);

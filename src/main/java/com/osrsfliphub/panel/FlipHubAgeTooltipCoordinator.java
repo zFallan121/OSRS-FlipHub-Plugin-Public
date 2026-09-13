@@ -66,11 +66,6 @@ final class FlipHubAgeTooltipCoordinator {
     private Point ageTooltipPoint;
     /**
      * The widest this popup has had to be since it appeared.
-     *
-     * <p>It never shrinks while it is up. The ages tick every second and the digits are not all
-     * the same width, so a popup sized to the text exactly would twitch in and out by a pixel
-     * or two as the clock ran. Holding the widest it has needed keeps it still, and starting
-     * again at nothing each time it appears keeps one long row from bloating the next.
      */
     private int ageTooltipWidth;
 

@@ -45,11 +45,6 @@ final class FlipHubStatsHistoryHoverMouseAdapter extends MouseAdapter {
 
     /**
      * Hover is answered from where the pointer actually is, not counted.
-     *
-     * <p>Counting entries and exits assumed they arrive in pairs. They do not: after the list is
-     * rebuilt the pointer is re-entered synthetically, which leaves AWT still believing it is
-     * elsewhere, so the next real movement delivers a second enter with no exit between. The
-     * count then never returned to zero and the header stayed lit after the pointer had left.
      */
     @Override
     public void mouseEntered(MouseEvent e) {

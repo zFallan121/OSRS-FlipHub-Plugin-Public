@@ -347,10 +347,6 @@ final class FlipHubStatsRenderCoordinator {
 
     /**
      * Profit, cost and count over just the activities a filter admits.
-     *
-     * <p>Sliced per activity rather than per item, because an item is usually
-     * both: Guardian boots that were flipped six times and assembled twice is
-     * one row in the list and two very different answers here.
      */
     static StatsProfitSlice sliceActivities(Map<Integer, List<StatsFlipInstance>> historyByItem,
                                             StatsRecipeFilter filter) {

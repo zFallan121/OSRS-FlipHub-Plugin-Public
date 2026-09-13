@@ -1,27 +1,3 @@
-/*
- * Copyright (c) 2026, zFallan121
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
- * ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
 package com.osrsfliphub;
 
 import java.util.Map;
@@ -32,23 +8,6 @@ import javax.inject.Singleton;
 /**
  * What a conversion's fee actually cost the player, as opposed to what it says
  * on the recipe.
- *
- * <p>The table ships the NPC price, because that is the one price that is the
- * same for everybody. Almost nobody pays it: a repair done at a player-owned
- * house armour stand costs
- * {@code npcPrice x (1 - smithing / 200)} - half a percent off per Smithing
- * level, so a little over half price at 99 - and a player repairing Barrows to
- * flip it has every reason to use the stand. Charging them the NPC price
- * overstates what the item cost them and understates the flip.
- *
- * <p>Two things here are estimates and are meant to be. The plugin cannot see
- * where a repair happened, so it is a setting; and it cannot see what the
- * player's Smithing level was at the time, so it uses the level now. Both are
- * the same kind of approximation the ledger already makes elsewhere, and both
- * move the cost basis rather than the revenue - a sale's gp is always real.
- *
- * <p>Only a repair is discounted. An assembly fee - a Voidwaker, a Zamorakian
- * hasta - is a fixed price paid to an NPC for a job no armour stand does.
  */
 @Singleton
 final class ConversionFeeService {

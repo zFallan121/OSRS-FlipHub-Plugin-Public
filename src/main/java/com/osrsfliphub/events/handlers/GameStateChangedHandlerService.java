@@ -53,14 +53,6 @@ final class GameStateChangedHandlerService {
     /**
      * Resolve the conversion table's item names to ids once the item database
      * is up.
-     *
-     * <p>On the scheduler rather than the client thread: this is a few hundred
-     * name lookups and none of them touch client state, since
-     * {@code ItemManager} search runs against the loaded item index. Until it
-     * completes the index is empty, and an empty index makes both trade ledgers
-     * behave exactly as they did before conversions existed. Re-running is cheap
-     * and self-healing, so a login that arrives before the item database has
-     * loaded is fixed by the next one.
      */
     private static void resolveConversionRecipes(GeLifecyclePlugin plugin) {
         ConversionRecipeIndex index = PluginInjectorBridge.get(ConversionRecipeIndex.class);
@@ -124,15 +116,6 @@ final class GameStateChangedHandlerService {
     /**
      * Do the login work for a player who was already in the game when the plugin was
      * switched on.
-     *
-     * <p>RuneLite delivers events only to plugins that are running, and it does not replay
-     * the login for one enabled afterwards. Everything the plugin sets up at login was
-     * therefore skipped: the conversion table was never resolved, so every assemble, break
-     * and repair went unrecognised; the session clock never started, so the Session range
-     * showed nothing; the Grand Exchange slots were never photographed, so an offer already
-     * running could be read as a brand new one; and nobody had asked the client for the
-     * Smithing level, so repairs were priced at the full NPC rate. All of it lasted until the
-     * player happened to log out and back in.
      */
     void catchUpWithAnAlreadyRunningGame() {
         GeLifecyclePlugin plugin = PluginAccess.pluginOrNull();

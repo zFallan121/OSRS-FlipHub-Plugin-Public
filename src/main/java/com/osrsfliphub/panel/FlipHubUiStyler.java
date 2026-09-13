@@ -105,13 +105,6 @@ final class FlipHubUiStyler {
     /**
      * The size to draw the sort mark at in a slot {@code slotWidth} wide: the bookmark star's own
      * ink, measured.
-     *
-     * <p>The two controls sit one above the other in the same trailing slot, one a drawn mark and
-     * one a typed glyph, and a pair like that reads as mismatched at a couple of pixels'
-     * difference. A number picked against one face would be wrong under the next, since the star
-     * is whatever the symbol font makes of its point size - so the star is measured and the mark
-     * is built to it. The slot is the ceiling: the profile tab draws the same mark in a half-width
-     * one, and a mark wider than its button is a mark with a side clipped off.
      */
     int sortMarkSize(int slotWidth) {
         Font symbol = fontSymbol(BOOKMARK_GLYPH_SIZE);
@@ -134,12 +127,6 @@ final class FlipHubUiStyler {
 
     /**
      * Type for a figure, as opposed to type for words.
-     *
-     * <p>The faces here space digits by eye rather than on a grid, so a run of numbers reads
-     * unevenly, and at these sizes in bold a full stop is about a pixel wide and disappears
-     * between two heavy digits: "4.91M" reads as "491M". Java offers no way to ask a font for
-     * its lining figures, so the separation is bought with a little tracking instead, which
-     * gives the stop room to be seen and evens out the run.
      */
     Font fontNumeric(float size) {
         Map<TextAttribute, Object> tracking = new HashMap<>();
@@ -206,12 +193,6 @@ final class FlipHubUiStyler {
 
     /**
      * A control with no container at all: the mark is the whole of it.
-     *
-     * <p>A ghost's rule is the affordance a control needs when its content is a
-     * word. A drawn mark does not need it - the sort direction says which way it
-     * points whether or not it is boxed - and at 15px the box was the loudest
-     * thing in the row, reading as an empty well beside a full dropdown. The
-     * hand cursor stays, because that is the part that says it can be clicked.
      */
     void styleBareControl(AbstractButton button) {
         button.setFocusPainted(false);
@@ -226,13 +207,6 @@ final class FlipHubUiStyler {
 
     /**
      * A clear mark inside the field's own right edge, shown only once there is something to clear.
-     *
-     * <p>A button beside the field spends a slot of the row on a control that is doing nothing
-     * most of the time, and spells out an action the mark states in a third of the room. Inside
-     * the field the mark also sits where the text it clears is, so the two read as one object.
-     *
-     * <p>The strip it stands in is taken out of the field's padding rather than laid over the
-     * text: a caret that runs under the mark is a field that has to be scrolled to be read.
      */
     void installInlineClear(JTextField field) {
         field.setBorder(roundedBorder(INPUT_ARC, CONTROL_BORDER,
@@ -322,10 +296,6 @@ final class FlipHubUiStyler {
 
     /**
      * Brightens the rule under the pointer, and only the rule.
-     *
-     * <p>The text is deliberately left alone: a control whose colour carries a
-     * state would either have that erased by the hover, or have to restore a
-     * value the button changes for itself on the very click being hovered.
      */
     private void installGhostHover(AbstractButton button, int arc, Insets padding) {
         // One border for the life of the button, which asks what colour it should be each time
