@@ -82,9 +82,6 @@ final class ApiClientRequestFactory {
         return apiBaseUrl + path;
     }
 
-    boolean hasText(String value) {
-        return value != null && !value.trim().isEmpty();
-    }
 
     boolean appendStatsQuery(StringBuilder builder, Long sinceMs, Long untilMs) {
         boolean hasQuery = false;

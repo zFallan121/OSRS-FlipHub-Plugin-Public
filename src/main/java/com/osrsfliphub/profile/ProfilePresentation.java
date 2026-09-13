@@ -52,7 +52,7 @@ final class ProfilePresentation {
             return "Accountwide";
         }
         String displayName = profileDisplayNames != null ? profileDisplayNames.get(key) : null;
-        if (displayName != null && !displayName.trim().isEmpty()) {
+        if (Str.hasText(displayName)) {
             return displayName;
         }
         return ProfileDisplayNames.placeholderFor(key);
@@ -68,7 +68,7 @@ final class ProfilePresentation {
             return options;
         }
         if (currentHash > 0) {
-            if (currentDisplayName != null && !currentDisplayName.trim().isEmpty()) {
+            if (Str.hasText(currentDisplayName)) {
                 diskProfiles.put(currentHash, currentDisplayName.trim());
             } else if (!diskProfiles.containsKey(currentHash)) {
                 diskProfiles.put(currentHash, ProfileDisplayNames.placeholderFor(currentHash));
@@ -85,7 +85,7 @@ final class ProfilePresentation {
                 continue;
             }
             String label = entry.getValue();
-            if (label == null || label.trim().isEmpty()) {
+            if (Str.isBlank(label)) {
                 label = ProfileDisplayNames.placeholderFor(hash);
             }
             if (profileDisplayNames != null && !ProfileDisplayNames.isPlaceholder(label)) {

@@ -38,7 +38,7 @@ final class OfferUpdateStampStore {
 
     static Map<Integer, Stamp> parse(String raw, Gson gson, int minSlot, int maxSlot) {
         Map<Integer, Stamp> result = new HashMap<>();
-        if (gson == null || raw == null || raw.trim().isEmpty()) {
+        if (gson == null || Str.isBlank(raw)) {
             return result;
         }
         try {

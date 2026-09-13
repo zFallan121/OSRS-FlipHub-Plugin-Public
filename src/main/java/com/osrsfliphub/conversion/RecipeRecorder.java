@@ -34,8 +34,10 @@ import java.awt.Dimension;
 import java.awt.Insets;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -116,6 +118,8 @@ final class RecipeRecorder {
     private final List<Candidate> sells = new ArrayList<>();
     private List<Delta> trades = new ArrayList<>();
     private List<RecipeFlip> stored = new ArrayList<>();
+    /** What the stored records claim of those trades. Only changes when a record does. */
+    private RecipeFlipLedger.Result applied = RecipeFlipLedger.empty();
     private long accountKey = -1L;
     private int appliedBefore;
     private boolean nameEdited;
@@ -142,27 +146,14 @@ final class RecipeRecorder {
         trades = snapshotTrades(accountKey);
         RecipeFlipStore store = Bridge.get(RecipeFlipStore.class);
         stored = store != null && accountKey > 0 ? store.applicable(accountKey) : new ArrayList<>();
-        RecipeFlipLedger.Result already = RecipeFlipLedger.apply(trades, stored);
-        appliedBefore = already.activities.size();
+        applied = RecipeFlipLedger.apply(trades, stored);
+        appliedBefore = applied.activities.size();
 
         buys.clear();
         sells.clear();
-        // What a new conversion may claim is whatever no earlier record has claimed already, so
-        // each trade is offered with its unspoken-for part and nothing more.
-        List<Delta> free = already.remainingTrades(trades);
-        if (free != null) {
-            for (Delta trade : free) {
-                if (trade == null || trade.deltaQty <= 0) {
-                    continue;
-                }
-                (trade.isBuy ? buys : sells).add(new Candidate(trade));
-            }
+        for (Delta trade : offerable(trades, applied)) {
+            (trade.isBuy ? buys : sells).add(new Candidate(trade));
         }
-        Comparator<Candidate> newestFirst = Comparator
-            .comparingLong((Candidate candidate) -> candidate.trade.closedAtMs())
-            .reversed();
-        buys.sort(newestFirst);
-        sells.sort(newestFirst);
 
         kindCombo.setSelectedItem(ConversionKind.ASSEMBLE);
         nameField.setText("");
@@ -216,6 +207,7 @@ final class RecipeRecorder {
 
         form.add(headingRow("Fee", null));
         field(feeField, this::price);
+        feeField.setToolTipText("Coins the conversion itself cost, for the whole of this record");
         form.add(feeField);
 
         form.add(Box.createVerticalStrut(8));
@@ -303,7 +295,9 @@ final class RecipeRecorder {
         if (shown == 0) {
             body.add(wordRow(query.isEmpty() ? "Nothing left to pick." : "No trade by that name."));
         } else if (hidden > 0) {
-            body.add(wordRow(hidden + " more - search to narrow it down."));
+            body.add(wordRow(query.isEmpty()
+                ? hidden + " more - search to reach them."
+                : hidden + " more match."));
         }
         count.setText(picked + " picked");
         uiStyler.styleMicroLabel(count, 9.5f);
@@ -330,6 +324,7 @@ final class RecipeRecorder {
         JPanel top = new JPanel(new BorderLayout(6, 0));
         top.setOpaque(false);
         top.setMaximumSize(new Dimension(Integer.MAX_VALUE, split ? 22 : 16));
+        warmName(candidate.trade.itemId);
         EllipsisLabel name = new EllipsisLabel(itemName(candidate.trade.itemId));
         name.setForeground(candidate.picked() ? TEXT : MUTED);
         name.setFont(uiStyler.font(9.5f));
@@ -353,6 +348,43 @@ final class RecipeRecorder {
             refresh();
         }));
         return row;
+    }
+
+    /**
+     * The trades a new conversion may still be built from, newest first.
+     *
+     * <p>Three rules, and the reasons matter more than the code:
+     *
+     * <p>Whatever an earlier record has already claimed is gone, so two conversions can never
+     * both spend the same blade.
+     *
+     * <p>Only finished offers. While an offer is filling it is stored as one record per fill,
+     * and the completion replaces that whole run with a single record - so a record naming the
+     * second fill of an offer still in progress would name a trade that ceases to exist the
+     * moment it finishes, and quietly stop applying. Naming the first fill is no better: after
+     * the collapse that key covers the whole offer, so the conversion would reprice itself
+     * under the player. Besides which, goods still being bought have not gone into anything.
+     *
+     * <p>One row per stored trade. A repeated key is ambiguous to the ledger, which takes the
+     * first and leaves the rest, so offering both would let the player pick a row that quietly
+     * resolves to the other one.
+     */
+    static List<Delta> offerable(List<Delta> trades, RecipeFlipLedger.Result applied) {
+        List<Delta> out = new ArrayList<>();
+        List<Delta> free = applied.remainingTrades(trades);
+        Set<TradeKey> offered = new HashSet<>();
+        if (free != null) {
+            for (Delta trade : free) {
+                if (trade == null || trade.deltaQty <= 0
+                    || !"OFFER_COMPLETED".equals(trade.eventType)
+                    || !offered.add(TradeKey.of(trade))) {
+                    continue;
+                }
+                out.add(trade);
+            }
+        }
+        out.sort(Comparator.comparingLong(Delta::closedAtMs).reversed());
+        return out;
     }
 
     private JComponent quantityLabel(Candidate candidate) {
@@ -398,7 +430,6 @@ final class RecipeRecorder {
         if (stored.isEmpty()) {
             return;
         }
-        RecipeFlipLedger.Result applied = RecipeFlipLedger.apply(trades, stored);
         boolean first = true;
         for (RecipeFlip flip : stored) {
             if (!first) {
@@ -417,9 +448,10 @@ final class RecipeRecorder {
         JPanel top = new JPanel(new BorderLayout(6, 0));
         top.setOpaque(false);
         top.setMaximumSize(new Dimension(Integer.MAX_VALUE, 16));
-        EllipsisLabel name = new EllipsisLabel(flip.name != null && !flip.name.trim().isEmpty()
+        EllipsisLabel name = new EllipsisLabel(Str.hasText(flip.name)
             ? flip.name.trim()
             : itemName(flip.subjectItemId()));
+        warmName(flip.subjectItemId());
         name.setForeground(applies ? TEXT : MUTED_2);
         name.setFont(uiStyler.font(9.5f));
         name.setHorizontalAlignment(SwingConstants.LEFT);
@@ -503,13 +535,21 @@ final class RecipeRecorder {
             : "Pick at least one purchase and one sale, and say what it was");
     }
 
-    /** Names the conversion after what it sold as, until the player types one of their own. */
+    /**
+     * Names the conversion after its subject, until the player types one of their own.
+     *
+     * <p>The subject is whatever {@link RecipeFlip#subjectItemId()} will file the activity
+     * against - what was made when one thing was made, and otherwise what was taken apart. Named
+     * off the sales alone, every disassemble came out blank, which is the one direction where
+     * there is more than one sale by definition.
+     */
     private void autofillName() {
         if (nameEdited) {
             return;
         }
-        List<Candidate> picked = pickedOn(sells);
-        String suggested = picked.size() == 1 ? itemName(picked.get(0).trade.itemId) : "";
+        List<Candidate> outputs = pickedOn(sells);
+        List<Candidate> subject = outputs.size() == 1 ? outputs : pickedOn(buys);
+        String suggested = subject.size() == 1 ? itemName(subject.get(0).trade.itemId) : "";
         if (!suggested.equals(name())) {
             nameField.setText(suggested);
             // setText is an edit like any other, so the flag it has just set comes back off.
@@ -621,17 +661,25 @@ final class RecipeRecorder {
         return snapshot != null ? snapshot : new ArrayList<>();
     }
 
+    /**
+     * The name, if it has been looked up before.
+     *
+     * <p>Deliberately does not ask for one. Every candidate's name is read on every keystroke in
+     * the search box, so asking here would post one job to the client thread per trade per
+     * letter typed; only the rows actually drawn ask, through {@link #warmName(int)}.
+     */
     private static String itemName(int itemId) {
         ItemLookup lookup = Bridge.get(ItemLookup.class);
         String name = lookup != null ? lookup.getCachedItemName(itemId) : null;
-        if (name != null && !name.trim().isEmpty()) {
-            return name;
-        }
+        return Str.hasText(name) ? name : "Item " + itemId;
+    }
+
+    /** Ask for a name this row needs, so the next draw has it. Filled on the client thread. */
+    private static void warmName(int itemId) {
+        ItemLookup lookup = Bridge.get(ItemLookup.class);
         if (lookup != null) {
-            // Asked for now so the next draw has it; the cache is filled on the client thread.
             lookup.cacheItemName(itemId);
         }
-        return "Item " + itemId;
     }
 
     private String age(long tsMs) {

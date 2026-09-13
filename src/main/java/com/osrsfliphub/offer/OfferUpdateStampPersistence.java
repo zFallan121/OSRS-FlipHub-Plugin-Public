@@ -87,7 +87,7 @@ final class OfferUpdateStampPersistence {
         String raw = readConfiguration(configGroup, perAccountKey);
         boolean migrated = false;
 
-        if ((raw == null || raw.trim().isEmpty())) {
+        if (Str.isBlank(raw)) {
             migrated = tryLoadMatchedLegacy(destination, readConfiguration(configGroup, configStore.legacyGlobalKey()), gson);
             if (!migrated) {
                 migrated = tryLoadMatchedLegacy(

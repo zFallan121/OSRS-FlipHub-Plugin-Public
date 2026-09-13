@@ -144,7 +144,7 @@ final class UploadDiagnosticsState {
     }
 
     void markBlocked(String reason) {
-        if (reason != null && !reason.trim().isEmpty()) {
+        if (Str.hasText(reason)) {
             lastUploadError = reason.trim();
         }
         lastUploadStatusCode = null;
@@ -167,7 +167,7 @@ final class UploadDiagnosticsState {
         if (statusCode != null) {
             lastUploadStatusCode = statusCode;
         }
-        if (errorMessage != null && !errorMessage.trim().isEmpty()) {
+        if (Str.hasText(errorMessage)) {
             lastUploadError = errorMessage.trim();
         }
         if (dropped && droppedCount > 0) {
@@ -193,7 +193,7 @@ final class UploadDiagnosticsState {
 
         String error = lastUploadError;
         String errorLabel;
-        if (error != null && !error.trim().isEmpty()) {
+        if (Str.hasText(error)) {
             errorLabel = sanitizeHtml(error.trim());
         } else if (!linked) {
             errorLabel = "not linked";

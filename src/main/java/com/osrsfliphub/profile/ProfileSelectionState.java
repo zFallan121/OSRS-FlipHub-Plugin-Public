@@ -49,14 +49,14 @@ final class ProfileSelectionState {
         String storedKey = configManager.getConfiguration(configGroup, selectedKeyName);
         String mode = configManager.getConfiguration(configGroup, modeKeyName);
         boolean migratedFromLegacy = false;
-        if ((storedKey == null || storedKey.trim().isEmpty()) || (mode == null || mode.trim().isEmpty())) {
+        if (Str.isBlank(storedKey) || Str.isBlank(mode)) {
             String legacyKey = configManager.getConfiguration(legacyGroup, selectedKeyName);
             String legacyMode = configManager.getConfiguration(legacyGroup, modeKeyName);
-            if ((storedKey == null || storedKey.trim().isEmpty()) && legacyKey != null && !legacyKey.trim().isEmpty()) {
+            if (Str.isBlank(storedKey) && Str.hasText(legacyKey)) {
                 storedKey = legacyKey.trim();
                 migratedFromLegacy = true;
             }
-            if ((mode == null || mode.trim().isEmpty()) && legacyMode != null && !legacyMode.trim().isEmpty()) {
+            if (Str.isBlank(mode) && Str.hasText(legacyMode)) {
                 mode = legacyMode.trim();
                 migratedFromLegacy = true;
             }
@@ -74,7 +74,7 @@ final class ProfileSelectionState {
     }
 
     void selectManual(String profileKey) {
-        if (profileKey == null || profileKey.trim().isEmpty()) {
+        if (Str.isBlank(profileKey)) {
             return;
         }
         manualSelection = true;
@@ -94,7 +94,7 @@ final class ProfileSelectionState {
             return accountwideKeyString;
         }
         String key = selectedProfileKey;
-        if (key == null || key.trim().isEmpty()) {
+        if (Str.isBlank(key)) {
             return accountwideKeyString;
         }
         String normalized = key.trim().toLowerCase(Locale.US);
@@ -113,7 +113,7 @@ final class ProfileSelectionState {
             return accountwideKey;
         }
         String key = selectedProfileKey;
-        if (key == null || key.trim().isEmpty()) {
+        if (Str.isBlank(key)) {
             return accountwideKey;
         }
         String normalized = key.trim().toLowerCase(Locale.US);
@@ -135,7 +135,7 @@ final class ProfileSelectionState {
     }
 
     void restoreLoadedState(String storedKey, String mode) {
-        if (storedKey != null && !storedKey.trim().isEmpty()) {
+        if (Str.hasText(storedKey)) {
             selectedProfileKey = storedKey.trim();
         }
         manualSelection = "manual".equalsIgnoreCase(mode);
@@ -143,7 +143,7 @@ final class ProfileSelectionState {
 
     String selectedProfileKeyForPersistence() {
         String key = selectedProfileKey;
-        if (key == null || key.trim().isEmpty()) {
+        if (Str.isBlank(key)) {
             return accountwideKeyString;
         }
         return key.trim();

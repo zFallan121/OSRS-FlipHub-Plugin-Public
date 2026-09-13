@@ -90,7 +90,7 @@ final class OfferStampStateServices {
             return;
         }
         String deviceId = config.deviceId();
-        if (deviceId == null || deviceId.trim().isEmpty()) {
+        if (Str.isBlank(deviceId)) {
             configManager.setConfiguration(configGroup, "deviceId", UUID.randomUUID().toString());
         }
     }
@@ -157,15 +157,15 @@ final class OfferStampStateServices {
     }
 
     private void migrateLegacyDevConfigValue(ConfigManager configManager, String key) {
-        if (key == null || key.trim().isEmpty()) {
+        if (Str.isBlank(key)) {
             return;
         }
         String current = configManager.getConfiguration(configGroup, key);
-        if (current != null && !current.trim().isEmpty()) {
+        if (Str.hasText(current)) {
             return;
         }
         String legacy = configManager.getConfiguration(legacyDevConfigGroup, key);
-        if (legacy == null || legacy.trim().isEmpty()) {
+        if (Str.isBlank(legacy)) {
             return;
         }
         try {

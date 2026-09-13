@@ -103,7 +103,7 @@ final class PanelPluginListener implements PanelListener {
 
     @Override
     public void onProfileSelected(String profileKey) {
-        if (profileKey == null || profileKey.trim().isEmpty()) {
+        if (Str.isBlank(profileKey)) {
             return;
         }
         GeLifecyclePlugin plugin = Access.plugin();

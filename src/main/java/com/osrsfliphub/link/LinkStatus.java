@@ -163,7 +163,7 @@ final class LinkStatus {
             return NOT_LINKED;
         }
         String hint = config != null ? config.licenseKeyHint() : null;
-        return (hint == null || hint.trim().isEmpty()) ? LINKED : LINKED + " (key ending " + hint + ")";
+        return Str.isBlank(hint) ? LINKED : LINKED + " (key ending " + hint + ")";
     }
 
     private String hintFor(String licenseKey) {

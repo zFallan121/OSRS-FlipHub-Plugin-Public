@@ -51,7 +51,7 @@ final class ExternalLink {
     }
 
     void openExternalUrl(String url) {
-        if (url == null || url.trim().isEmpty()) {
+        if (Str.isBlank(url)) {
             return;
         }
         LinkBrowser.browse(url);

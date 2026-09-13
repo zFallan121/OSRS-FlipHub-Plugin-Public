@@ -76,7 +76,7 @@ final class SessionRefresh {
             // stored token has moved on, that refresh is this one's answer too, and asking
             // again with the stale token would only invite a rejection.
             String storedToken = config.sessionToken();
-            if (ApiStatusPolicy.hasText(storedToken) && !storedToken.equals(currentToken)) {
+            if (Str.hasText(storedToken) && !storedToken.equals(currentToken)) {
                 return Outcome.REFRESHED;
             }
             try {

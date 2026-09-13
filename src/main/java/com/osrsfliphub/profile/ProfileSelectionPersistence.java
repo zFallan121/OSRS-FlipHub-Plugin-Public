@@ -52,14 +52,14 @@ final class ProfileSelectionPersistence {
         String storedKey = readConfiguration(configGroup, selectedKeyName);
         String mode = readConfiguration(configGroup, modeKeyName);
         boolean migratedFromLegacy = false;
-        if (isBlank(storedKey) || isBlank(mode)) {
+        if (Str.isBlank(storedKey) || Str.isBlank(mode)) {
             String legacyKey = readConfiguration(legacyGroup, selectedKeyName);
             String legacyMode = readConfiguration(legacyGroup, modeKeyName);
-            if (isBlank(storedKey) && !isBlank(legacyKey)) {
+            if (Str.isBlank(storedKey) && !Str.isBlank(legacyKey)) {
                 storedKey = legacyKey.trim();
                 migratedFromLegacy = true;
             }
-            if (isBlank(mode) && !isBlank(legacyMode)) {
+            if (Str.isBlank(mode) && !Str.isBlank(legacyMode)) {
                 mode = legacyMode.trim();
                 migratedFromLegacy = true;
             }
@@ -76,7 +76,4 @@ final class ProfileSelectionPersistence {
         configManager.setConfiguration(configGroup, modeKeyName, state.selectionModeForPersistence());
     }
 
-    private boolean isBlank(String value) {
-        return value == null || value.trim().isEmpty();
-    }
 }

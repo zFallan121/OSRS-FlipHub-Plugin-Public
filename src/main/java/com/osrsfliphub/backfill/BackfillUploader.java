@@ -113,7 +113,7 @@ final class BackfillUploader {
             + (delta.eventType != null ? delta.eventType : "");
         GeEvent event = new GeEvent();
         event.event_id = UUID.nameUUIDFromBytes(signature.getBytes(StandardCharsets.UTF_8)).toString();
-        event.event_type = delta.eventType != null && !delta.eventType.trim().isEmpty()
+        event.event_type = Str.hasText(delta.eventType)
             ? delta.eventType
             : "OFFER_UPDATED";
         event.ts_client_ms = delta.tsClientMs;

@@ -137,8 +137,8 @@ final class StatsAggregator {
                 if (itemLastSell != null && itemLastSell > 0 && (aggLastSell == null || itemLastSell > aggLastSell)) {
                     agg.last_sell_ts_ms = itemLastSell;
                 }
-                if ((agg.item_name == null || agg.item_name.trim().isEmpty())
-                    && item.item_name != null && !item.item_name.trim().isEmpty()) {
+                if (Str.isBlank(agg.item_name)
+                    && Str.hasText(item.item_name)) {
                     agg.item_name = item.item_name;
                 }
             }

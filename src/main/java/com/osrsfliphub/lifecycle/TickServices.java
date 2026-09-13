@@ -142,7 +142,7 @@ final class TickServices {
             return;
         }
         String name = client.getLocalPlayer().getName();
-        if (name == null || name.trim().isEmpty()) {
+        if (Str.isBlank(name)) {
             return;
         }
         String trimmed = name.trim();

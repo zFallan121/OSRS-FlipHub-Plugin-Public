@@ -48,11 +48,11 @@ final class LinkSessionGuard {
     }
 
     boolean hasSessionToken() {
-        return isSyncEnabled() && !isBlank(readSessionToken());
+        return isSyncEnabled() && !Str.isBlank(readSessionToken());
     }
 
     boolean isLinked() {
-        return isSyncEnabled() && !isBlank(readSessionToken()) && !isBlank(readSigningSecret());
+        return isSyncEnabled() && !Str.isBlank(readSessionToken()) && !Str.isBlank(readSigningSecret());
     }
 
     Credentials resolveLinkedCredentials() {
@@ -61,7 +61,7 @@ final class LinkSessionGuard {
         }
         String token = normalize(readSessionToken());
         String secret = normalize(readSigningSecret());
-        if (isBlank(token) || isBlank(secret)) {
+        if (Str.isBlank(token) || Str.isBlank(secret)) {
             return null;
         }
         return new Credentials(token, secret);
@@ -79,7 +79,4 @@ final class LinkSessionGuard {
         return value == null ? null : value.trim();
     }
 
-    private boolean isBlank(String value) {
-        return value == null || value.trim().isEmpty();
-    }
 }

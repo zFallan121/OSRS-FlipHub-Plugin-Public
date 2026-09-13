@@ -82,7 +82,7 @@ final class WidgetParser {
             return null;
         }
         String state = normalizeText(stateText);
-        if (state == null || state.trim().isEmpty()) {
+        if (Str.isBlank(state)) {
             return null;
         }
         String lower = state.trim().toLowerCase(Locale.US);
@@ -149,7 +149,7 @@ final class WidgetParser {
     }
 
     static long parseCoins(String text) {
-        if (text == null || text.trim().isEmpty()) {
+        if (Str.isBlank(text)) {
             return 0L;
         }
         Matcher matcher = COINS_PATTERN.matcher(text);
@@ -160,7 +160,7 @@ final class WidgetParser {
     }
 
     static int parseEachPrice(String text) {
-        if (text == null || text.trim().isEmpty()) {
+        if (Str.isBlank(text)) {
             return 0;
         }
         Matcher matcher = EACH_PATTERN.matcher(text);
@@ -175,7 +175,7 @@ final class WidgetParser {
     }
 
     static long parseGrossCoins(String text) {
-        if (text == null || text.trim().isEmpty()) {
+        if (Str.isBlank(text)) {
             return 0L;
         }
         Matcher matcher = GROSS_PATTERN.matcher(text);
@@ -186,7 +186,7 @@ final class WidgetParser {
     }
 
     static int parseStateQuantity(String stateText) {
-        if (stateText == null || stateText.trim().isEmpty()) {
+        if (Str.isBlank(stateText)) {
             return 0;
         }
         Matcher matcher = STATE_QUANTITY_PATTERN.matcher(stateText);

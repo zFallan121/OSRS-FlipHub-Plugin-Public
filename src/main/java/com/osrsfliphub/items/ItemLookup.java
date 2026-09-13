@@ -176,7 +176,7 @@ final class ItemLookup {
     }
 
     void cacheItemName(int itemId) {
-        if (itemId <= 0 || !(itemManager != null && clientThread != null)) {
+        if (itemId <= 0 || !canCacheItemNamesAsync()) {
             return;
         }
         if (itemNameCache != null && itemNameCache.containsKey(itemId)) {
@@ -185,7 +185,7 @@ final class ItemLookup {
         invokeOnClientThread(() -> {
             try {
                 String name = lookupItemNameSafe(itemId);
-                if (name == null || name.trim().isEmpty()) {
+                if (Str.isBlank(name)) {
                     return;
                 }
                 if (itemNameCache == null) {
@@ -198,6 +198,11 @@ final class ItemLookup {
             } catch (RuntimeException ignored) {
             }
         });
+    }
+
+    /** Whether there is anything to look a name up with, and a thread to do it on. */
+    private boolean canCacheItemNamesAsync() {
+        return itemManager != null && clientThread != null;
     }
 
     String getCachedItemName(int itemId) {

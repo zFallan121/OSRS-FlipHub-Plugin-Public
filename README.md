@@ -52,6 +52,20 @@ time**. Sort by completion, profit or ROI.
 
 ![The Profile tab, showing total profit, ROI, flips made and tax paid over the selected range, above a sortable list of per-item totals](docs/panel-profile.png)
 
+#### Recipes
+
+Bought a blade and a hilt, made a godsword, sold it? The game never tells a plugin that two items
+became one, so the three trades would otherwise be counted as three separate flips — one of them
+looking like a windfall and the others like losses.
+
+**Record a recipe** on the Profile tab. Tick the purchases that went in, tick the sales the result
+went out through, name it, and it becomes one activity with one profit. Assembling,
+disassembling, repairing and making or breaking sets are all covered, and a repair fee counts
+towards the cost.
+
+Nothing is guessed and nothing is recorded for you. Everything you record is listed underneath,
+and any of it can be undone.
+
 #### Sync with FlipHub OSRS
 
 Link your plugin with your FlipHub OSRS account to sync flips and get personalised flip insights to

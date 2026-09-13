@@ -143,7 +143,7 @@ final class ProfileStore {
         }
         try {
             String json = Files.readString(file, StandardCharsets.UTF_8);
-            if (json == null || json.trim().isEmpty()) {
+            if (Str.isBlank(json)) {
                 return null;
             }
             return gson.fromJson(json, ProfileData.class);

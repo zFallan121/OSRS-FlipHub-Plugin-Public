@@ -157,7 +157,7 @@ final class OfferPreviewWidgetParser {
             return;
         }
         String text = normalizeText(widget.getText());
-        if (text != null && !text.trim().isEmpty()) {
+        if (Str.hasText(text)) {
             out.add(text);
         }
         collectWidgetText(widget.getChildren(), out);

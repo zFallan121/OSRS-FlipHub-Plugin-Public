@@ -119,7 +119,7 @@ final class ProfileTradesLoader {
         }
 
         String resolvedName = null;
-        if (profileName != null && !profileName.trim().isEmpty() && !placeholderName) {
+        if (Str.hasText(profileName) && !placeholderName) {
             resolvedName = profileName.trim();
         }
         List<RecipeFlip> recorded = profile != null ? profile.recipeFlips : null;

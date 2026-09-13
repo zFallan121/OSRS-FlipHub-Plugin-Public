@@ -64,12 +64,9 @@ final class ApiStatusPolicy {
     }
 
     static boolean hasCredentials(String sessionToken, String signingSecret) {
-        return hasText(sessionToken) && hasText(signingSecret);
+        return Str.hasText(sessionToken) && Str.hasText(signingSecret);
     }
 
-    static boolean hasText(String value) {
-        return value != null && !value.isEmpty();
-    }
 
     static boolean isAuthorizationFailure(Throwable error) {
         Integer statusCode = extractAuthStatusCode(error);
@@ -92,7 +89,7 @@ final class ApiStatusPolicy {
     }
 
     private static Integer parseAuthStatusCode(String message) {
-        if (!hasText(message)) {
+        if (!Str.hasText(message)) {
             return null;
         }
         Matcher matcher = AUTH_STATUS_PATTERN.matcher(message);

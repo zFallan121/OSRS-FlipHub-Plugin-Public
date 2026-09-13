@@ -75,7 +75,7 @@ final class BackfillExecution {
 
     void attemptIfNeeded() {
         boolean shouldRetry = false;
-        if (!Access.loggedIn(client) || !isLinked() || !(apiClient != null && configManager != null)) {
+        if (!Access.loggedIn(client) || !isLinked() || !hasApiAccess()) {
             return;
         }
         long nowMs = System.currentTimeMillis();
@@ -100,4 +100,10 @@ final class BackfillExecution {
             }
         }
     }
+
+    /** Whether there is anything to upload with: a client for the calls, and config to sign them. */
+    private boolean hasApiAccess() {
+        return apiClient != null && configManager != null;
+    }
+
 }

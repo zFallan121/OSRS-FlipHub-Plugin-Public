@@ -233,7 +233,7 @@ final class ItemsAssembler {
 
     private String resolveName(int itemId) {
         String name = getCachedItemName(itemId);
-        if (name == null || name.trim().isEmpty()) {
+        if (Str.isBlank(name)) {
             cacheItemName(itemId);
             name = getCachedItemName(itemId);
         }
@@ -258,7 +258,7 @@ final class ItemsAssembler {
     }
 
     private String normalizeQuery(String currentQuery) {
-        if (currentQuery == null || currentQuery.trim().isEmpty()) {
+        if (Str.isBlank(currentQuery)) {
             return null;
         }
         return currentQuery.trim().toLowerCase(Locale.US);

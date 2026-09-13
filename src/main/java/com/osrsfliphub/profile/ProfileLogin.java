@@ -40,7 +40,7 @@ final class ProfileLogin {
         if (profileSelection == null || accountHash <= 0) {
             return;
         }
-        if (displayName != null && !displayName.trim().isEmpty()) {
+        if (Str.hasText(displayName)) {
             pluginState.getProfileDisplayNames().put(accountHash, displayName.trim());
         }
         Access.plugin().executeAsync(

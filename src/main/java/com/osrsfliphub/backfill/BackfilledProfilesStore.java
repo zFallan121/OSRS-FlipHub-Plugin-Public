@@ -48,12 +48,12 @@ final class BackfilledProfilesStore {
             return keys;
         }
         String raw = configManager.getConfiguration(configGroup, configKey);
-        if (raw == null || raw.trim().isEmpty()) {
+        if (Str.isBlank(raw)) {
             return keys;
         }
         String[] parts = raw.split(",");
         for (String part : parts) {
-            if (part == null || part.trim().isEmpty()) {
+            if (Str.isBlank(part)) {
                 continue;
             }
             try {

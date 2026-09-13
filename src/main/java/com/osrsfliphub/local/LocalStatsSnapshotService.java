@@ -81,7 +81,7 @@ final class LocalStatsSnapshotService {
             }
             String cachedName = itemLookup != null ? itemLookup.getCachedItemName(item.item_id) : null;
             item.item_name = cachedName;
-            if ((cachedName == null || cachedName.trim().isEmpty()) && itemLookup != null) {
+            if (Str.isBlank(cachedName) && itemLookup != null) {
                 itemLookup.cacheItemName(item.item_id);
             }
         }

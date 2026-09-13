@@ -49,7 +49,7 @@ final class OfferStampFallbackBuilder {
             item.item_id = stamp.itemId;
             if (lookup != null) {
                 String itemName = lookup.lookupItemNameSafe(stamp.itemId);
-                if (itemName != null && !itemName.trim().isEmpty()) {
+                if (Str.hasText(itemName)) {
                     item.item_name = itemName;
                 }
             }

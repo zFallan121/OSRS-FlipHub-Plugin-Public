@@ -235,7 +235,7 @@ final class StatsRender {
             if (item == null) {
                 continue;
             }
-            String name = item.item_name != null && !item.item_name.trim().isEmpty()
+            String name = Str.hasText(item.item_name)
                 ? item.item_name
                 : "Item " + item.item_id;
             if (!normalizedQuery.isEmpty() && !name.toLowerCase(Locale.US).contains(normalizedQuery)) {

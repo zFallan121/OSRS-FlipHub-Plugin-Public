@@ -156,7 +156,7 @@ final class LinkAttempt {
     void linkFromPanel(String licenseKey) {
         String normalized = normalize(licenseKey);
         LinkStatus status = Bridge.get(LinkStatus.class);
-        if (isBlank(normalized)) {
+        if (Str.isBlank(normalized)) {
             if (status != null) {
                 status.markPanelMessage("Paste your license key first.");
             }
@@ -218,7 +218,7 @@ final class LinkAttempt {
     }
 
     void attemptLink(String licenseKey) {
-        if (config == null || !config.enableFlipHubSync()) {
+        if (syncIsOff()) {
             if (log.isDebugEnabled()) {
                 log.debug("FlipHub link skipped: FlipHub sync is disabled in the plugin settings");
             }
@@ -226,7 +226,7 @@ final class LinkAttempt {
             return;
         }
         String normalized = normalize(licenseKey);
-        if (isBlank(normalized)) {
+        if (Str.isBlank(normalized)) {
             return;
         }
         if (!Access.loggedIn(client)) {
@@ -258,7 +258,7 @@ final class LinkAttempt {
         try {
             String deviceId = currentDeviceId();
             ApiClient.LinkResponse response = linkDevice(licenseKey, deviceId);
-            if (response != null && (!isBlank(response.session_token)) && (!isBlank(response.signing_secret))) {
+            if (response != null && (!Str.isBlank(response.session_token)) && (!Str.isBlank(response.signing_secret))) {
                 Bridge.get(LinkSessionConfigStore.class).persistLinkedSession(response.session_token, response.signing_secret);
                 resetAccountwideUploadSnapshot();
                 resetUploadDiagnosticsState();
@@ -291,7 +291,7 @@ final class LinkAttempt {
                 // resolve, the handshake failed, the server had a bad minute, or sync is
                 // switched off. Erasing the key here made the player go and find it again for
                 // a problem that had nothing to do with it.
-                reportStatus((config == null || !config.enableFlipHubSync()) ? LinkStatus.SYNC_OFF : LinkStatus.UNREACHABLE);
+                reportStatus(syncIsOff() ? LinkStatus.SYNC_OFF : LinkStatus.UNREACHABLE);
                 updateProfileHeader();
                 log.warn("FlipHub link failed", ex);
                 linkInFlight.set(false);
@@ -317,7 +317,7 @@ final class LinkAttempt {
     }
 
     private void scheduleRetry(String licenseKey) {
-        if (isBlank(licenseKey)) {
+        if (Str.isBlank(licenseKey)) {
             return;
         }
         scheduleRetry(() -> attemptLink(licenseKey), RETRY_DELAY_SECONDS);
@@ -327,7 +327,10 @@ final class LinkAttempt {
         return value == null ? null : value.trim();
     }
 
-    private boolean isBlank(String value) {
-        return value == null || value.trim().isEmpty();
+
+    /** The player has turned sync off, so there is nothing to link and nothing to send. */
+    private boolean syncIsOff() {
+        return config == null || !config.enableFlipHubSync();
     }
+
 }

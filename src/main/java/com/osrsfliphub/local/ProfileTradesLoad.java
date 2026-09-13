@@ -85,7 +85,7 @@ final class ProfileTradesLoad {
             statsCache.rebuild(accountHash, merged);
         }
         String resolvedName = loaded.resolvedDisplayName;
-        if (resolvedName != null && !resolvedName.trim().isEmpty()) {
+        if (Str.hasText(resolvedName)) {
             pluginState.getProfileDisplayNames().put(accountHash, resolvedName.trim());
         }
         ItemLookup itemLookup = Bridge.get(ItemLookup.class);

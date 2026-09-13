@@ -81,7 +81,7 @@ final class ConfigChangedHandler {
                 }
             }
             refreshLinkStatus();
-            if ((Access.plugin().panel != null)) {
+            if (Access.plugin().panel != null) {
                 Access.plugin().getProfileWorkflowService().updateProfileHeader();
             }
             GeLifecyclePlugin plugin = Access.plugin();
@@ -108,7 +108,7 @@ final class ConfigChangedHandler {
                 bookmarkStateService.loadSelectedBookmarks(
                     profileSelectionService.resolveSelectedProfileKey(), state.getBookmarkedItems());
             }
-            if ((Access.plugin().panel != null)) {
+            if (Access.plugin().panel != null) {
                 refreshBookmarksUi();
             }
         }
@@ -134,7 +134,7 @@ final class ConfigChangedHandler {
                 state.getHiddenItems().addAll(
                     state.getHiddenItemConfigStore().parseItemIds(config.hiddenItems()));
             }
-            if ((Access.plugin().panel != null)) {
+            if (Access.plugin().panel != null) {
                 refreshBookmarksUi();
             }
         }

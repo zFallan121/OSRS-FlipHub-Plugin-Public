@@ -121,7 +121,7 @@ final class GeHistoryCursorService {
 
     /** A stored cursor read back. Anything not written under {@link #FORMAT_TAG} is stale. */
     static StoredCursor decode(String raw) {
-        if (raw == null || raw.trim().isEmpty()) {
+        if (Str.isBlank(raw)) {
             return StoredCursor.NONE;
         }
         String[] parts = raw.split(ROW_SEPARATOR);

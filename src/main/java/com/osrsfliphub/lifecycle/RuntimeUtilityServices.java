@@ -66,7 +66,7 @@ final class RuntimeUtilityServices {
                 SessionRefresh.Outcome outcome = sessionRefreshService.attemptRefresh(sessionToken);
                 if (outcome == SessionRefresh.Outcome.REFRESHED) {
                     String refreshedToken = config.sessionToken();
-                    if (ApiStatusPolicy.hasText(refreshedToken)) {
+                    if (Str.hasText(refreshedToken)) {
                         return fetchRemoteStatsSummary(
                             apiClient,
                             config,
@@ -103,7 +103,7 @@ final class RuntimeUtilityServices {
     }
 
     void pushGameMessage(Client client, String message) {
-        if (client == null || message == null || message.trim().isEmpty()) {
+        if (client == null || Str.isBlank(message)) {
             return;
         }
         try {

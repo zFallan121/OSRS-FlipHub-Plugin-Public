@@ -52,7 +52,7 @@ final class OfferPreviewBuilder {
         item.item_id = itemId;
         ItemLookup itemLookup = Bridge.get(ItemLookup.class);
         String itemName = itemLookup != null ? itemLookup.lookupItemNameSafe(itemId) : null;
-        if (itemName != null && !itemName.trim().isEmpty()) {
+        if (Str.hasText(itemName)) {
             item.item_name = itemName;
         }
         ItemEnrichment enrichment = Bridge.get(ItemEnrichment.class);

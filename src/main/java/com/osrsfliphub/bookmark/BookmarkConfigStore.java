@@ -45,7 +45,7 @@ final class BookmarkConfigStore {
     }
 
     boolean isBookmarksConfigKey(String configKey) {
-        if (configKey == null || configKey.trim().isEmpty()) {
+        if (Str.isBlank(configKey)) {
             return false;
         }
         String trimmed = configKey.trim();
@@ -53,7 +53,7 @@ final class BookmarkConfigStore {
     }
 
     Long parseProfileKey(String configKey) {
-        if (configKey == null || configKey.trim().isEmpty()) {
+        if (Str.isBlank(configKey)) {
             return null;
         }
         String trimmed = configKey.trim();
@@ -84,7 +84,7 @@ final class BookmarkConfigStore {
 
     Set<Integer> parseItemIds(String raw) {
         Set<Integer> parsed = new HashSet<>();
-        if (raw == null || raw.trim().isEmpty()) {
+        if (Str.isBlank(raw)) {
             return parsed;
         }
         String[] parts = raw.split(",");

@@ -89,7 +89,7 @@ final class ApiClientCore {
                 if (response.body() != null) {
                     errorBody = response.body().string();
                 }
-                if (errorBody == null || errorBody.trim().isEmpty()) {
+                if (Str.isBlank(errorBody)) {
                     throw new ApiRefusedException(response.code(), "Link failed: " + response.code());
                 }
                 throw new ApiRefusedException(response.code(),
@@ -103,17 +103,17 @@ final class ApiClientCore {
     ApiClient.LinkResponse refreshSession(String sessionToken, String signingSecret, String deviceId) throws IOException {
         ensureSyncEnabled();
         Map<String, Object> payload = new HashMap<>();
-        if (requestFactory.hasText(deviceId)) {
+        if (Str.hasText(deviceId)) {
             payload.put("device_id", deviceId.trim());
             payload.put("sent_at_ms", System.currentTimeMillis());
         }
         String json = gson.toJson(payload);
         Request.Builder requestBuilder = requestFactory.newPostBuilder(PATH_REFRESH, json);
-        if (requestFactory.hasText(sessionToken)) {
+        if (Str.hasText(sessionToken)) {
             requestBuilder.addHeader("X-Plugin-Token", sessionToken);
         }
 
-        if (requestFactory.hasText(signingSecret) && requestFactory.hasText(deviceId)) {
+        if (Str.hasText(signingSecret) && Str.hasText(deviceId)) {
             requestFactory.addSignedHeaders(requestBuilder, "POST", PATH_REFRESH, signingSecret, json);
         }
 
@@ -156,7 +156,7 @@ final class ApiClientCore {
         try (Response response = httpClient.newCall(request).execute()) {
             result.status_code = response.code();
             String responseBody = response.body() != null ? response.body().string() : null;
-            if (responseBody != null && !responseBody.trim().isEmpty()) {
+            if (Str.hasText(responseBody)) {
                 try {
                     ApiClient.EventUploadResponse parsed = gson.fromJson(responseBody, ApiClient.EventUploadResponse.class);
                     if (parsed != null) {
@@ -211,7 +211,7 @@ final class ApiClientCore {
                 throw new ApiClient.ApiException("Website wipe failed", response.code());
             }
             String responseBody = response.body() != null ? response.body().string() : null;
-            if (responseBody == null || responseBody.trim().isEmpty()) {
+            if (Str.isBlank(responseBody)) {
                 ApiClient.WipeStatsResponse empty = new ApiClient.WipeStatsResponse();
                 empty.status = "ok";
                 return empty;

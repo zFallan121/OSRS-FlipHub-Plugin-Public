@@ -60,7 +60,7 @@ final class WipeStateStore {
             return false;
         }
         String raw = readConfiguration(configGroup, wipeBarrierKeyPrefix + accountKey);
-        return raw != null && !raw.trim().isEmpty();
+        return Str.hasText(raw);
     }
 
     void setWipeBarrierArmed(long accountKey, boolean armed) {

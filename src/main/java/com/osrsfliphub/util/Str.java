@@ -24,53 +24,28 @@
  */
 package com.osrsfliphub;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-final class HiddenItemConfigStore {
-    private static final String HIDDEN_ITEMS_KEY = "hiddenItems";
-
-    String configKey() {
-        return HIDDEN_ITEMS_KEY;
+/**
+ * The one question this plugin asks of a string: is there anything in it?
+ *
+ * <p>An item name, a licence key, a display name, a stored profile key - every one of them
+ * arrives as "absent, empty, or a few spaces the player typed", and every one of them was being
+ * checked by hand. Spelled out seventy times the check is easy to get half right: a null guard
+ * without the trim admits "   " as a name, and a trim without the null guard throws.
+ *
+ * <p>Not RuneLite's {@code Text}, which this deliberately does not shadow, and not
+ * {@code String.isBlank}, which needs Java 11 at the language level the hub does not build at.
+ */
+final class Str {
+    private Str() {
     }
 
-    boolean isHiddenItemsConfigKey(String configKey) {
-        if (Str.isBlank(configKey)) {
-            return false;
-        }
-        return HIDDEN_ITEMS_KEY.equals(configKey.trim());
+    /** Absent, empty, or nothing but whitespace. */
+    static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
-    Set<Integer> parseItemIds(String raw) {
-        Set<Integer> parsed = new HashSet<>();
-        if (Str.isBlank(raw)) {
-            return parsed;
-        }
-        String[] parts = raw.split(",");
-        for (String part : parts) {
-            String trimmed = part.trim();
-            if (trimmed.isEmpty()) {
-                continue;
-            }
-            try {
-                int itemId = Integer.parseInt(trimmed);
-                if (itemId > 0) {
-                    parsed.add(itemId);
-                }
-            } catch (NumberFormatException ignored) {
-            }
-        }
-        return parsed;
-    }
-
-    String serializeItemIds(Set<Integer> itemIds) {
-        if (itemIds == null || itemIds.isEmpty()) {
-            return "";
-        }
-        return itemIds.stream()
-            .sorted()
-            .map(String::valueOf)
-            .collect(Collectors.joining(","));
+    /** There is something here worth using. */
+    static boolean hasText(String value) {
+        return !isBlank(value);
     }
 }

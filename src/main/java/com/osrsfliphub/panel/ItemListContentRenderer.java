@@ -112,7 +112,7 @@ final class ItemListContentRenderer {
         }
         List<FlipHubItem> itemsToShow = new ArrayList<>();
         for (FlipHubItem item : lastItems) {
-            if (item == null || (hiddenItemStore != null && hiddenItemStore.isHidden(item.item_id))) {
+            if (item == null || isHidden(item)) {
                 continue;
             }
             if (showBookmarkedOnly && !isBookmarked(item)) {
@@ -129,7 +129,7 @@ final class ItemListContentRenderer {
     }
 
     private Plan emptyPlan(boolean showBookmarkedOnly, String searchQuery) {
-        boolean searching = searchQuery != null && !searchQuery.trim().isEmpty();
+        boolean searching = Str.hasText(searchQuery);
         String title;
         String body;
         if (showBookmarkedOnly) {
@@ -244,6 +244,11 @@ final class ItemListContentRenderer {
 
     private boolean isBookmarked(FlipHubItem item) {
         return bookmarkStore != null && bookmarkStore.isBookmarked(item.item_id);
+    }
+
+
+    private boolean isHidden(FlipHubItem item) {
+        return hiddenItemStore != null && hiddenItemStore.isHidden(item.item_id);
     }
 
 }

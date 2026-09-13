@@ -90,6 +90,10 @@ final class StatsItemCardBuilder {
      * showed a flip sitting under two assembles and the card's own total added
      * up all three.
      */
+    private boolean isStatsHistoryExpanded(int itemId) {
+        return expandedStatsHistoryItems != null && expandedStatsHistoryItems.contains(itemId);
+    }
+
     private List<StatsFlipInstance> getStatsFlipHistory(int itemId) {
         if (panelState == null || panelState.statsFlipHistoryByItem == null) {
             return new ArrayList<>();
@@ -192,7 +196,7 @@ final class StatsItemCardBuilder {
         card.setAlignmentX(Component.LEFT_ALIGNMENT);
         card.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
-        String name = item.item_name != null && !item.item_name.trim().isEmpty()
+        String name = Str.hasText(item.item_name)
             ? item.item_name
             : "Item " + item.item_id;
         card.setToolTipText(buildStatsCardTooltip(name, item, expanded));
@@ -362,7 +366,7 @@ final class StatsItemCardBuilder {
         if (history == null) {
             history = new ArrayList<>();
         }
-        boolean expanded = expandedStatsHistoryItems != null && expandedStatsHistoryItems.contains(itemId);
+        boolean expanded = isStatsHistoryExpanded(itemId);
 
         JPanel header = new JPanel(new BorderLayout(6, 0));
         header.setOpaque(false);
@@ -534,7 +538,7 @@ final class StatsItemCardBuilder {
         headingRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 14));
         headingRow.add(heading, BorderLayout.WEST);
         breakdown.add(headingRow);
-        if (instance.conversionName != null && !instance.conversionName.trim().isEmpty()) {
+        if (Str.hasText(instance.conversionName)) {
             JPanel row = new JPanel(new BorderLayout(6, 0));
             row.setOpaque(false);
             row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 14));

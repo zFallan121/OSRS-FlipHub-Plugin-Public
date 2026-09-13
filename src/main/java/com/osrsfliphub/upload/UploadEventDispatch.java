@@ -259,7 +259,7 @@ final class UploadEventDispatch {
             markFailure(initialStatus, "Could not reach FlipHub to refresh the session. Events queued for retry.",
                 false, 0);
         }
-        if ((Access.plugin().runtimeUtilityServices.isPanelVisible(Access.plugin().panel))) {
+        if (Access.plugin().runtimeUtilityServices.isPanelVisible(Access.plugin().panel)) {
             updateProfileHeader();
         }
     }
@@ -280,7 +280,7 @@ final class UploadEventDispatch {
         if (ApiStatusPolicy.isAuthStatus(retryStatus)) {
             log.warn("FlipHub event upload unauthorized after refresh; clearing session to force relink");
             clearSession();
-            if ((Access.plugin().runtimeUtilityServices.isPanelVisible(Access.plugin().panel))) {
+            if (Access.plugin().runtimeUtilityServices.isPanelVisible(Access.plugin().panel)) {
                 updateProfileHeader();
             }
         }

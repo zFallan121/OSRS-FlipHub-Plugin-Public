@@ -128,7 +128,7 @@ final class ItemsResponseBuilder {
         // offer on screen. Once a filter is in force an empty list means "nothing you asked for
         // is here", and an item that was not asked for is not an answer to that.
         boolean filtered = bookmarkFilterEnabled
-            || (currentQuery != null && !currentQuery.trim().isEmpty());
+            || Str.hasText(currentQuery);
         if (items.isEmpty() && includeEmptyFallback && !filtered) {
             ApiClient.ItemsResponse stampFallback = panelData != null ? panelData.buildOfferStampFallback() : null;
             if (stampFallback != null && stampFallback.items != null && !stampFallback.items.isEmpty()) {

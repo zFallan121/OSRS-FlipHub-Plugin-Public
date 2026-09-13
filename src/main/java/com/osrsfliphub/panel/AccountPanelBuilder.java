@@ -354,11 +354,11 @@ final class AccountPanelBuilder {
         }
         view.stateLabel.setText(linked ? "Linked" : "Not linked");
         view.stateLabel.setForeground(linked ? SUCCESS : TEXT);
-        boolean hasHint = linked && keyHint != null && !keyHint.trim().isEmpty();
+        boolean hasHint = linked && Str.hasText(keyHint);
         view.keyHintLabel.setText(hasHint ? "Key ending " + keyHint : " ");
         view.linkedRows.setVisible(linked);
         view.unlinkedRows.setVisible(!linked);
-        view.messageLabel.setText(message == null || message.trim().isEmpty() ? " " : message);
+        view.messageLabel.setText(Str.isBlank(message) ? " " : message);
         view.messageLabel.setForeground(messageColor != null ? messageColor : MUTED);
         view.panel.revalidate();
         view.panel.repaint();

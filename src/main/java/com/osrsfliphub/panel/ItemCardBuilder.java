@@ -281,7 +281,7 @@ final class ItemCardBuilder {
     }
 
     private String resolveName(FlipHubItem item) {
-        return item.item_name != null && !item.item_name.trim().isEmpty()
+        return Str.hasText(item.item_name)
             ? item.item_name
             : "Item " + item.item_id;
     }
