@@ -43,13 +43,13 @@ public class LocalStatsCacheServiceTest {
      */
     @Test
     public void applyDeltaWithNoCachePresentRebuildsFromTheStoredHistory() {
-        Map<Long, LocalStatsCache> cacheMap = new ConcurrentHashMap<>();
-        Map<Long, List<LocalTradeDelta>> deltasByAccount = new HashMap<>();
+        Map<Long, StatsCache> cacheMap = new ConcurrentHashMap<>();
+        Map<Long, List<Delta>> deltasByAccount = new HashMap<>();
         Object lock = new Object();
         long accountKey = 789L;
-        List<LocalTradeDelta> deltas = new ArrayList<>();
-        LocalTradeDelta buy = new LocalTradeDelta(1000L, 1, 4151, true, 1, 100L, "OFFER_UPDATED", 100, false);
-        LocalTradeDelta sell = new LocalTradeDelta(2000L, 1, 4151, false, 1, 120L, "OFFER_COMPLETED", 120, false);
+        List<Delta> deltas = new ArrayList<>();
+        Delta buy = new Delta(1000L, 1, 4151, true, 1, 100L, "OFFER_UPDATED", 100, false);
+        Delta sell = new Delta(2000L, 1, 4151, false, 1, 120L, "OFFER_COMPLETED", 120, false);
         deltas.add(buy);
         deltas.add(sell);
         deltasByAccount.put(accountKey, deltas);
@@ -64,17 +64,17 @@ public class LocalStatsCacheServiceTest {
 
     @Test
     public void getOrBuildBuildsCacheFromSnapshot() {
-        Map<Long, LocalStatsCache> cacheMap = new ConcurrentHashMap<>();
-        Map<Long, List<LocalTradeDelta>> deltasByAccount = new HashMap<>();
+        Map<Long, StatsCache> cacheMap = new ConcurrentHashMap<>();
+        Map<Long, List<Delta>> deltasByAccount = new HashMap<>();
         Object lock = new Object();
         long accountKey = 123L;
-        List<LocalTradeDelta> deltas = new ArrayList<>();
-        deltas.add(new LocalTradeDelta(1000L, 1, 4151, true, 1, 100L, "OFFER_UPDATED", 100, false));
-        deltas.add(new LocalTradeDelta(2000L, 1, 4151, false, 1, 120L, "OFFER_COMPLETED", 120, false));
+        List<Delta> deltas = new ArrayList<>();
+        deltas.add(new Delta(1000L, 1, 4151, true, 1, 100L, "OFFER_UPDATED", 100, false));
+        deltas.add(new Delta(2000L, 1, 4151, false, 1, 120L, "OFFER_COMPLETED", 120, false));
         deltasByAccount.put(accountKey, deltas);
         LocalStatsCacheService service = new LocalStatsCacheService(cacheMap, deltasByAccount, lock);
 
-        LocalStatsCache cache = service.getOrBuild(accountKey);
+        StatsCache cache = service.getOrBuild(accountKey);
 
         assertNotNull(cache);
         StatsSummary summary = cache.getSummary();
@@ -84,13 +84,13 @@ public class LocalStatsCacheServiceTest {
 
     @Test
     public void applyDeltaRebuildsWhenOutOfOrder() {
-        Map<Long, LocalStatsCache> cacheMap = new ConcurrentHashMap<>();
-        Map<Long, List<LocalTradeDelta>> deltasByAccount = new HashMap<>();
+        Map<Long, StatsCache> cacheMap = new ConcurrentHashMap<>();
+        Map<Long, List<Delta>> deltasByAccount = new HashMap<>();
         Object lock = new Object();
         long accountKey = 456L;
-        List<LocalTradeDelta> deltas = new ArrayList<>();
-        LocalTradeDelta buy = new LocalTradeDelta(1000L, 1, 4151, true, 1, 100L, "OFFER_UPDATED", 100, false);
-        LocalTradeDelta sell = new LocalTradeDelta(2000L, 1, 4151, false, 1, 120L, "OFFER_COMPLETED", 120, false);
+        List<Delta> deltas = new ArrayList<>();
+        Delta buy = new Delta(1000L, 1, 4151, true, 1, 100L, "OFFER_UPDATED", 100, false);
+        Delta sell = new Delta(2000L, 1, 4151, false, 1, 120L, "OFFER_COMPLETED", 120, false);
         deltas.add(buy);
         deltasByAccount.put(accountKey, deltas);
         LocalStatsCacheService service = new LocalStatsCacheService(cacheMap, deltasByAccount, lock);
@@ -101,7 +101,7 @@ public class LocalStatsCacheServiceTest {
         StatsSummary inOrder = cacheMap.get(accountKey).getSummary();
         assertEquals(Integer.valueOf(1), inOrder.fill_count);
 
-        LocalTradeDelta outOfOrderBuy = new LocalTradeDelta(500L, 1, 4151, true, 1, 90L, "OFFER_UPDATED", 90, false);
+        Delta outOfOrderBuy = new Delta(500L, 1, 4151, true, 1, 90L, "OFFER_UPDATED", 90, false);
         deltas.add(outOfOrderBuy);
         service.applyDelta(accountKey, outOfOrderBuy);
         StatsSummary rebuilt = cacheMap.get(accountKey).getSummary();

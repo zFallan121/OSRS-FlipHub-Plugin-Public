@@ -41,7 +41,7 @@ import static org.junit.Assert.assertTrue;
 public class FlipHubStatsStateCoordinatorTest {
     @Test
     public void normalizeClearsExpandedItemWhenNoLongerVisibleAndPrunesHistoryExpansionSet() {
-        FlipHubStatsStateCoordinator coordinator = new FlipHubStatsStateCoordinator();
+        StatsState coordinator = new StatsState();
         List<StatsItem> items = Arrays.asList(item(4151), item(11840));
         Map<Integer, List<StatsFlipInstance>> historyByItem = new HashMap<>();
         historyByItem.put(4151, new ArrayList<StatsFlipInstance>());
@@ -52,7 +52,7 @@ public class FlipHubStatsStateCoordinatorTest {
         expandedHistoryItems.add(995);
         expandedHistoryItems.add(null);
 
-        FlipHubStatsStateCoordinator.Result result = coordinator.normalize(
+        StatsState.Result result = coordinator.normalize(
             null,
             items,
             historyByItem,
@@ -69,14 +69,14 @@ public class FlipHubStatsStateCoordinatorTest {
 
     @Test
     public void normalizeKeepsExpandedItemWhenVisible() {
-        FlipHubStatsStateCoordinator coordinator = new FlipHubStatsStateCoordinator();
+        StatsState coordinator = new StatsState();
         List<StatsItem> items = Arrays.asList(item(4151));
         Map<Integer, List<StatsFlipInstance>> historyByItem = new HashMap<>();
         historyByItem.put(4151, new ArrayList<StatsFlipInstance>());
         Set<Integer> expandedHistoryItems = new HashSet<>();
         expandedHistoryItems.add(4151);
 
-        FlipHubStatsStateCoordinator.Result result = coordinator.normalize(
+        StatsState.Result result = coordinator.normalize(
             null,
             items,
             historyByItem,

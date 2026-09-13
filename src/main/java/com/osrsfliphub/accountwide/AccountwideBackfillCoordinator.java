@@ -49,7 +49,7 @@ final class AccountwideBackfillCoordinator {
     }
 
     private final int maxBackfillProfileCount =
-        Math.max(1, GeLifecyclePluginConstants.MAX_BACKFILL_PROFILE_COUNT);
+        Math.max(1, Const.MAX_BACKFILL_PROFILE_COUNT);
     private final ApiClient apiClient;
     private final PluginConfig config;
     private final PluginState state;
@@ -62,14 +62,14 @@ final class AccountwideBackfillCoordinator {
     }
 
     private static BackfilledProfilesStore backfilledProfilesStore() {
-        return PluginInjectorBridge.get(BackfilledProfilesStore.class);
+        return Bridge.get(BackfilledProfilesStore.class);
     }
 
     private Set<Long> collectAccountwideProfileKeys() {
-        AccountwideProfileKeyCollector collector = PluginInjectorBridge.get(AccountwideProfileKeyCollector.class);
-        ProfileStorageFacadeService storage = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
-        ProfileSelectionPresentationFacadeService profileSelection =
-            PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
+        ProfileKeyCollector collector = Bridge.get(ProfileKeyCollector.class);
+        ProfileStorage storage = Bridge.get(ProfileStorage.class);
+        ProfileSelectionPresentation profileSelection =
+            Bridge.get(ProfileSelectionPresentation.class);
         if (collector == null || storage == null || profileSelection == null) {
             return null;
         }
@@ -87,17 +87,17 @@ final class AccountwideBackfillCoordinator {
     }
 
     private void ensureProfileLoaded(long key) {
-        PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(key);
+        Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(key);
     }
 
-    private LocalStatsSnapshot buildLocalStatsSnapshot(long key) {
-        LocalStatsSnapshotService service = PluginInjectorBridge.get(LocalStatsSnapshotService.class);
+    private StatsSnapshot buildLocalStatsSnapshot(long key) {
+        LocalStatsSnapshotService service = Bridge.get(LocalStatsSnapshotService.class);
         return service != null ? service.buildSnapshot(key, null, StatsItemSort.COMPLETION) : null;
     }
 
     private ApiClient.StatsSummaryResponse fetchRemoteStatsSummary(String token) {
-        GeLifecyclePlugin plugin = PluginAccess.plugin();
-        SessionRefreshService sessionRefresh = PluginInjectorBridge.get(SessionRefreshService.class);
+        GeLifecyclePlugin plugin = Access.plugin();
+        SessionRefresh sessionRefresh = Bridge.get(SessionRefresh.class);
         return plugin.runtimeUtilityServices.fetchRemoteStatsSummary(
             apiClient, config, sessionRefresh, token, null, true);
     }
@@ -105,14 +105,14 @@ final class AccountwideBackfillCoordinator {
     private Set<Long> inferLikelySyncedProfiles(Set<Long> profileKeys,
                                                 Map<Long, StatsSummary> localSummaries,
                                                 StatsSummary remoteSummary) {
-        BackfillSyncMatcher matcher = PluginInjectorBridge.get(BackfillSyncMatcher.class);
+        BackfillSyncMatcher matcher = Bridge.get(BackfillSyncMatcher.class);
         return matcher != null
             ? matcher.inferLikelySyncedProfiles(profileKeys, localSummaries, remoteSummary) : null;
     }
 
     private BackfillUploader.Outcome backfillProfileTrades(long profileKey) {
-        AccountwideProfileBackfillService runner = PluginInjectorBridge.get(AccountwideProfileBackfillService.class);
-        BackfillUploader uploader = PluginInjectorBridge.get(BackfillUploader.class);
+        ProfileBackfill runner = Bridge.get(ProfileBackfill.class);
+        BackfillUploader uploader = Bridge.get(BackfillUploader.class);
         if (runner == null || apiClient == null || config == null || uploader == null) {
             return BackfillUploader.Outcome.RETRY;
         }
@@ -127,8 +127,8 @@ final class AccountwideBackfillCoordinator {
     }
 
     private void triggerRefreshes() {
-        GeLifecyclePlugin plugin = PluginAccess.plugin();
-        PanelRefreshCoordinator coordinator = plugin.getPanelRefreshCoordinator();
+        GeLifecyclePlugin plugin = Access.plugin();
+        PanelRefresh coordinator = plugin.getPanelRefreshCoordinator();
         if (coordinator != null) {
             coordinator.triggerStatsRefresh(plugin.scheduler);
             coordinator.triggerPanelRefresh(plugin.scheduler);
@@ -136,7 +136,7 @@ final class AccountwideBackfillCoordinator {
     }
 
     private void resetBackfillRetryState() {
-        UploadBackfillDispatchService service = PluginInjectorBridge.get(UploadBackfillDispatchService.class);
+        UploadBackfillDispatch service = Bridge.get(UploadBackfillDispatch.class);
         if (service != null) {
             service.resetBackfillRetryState();
         }
@@ -201,7 +201,7 @@ final class AccountwideBackfillCoordinator {
                     continue;
                 }
                 ensureProfileLoaded(key);
-                LocalStatsSnapshot snapshot = buildLocalStatsSnapshot(key);
+                StatsSnapshot snapshot = buildLocalStatsSnapshot(key);
                 localSummaries.put(key, snapshot != null && snapshot.summary != null ? snapshot.summary : new StatsSummary());
             }
 

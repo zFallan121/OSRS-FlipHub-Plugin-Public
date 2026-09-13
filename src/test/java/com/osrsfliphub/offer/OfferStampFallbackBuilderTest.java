@@ -37,7 +37,7 @@ public class OfferStampFallbackBuilderTest {
     @Test
     public void buildItemsSkipsInvalidStamps() {
         OfferStampFallbackBuilder builder = new OfferStampFallbackBuilder();
-        OfferUpdateStamp invalid = new OfferUpdateStamp();
+        Stamp invalid = new Stamp();
         invalid.itemId = 0;
 
         List<FlipHubItem> items = builder.buildItems(Collections.singletonList(invalid));
@@ -48,7 +48,7 @@ public class OfferStampFallbackBuilderTest {
     @Test
     public void buildItemsBuildsSellItem() {
         OfferStampFallbackBuilder builder = new OfferStampFallbackBuilder();
-        OfferUpdateStamp sell = stamp(11286, 5_100_000, false);
+        Stamp sell = stamp(11286, 5_100_000, false);
 
         List<FlipHubItem> items = builder.buildItems(Arrays.asList(sell));
 
@@ -59,8 +59,8 @@ public class OfferStampFallbackBuilderTest {
         assertNull(item.last_buy_price);
     }
 
-    private static OfferUpdateStamp stamp(int itemId, int price, boolean isBuy) {
-        OfferUpdateStamp stamp = new OfferUpdateStamp();
+    private static Stamp stamp(int itemId, int price, boolean isBuy) {
+        Stamp stamp = new Stamp();
         stamp.itemId = itemId;
         stamp.price = price;
         stamp.isBuy = isBuy;

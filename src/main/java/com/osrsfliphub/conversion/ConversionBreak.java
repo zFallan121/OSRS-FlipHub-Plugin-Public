@@ -55,7 +55,7 @@ final class ConversionBreak {
     private final ConversionRecipe recipe;
     private final long runs;
     private final long costGp;
-    private final ConversionConfidence confidence;
+    private final Confidence confidence;
     /** Output item -> {units still owed, units sold, coins they fetched}. */
     private final Map<Integer, long[]> outputs = new LinkedHashMap<>();
     private long outstandingQty;
@@ -64,20 +64,20 @@ final class ConversionBreak {
     private long lastSellTsMs;
     private Long firstBuyTs;
     /** The sale that set the break off, then every piece sale it fed. */
-    private final List<LocalTradeKey> trades = new ArrayList<>();
+    private final List<TradeKey> trades = new ArrayList<>();
     private final long accountKey;
 
     ConversionBreak(ConversionRecipe recipe,
                     long runs,
                     long costGp,
-                    ConversionConfidence confidence,
-                    LocalTradeKey trigger,
+                    Confidence confidence,
+                    TradeKey trigger,
                     long accountKey) {
         this.accountKey = accountKey;
         this.recipe = recipe;
         this.runs = Math.max(1L, runs);
         this.costGp = Math.max(0L, costGp);
-        this.confidence = confidence != null ? confidence : ConversionConfidence.CONFIRMED;
+        this.confidence = confidence != null ? confidence : Confidence.CONFIRMED;
         rememberTrade(trigger);
         for (ConversionItem output : recipe.outputs) {
             long produced = (long) output.quantity * this.runs;
@@ -120,7 +120,7 @@ final class ConversionBreak {
         return firstBuyTs;
     }
 
-    ConversionConfidence confidence() {
+    Confidence confidence() {
         return confidence;
     }
 
@@ -142,11 +142,11 @@ final class ConversionBreak {
     }
 
     /** Every sale the break answered for, in the order they were seen. */
-    List<LocalTradeKey> trades() {
+    List<TradeKey> trades() {
         return new ArrayList<>(trades);
     }
 
-    private void rememberTrade(LocalTradeKey sale) {
+    private void rememberTrade(TradeKey sale) {
         if (sale != null && !trades.contains(sale)) {
             trades.add(sale);
         }
@@ -159,7 +159,7 @@ final class ConversionBreak {
      * @param sale which stored sale this is, so the break can say what it
      *             answered for if the player later says it never happened
      */
-    long sell(int itemId, long quantity, long revenue, long tax, long tsMs, LocalTradeKey sale) {
+    long sell(int itemId, long quantity, long revenue, long tax, long tsMs, TradeKey sale) {
         long[] state = outputs.get(itemId);
         if (state == null || quantity <= 0L) {
             return 0L;
@@ -186,20 +186,20 @@ final class ConversionBreak {
      * each line is what that piece sold for, not what it cost - a break has no
      * per-piece cost, which is the whole point of it being one activity.
      */
-    List<ConversionMatch.Line> outputLines() {
-        List<ConversionMatch.Line> lines = new ArrayList<>(outputs.size());
+    List<Match.Line> outputLines() {
+        List<Match.Line> lines = new ArrayList<>(outputs.size());
         for (Map.Entry<Integer, long[]> entry : outputs.entrySet()) {
             long[] state = entry.getValue();
             if (state[1] <= 0L) {
                 continue;
             }
-            lines.add(new ConversionMatch.Line(entry.getKey(), state[1], state[2], false));
+            lines.add(new Match.Line(entry.getKey(), state[1], state[2], false));
         }
         return lines;
     }
 
     /** The finished activity, ready to be filed against the input item. */
-    ConversionMatch toMatch() {
-        return new ConversionMatch(recipe, runs, costGp, outputLines(), confidence, trades, accountKey);
+    Match toMatch() {
+        return new Match(recipe, runs, costGp, outputLines(), confidence, trades, accountKey);
     }
 }

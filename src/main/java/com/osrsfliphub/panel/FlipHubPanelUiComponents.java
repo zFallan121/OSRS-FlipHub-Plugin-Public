@@ -213,9 +213,9 @@ final class CardSection extends JPanel {
      */
     static JPanel of(JComponent content, int rightPadding) {
         RoundedPanel well = new RoundedPanel(
-            FlipHubPanelConstants.WELL_ARC,
-            FlipHubPanelConstants.SURFACE_WELL,
-            FlipHubPanelConstants.SURFACE_WELL);
+            Skin.WELL_ARC,
+            Skin.SURFACE_WELL,
+            Skin.SURFACE_WELL);
         well.setLayout(new BorderLayout());
         well.setBorder(BorderFactory.createEmptyBorder(5, 6, 5, Math.max(0, rightPadding)));
         well.add(content, BorderLayout.CENTER);
@@ -284,9 +284,9 @@ final class RoundedPanel extends JPanel {
     static RoundedPanel glass(int arc) {
         return new RoundedPanel(
             arc,
-            FlipHubPanelConstants.SURFACE_TOP,
-            FlipHubPanelConstants.SURFACE_BOTTOM,
-            FlipHubPanelConstants.SURFACE_BORDER,
+            Skin.SURFACE_TOP,
+            Skin.SURFACE_BOTTOM,
+            Skin.SURFACE_BORDER,
             true
         );
     }
@@ -311,9 +311,9 @@ final class RoundedPanel extends JPanel {
         if (seated) {
             // The inset highlight along the top and the seat along the bottom: together they are
             // what makes the card read as an object resting on the navy instead of a decal on it.
-            g2.setColor(FlipHubPanelConstants.SURFACE_HIGHLIGHT);
+            g2.setColor(Skin.SURFACE_HIGHLIGHT);
             g2.drawLine(radius / 2, 1, width - 1 - radius / 2, 1);
-            g2.setColor(FlipHubPanelConstants.SURFACE_SEAT);
+            g2.setColor(Skin.SURFACE_SEAT);
             g2.drawLine(radius / 2, height - 1, width - 1 - radius / 2, height - 1);
         }
         g2.dispose();
@@ -345,13 +345,13 @@ final class RoundedPanel extends JPanel {
  * so the panel supplies the whole delegate: a rounded --control-fill body, a flat --muted arrow,
  * and a popup on the overlay ground rather than the L&F's white list.
  */
-final class FlipHubComboBoxUI extends BasicComboBoxUI {
+final class ComboBoxUI extends BasicComboBoxUI {
     @Override
     public void update(Graphics g, JComponent c) {
         Graphics2D g2 = (Graphics2D) g.create();
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2.setColor(FlipHubPanelConstants.CONTROL_FILL);
-        int arc = RoundedPanel.clampArc(FlipHubPanelConstants.INPUT_ARC, c.getWidth(), c.getHeight());
+        g2.setColor(Skin.CONTROL_FILL);
+        int arc = RoundedPanel.clampArc(Skin.INPUT_ARC, c.getWidth(), c.getHeight());
         g2.fillRoundRect(0, 0, c.getWidth(), c.getHeight(), arc, arc);
         g2.dispose();
         paint(g, c);
@@ -373,7 +373,7 @@ final class FlipHubComboBoxUI extends BasicComboBoxUI {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(FlipHubPanelConstants.MUTED);
+                g2.setColor(Skin.MUTED);
                 int cx = getWidth() / 2;
                 int cy = getHeight() / 2;
                 g2.fillPolygon(
@@ -394,12 +394,12 @@ final class FlipHubComboBoxUI extends BasicComboBoxUI {
 }
 
 /** The popup's rows: the overlay ground, the action colour on the one that is current. */
-final class FlipHubComboRenderer extends DefaultListCellRenderer {
+final class ComboRenderer extends DefaultListCellRenderer {
     private static final Color TRANSPARENT = new Color(0, 0, 0, 0);
 
     private final Font font;
 
-    FlipHubComboRenderer(Font font) {
+    ComboRenderer(Font font) {
         this.font = font;
     }
 
@@ -412,8 +412,8 @@ final class FlipHubComboRenderer extends DefaultListCellRenderer {
         // ground nor an inset of its own.
         boolean inPopup = index >= 0;
         setOpaque(inPopup);
-        setBackground(inPopup ? FlipHubPanelConstants.OVERLAY_BASE : TRANSPARENT);
-        setForeground(inPopup && isSelected ? FlipHubPanelConstants.ACCENT : FlipHubPanelConstants.TEXT);
+        setBackground(inPopup ? Skin.OVERLAY_BASE : TRANSPARENT);
+        setForeground(inPopup && isSelected ? Skin.ACCENT : Skin.TEXT);
         setBorder(inPopup
             ? new javax.swing.border.EmptyBorder(3, 8, 3, 8)
             : new javax.swing.border.EmptyBorder(0, 0, 0, 0));
@@ -431,12 +431,12 @@ final class TabHoverAdapter extends java.awt.event.MouseAdapter {
 
     TabHoverAdapter(javax.swing.AbstractButton button, boolean active) {
         this.button = button;
-        this.resting = active ? FlipHubPanelConstants.TEXT : FlipHubPanelConstants.MUTED;
+        this.resting = active ? Skin.TEXT : Skin.MUTED;
     }
 
     @Override
     public void mouseEntered(java.awt.event.MouseEvent event) {
-        button.setForeground(FlipHubPanelConstants.TEXT);
+        button.setForeground(Skin.TEXT);
     }
 
     @Override
@@ -518,7 +518,7 @@ final class PlaceholderTextField extends JTextField {
             g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
                 RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             g2.setFont(getFont());
-            g2.setColor(FlipHubPanelConstants.MUTED_2);
+            g2.setColor(Skin.MUTED_2);
             FontMetrics metrics = g2.getFontMetrics();
             Insets insets = getInsets();
             int baseline = (getHeight() - metrics.getHeight()) / 2 + metrics.getAscent();
@@ -545,9 +545,9 @@ final class PlaceholderTextField extends JTextField {
         try {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setPaint(new GradientPaint(
-                0f, 0f, FlipHubPanelConstants.INPUT_WELL_TOP,
-                0f, height, FlipHubPanelConstants.INPUT_WELL_BOTTOM));
-            int arc = FlipHubPanelConstants.INPUT_ARC;
+                0f, 0f, Skin.INPUT_WELL_TOP,
+                0f, height, Skin.INPUT_WELL_BOTTOM));
+            int arc = Skin.INPUT_ARC;
             g2.fillRoundRect(0, 0, width, height, arc, arc);
         } finally {
             g2.dispose();

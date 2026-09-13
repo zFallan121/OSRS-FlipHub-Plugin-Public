@@ -61,50 +61,50 @@ final class BackfillUploader {
     BackfillUploader() {
     }
 
-    private static UploadEventDispatchFacadeService uploadEventDispatchFacade() {
-        return PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
+    private static UploadEventDispatch uploadEventDispatchFacade() {
+        return Bridge.get(UploadEventDispatch.class);
     }
 
-    private SessionRefreshService.Outcome attemptRefresh(String currentToken) {
-        SessionRefreshService service = PluginInjectorBridge.get(SessionRefreshService.class);
+    private SessionRefresh.Outcome attemptRefresh(String currentToken) {
+        SessionRefresh service = Bridge.get(SessionRefresh.class);
         return service != null
             ? service.attemptRefresh(currentToken)
-            : SessionRefreshService.Outcome.UNAVAILABLE;
+            : SessionRefresh.Outcome.UNAVAILABLE;
     }
 
     private void clearSession() {
-        PluginInjectorBridge.get(SessionRefreshService.class).clearSession();
+        Bridge.get(SessionRefresh.class).clearSession();
     }
 
     private void setUploadBlocked(String reason) {
-        UploadEventDispatchFacadeService service = uploadEventDispatchFacade();
+        UploadEventDispatch service = uploadEventDispatchFacade();
         if (service != null) {
             service.markBlocked(reason);
         }
     }
 
     private void recordUploadAttempt() {
-        UploadEventDispatchFacadeService service = uploadEventDispatchFacade();
+        UploadEventDispatch service = uploadEventDispatchFacade();
         if (service != null) {
             service.markAttempt();
         }
     }
 
     private void recordUploadSuccess(int uploadedCount, int statusCode) {
-        UploadEventDispatchFacadeService service = uploadEventDispatchFacade();
+        UploadEventDispatch service = uploadEventDispatchFacade();
         if (service != null) {
             service.markSuccess(uploadedCount, statusCode);
         }
     }
 
     private void recordUploadFailure(Integer statusCode, String errorMessage, boolean dropped, int droppedCount) {
-        UploadEventDispatchFacadeService service = uploadEventDispatchFacade();
+        UploadEventDispatch service = uploadEventDispatchFacade();
         if (service != null) {
             service.markFailure(statusCode, errorMessage, dropped, droppedCount);
         }
     }
 
-    GeEvent buildBackfillEvent(long profileKey, LocalTradeDelta delta, Integer world) {
+    GeEvent buildBackfillEvent(long profileKey, Delta delta, Integer world) {
         if (delta == null || delta.itemId <= 0 || delta.tsClientMs <= 0) {
             return null;
         }
@@ -180,8 +180,8 @@ final class BackfillUploader {
                 return Outcome.SENT;
             }
             if (ApiStatusPolicy.isAuthStatus(status)) {
-                SessionRefreshService.Outcome outcome = attemptRefresh(sessionToken);
-                if (outcome == SessionRefreshService.Outcome.REFRESHED) {
+                SessionRefresh.Outcome outcome = attemptRefresh(sessionToken);
+                if (outcome == SessionRefresh.Outcome.REFRESHED) {
                     String refreshedToken = config.sessionToken();
                     String refreshedSecret = config.signingSecret();
                     if (ApiStatusPolicy.hasCredentials(refreshedToken, refreshedSecret)) {
@@ -208,12 +208,12 @@ final class BackfillUploader {
                 }
                 // clearSession has already run if the server refused the session; a refresh
                 // that simply could not be completed leaves the link intact to try again.
-                recordUploadFailure(status, outcome == SessionRefreshService.Outcome.REJECTED
+                recordUploadFailure(status, outcome == SessionRefresh.Outcome.REJECTED
                     ? "Backfill upload unauthorized. Relink to resume."
                     : "Backfill upload could not refresh the session. Will retry.", false, 0);
                 // A refused session needs a relink, not another attempt; an unreachable one is
                 // worth coming back to. Neither is a verdict on this profile's events.
-                return outcome == SessionRefreshService.Outcome.REJECTED
+                return outcome == SessionRefresh.Outcome.REJECTED
                     ? Outcome.SESSION_DEAD : Outcome.RETRY;
             }
             recordUploadFailure(status, "Backfill upload failed with status " + status + ".", false, 0);

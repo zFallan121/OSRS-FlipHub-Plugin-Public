@@ -76,7 +76,7 @@ public class ProfileWriteDurabilityTest {
                 CountDownLatch go = new CountDownLatch(1);
                 List<Thread> writers = new ArrayList<>();
                 for (int size : sizes) {
-                    List<LocalTradeDelta> document = trades(size);
+                    List<Delta> document = trades(size);
                     writers.add(new Thread(() -> {
                         try {
                             go.await();
@@ -127,12 +127,12 @@ public class ProfileWriteDurabilityTest {
         Path baseDir = Files.createTempDirectory("profile-store-failed-save");
         try {
             ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
-            PluginInjectorBridge.set(Guice.createInjector(
+            Bridge.set(Guice.createInjector(
                 binder -> binder.bind(ProfileStore.class).toInstance(store)));
             PluginState state = new PluginState();
             // Nothing to write through at first, standing in for storage that is not there yet.
-            AtomicReference<ProfileStorageFacadeService> storage = new AtomicReference<>();
-            GeLifecycleLocalTradesRuntimeService runtime = runtimeService(state, storage::get);
+            AtomicReference<ProfileStorage> storage = new AtomicReference<>();
+            LocalTradesRuntime runtime = runtimeService(state, storage::get);
 
             synchronized (state.getLocalStatsLock()) {
                 runtime.appendTradeDelta(ACCOUNT, trades(1).get(0));
@@ -142,7 +142,7 @@ public class ProfileWriteDurabilityTest {
             assertNull("nothing should have reached disk yet", store.readProfileData(ACCOUNT, ACCOUNTWIDE));
 
             // Storage comes back. The account must still be known to be unsaved.
-            storage.set(new ProfileStorageFacadeService(state));
+            storage.set(new ProfileStorage(state));
             runtime.flushUnsavedProfiles();
 
             ProfileData read = store.readProfileData(ACCOUNT, ACCOUNTWIDE);
@@ -150,7 +150,7 @@ public class ProfileWriteDurabilityTest {
             assertEquals(1, read.deltas.size());
             assertEquals(4151, read.deltas.get(0).itemId);
         } finally {
-            PluginInjectorBridge.set(null);
+            Bridge.set(null);
             deleteRecursively(baseDir);
         }
     }
@@ -161,12 +161,12 @@ public class ProfileWriteDurabilityTest {
         Path baseDir = Files.createTempDirectory("profile-store-clean-flush");
         try {
             ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
-            PluginInjectorBridge.set(Guice.createInjector(
+            Bridge.set(Guice.createInjector(
                 binder -> binder.bind(ProfileStore.class).toInstance(store)));
             PluginState state = new PluginState();
-            AtomicReference<ProfileStorageFacadeService> storage =
-                new AtomicReference<>(new ProfileStorageFacadeService(state));
-            GeLifecycleLocalTradesRuntimeService runtime = runtimeService(state, storage::get);
+            AtomicReference<ProfileStorage> storage =
+                new AtomicReference<>(new ProfileStorage(state));
+            LocalTradesRuntime runtime = runtimeService(state, storage::get);
 
             synchronized (state.getLocalStatsLock()) {
                 runtime.appendTradeDelta(ACCOUNT, trades(1).get(0));
@@ -182,17 +182,17 @@ public class ProfileWriteDurabilityTest {
             assertNotNull(read);
             assertEquals(1, read.deltas.size());
         } finally {
-            PluginInjectorBridge.set(null);
+            Bridge.set(null);
             deleteRecursively(baseDir);
         }
     }
 
-    private static GeLifecycleLocalTradesRuntimeService runtimeService(
-        PluginState state, Supplier<ProfileStorageFacadeService> storageSupplier) {
-        return new GeLifecycleLocalTradesRuntimeService(
+    private static LocalTradesRuntime runtimeService(
+        PluginState state, Supplier<ProfileStorage> storageSupplier) {
+        return new LocalTradesRuntime(
             ACCOUNTWIDE,
-            GeLifecyclePluginConstants.LOCAL_EVENT_BUCKET_MS,
-            GeLifecyclePluginConstants.DUPLICATE_TRADE_WINDOW_MS,
+            Const.LOCAL_EVENT_BUCKET_MS,
+            Const.DUPLICATE_TRADE_WINDOW_MS,
             state.getLocalStatsLock(),
             state.getLocalTradeDeltasByAccount(),
             state.getLoadedProfiles(),
@@ -211,10 +211,10 @@ public class ProfileWriteDurabilityTest {
         );
     }
 
-    private static List<LocalTradeDelta> trades(int count) {
-        List<LocalTradeDelta> deltas = new ArrayList<>();
+    private static List<Delta> trades(int count) {
+        List<Delta> deltas = new ArrayList<>();
         for (int index = 0; index < count; index++) {
-            deltas.add(new LocalTradeDelta(1000L + index, index % 8, 4151, true, 5, 500L, "BOUGHT", 100, true));
+            deltas.add(new Delta(1000L + index, index % 8, 4151, true, 5, 500L, "BOUGHT", 100, true));
         }
         return deltas;
     }

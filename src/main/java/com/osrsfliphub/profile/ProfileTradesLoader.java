@@ -33,7 +33,7 @@ import javax.inject.Singleton;
 @Singleton
 final class ProfileTradesLoader {
     static final class Result {
-        final List<LocalTradeDelta> deltas;
+        final List<Delta> deltas;
         final String resolvedDisplayName;
         final long profileFileModifiedMs;
         /**
@@ -46,18 +46,18 @@ final class ProfileTradesLoader {
         /** The recipe guesses the file says the player dismissed; empty for a file that predates them. */
         final List<ConversionRejection> rejectedConversions;
 
-        Result(List<LocalTradeDelta> deltas, String resolvedDisplayName, long profileFileModifiedMs) {
+        Result(List<Delta> deltas, String resolvedDisplayName, long profileFileModifiedMs) {
             this(deltas, resolvedDisplayName, profileFileModifiedMs, false);
         }
 
-        Result(List<LocalTradeDelta> deltas,
+        Result(List<Delta> deltas,
                String resolvedDisplayName,
                long profileFileModifiedMs,
                boolean unreadable) {
             this(deltas, resolvedDisplayName, profileFileModifiedMs, unreadable, null);
         }
 
-        Result(List<LocalTradeDelta> deltas,
+        Result(List<Delta> deltas,
                String resolvedDisplayName,
                long profileFileModifiedMs,
                boolean unreadable,
@@ -70,14 +70,14 @@ final class ProfileTradesLoader {
         }
     }
 
-    private final long accountwideKey = GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
+    private final long accountwideKey = Const.ACCOUNTWIDE_KEY;
 
     @Inject
     ProfileTradesLoader() {
     }
 
-    private ProfileStorageFacadeService storage() {
-        return PluginInjectorBridge.get(ProfileStorageFacadeService.class);
+    private ProfileStorage storage() {
+        return Bridge.get(ProfileStorage.class);
     }
 
     Result load(long accountHash,
@@ -86,11 +86,11 @@ final class ProfileTradesLoader {
         if (accountHash < 0) {
             return null;
         }
-        ProfileStorageFacadeService storage = storage();
+        ProfileStorage storage = storage();
         long fileMs = 0L;
         Path file = storage != null ? storage.getProfileFile(accountHash) : null;
         if (file != null) {
-            fileMs = PluginAccess.plugin().getProfileFileModifiedMs(file);
+            fileMs = Access.plugin().getProfileFileModifiedMs(file);
         }
 
         ProfileData profile = storage != null ? storage.readProfileData(accountHash) : null;
@@ -105,15 +105,15 @@ final class ProfileTradesLoader {
         if ((profile == null || profile.deltas == null) && fileMs > 0 && accountHash != accountwideKey) {
             return new Result(null, null, Math.max(0L, fileMs), true);
         }
-        List<LocalTradeDelta> merged = profile != null ? profile.deltas : null;
+        List<Delta> merged = profile != null ? profile.deltas : null;
         String profileName = profile != null ? profile.displayName : null;
         boolean placeholderName = ProfileDisplayNames.isPlaceholder(profileName);
         if (accountHash == accountwideKey) {
-            AccountwideTradesMergeService mergeService =
-                PluginInjectorBridge.get(AccountwideTradesMergeService.class);
+            TradesMerge mergeService =
+                Bridge.get(TradesMerge.class);
             merged = mergeService != null ? mergeService.buildAccountwideFromDisk() : null;
         }
-        merged = LocalTradeDeltaUtils.dedupeLocalTrades(
+        merged = TradeDeltaUtils.dedupeLocalTrades(
             merged,
             localEventBucketMs,
             duplicateTradeWindowMs

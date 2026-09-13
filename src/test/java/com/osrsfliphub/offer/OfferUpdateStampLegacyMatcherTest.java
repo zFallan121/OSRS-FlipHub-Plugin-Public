@@ -39,7 +39,7 @@ public class OfferUpdateStampLegacyMatcherTest {
     @Test
     public void returnsTrueWhenSingleComparableSlotMatches() {
         OfferUpdateStampLegacyMatcher matcher = new OfferUpdateStampLegacyMatcher();
-        Map<Integer, OfferUpdateStamp> stamps = new HashMap<>();
+        Map<Integer, Stamp> stamps = new HashMap<>();
         stamps.put(0, stamp(4151, false));
         GrandExchangeOffer[] offers = new GrandExchangeOffer[] {offer(4151, GrandExchangeOfferState.SELLING)};
 
@@ -49,7 +49,7 @@ public class OfferUpdateStampLegacyMatcherTest {
     @Test
     public void requiresTwoMatchesWhenTwoComparableSlotsExist() {
         OfferUpdateStampLegacyMatcher matcher = new OfferUpdateStampLegacyMatcher();
-        Map<Integer, OfferUpdateStamp> stamps = new HashMap<>();
+        Map<Integer, Stamp> stamps = new HashMap<>();
         stamps.put(0, stamp(4151, false));
         stamps.put(1, stamp(560, true));
 
@@ -69,7 +69,7 @@ public class OfferUpdateStampLegacyMatcherTest {
     @Test
     public void ignoresEmptyOrInvalidOfferSlots() {
         OfferUpdateStampLegacyMatcher matcher = new OfferUpdateStampLegacyMatcher();
-        Map<Integer, OfferUpdateStamp> stamps = new HashMap<>();
+        Map<Integer, Stamp> stamps = new HashMap<>();
         stamps.put(0, stamp(4151, false));
         stamps.put(1, stamp(560, true));
         stamps.put(10, stamp(995, true)); // out of bounds and ignored
@@ -83,8 +83,8 @@ public class OfferUpdateStampLegacyMatcherTest {
         assertTrue(matcher.matchesCurrentOffers(stamps, offers));
     }
 
-    private static OfferUpdateStamp stamp(int itemId, boolean isBuy) {
-        return new OfferUpdateStamp(itemId, 100, 100, 0, isBuy, 0L, 1L, 1L, 0L, 0L);
+    private static Stamp stamp(int itemId, boolean isBuy) {
+        return new Stamp(itemId, 100, 100, 0, isBuy, 0L, 1L, 1L, 0L, 0L);
     }
 
     private static GrandExchangeOffer offer(int itemId, GrandExchangeOfferState state) {

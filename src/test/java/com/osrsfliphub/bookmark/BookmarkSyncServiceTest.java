@@ -37,8 +37,8 @@ public class BookmarkSyncServiceTest {
         Set<Integer> selected = new HashSet<>();
         Set<Integer> accountwide = new HashSet<>();
 
-        BookmarkSyncService.ToggleResult result =
-            BookmarkSyncService.toggleBookmark(42L, 593, selected, accountwide);
+        BookmarkSync.ToggleResult result =
+            BookmarkSync.toggleBookmark(42L, 593, selected, accountwide);
 
         assertTrue(result.nowBookmarked);
         assertTrue(result.selectedChanged);
@@ -54,8 +54,8 @@ public class BookmarkSyncServiceTest {
         Set<Integer> accountwide = new HashSet<>();
         accountwide.add(593);
 
-        BookmarkSyncService.ToggleResult result =
-            BookmarkSyncService.toggleBookmark(42L, 593, selected, accountwide);
+        BookmarkSync.ToggleResult result =
+            BookmarkSync.toggleBookmark(42L, 593, selected, accountwide);
 
         assertTrue(result.nowBookmarked);
         assertTrue(result.selectedChanged);
@@ -72,8 +72,8 @@ public class BookmarkSyncServiceTest {
         selected.add(593);
         accountwide.add(593);
 
-        BookmarkSyncService.ToggleResult result =
-            BookmarkSyncService.toggleBookmark(42L, 593, selected, accountwide);
+        BookmarkSync.ToggleResult result =
+            BookmarkSync.toggleBookmark(42L, 593, selected, accountwide);
 
         assertFalse(result.nowBookmarked);
         assertTrue(result.selectedChanged);
@@ -88,8 +88,8 @@ public class BookmarkSyncServiceTest {
         Set<Integer> accountwide = new HashSet<>();
         Set<Integer> activeProfile = new HashSet<>();
 
-        BookmarkSyncService.ToggleResult addResult =
-            BookmarkSyncService.toggleAccountwideBookmark(213, accountwide, activeProfile);
+        BookmarkSync.ToggleResult addResult =
+            BookmarkSync.toggleAccountwideBookmark(213, accountwide, activeProfile);
 
         assertTrue(addResult.nowBookmarked);
         assertTrue(addResult.selectedChanged);
@@ -98,8 +98,8 @@ public class BookmarkSyncServiceTest {
         assertTrue(accountwide.contains(213));
         assertTrue(activeProfile.contains(213));
 
-        BookmarkSyncService.ToggleResult removeResult =
-            BookmarkSyncService.toggleAccountwideBookmark(213, accountwide, activeProfile);
+        BookmarkSync.ToggleResult removeResult =
+            BookmarkSync.toggleAccountwideBookmark(213, accountwide, activeProfile);
 
         assertFalse(removeResult.nowBookmarked);
         assertTrue(removeResult.selectedChanged);
@@ -115,8 +115,8 @@ public class BookmarkSyncServiceTest {
         Set<Integer> activeProfile = new HashSet<>();
         activeProfile.add(526);
 
-        BookmarkSyncService.ToggleResult result =
-            BookmarkSyncService.toggleAccountwideBookmark(526, accountwide, activeProfile);
+        BookmarkSync.ToggleResult result =
+            BookmarkSync.toggleAccountwideBookmark(526, accountwide, activeProfile);
 
         assertTrue(result.nowBookmarked);
         assertTrue(result.accountwideChanged);

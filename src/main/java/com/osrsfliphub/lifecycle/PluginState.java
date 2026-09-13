@@ -41,7 +41,7 @@ import javax.inject.Singleton;
 @Singleton
 final class PluginState {
     private final Map<Integer, OfferSnapshot> snapshots = new ConcurrentHashMap<>();
-    private final Map<Integer, OfferUpdateStamp> offerUpdateStamps = new ConcurrentHashMap<>();
+    private final Map<Integer, Stamp> offerUpdateStamps = new ConcurrentHashMap<>();
     private final Set<Integer> bookmarkedItems = ConcurrentHashMap.newKeySet();
     private final Set<Integer> hiddenItems = ConcurrentHashMap.newKeySet();
     private final Map<String, Integer> itemNameLookupCache = new ConcurrentHashMap<>();
@@ -50,16 +50,16 @@ final class PluginState {
     private final Map<Long, Long> loadedProfileFileMs = new ConcurrentHashMap<>();
     private final Map<Long, Long> selfWrittenProfileFileMs = new ConcurrentHashMap<>();
     private final Map<Long, String> profileDisplayNames = new ConcurrentHashMap<>();
-    private final Map<Long, LocalStatsCache> statsCacheByAccount = new ConcurrentHashMap<>();
+    private final Map<Long, StatsCache> statsCacheByAccount = new ConcurrentHashMap<>();
     private final Object localStatsLock = new Object();
-    private final Map<Long, List<LocalTradeDelta>> localTradeDeltasByAccount = new HashMap<>();
+    private final Map<Long, List<Delta>> localTradeDeltasByAccount = new HashMap<>();
     private final Map<Long, Long> localSessionStartByAccount = new HashMap<>();
-    private final LocalTradesLoadCoordinator.State localTradesLoadState = new LocalTradesLoadCoordinator.State();
+    private final TradesLoad.State localTradesLoadState = new TradesLoad.State();
 
     private final ProfileSelectionState profileSelection =
-        new ProfileSelectionState(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY_STRING);
+        new ProfileSelectionState(Const.ACCOUNTWIDE_KEY_STRING);
     private final BookmarkConfigStore bookmarkConfigStore =
-        new BookmarkConfigStore(GeLifecyclePluginConstants.ACCOUNTWIDE_KEY);
+        new BookmarkConfigStore(Const.ACCOUNTWIDE_KEY);
     private final HiddenItemConfigStore hiddenItemConfigStore = new HiddenItemConfigStore();
     private final OfferUpdateStampConfigStore offerUpdateStampConfigStore = new OfferUpdateStampConfigStore();
     private final OfferUpdateStampLegacyMatcher offerUpdateStampLegacyMatcher = new OfferUpdateStampLegacyMatcher();
@@ -73,7 +73,7 @@ final class PluginState {
         return snapshots;
     }
 
-    Map<Integer, OfferUpdateStamp> getOfferUpdateStamps() {
+    Map<Integer, Stamp> getOfferUpdateStamps() {
         return offerUpdateStamps;
     }
 
@@ -116,7 +116,7 @@ final class PluginState {
         return profileDisplayNames;
     }
 
-    Map<Long, LocalStatsCache> getStatsCacheByAccount() {
+    Map<Long, StatsCache> getStatsCacheByAccount() {
         return statsCacheByAccount;
     }
 
@@ -124,7 +124,7 @@ final class PluginState {
         return localStatsLock;
     }
 
-    Map<Long, List<LocalTradeDelta>> getLocalTradeDeltasByAccount() {
+    Map<Long, List<Delta>> getLocalTradeDeltasByAccount() {
         return localTradeDeltasByAccount;
     }
 
@@ -132,7 +132,7 @@ final class PluginState {
         return localSessionStartByAccount;
     }
 
-    LocalTradesLoadCoordinator.State getLocalTradesLoadState() {
+    TradesLoad.State getLocalTradesLoadState() {
         return localTradesLoadState;
     }
 

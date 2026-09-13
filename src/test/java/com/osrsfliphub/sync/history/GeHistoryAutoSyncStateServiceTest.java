@@ -42,12 +42,12 @@ import static org.junit.Assert.assertTrue;
  * complete one only once it has held still.
  */
 public class GeHistoryAutoSyncStateServiceTest {
-    private static final GeHistoryAutoSyncStateService.ReadVerdict WAIT =
-        GeHistoryAutoSyncStateService.ReadVerdict.WAIT;
-    private static final GeHistoryAutoSyncStateService.ReadVerdict SETTLED =
-        GeHistoryAutoSyncStateService.ReadVerdict.SETTLED;
-    private static final GeHistoryAutoSyncStateService.ReadVerdict GIVE_UP =
-        GeHistoryAutoSyncStateService.ReadVerdict.GIVE_UP;
+    private static final AutoSyncState.ReadVerdict WAIT =
+        AutoSyncState.ReadVerdict.WAIT;
+    private static final AutoSyncState.ReadVerdict SETTLED =
+        AutoSyncState.ReadVerdict.SETTLED;
+    private static final AutoSyncState.ReadVerdict GIVE_UP =
+        AutoSyncState.ReadVerdict.GIVE_UP;
 
     private static final List<String> ROWS = Arrays.asList("561|B|1000|118000", "1513|S|70000|77000000");
     private static final List<String> MORE_ROWS =
@@ -55,7 +55,7 @@ public class GeHistoryAutoSyncStateServiceTest {
 
     @Test
     public void armAndDisarmControlPendingState() {
-        GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(2_000L);
+        AutoSyncState service = new AutoSyncState(2_000L);
 
         assertFalse(service.isPending());
         service.arm();
@@ -68,7 +68,7 @@ public class GeHistoryAutoSyncStateServiceTest {
     public void anIncompleteReadIsWaitedOnHoweverLongTheTabHasBeenOpen() {
         // Five widgets is most of a row. Acting on it after two seconds used to
         // persist a cursor with nothing in it, over the top of a real one.
-        GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(2_000L, 20_000L);
+        AutoSyncState service = new AutoSyncState(2_000L, 20_000L);
         service.arm();
         service.noteHistoryVisible(1_000L);
 
@@ -79,7 +79,7 @@ public class GeHistoryAutoSyncStateServiceTest {
 
     @Test
     public void aCompleteReadIsTrustedOnceItHasHeldStillForTheSettleWindow() {
-        GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(2_000L, 20_000L);
+        AutoSyncState service = new AutoSyncState(2_000L, 20_000L);
         service.arm();
         service.noteHistoryVisible(1_000L);
 
@@ -92,7 +92,7 @@ public class GeHistoryAutoSyncStateServiceTest {
     public void aReadThatIsStillChangingRestartsTheSettleWindow() {
         // Two rows, then a third arrives: the list is still being filled in, and the
         // clock starts again from the read that has the third row.
-        GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(2_000L, 20_000L);
+        AutoSyncState service = new AutoSyncState(2_000L, 20_000L);
         service.arm();
         service.noteHistoryVisible(1_000L);
 
@@ -105,7 +105,7 @@ public class GeHistoryAutoSyncStateServiceTest {
 
     @Test
     public void hidingTheHistoryForgetsWhatWasRead() {
-        GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(2_000L, 20_000L);
+        AutoSyncState service = new AutoSyncState(2_000L, 20_000L);
         service.arm();
         service.noteHistoryVisible(1_000L);
         service.observeRead(true, 12, ROWS, 1_000L);
@@ -121,7 +121,7 @@ public class GeHistoryAutoSyncStateServiceTest {
 
     @Test
     public void aNonPositiveSettleWindowTrustsTheFirstCompleteReadButNeverAnIncompleteOne() {
-        GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(-1L, 20_000L);
+        AutoSyncState service = new AutoSyncState(-1L, 20_000L);
         service.arm();
         service.noteHistoryVisible(1_000L);
 
@@ -131,7 +131,7 @@ public class GeHistoryAutoSyncStateServiceTest {
 
     @Test
     public void aReadThatNeverSettlesIsGivenUpOnAfterTheGiveUpWindow() {
-        GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(2_000L, 20_000L);
+        AutoSyncState service = new AutoSyncState(2_000L, 20_000L);
         service.arm();
         service.noteHistoryVisible(1_000L);
 
@@ -148,7 +148,7 @@ public class GeHistoryAutoSyncStateServiceTest {
      */
     @Test
     public void aListThatKeepsChangingIsStillLoading() {
-        GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(2_000L, 20_000L);
+        AutoSyncState service = new AutoSyncState(2_000L, 20_000L);
         service.arm();
         service.noteHistoryVisible(1_000L);
 
@@ -166,7 +166,7 @@ public class GeHistoryAutoSyncStateServiceTest {
      */
     @Test
     public void aListThatStopsBeingReadableIsStillGivenUpOn() {
-        GeHistoryAutoSyncStateService service = new GeHistoryAutoSyncStateService(2_000L, 20_000L);
+        AutoSyncState service = new AutoSyncState(2_000L, 20_000L);
         service.arm();
         service.noteHistoryVisible(1_000L);
 

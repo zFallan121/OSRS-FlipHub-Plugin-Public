@@ -65,8 +65,8 @@ public class PluginEnabledWhileLoggedInTest {
 
     @After
     public void tearDown() throws IOException {
-        PluginInjectorBridge.set(null);
-        PluginAccess.set(null);
+        Bridge.set(null);
+        Access.set(null);
         if (storeDir != null && Files.exists(storeDir)) {
             try (Stream<Path> paths = Files.walk(storeDir)) {
                 for (Path path : paths.sorted(Comparator.reverseOrder()).toArray(Path[]::new)) {
@@ -123,7 +123,7 @@ public class PluginEnabledWhileLoggedInTest {
         PluginState state = new PluginState();
         GeLifecyclePlugin plugin = new GeLifecyclePlugin();
         plugin.client = client;
-        PluginAccess.set(plugin);
+        Access.set(plugin);
         Injector injector = Guice.createInjector(new AbstractModule() {
             @Override
             protected void configure() {
@@ -131,35 +131,35 @@ public class PluginEnabledWhileLoggedInTest {
                 bind(PluginConfig.class).toInstance(config);
                 bind(PluginState.class).toInstance(state);
                 // Reaches ConfigManager through Guice otherwise, which pulls in most of RuneLite.
-                bind(GeLifecycleOfferStampStateServices.class).toInstance(stampState(state));
+                bind(OfferStampStateServices.class).toInstance(stampState(state));
                 bind(ProfileStore.class).toInstance(
                     new ProfileStore(new Gson(), "fliphub", "fliphub-dev", storeDir));
                 // Same reason: it already treats an absent config manager as "nothing stored".
-                bind(ProfileSelectionPersistenceService.class)
-                    .toInstance(new ProfileSelectionPersistenceService(null));
-                bind(BookmarkStateService.class)
-                    .toInstance(new BookmarkStateService(null, config, state));
+                bind(ProfileSelectionPersistence.class)
+                    .toInstance(new ProfileSelectionPersistence(null));
+                bind(BookmarkState.class)
+                    .toInstance(new BookmarkState(null, config, state));
                 // The rest of the login work needs services this test does not stand up. Each
                 // of these is already guarded for absence on the path being exercised.
-                bind(ConversionRecipeIndex.class).toProvider(Providers.of(null));
-                bind(ItemLookupService.class).toProvider(Providers.of(null));
+                bind(RecipeIndex.class).toProvider(Providers.of(null));
+                bind(ItemLookup.class).toProvider(Providers.of(null));
                 bind(LocalStatsCacheService.class).toProvider(Providers.of(null));
-                bind(LinkStatusService.class).toProvider(Providers.of(null));
-                bind(LinkAttemptService.class).toProvider(Providers.of(null));
-                bind(WikiPriceService.class).toProvider(Providers.of(null));
-                bind(PanelRefreshCoordinator.class).toProvider(Providers.of(null));
+                bind(LinkStatus.class).toProvider(Providers.of(null));
+                bind(LinkAttempt.class).toProvider(Providers.of(null));
+                bind(WikiPrice.class).toProvider(Providers.of(null));
+                bind(PanelRefresh.class).toProvider(Providers.of(null));
             }
         });
-        PluginInjectorBridge.set(injector);
+        Bridge.set(injector);
         return plugin;
     }
 
-    private static GeLifecycleOfferStampStateServices stampState(PluginState state) {
-        OfferUpdateStampService stampService = new OfferUpdateStampService();
-        return new GeLifecycleOfferStampStateServices(
+    private static OfferStampStateServices stampState(PluginState state) {
+        OfferUpdateStamp stampService = new OfferUpdateStamp();
+        return new OfferStampStateServices(
             FliphubConfigGroups.CONFIG_GROUP,
             FliphubConfigGroups.LEGACY_DEV_CONFIG_GROUP,
-            GeLifecyclePluginConstants.LOGIN_GRACE_MS,
+            Const.LOGIN_GRACE_MS,
             state.getOfferUpdateStamps(),
             () -> null,
             () -> null,
@@ -168,12 +168,12 @@ public class PluginEnabledWhileLoggedInTest {
         );
     }
 
-    private static GameStateChangedHandlerService handler() {
-        return PluginInjectorBridge.get(GameStateChangedHandlerService.class);
+    private static GameStateChangedHandler handler() {
+        return Bridge.get(GameStateChangedHandler.class);
     }
 
-    private static ConversionFeeService feeService() {
-        return PluginInjectorBridge.get(ConversionFeeService.class);
+    private static FeeService feeService() {
+        return Bridge.get(FeeService.class);
     }
 
     private Client client() {

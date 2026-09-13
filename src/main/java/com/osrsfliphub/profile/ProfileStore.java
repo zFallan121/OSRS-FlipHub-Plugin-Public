@@ -66,8 +66,8 @@ final class ProfileStore {
 
     @Inject
     ProfileStore(Gson gson) {
-        this(gson, GeLifecyclePluginConstants.PROFILE_DIR_NAME,
-            GeLifecyclePluginConstants.LEGACY_PROFILE_DIR_NAME, RuneLite.RUNELITE_DIR.toPath());
+        this(gson, Const.PROFILE_DIR_NAME,
+            Const.LEGACY_PROFILE_DIR_NAME, RuneLite.RUNELITE_DIR.toPath());
     }
 
     ProfileStore(Gson gson, String profileDirName, String legacyProfileDirName) {
@@ -158,14 +158,14 @@ final class ProfileStore {
         }
     }
 
-    long writeProfileData(long accountHash, long accountwideKey, String displayName, List<LocalTradeDelta> deltas) {
+    long writeProfileData(long accountHash, long accountwideKey, String displayName, List<Delta> deltas) {
         return writeProfileData(accountHash, accountwideKey, displayName, deltas, null);
     }
 
     long writeProfileData(long accountHash,
                           long accountwideKey,
                           String displayName,
-                          List<LocalTradeDelta> deltas,
+                          List<Delta> deltas,
                           List<ConversionRejection> rejectedConversions) {
         Path file = getProfileFile(accountHash, accountwideKey);
         if (file == null || gson == null) {

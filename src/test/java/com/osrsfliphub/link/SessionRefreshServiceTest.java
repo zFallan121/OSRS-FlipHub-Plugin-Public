@@ -43,42 +43,42 @@ public class SessionRefreshServiceTest {
         ApiClient.LinkResponse response = new ApiClient.LinkResponse();
         response.session_token = "brand-new-token";
         response.signing_secret = "brand-new-secret";
-        SessionRefreshService service = serviceReturning(response, null, CURRENT_TOKEN);
+        SessionRefresh service = serviceReturning(response, null, CURRENT_TOKEN);
 
-        assertEquals(SessionRefreshService.Outcome.REFRESHED, service.attemptRefresh(CURRENT_TOKEN));
+        assertEquals(SessionRefresh.Outcome.REFRESHED, service.attemptRefresh(CURRENT_TOKEN));
     }
 
     @Test
     public void anOutrightRefusalIsARejection() {
-        SessionRefreshService service =
+        SessionRefresh service =
             serviceReturning(null, new ApiClient.ApiException("Refresh failed", 401), CURRENT_TOKEN);
 
-        assertEquals(SessionRefreshService.Outcome.REJECTED, service.attemptRefresh(CURRENT_TOKEN));
+        assertEquals(SessionRefresh.Outcome.REJECTED, service.attemptRefresh(CURRENT_TOKEN));
     }
 
     @Test
     public void aTimeoutIsNotARefusal() {
-        SessionRefreshService service =
+        SessionRefresh service =
             serviceReturning(null, new SocketTimeoutException("read timed out"), CURRENT_TOKEN);
 
-        assertEquals(SessionRefreshService.Outcome.UNAVAILABLE, service.attemptRefresh(CURRENT_TOKEN));
+        assertEquals(SessionRefresh.Outcome.UNAVAILABLE, service.attemptRefresh(CURRENT_TOKEN));
     }
 
     /** A bad gateway is the host having a moment, not the session being revoked. */
     @Test
     public void aServerErrorIsNotARefusal() {
-        SessionRefreshService service =
+        SessionRefresh service =
             serviceReturning(null, new ApiClient.ApiException("Refresh failed", 502), CURRENT_TOKEN);
 
-        assertEquals(SessionRefreshService.Outcome.UNAVAILABLE, service.attemptRefresh(CURRENT_TOKEN));
+        assertEquals(SessionRefresh.Outcome.UNAVAILABLE, service.attemptRefresh(CURRENT_TOKEN));
     }
 
     /** A success that carries no token cannot be acted on, but it is not a refusal either. */
     @Test
     public void aSuccessWithNoTokenInItIsNotARefusal() {
-        SessionRefreshService service = serviceReturning(new ApiClient.LinkResponse(), null, CURRENT_TOKEN);
+        SessionRefresh service = serviceReturning(new ApiClient.LinkResponse(), null, CURRENT_TOKEN);
 
-        assertEquals(SessionRefreshService.Outcome.UNAVAILABLE, service.attemptRefresh(CURRENT_TOKEN));
+        assertEquals(SessionRefresh.Outcome.UNAVAILABLE, service.attemptRefresh(CURRENT_TOKEN));
     }
 
     /**
@@ -88,16 +88,16 @@ public class SessionRefreshServiceTest {
      */
     @Test
     public void aTokenAnotherTaskAlreadyReplacedNeedsNoSecondRefresh() {
-        SessionRefreshService service = serviceReturning(
+        SessionRefresh service = serviceReturning(
             null,
             new ApiClient.ApiException("Refresh failed", 401),
             "token-someone-else-already-fetched"
         );
 
-        assertEquals(SessionRefreshService.Outcome.REFRESHED, service.attemptRefresh(CURRENT_TOKEN));
+        assertEquals(SessionRefresh.Outcome.REFRESHED, service.attemptRefresh(CURRENT_TOKEN));
     }
 
-    private static SessionRefreshService serviceReturning(ApiClient.LinkResponse response,
+    private static SessionRefresh serviceReturning(ApiClient.LinkResponse response,
                                                           IOException failure,
                                                           String storedToken) {
         ApiClient apiClient = new ApiClient(null, null, null) {
@@ -110,7 +110,7 @@ public class SessionRefreshServiceTest {
                 return response;
             }
         };
-        return new SessionRefreshService(apiClient, configWithToken(storedToken), null);
+        return new SessionRefresh(apiClient, configWithToken(storedToken), null);
     }
 
     private static PluginConfig configWithToken(String storedToken) {

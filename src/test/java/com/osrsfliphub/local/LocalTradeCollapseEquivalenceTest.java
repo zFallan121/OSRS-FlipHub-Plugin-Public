@@ -48,7 +48,7 @@ import static org.junit.Assert.assertTrue;
 public class LocalTradeCollapseEquivalenceTest {
     private static final long MINUTE = 60_000L;
     private static final long HOUR = 60L * MINUTE;
-    private static final int SYNCED = GeLifecyclePluginConstants.GE_HISTORY_SYNTHETIC_SLOT_START;
+    private static final int SYNCED = Const.GE_HISTORY_SYNTHETIC_SLOT_START;
 
     private static final int ITEM_A = 560;
     private static final int ITEM_B = 4151;
@@ -56,7 +56,7 @@ public class LocalTradeCollapseEquivalenceTest {
     private static final int ITEM_D = 11802;
 
     /** The offer pipeline's output for a session of flipping, one record per fill. */
-    private static List<LocalTradeDelta> tradedFillByFill() {
+    private static List<Delta> tradedFillByFill() {
         Stream s = new Stream();
         // 1. Buy 1,000 A at 100 in four chunks over five minutes.
         s.offer(0, ITEM_A, true, 100, 1L, 0L, new int[] {100, 250, 400, 250}, new long[] {0L, MINUTE, 2 * MINUTE, 5 * MINUTE});
@@ -78,8 +78,8 @@ public class LocalTradeCollapseEquivalenceTest {
         s.fill(6, ITEM_C, true, 55, 7L, 4 * HOUR + 11 * MINUTE, 30);
         s.offer(6, ITEM_B, true, 1_900, 8L, 4 * HOUR + 30 * MINUTE, new int[] {5}, new long[] {0L});
         // 8. A trade imported from the in-game history, then the D it bought sold live.
-        s.add(new LocalTradeDelta(5 * HOUR, SYNCED, ITEM_D, true, 10, 10_000L, "OFFER_UPDATED", 1_000, false));
-        s.add(new LocalTradeDelta(5 * HOUR + 4L, SYNCED, ITEM_D, true, 0, 0L, "OFFER_COMPLETED", 1_000, false));
+        s.add(new Delta(5 * HOUR, SYNCED, ITEM_D, true, 10, 10_000L, "OFFER_UPDATED", 1_000, false));
+        s.add(new Delta(5 * HOUR + 4L, SYNCED, ITEM_D, true, 0, 0L, "OFFER_COMPLETED", 1_000, false));
         s.offer(5, ITEM_D, false, 1_100, 9L, 5 * HOUR + 10 * MINUTE, new int[] {10}, new long[] {0L});
         // 9. An offer still filling when the session ends.
         s.fill(4, ITEM_C, true, 50, 10L, 6 * HOUR, 100);
@@ -88,27 +88,27 @@ public class LocalTradeCollapseEquivalenceTest {
     }
 
     /** What the live path stores: every record appended as it arrived. */
-    private static List<LocalTradeDelta> collapsedLive(List<LocalTradeDelta> fillByFill) {
-        List<LocalTradeDelta> stored = new ArrayList<>();
-        for (LocalTradeDelta record : fillByFill) {
-            LocalTradeOfferCollapser.append(stored, copy(record));
+    private static List<Delta> collapsedLive(List<Delta> fillByFill) {
+        List<Delta> stored = new ArrayList<>();
+        for (Delta record : fillByFill) {
+            TradeOfferCollapser.append(stored, copy(record));
         }
         return stored;
     }
 
     /** What loading a file written fill by fill produces. */
-    private static List<LocalTradeDelta> collapsedOnLoad(List<LocalTradeDelta> fillByFill) {
-        List<LocalTradeDelta> copies = new ArrayList<>();
-        for (LocalTradeDelta record : fillByFill) {
+    private static List<Delta> collapsedOnLoad(List<Delta> fillByFill) {
+        List<Delta> copies = new ArrayList<>();
+        for (Delta record : fillByFill) {
             copies.add(copy(record));
         }
-        return LocalTradeDeltaUtils.dedupeLocalTrades(copies,
-            GeLifecyclePluginConstants.LOCAL_EVENT_BUCKET_MS, GeLifecyclePluginConstants.DUPLICATE_TRADE_WINDOW_MS);
+        return TradeDeltaUtils.dedupeLocalTrades(copies,
+            Const.LOCAL_EVENT_BUCKET_MS, Const.DUPLICATE_TRADE_WINDOW_MS);
     }
 
     @Test
     public void collapsingLeavesTheStatsCacheTotalsUnchanged() {
-        List<LocalTradeDelta> fillByFill = tradedFillByFill();
+        List<Delta> fillByFill = tradedFillByFill();
         StatsSummary perFill = summary(fillByFill);
         StatsSummary live = summary(collapsedLive(fillByFill));
         StatsSummary loaded = summary(collapsedOnLoad(fillByFill));
@@ -126,7 +126,7 @@ public class LocalTradeCollapseEquivalenceTest {
 
     @Test
     public void collapsingLeavesEveryItemsFiguresUnchanged() {
-        List<LocalTradeDelta> fillByFill = tradedFillByFill();
+        List<Delta> fillByFill = tradedFillByFill();
         Map<Integer, StatsItem> perFill = items(fillByFill);
         Map<Integer, StatsItem> live = items(collapsedLive(fillByFill));
         Map<Integer, StatsItem> loaded = items(collapsedOnLoad(fillByFill));
@@ -140,7 +140,7 @@ public class LocalTradeCollapseEquivalenceTest {
 
     @Test
     public void collapsingLeavesTheFlipHistoryUnchanged() {
-        List<LocalTradeDelta> fillByFill = tradedFillByFill();
+        List<Delta> fillByFill = tradedFillByFill();
         List<StatsFlipInstance> perFill = flips(fillByFill);
         List<StatsFlipInstance> live = flips(collapsedLive(fillByFill));
         List<StatsFlipInstance> loaded = flips(collapsedOnLoad(fillByFill));
@@ -152,9 +152,9 @@ public class LocalTradeCollapseEquivalenceTest {
 
     @Test
     public void theLiveAndLoadPathsStoreTheSameRecords() {
-        List<LocalTradeDelta> fillByFill = tradedFillByFill();
-        List<LocalTradeDelta> live = collapsedLive(fillByFill);
-        List<LocalTradeDelta> loaded = collapsedOnLoad(fillByFill);
+        List<Delta> fillByFill = tradedFillByFill();
+        List<Delta> live = collapsedLive(fillByFill);
+        List<Delta> loaded = collapsedOnLoad(fillByFill);
 
         // 37 records in: nine completed offers (one of them imported), the cancelled C run
         // and the open C offer. Live keeps the cancelled run's two fills; the load pass
@@ -173,7 +173,7 @@ public class LocalTradeCollapseEquivalenceTest {
      */
     @Test
     public void activeTimeRunsToTheSalesCompletionOnceCollapsed() {
-        List<LocalTradeDelta> fillByFill = tradedFillByFill();
+        List<Delta> fillByFill = tradedFillByFill();
         StatsSummary perFill = summary(fillByFill);
         StatsSummary collapsed = summary(collapsedOnLoad(fillByFill));
 
@@ -197,7 +197,7 @@ public class LocalTradeCollapseEquivalenceTest {
         s.offer(0, ITEM_A, true, 100, 3L, 2 * HOUR, new int[] {10}, new long[] {0L});
         s.fill(2, ITEM_A, false, 130, 2L, 3 * HOUR, 10);
         s.completion(2, ITEM_A, false, 130, 2L, 3 * HOUR + 600L, 0);
-        List<LocalTradeDelta> fillByFill = s.records;
+        List<Delta> fillByFill = s.records;
 
         StatsSummary perFill = summary(fillByFill);
         StatsSummary live = summary(collapsedLive(fillByFill));
@@ -213,14 +213,14 @@ public class LocalTradeCollapseEquivalenceTest {
 
     // ---- ledgers ----
 
-    private static StatsSummary summary(List<LocalTradeDelta> records) {
-        LocalStatsCache cache = new LocalStatsCache();
+    private static StatsSummary summary(List<Delta> records) {
+        StatsCache cache = new StatsCache();
         cache.rebuild(records);
         return cache.getSummary();
     }
 
-    private static Map<Integer, StatsItem> items(List<LocalTradeDelta> records) {
-        LocalStatsCache cache = new LocalStatsCache();
+    private static Map<Integer, StatsItem> items(List<Delta> records) {
+        StatsCache cache = new StatsCache();
         cache.rebuild(records);
         Map<Integer, StatsItem> byItem = new TreeMap<>();
         for (StatsItem item : cache.getItems()) {
@@ -229,7 +229,7 @@ public class LocalTradeCollapseEquivalenceTest {
         return byItem;
     }
 
-    private static List<StatsFlipInstance> flips(List<LocalTradeDelta> records) {
+    private static List<StatsFlipInstance> flips(List<Delta> records) {
         List<StatsFlipInstance> all = new ArrayList<>();
         for (List<StatsFlipInstance> perItem : new LocalFlipHistoryService().buildHistory(records, null).values()) {
             all.addAll(perItem);
@@ -247,14 +247,14 @@ public class LocalTradeCollapseEquivalenceTest {
         assertEquals(expected.first_buy_ts_ms, actual.first_buy_ts_ms);
     }
 
-    private static void assertSameCompletedRecords(List<LocalTradeDelta> live, List<LocalTradeDelta> loaded) {
-        List<LocalTradeDelta> liveDone = completed(live);
-        List<LocalTradeDelta> loadedDone = completed(loaded);
+    private static void assertSameCompletedRecords(List<Delta> live, List<Delta> loaded) {
+        List<Delta> liveDone = completed(live);
+        List<Delta> loadedDone = completed(loaded);
         assertEquals(9, liveDone.size());
         assertEquals(liveDone.size(), loadedDone.size());
         for (int i = 0; i < liveDone.size(); i++) {
-            LocalTradeDelta a = liveDone.get(i);
-            LocalTradeDelta b = loadedDone.get(i);
+            Delta a = liveDone.get(i);
+            Delta b = loadedDone.get(i);
             assertEquals(a.tsClientMs, b.tsClientMs);
             assertEquals(a.endMs, b.endMs);
             assertEquals(a.slot, b.slot);
@@ -265,14 +265,14 @@ public class LocalTradeCollapseEquivalenceTest {
         }
     }
 
-    private static List<LocalTradeDelta> completed(List<LocalTradeDelta> records) {
-        List<LocalTradeDelta> done = new ArrayList<>();
-        for (LocalTradeDelta record : records) {
-            if (LocalTradeOfferCollapser.isCompletion(record)) {
+    private static List<Delta> completed(List<Delta> records) {
+        List<Delta> done = new ArrayList<>();
+        for (Delta record : records) {
+            if (TradeOfferCollapser.isCompletion(record)) {
                 done.add(record);
             }
         }
-        done.sort(Comparator.comparingLong((LocalTradeDelta record) -> record.tsClientMs).thenComparingInt(record -> record.slot));
+        done.sort(Comparator.comparingLong((Delta record) -> record.tsClientMs).thenComparingInt(record -> record.slot));
         return done;
     }
 
@@ -307,15 +307,15 @@ public class LocalTradeCollapseEquivalenceTest {
 
     // ---- building the stream ----
 
-    private static LocalTradeDelta copy(LocalTradeDelta d) {
-        return new LocalTradeDelta(d.tsClientMs, d.slot, d.itemId, d.isBuy, d.deltaQty, d.deltaGp, d.eventType,
+    private static Delta copy(Delta d) {
+        return new Delta(d.tsClientMs, d.slot, d.itemId, d.isBuy, d.deltaQty, d.deltaGp, d.eventType,
             d.price, d.baselineSynthetic, d.offerStartMs, d.endMs);
     }
 
     private static final class Stream {
-        final List<LocalTradeDelta> records = new ArrayList<>();
+        final List<Delta> records = new ArrayList<>();
 
-        void add(LocalTradeDelta record) {
+        void add(Delta record) {
             records.add(record);
         }
 
@@ -334,12 +334,12 @@ public class LocalTradeCollapseEquivalenceTest {
         }
 
         void fill(int slot, int itemId, boolean isBuy, int price, long start, long ts, int qty) {
-            records.add(new LocalTradeDelta(ts, slot, itemId, isBuy, qty, coins(itemId, isBuy, price, qty),
+            records.add(new Delta(ts, slot, itemId, isBuy, qty, coins(itemId, isBuy, price, qty),
                 "OFFER_UPDATED", price, false, start, 0L));
         }
 
         void completion(int slot, int itemId, boolean isBuy, int price, long start, long ts, int qty) {
-            records.add(new LocalTradeDelta(ts, slot, itemId, isBuy, qty, coins(itemId, isBuy, price, qty),
+            records.add(new Delta(ts, slot, itemId, isBuy, qty, coins(itemId, isBuy, price, qty),
                 "OFFER_COMPLETED", price, false, start, 0L));
         }
 

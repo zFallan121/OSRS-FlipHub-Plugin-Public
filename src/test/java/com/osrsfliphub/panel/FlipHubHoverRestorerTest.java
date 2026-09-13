@@ -66,7 +66,7 @@ public class FlipHubHoverRestorerTest {
         button.setRolloverEnabled(true);
         JPanel root = laidOutRoot(new JLabel("above"), button);
 
-        FlipHubHoverRestorer.enterAt(root, new Point(50, 30));
+        HoverRestorer.enterAt(root, new Point(50, 30));
 
         assertTrue(button.getModel().isRollover());
     }
@@ -81,7 +81,7 @@ public class FlipHubHoverRestorerTest {
         row.addMouseListener(counter);
         JPanel root = laidOutRoot(row);
 
-        FlipHubHoverRestorer.enterAt(root, new Point(50, 10));
+        HoverRestorer.enterAt(root, new Point(50, 10));
 
         assertEquals(1, counter.entered);
     }
@@ -108,12 +108,12 @@ public class FlipHubHoverRestorerTest {
         JPanel root = laidOutRoot(tile);
         Point overTheMark = new Point(10, 10);
 
-        FlipHubHoverRestorer.enterAt(root, overTheMark);
+        HoverRestorer.enterAt(root, overTheMark);
 
         assertTrue(revealed.isVisible());
         assertEquals(false, revealed.getModel().isRollover());
 
-        FlipHubHoverRestorer.enterAt(root, overTheMark);
+        HoverRestorer.enterAt(root, overTheMark);
 
         assertTrue(revealed.getModel().isRollover());
     }
@@ -124,7 +124,7 @@ public class FlipHubHoverRestorerTest {
         button.setRolloverEnabled(true);
         JPanel root = laidOutRoot(button);
 
-        FlipHubHoverRestorer.enterAt(root, new Point(50, 400));
+        HoverRestorer.enterAt(root, new Point(50, 400));
 
         assertEquals(false, button.getModel().isRollover());
     }

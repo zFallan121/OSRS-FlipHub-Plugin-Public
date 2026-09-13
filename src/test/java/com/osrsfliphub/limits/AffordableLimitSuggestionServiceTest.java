@@ -30,7 +30,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 public class AffordableLimitSuggestionServiceTest {
-    private final AffordableLimitSuggestionService service = new AffordableLimitSuggestionService(null, null);
+    private final AffordableLimitSuggestion service = new AffordableLimitSuggestion(null, null);
 
     @Test
     public void computeUsesEnteredPriceBeforeSelectedOfferPrice() {

@@ -45,8 +45,8 @@ public class FlipHubStatsControlWidthTest {
     /** PluginPanel content width. */
     private static final int PANEL_WIDTH = 225;
     /** The sort direction button and the 4px BorderLayout gap it sits behind. */
-    private static final int DIRECTION_BUTTON = FlipHubPanelConstants.SORT_DIRECTION_WIDTH + 4;
-    private static final int ROW_GAP = FlipHubPanelConstants.TRAILING_CONTROL_GAP;
+    private static final int DIRECTION_BUTTON = Skin.SORT_DIRECTION_WIDTH + 4;
+    private static final int ROW_GAP = Skin.TRAILING_CONTROL_GAP;
     /** A combo box spends this much on its arrow and its rounded inset. */
     private static final int COMBO_CHROME = 30;
 
@@ -59,7 +59,7 @@ public class FlipHubStatsControlWidthTest {
      * clipped anyway. Asking the styler is what stops that happening twice.
      */
     private static Font rowFont() {
-        return new FlipHubUiStyler().font(FlipHubUiStyler.DROPDOWN_TEXT_SIZE);
+        return new UiStyler().font(UiStyler.DROPDOWN_TEXT_SIZE);
     }
 
     private static int widest(Font font, Object[] values) {

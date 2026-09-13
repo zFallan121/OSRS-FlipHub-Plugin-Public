@@ -59,12 +59,12 @@ public class LocalStatsCacheConversionTest {
     private static final long SALE_NET = 1_365_140L;
     private static final int SALE_GROSS_UNIT = 1_393_000;
 
-    private final Map<Integer, LocalStatsCacheDeltaService.LocalItemAgg> itemAggs = new HashMap<>();
-    private final Map<Integer, LocalStatsCacheDeltaService.LocalInventoryState> inventory = new HashMap<>();
-    private final Map<Integer, LocalStatsCacheDeltaService.MatchedSellMarker> markers = new HashMap<>();
-    private final LocalStatsCacheDeltaService.Totals totals = new LocalStatsCacheDeltaService.Totals();
+    private final Map<Integer, StatsCacheDelta.ItemAgg> itemAggs = new HashMap<>();
+    private final Map<Integer, StatsCacheDelta.LocalInventoryState> inventory = new HashMap<>();
+    private final Map<Integer, StatsCacheDelta.MatchedSellMarker> markers = new HashMap<>();
+    private final StatsCacheDelta.Totals totals = new StatsCacheDelta.Totals();
 
-    private LocalStatsCacheDeltaService serviceWithGuardianBoots() {
+    private StatsCacheDelta serviceWithGuardianBoots() {
         ConversionRecipe recipe = new ConversionRecipe(
             ConversionKind.ASSEMBLE,
             "Guardian boots",
@@ -72,28 +72,28 @@ public class LocalStatsCacheConversionTest {
             Collections.singletonList(new ConversionItem(GUARDIAN_BOOTS, 1)),
             0L
         );
-        ConversionLedger ledger = new ConversionLedger(new ConversionRecipeIndex(Collections.singletonList(recipe)));
-        return new LocalStatsCacheDeltaService(itemAggs, inventory, markers, totals, ledger);
+        Ledger ledger = new Ledger(new RecipeIndex(Collections.singletonList(recipe)));
+        return new StatsCacheDelta(itemAggs, inventory, markers, totals, ledger);
     }
 
-    private static LocalTradeDelta buy(long tsMs, int slot, int itemId, int qty, long gp) {
-        return new LocalTradeDelta(tsMs, slot, itemId, true, qty, gp, "OFFER_COMPLETED", (int) (gp / qty), false);
+    private static Delta buy(long tsMs, int slot, int itemId, int qty, long gp) {
+        return new Delta(tsMs, slot, itemId, true, qty, gp, "OFFER_COMPLETED", (int) (gp / qty), false);
     }
 
-    private void applyGuardianBootsTrade(LocalStatsCacheDeltaService service) {
+    private void applyGuardianBootsTrade(StatsCacheDelta service) {
         service.applyDelta(buy(1_000L, 1, BANDOS_BOOTS, 1, BOOTS_COST));
         service.applyDelta(buy(2_000L, 2, CORE, 1, CORE_COST));
-        service.applyDelta(new LocalTradeDelta(
+        service.applyDelta(new Delta(
             3_000L, 3, GUARDIAN_BOOTS, false, 1, SALE_NET, "OFFER_COMPLETED", SALE_GROSS_UNIT, false));
     }
 
     @Test
     public void anAssembledItemEarnsItsOwnRowInTheProfileList() {
-        LocalStatsCacheDeltaService service = serviceWithGuardianBoots();
+        StatsCacheDelta service = serviceWithGuardianBoots();
 
         applyGuardianBootsTrade(service);
 
-        LocalStatsCacheDeltaService.LocalItemAgg agg = itemAggs.get(GUARDIAN_BOOTS);
+        StatsCacheDelta.ItemAgg agg = itemAggs.get(GUARDIAN_BOOTS);
         assertNotNull("the sold item needs an aggregate or the Profile list has no row", agg);
         assertEquals(INPUT_COST, agg.buyCost);
         assertEquals(SALE_NET, agg.sellRevenue);
@@ -106,7 +106,7 @@ public class LocalStatsCacheConversionTest {
 
     @Test
     public void theSummaryAgreesWithTheActivity() {
-        LocalStatsCacheDeltaService service = serviceWithGuardianBoots();
+        StatsCacheDelta service = serviceWithGuardianBoots();
 
         applyGuardianBootsTrade(service);
 
@@ -123,7 +123,7 @@ public class LocalStatsCacheConversionTest {
     public void theHoldTimeRunsFromTheFirstIngredientPurchase() {
         // Without carrying the inputs' buy time onto the item they made, the
         // hold would start at the sale and gp per hour would be infinite.
-        LocalStatsCacheDeltaService service = serviceWithGuardianBoots();
+        StatsCacheDelta service = serviceWithGuardianBoots();
 
         applyGuardianBootsTrade(service);
 
@@ -133,7 +133,7 @@ public class LocalStatsCacheConversionTest {
 
     @Test
     public void theIngredientsLeaveNoRowsBehind() {
-        LocalStatsCacheDeltaService service = serviceWithGuardianBoots();
+        StatsCacheDelta service = serviceWithGuardianBoots();
 
         applyGuardianBootsTrade(service);
 
@@ -154,8 +154,8 @@ public class LocalStatsCacheConversionTest {
             0L);
     }
 
-    private static LocalTradeDelta sell(long tsMs, int slot, int itemId, int qty, long gp, int unitPrice) {
-        return new LocalTradeDelta(tsMs, slot, itemId, false, qty, gp, "OFFER_COMPLETED", unitPrice, false);
+    private static Delta sell(long tsMs, int slot, int itemId, int qty, long gp, int unitPrice) {
+        return new Delta(tsMs, slot, itemId, false, qty, gp, "OFFER_COMPLETED", unitPrice, false);
     }
 
     /**
@@ -163,7 +163,7 @@ public class LocalStatsCacheConversionTest {
      * offer in an order that leaves both breaks open at once. Each piece's
      * gross price is its net revenue plus the two percent the exchange took.
      */
-    private static List<LocalTradeDelta> twoSetsBrokenAndSoldPieceByPiece() {
+    private static List<Delta> twoSetsBrokenAndSoldPieceByPiece() {
         return Arrays.asList(
             buy(1_000L, 1, DHAROKS_ARMOUR_SET, 2, 14_800_000L),
             sell(2_000L, 2, DHAROKS_HELM, 1, 1_050_000L, 1_071_428),
@@ -184,18 +184,18 @@ public class LocalStatsCacheConversionTest {
         // the other in place for the younger one - never match it as bought
         // stock at zero cost, and never zero the break count while a break is
         // still waiting on it.
-        LocalStatsCacheDeltaService service = new LocalStatsCacheDeltaService(
+        StatsCacheDelta service = new StatsCacheDelta(
             itemAggs, inventory, markers, totals,
-            new ConversionLedger(new ConversionRecipeIndex(Collections.singletonList(dharoksSetBreak()))));
+            new Ledger(new RecipeIndex(Collections.singletonList(dharoksSetBreak()))));
 
-        for (LocalTradeDelta delta : twoSetsBrokenAndSoldPieceByPiece()) {
+        for (Delta delta : twoSetsBrokenAndSoldPieceByPiece()) {
             service.applyDelta(delta);
         }
 
         for (int pieceId : new int[]{DHAROKS_HELM, DHAROKS_PLATEBODY, DHAROKS_PLATELEGS, DHAROKS_GREATAXE}) {
             assertNull("a piece off a set is never a row of its own", itemAggs.get(pieceId));
         }
-        LocalStatsCacheDeltaService.LocalItemAgg set = itemAggs.get(DHAROKS_ARMOUR_SET);
+        StatsCacheDelta.ItemAgg set = itemAggs.get(DHAROKS_ARMOUR_SET);
         assertNotNull(set);
         assertEquals(14_800_000L, set.buyCost);
         assertEquals(15_400_000L, set.sellRevenue);
@@ -214,13 +214,13 @@ public class LocalStatsCacheConversionTest {
     public void theCacheAgreesWithTheFlipHistoryOnTwoBrokenSets() {
         // The header's profit comes from the flip history and the rows from
         // this cache. If they disagree the rows stop adding up to the header.
-        ConversionLedger ledger =
-            new ConversionLedger(new ConversionRecipeIndex(Collections.singletonList(dharoksSetBreak())));
-        LocalStatsCacheDeltaService service =
-            new LocalStatsCacheDeltaService(itemAggs, inventory, markers, totals, ledger);
-        List<LocalTradeDelta> deltas = twoSetsBrokenAndSoldPieceByPiece();
+        Ledger ledger =
+            new Ledger(new RecipeIndex(Collections.singletonList(dharoksSetBreak())));
+        StatsCacheDelta service =
+            new StatsCacheDelta(itemAggs, inventory, markers, totals, ledger);
+        List<Delta> deltas = twoSetsBrokenAndSoldPieceByPiece();
 
-        for (LocalTradeDelta delta : deltas) {
+        for (Delta delta : deltas) {
             service.applyDelta(delta);
         }
         Map<Integer, List<StatsFlipInstance>> history =
@@ -262,7 +262,7 @@ public class LocalStatsCacheConversionTest {
      * sale is deferred. The body can only have come off the set, which breaks
      * it - and that is the moment the helm sale becomes explicable.
      */
-    private static List<LocalTradeDelta> helmSoldWhileAmbiguousThenTheRestOfTheSet() {
+    private static List<Delta> helmSoldWhileAmbiguousThenTheRestOfTheSet() {
         return Arrays.asList(
             buy(1_000L, 1, DHAROKS_HELM_0, 1, 800_000L),
             buy(2_000L, 2, DHAROKS_ARMOUR_SET, 1, 7_400_000L),
@@ -280,16 +280,16 @@ public class LocalStatsCacheConversionTest {
         // it only looks on a synced buy, the helm's coins never reach the
         // break, the break never completes, and the set has no row while the
         // header - which comes from the flip history - counts its 300,000.
-        ConversionLedger ledger = new ConversionLedger(
-            new ConversionRecipeIndex(Arrays.asList(dharoksHelmRepair(), dharoksSetBreak())));
-        LocalStatsCacheDeltaService service =
-            new LocalStatsCacheDeltaService(itemAggs, inventory, markers, totals, ledger);
+        Ledger ledger = new Ledger(
+            new RecipeIndex(Arrays.asList(dharoksHelmRepair(), dharoksSetBreak())));
+        StatsCacheDelta service =
+            new StatsCacheDelta(itemAggs, inventory, markers, totals, ledger);
 
-        for (LocalTradeDelta delta : helmSoldWhileAmbiguousThenTheRestOfTheSet()) {
+        for (Delta delta : helmSoldWhileAmbiguousThenTheRestOfTheSet()) {
             service.applyDelta(delta);
         }
 
-        LocalStatsCacheDeltaService.LocalItemAgg set = itemAggs.get(DHAROKS_ARMOUR_SET);
+        StatsCacheDelta.ItemAgg set = itemAggs.get(DHAROKS_ARMOUR_SET);
         assertNotNull("the break has to complete and file its row against the set", set);
         assertEquals(7_400_000L, set.buyCost);
         assertEquals(7_700_000L, set.sellRevenue);
@@ -305,13 +305,13 @@ public class LocalStatsCacheConversionTest {
 
     @Test
     public void theCacheAgreesWithTheFlipHistoryOnADeferredPieceSale() {
-        ConversionLedger ledger = new ConversionLedger(
-            new ConversionRecipeIndex(Arrays.asList(dharoksHelmRepair(), dharoksSetBreak())));
-        LocalStatsCacheDeltaService service =
-            new LocalStatsCacheDeltaService(itemAggs, inventory, markers, totals, ledger);
-        List<LocalTradeDelta> deltas = helmSoldWhileAmbiguousThenTheRestOfTheSet();
+        Ledger ledger = new Ledger(
+            new RecipeIndex(Arrays.asList(dharoksHelmRepair(), dharoksSetBreak())));
+        StatsCacheDelta service =
+            new StatsCacheDelta(itemAggs, inventory, markers, totals, ledger);
+        List<Delta> deltas = helmSoldWhileAmbiguousThenTheRestOfTheSet();
 
-        for (LocalTradeDelta delta : deltas) {
+        for (Delta delta : deltas) {
             service.applyDelta(delta);
         }
         Map<Integer, List<StatsFlipInstance>> history =
@@ -339,8 +339,8 @@ public class LocalStatsCacheConversionTest {
 
     @Test
     public void withoutALedgerTheSaleIsStillDropped() {
-        LocalStatsCacheDeltaService service =
-            new LocalStatsCacheDeltaService(itemAggs, inventory, markers, totals);
+        StatsCacheDelta service =
+            new StatsCacheDelta(itemAggs, inventory, markers, totals);
 
         applyGuardianBootsTrade(service);
 

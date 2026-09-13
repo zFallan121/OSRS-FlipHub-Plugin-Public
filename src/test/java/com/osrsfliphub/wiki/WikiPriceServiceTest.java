@@ -41,7 +41,7 @@ public class WikiPriceServiceTest {
         runtime.setPanelVisible(true);
         ImmediateSuccessFetcher fetcher = new ImmediateSuccessFetcher();
         fetcher.entries.put(4151, entry(1200, 1000));
-        WikiPriceService service = new WikiPriceService(1L, 0L, runtime, fetcher);
+        WikiPrice service = new WikiPrice(1L, 0L, runtime, fetcher);
 
         WikiPriceEntry first = service.getPriceEntry(4151, true);
         WikiPriceEntry second = service.getPriceEntry(4151, false);
@@ -58,7 +58,7 @@ public class WikiPriceServiceTest {
         runtime.setPanelVisible(false);
         ImmediateSuccessFetcher fetcher = new ImmediateSuccessFetcher();
         fetcher.entries.put(100, entry(10, 9));
-        WikiPriceService service = new WikiPriceService(1000L, 0L, runtime, fetcher);
+        WikiPrice service = new WikiPrice(1000L, 0L, runtime, fetcher);
 
         service.refreshPrices();
 
@@ -71,7 +71,7 @@ public class WikiPriceServiceTest {
         runtime.setPanelVisible(true);
         ImmediateSuccessFetcher fetcher = new ImmediateSuccessFetcher();
         fetcher.entries.put(100, entry(10, 9));
-        WikiPriceService service = new WikiPriceService(-1L, 60_000L, runtime, fetcher);
+        WikiPrice service = new WikiPrice(-1L, 60_000L, runtime, fetcher);
 
         service.refreshPrices();
         service.refreshPrices();
@@ -84,7 +84,7 @@ public class WikiPriceServiceTest {
         PluginRuntime runtime = new PluginRuntime(null);
         runtime.setPanelVisible(true);
         ImmediateSuccessFetcher fetcher = new ImmediateSuccessFetcher();
-        WikiPriceService service = new WikiPriceService(1000L, 0L, runtime, fetcher);
+        WikiPrice service = new WikiPrice(1000L, 0L, runtime, fetcher);
         StubScheduler scheduler = new StubScheduler();
 
         service.start(scheduler);
@@ -101,7 +101,7 @@ public class WikiPriceServiceTest {
         return entry;
     }
 
-    private static final class ImmediateSuccessFetcher implements WikiPriceService.Fetcher {
+    private static final class ImmediateSuccessFetcher implements WikiPrice.Fetcher {
         private int calls = 0;
         private final Map<Integer, WikiPriceEntry> entries = new HashMap<>();
 

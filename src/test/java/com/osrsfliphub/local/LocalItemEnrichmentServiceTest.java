@@ -39,7 +39,7 @@ public class LocalItemEnrichmentServiceTest {
         FlipHubItem item = itemPriced(4151, 1_400_000_000, 1_450_000_000);
         item.ge_limit_remaining = 8;
 
-        new LocalItemEnrichmentService().applyMarginInfo(item);
+        new ItemEnrichment().applyMarginInfo(item);
 
         assertEquals(Integer.valueOf(45_000_000), item.margin);
         assertEquals(Long.valueOf(360_000_000L), item.margin_x_limit);
@@ -49,7 +49,7 @@ public class LocalItemEnrichmentServiceTest {
     public void marginAndRoiAgreeOnTheSameTax() {
         FlipHubItem item = itemPriced(561, 1_000, 1_049);
 
-        new LocalItemEnrichmentService().applyMarginInfo(item);
+        new ItemEnrichment().applyMarginInfo(item);
 
         assertEquals(Integer.valueOf(29), item.margin);
         assertEquals(2.9d, item.roi_percent, 0.0001d);
@@ -60,7 +60,7 @@ public class LocalItemEnrichmentServiceTest {
     public void aCheapItemIsNotTaxed() {
         FlipHubItem item = itemPriced(1511, 20, 45);
 
-        new LocalItemEnrichmentService().applyMarginInfo(item);
+        new ItemEnrichment().applyMarginInfo(item);
 
         assertEquals(Integer.valueOf(25), item.margin);
     }

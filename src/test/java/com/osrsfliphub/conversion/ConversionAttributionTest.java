@@ -82,7 +82,7 @@ public class ConversionAttributionTest {
 
     private static LocalFlipHistoryService serviceFor(ConversionRecipe recipe) {
         return new LocalFlipHistoryService(
-            new ConversionLedger(new ConversionRecipeIndex(Collections.singletonList(recipe))));
+            new Ledger(new RecipeIndex(Collections.singletonList(recipe))));
     }
 
     private static LocalFlipHistoryService service() {
@@ -93,15 +93,15 @@ public class ConversionAttributionTest {
             Collections.singletonList(new ConversionItem(GUARDIAN_BOOTS, 1)),
             0L);
         return new LocalFlipHistoryService(
-            new ConversionLedger(new ConversionRecipeIndex(Collections.singletonList(recipe))));
+            new Ledger(new RecipeIndex(Collections.singletonList(recipe))));
     }
 
-    private static LocalTradeDelta buy(long tsMs, int slot, int itemId, int qty, long gp) {
-        return new LocalTradeDelta(tsMs, slot, itemId, true, qty, gp, "OFFER_COMPLETED", (int) (gp / qty), false);
+    private static Delta buy(long tsMs, int slot, int itemId, int qty, long gp) {
+        return new Delta(tsMs, slot, itemId, true, qty, gp, "OFFER_COMPLETED", (int) (gp / qty), false);
     }
 
-    private static LocalTradeDelta sell(long tsMs, int slot, int itemId, int qty, long gp, int unitPrice) {
-        return new LocalTradeDelta(tsMs, slot, itemId, false, qty, gp, "OFFER_COMPLETED", unitPrice, false);
+    private static Delta sell(long tsMs, int slot, int itemId, int qty, long gp, int unitPrice) {
+        return new Delta(tsMs, slot, itemId, false, qty, gp, "OFFER_COMPLETED", unitPrice, false);
     }
 
     private static List<StatsFlipInstance> oldestFirst(Map<Integer, List<StatsFlipInstance>> byItem) {
@@ -121,7 +121,7 @@ public class ConversionAttributionTest {
             DHAROKS_PIECES,
             Collections.singletonList(new ConversionItem(DHAROKS_ARMOUR_SET, 1)),
             0L);
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             buy(1_000L, 1, DHAROKS_HELM, 1, 1_000_000L),
             buy(2_000L, 2, DHAROKS_PLATEBODY, 1, 2_000_000L),
             buy(3_000L, 3, DHAROKS_PLATELEGS, 1, 1_500_000L),
@@ -143,7 +143,7 @@ public class ConversionAttributionTest {
         // 1 -> N. One purchase becomes four sellable pieces, and the four sales
         // are one activity, not four: the set is what was traded, and what it
         // made is the pieces added up less what it cost.
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             buy(1_000L, 1, DHAROKS_ARMOUR_SET, 1, 7_400_000L),
             sell(2_000L, 2, DHAROKS_HELM, 1, 1_050_000L, 1_071_428),
             sell(3_000L, 3, DHAROKS_PLATEBODY, 1, 2_050_000L, 2_091_836),
@@ -173,7 +173,7 @@ public class ConversionAttributionTest {
         // The block under a break reads the other way round from an assemble:
         // these are what came out, and they add up to the revenue rather than
         // to the cost.
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             buy(1_000L, 1, DHAROKS_ARMOUR_SET, 1, 7_400_000L),
             sell(2_000L, 2, DHAROKS_HELM, 1, 1_050_000L, 1_071_428),
             sell(3_000L, 3, DHAROKS_PLATEBODY, 1, 2_050_000L, 2_091_836),
@@ -186,7 +186,7 @@ public class ConversionAttributionTest {
 
         assertEquals(4, activity.conversionLines.size());
         long lines = 0L;
-        for (ConversionMatch.Line line : activity.conversionLines) {
+        for (Match.Line line : activity.conversionLines) {
             lines += line.costGp;
         }
         assertEquals(activity.sellRevenueGp, lines);
@@ -201,7 +201,7 @@ public class ConversionAttributionTest {
         // reported rather than a loss the activity is only partway through.
         // What is reported is that the break is open: an entry with no
         // numbers that counts for nothing, so a wrong guess can be refused.
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             buy(1_000L, 1, DHAROKS_ARMOUR_SET, 1, 7_400_000L),
             sell(2_000L, 2, DHAROKS_HELM, 1, 1_050_000L, 1_071_428),
             sell(3_000L, 3, DHAROKS_PLATEBODY, 1, 2_050_000L, 2_091_836),
@@ -242,7 +242,7 @@ public class ConversionAttributionTest {
                 new ConversionItem(BLUE_DHIDE_CHAPS, 1),
                 new ConversionItem(BLUE_DHIDE_VAMBRACES, 1)),
             0L);
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             buy(1_000L, 1, BLUE_DHIDE_SET, 1, 15_000L),
             sell(2_000L, 2, BLUE_DHIDE_BODY, 1, 4_900L, 5_000),
             sell(3_000L, 3, BLUE_DHIDE_VAMBRACES, 1, 1_261L, 1_286),
@@ -281,7 +281,7 @@ public class ConversionAttributionTest {
                 new ConversionItem(GODSWORD_BLADE, 1),
                 new ConversionItem(ARMADYL_HILT, 1)),
             0L);
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             buy(1_000L, 1, ARMADYL_GODSWORD, 1, 14_000_000L),
             sell(2_000L, 2, GODSWORD_BLADE, 1, 2_100_000L, 2_142_857),
             sell(3_000L, 3, ARMADYL_HILT, 1, 12_400_000L, 12_653_061)
@@ -306,9 +306,9 @@ public class ConversionAttributionTest {
         // broken self, or broken out of a set. Two satisfiable routes must claim
         // neither - but a route with nothing to run it on is not a second
         // answer, and must not make the real one look ambiguous.
-        LocalFlipHistoryService service = new LocalFlipHistoryService(new ConversionLedger(
-            new ConversionRecipeIndex(Arrays.asList(dharoksHelmRepair(), dharoksSetBreak()))));
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        LocalFlipHistoryService service = new LocalFlipHistoryService(new Ledger(
+            new RecipeIndex(Arrays.asList(dharoksHelmRepair(), dharoksSetBreak()))));
+        List<Delta> deltas = Arrays.asList(
             buy(1_000L, 1, DHAROKS_HELM_0, 1, 800_000L),
             sell(2_000L, 2, DHAROKS_HELM, 1, 1_050_000L, 1_071_428)
         );
@@ -325,9 +325,9 @@ public class ConversionAttributionTest {
         // A broken helm and a set, both in stock, and a whole helm sold. Which
         // one the player used is unknowable, and either answer would move most
         // of a million gp onto the wrong item, so no activity is claimed at all.
-        LocalFlipHistoryService service = new LocalFlipHistoryService(new ConversionLedger(
-            new ConversionRecipeIndex(Arrays.asList(dharoksHelmRepair(), dharoksSetBreak()))));
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        LocalFlipHistoryService service = new LocalFlipHistoryService(new Ledger(
+            new RecipeIndex(Arrays.asList(dharoksHelmRepair(), dharoksSetBreak()))));
+        List<Delta> deltas = Arrays.asList(
             buy(1_000L, 1, DHAROKS_HELM_0, 1, 800_000L),
             buy(2_000L, 2, DHAROKS_ARMOUR_SET, 1, 7_400_000L),
             sell(3_000L, 3, DHAROKS_HELM, 1, 1_050_000L, 1_071_428)
@@ -360,8 +360,8 @@ public class ConversionAttributionTest {
             0L);
     }
 
-    private static LocalTradeDelta fill(long tsMs, int slot, int itemId, int qty, long gp, int unitPrice) {
-        return new LocalTradeDelta(tsMs, slot, itemId, false, qty, gp, "OFFER_UPDATED", unitPrice, false);
+    private static Delta fill(long tsMs, int slot, int itemId, int qty, long gp, int unitPrice) {
+        return new Delta(tsMs, slot, itemId, false, qty, gp, "OFFER_UPDATED", unitPrice, false);
     }
 
     @Test
@@ -370,7 +370,7 @@ public class ConversionAttributionTest {
         // time. Each fill is explained by one run of the recipe and the offer
         // as a whole by two; the numbers were always right, but the activity
         // read as a plain flip, so the recipe filters missed it.
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             buy(1_000L, 1, GODSWORD_SHARD_1, 2, 200_000L),
             buy(2_000L, 2, GODSWORD_SHARD_2, 2, 200_000L),
             buy(3_000L, 3, GODSWORD_SHARD_3, 2, 200_000L),
@@ -388,12 +388,12 @@ public class ConversionAttributionTest {
         assertEquals(100_000L, activity.profitGp);
         assertEquals(ConversionKind.ASSEMBLE, activity.conversionKind);
         assertEquals("Godsword blade", activity.conversionName);
-        assertEquals(ConversionConfidence.CONFIRMED, activity.conversionConfidence);
+        assertEquals(Confidence.CONFIRMED, activity.conversionConfidence);
 
         // One line per shard, each for both units, adding up to the cost basis.
         assertEquals(3, activity.conversionLines.size());
         long lineTotal = 0L;
-        for (ConversionMatch.Line line : activity.conversionLines) {
+        for (Match.Line line : activity.conversionLines) {
             assertEquals(2L, line.quantity);
             lineTotal += line.costGp;
         }
@@ -411,7 +411,7 @@ public class ConversionAttributionTest {
             Collections.singletonList(new ConversionItem(BANDOS_CHESTPLATE, 1)),
             Collections.singletonList(new ConversionItem(BANDOSIAN_COMPONENTS, 3)),
             0L);
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             buy(1_000L, 1, BANDOS_CHESTPLATE, 1, 30_000_000L),
             sell(2_000L, 2, BANDOSIAN_COMPONENTS, 1, 11_000_000L, 11_224_489)
         );
@@ -428,7 +428,7 @@ public class ConversionAttributionTest {
     public void aPlainFlipAfterAnAssembleIsNotLabelledAssembled() {
         // Assemble one pair and sell it, then buy a pair outright and sell that.
         // The second sale is an ordinary flip and must say nothing about a recipe.
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             buy(1_000L, 1, BANDOS_BOOTS, 1, 731_225L),
             buy(2_000L, 2, CORE, 1, 483_005L),
             sell(3_000L, 3, GUARDIAN_BOOTS, 1, 1_365_140L, 1_393_000),
@@ -455,7 +455,7 @@ public class ConversionAttributionTest {
         // together. The cost basis is the blend of the two, so no breakdown can
         // honestly describe it - and a block that does not add up to the number
         // beside it is exactly the false attribution to avoid.
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             buy(1_000L, 1, GUARDIAN_BOOTS, 1, 2_325_000L),
             buy(2_000L, 2, BANDOS_BOOTS, 1, 731_225L),
             buy(3_000L, 3, CORE, 1, 483_005L),

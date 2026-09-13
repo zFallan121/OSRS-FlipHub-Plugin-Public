@@ -36,11 +36,11 @@ import static org.junit.Assert.assertTrue;
  * running totals say about them.
  */
 public class LocalStatsCacheTest {
-    private static final int SYNCED = GeLifecyclePluginConstants.GE_HISTORY_SYNTHETIC_SLOT_START;
+    private static final int SYNCED = Const.GE_HISTORY_SYNTHETIC_SLOT_START;
 
-    private static LocalTradeDelta delta(long tsClientMs, int slot, int itemId, boolean isBuy, int deltaQty,
+    private static Delta delta(long tsClientMs, int slot, int itemId, boolean isBuy, int deltaQty,
                                          long deltaGp, String eventType, int price) {
-        return new LocalTradeDelta(tsClientMs, slot, itemId, isBuy, deltaQty, deltaGp, eventType, price, false);
+        return new Delta(tsClientMs, slot, itemId, isBuy, deltaQty, deltaGp, eventType, price, false);
     }
 
     /**
@@ -50,17 +50,17 @@ public class LocalStatsCacheTest {
      */
     @Test
     public void rebuildReplaysASyncedBatchInTheOrderTheLiveCacheSawIt() {
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             delta(5_000L, SYNCED, 560, false, 1, 130L, "OFFER_UPDATED", 130),
             delta(5_004L, SYNCED, 560, false, 0, 0L, "OFFER_COMPLETED", 130),
             delta(5_008L, SYNCED + 1, 560, true, 1, 100L, "OFFER_UPDATED", 100),
             delta(5_012L, SYNCED + 1, 560, true, 0, 0L, "OFFER_COMPLETED", 100)
         );
-        LocalStatsCache live = new LocalStatsCache();
-        for (LocalTradeDelta delta : deltas) {
+        StatsCache live = new StatsCache();
+        for (Delta delta : deltas) {
             assertTrue(live.applyDeltaInOrder(delta));
         }
-        LocalStatsCache rebuilt = new LocalStatsCache();
+        StatsCache rebuilt = new StatsCache();
         rebuilt.rebuild(deltas);
 
         // The history said the sale came first, so it was not a sale of this stock.
@@ -80,7 +80,7 @@ public class LocalStatsCacheTest {
      */
     @Test
     public void onePurchaseSoldInTenFillsIsHeldOnce() {
-        LocalStatsCache cache = new LocalStatsCache();
+        StatsCache cache = new StatsCache();
         assertTrue(cache.applyDeltaInOrder(delta(0L, 1, 560, true, 10, 1_000L, "OFFER_COMPLETED", 100)));
         for (int fill = 0; fill < 10; fill++) {
             String type = fill == 9 ? "OFFER_COMPLETED" : "OFFER_UPDATED";
@@ -97,7 +97,7 @@ public class LocalStatsCacheTest {
     public void twoPurchasesSoldSeparatelyAreTwoHolds() {
         // The pool empties between them, so they are two positions and the
         // clock runs from each one's own purchase.
-        LocalStatsCache cache = new LocalStatsCache();
+        StatsCache cache = new StatsCache();
         assertTrue(cache.applyDeltaInOrder(delta(0L, 1, 560, true, 5, 500L, "OFFER_COMPLETED", 100)));
         assertTrue(cache.applyDeltaInOrder(delta(HOUR_MS, 2, 560, false, 5, 635L, "OFFER_COMPLETED", 130)));
         assertTrue(cache.applyDeltaInOrder(delta(2 * HOUR_MS, 1, 560, true, 5, 500L, "OFFER_COMPLETED", 100)));

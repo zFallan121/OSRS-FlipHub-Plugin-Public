@@ -29,7 +29,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 
 public class FlipHubPanelValueFormatServiceTest {
-    private final FlipHubPanelValueFormatService service = new FlipHubPanelValueFormatService();
+    private final PanelValueFormat service = new PanelValueFormat();
 
     @Test
     public void formatGpSupportsIntegerAndLong() {

@@ -34,16 +34,16 @@ import static org.junit.Assert.assertEquals;
  * remembering which read each synced unit came from.
  */
 public class ConversionSyncedStockTest {
-    private static final int SYNCED = GeLifecyclePluginConstants.GE_HISTORY_SYNTHETIC_SLOT_START;
-    private static final int LIVE = ConversionSyncedBatches.LIVE;
+    private static final int SYNCED = Const.GE_HISTORY_SYNTHETIC_SLOT_START;
+    private static final int LIVE = SyncedBatches.LIVE;
 
-    private static LocalTradeDelta delta(int slot) {
-        return new LocalTradeDelta(1_000L, slot, 4151, true, 1, 100L, "OFFER_COMPLETED", 100, false);
+    private static Delta delta(int slot) {
+        return new Delta(1_000L, slot, 4151, true, 1, 100L, "OFFER_COMPLETED", 100, false);
     }
 
     @Test
     public void batchesRestartWhereTheSlotsFallBack() {
-        ConversionSyncedBatches batches = new ConversionSyncedBatches();
+        SyncedBatches batches = new SyncedBatches();
 
         assertEquals(LIVE, batches.batchOf(delta(3)));
         assertEquals(1, batches.batchOf(delta(SYNCED)));
@@ -63,7 +63,7 @@ public class ConversionSyncedStockTest {
 
     @Test
     public void whatTheHistoryListsAfterASaleIsNotAvailableToIt() {
-        ConversionSyncedStock stock = new ConversionSyncedStock();
+        SyncedStock stock = new SyncedStock();
         stock.add(1, SYNCED, 2);
         stock.add(2, SYNCED + 1, 1);
         stock.add(2, SYNCED + 4, 3);
@@ -84,7 +84,7 @@ public class ConversionSyncedStockTest {
 
     @Test
     public void consumingSpendsWhatTheSaleWasEntitledToFirst() {
-        ConversionSyncedStock stock = new ConversionSyncedStock();
+        SyncedStock stock = new SyncedStock();
         stock.add(1, SYNCED, 1);
         stock.add(2, SYNCED + 1, 1);
         stock.add(2, SYNCED + 3, 1);
@@ -109,7 +109,7 @@ public class ConversionSyncedStockTest {
         // A plain sale never says which synced units went with it, so the
         // oldest are taken to have - which is what stops units already sold
         // from answering for ones the history lists after a later sale.
-        ConversionSyncedStock stock = new ConversionSyncedStock();
+        SyncedStock stock = new SyncedStock();
         stock.add(1, SYNCED, 2);
         stock.add(2, SYNCED + 1, 1);
 

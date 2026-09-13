@@ -44,7 +44,7 @@ import net.runelite.client.ui.NavigationButton;
 final class PluginRuntime {
     private final ClientThread clientThread;
 
-    private volatile FlipHubPanel panel;
+    private volatile Panel panel;
     private volatile NavigationButton navButton;
     private volatile GeOfferTimerOverlay offerTimerOverlay;
     private volatile ScheduledExecutorService scheduler;
@@ -66,11 +66,11 @@ final class PluginRuntime {
         this.clientThread = clientThread;
     }
 
-    FlipHubPanel getPanel() {
+    Panel getPanel() {
         return panel;
     }
 
-    void setPanel(FlipHubPanel panel) {
+    void setPanel(Panel panel) {
         this.panel = panel;
     }
 

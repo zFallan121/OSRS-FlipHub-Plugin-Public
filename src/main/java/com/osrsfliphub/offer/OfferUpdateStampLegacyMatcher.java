@@ -29,14 +29,14 @@ import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
 
 final class OfferUpdateStampLegacyMatcher {
-    boolean matchesCurrentOffers(Map<Integer, OfferUpdateStamp> stamps, GrandExchangeOffer[] offers) {
+    boolean matchesCurrentOffers(Map<Integer, Stamp> stamps, GrandExchangeOffer[] offers) {
         if (stamps == null || stamps.isEmpty() || offers == null || offers.length == 0) {
             return false;
         }
 
         int compared = 0;
         int matches = 0;
-        for (Map.Entry<Integer, OfferUpdateStamp> entry : stamps.entrySet()) {
+        for (Map.Entry<Integer, Stamp> entry : stamps.entrySet()) {
             if (entry == null || entry.getKey() == null || entry.getValue() == null) {
                 continue;
             }
@@ -44,7 +44,7 @@ final class OfferUpdateStampLegacyMatcher {
             if (slot < 0 || slot >= offers.length) {
                 continue;
             }
-            OfferUpdateStamp stamp = entry.getValue();
+            Stamp stamp = entry.getValue();
             if (stamp.itemId <= 0) {
                 continue;
             }

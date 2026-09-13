@@ -36,18 +36,18 @@ final class OfferUpdateStampStore {
     private OfferUpdateStampStore() {
     }
 
-    static Map<Integer, OfferUpdateStamp> parse(String raw, Gson gson, int minSlot, int maxSlot) {
-        Map<Integer, OfferUpdateStamp> result = new HashMap<>();
+    static Map<Integer, Stamp> parse(String raw, Gson gson, int minSlot, int maxSlot) {
+        Map<Integer, Stamp> result = new HashMap<>();
         if (gson == null || raw == null || raw.trim().isEmpty()) {
             return result;
         }
         try {
-            Type type = new TypeToken<Map<String, OfferUpdateStamp>>() {}.getType();
-            Map<String, OfferUpdateStamp> parsed = gson.fromJson(raw, type);
+            Type type = new TypeToken<Map<String, Stamp>>() {}.getType();
+            Map<String, Stamp> parsed = gson.fromJson(raw, type);
             if (parsed == null || parsed.isEmpty()) {
                 return result;
             }
-            for (Map.Entry<String, OfferUpdateStamp> entry : parsed.entrySet()) {
+            for (Map.Entry<String, Stamp> entry : parsed.entrySet()) {
                 if (entry == null || entry.getKey() == null || entry.getValue() == null) {
                     continue;
                 }
@@ -64,13 +64,13 @@ final class OfferUpdateStampStore {
         return result;
     }
 
-    static String serialize(Map<Integer, OfferUpdateStamp> stamps, Gson gson) {
+    static String serialize(Map<Integer, Stamp> stamps, Gson gson) {
         if (gson == null) {
             return "{}";
         }
-        Map<String, OfferUpdateStamp> output = new TreeMap<>();
+        Map<String, Stamp> output = new TreeMap<>();
         if (stamps != null && !stamps.isEmpty()) {
-            for (Map.Entry<Integer, OfferUpdateStamp> entry : stamps.entrySet()) {
+            for (Map.Entry<Integer, Stamp> entry : stamps.entrySet()) {
                 if (entry == null || entry.getKey() == null || entry.getValue() == null) {
                     continue;
                 }

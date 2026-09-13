@@ -35,7 +35,7 @@ import javax.inject.Singleton;
 
 @Singleton
 final class LocalStatsSnapshotService {
-    private final long accountwideKey = GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
+    private final long accountwideKey = Const.ACCOUNTWIDE_KEY;
     private final PluginState pluginState;
 
     @Inject
@@ -44,8 +44,8 @@ final class LocalStatsSnapshotService {
     }
 
     private Set<Long> collectAccountwideProfileKeys() {
-        AccountwideProfileKeyCollector collector = PluginInjectorBridge.get(AccountwideProfileKeyCollector.class);
-        ProfileStorageFacadeService storage = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
+        ProfileKeyCollector collector = Bridge.get(ProfileKeyCollector.class);
+        ProfileStorage storage = Bridge.get(ProfileStorage.class);
         if (collector == null || storage == null) {
             return Collections.emptySet();
         }
@@ -58,12 +58,12 @@ final class LocalStatsSnapshotService {
     }
 
     private Map<Long, String> loadProfilesFromDisk() {
-        ProfileSelectionPresentationFacadeService service =
-            PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class);
+        ProfileSelectionPresentation service =
+            Bridge.get(ProfileSelectionPresentation.class);
         return service != null ? service.loadProfilesFromDisk() : Collections.emptyMap();
     }
 
-    LocalStatsSnapshot buildSnapshot(long accountKey, Long sinceMs, StatsItemSort sort) {
+    StatsSnapshot buildSnapshot(long accountKey, Long sinceMs, StatsItemSort sort) {
         if (accountKey == accountwideKey) {
             return buildAccountwideSnapshot(sinceMs, sort);
         }
@@ -74,7 +74,7 @@ final class LocalStatsSnapshotService {
         if (items == null || items.isEmpty()) {
             return;
         }
-        ItemLookupService itemLookup = PluginInjectorBridge.get(ItemLookupService.class);
+        ItemLookup itemLookup = Bridge.get(ItemLookup.class);
         for (StatsItem item : items) {
             if (item == null || item.item_id <= 0) {
                 continue;
@@ -125,31 +125,31 @@ final class LocalStatsSnapshotService {
      * <p>The pooled ledger is still the fallback for the case where no per-character files can
      * be found, so an account that has one is never shown nothing.
      */
-    private LocalStatsSnapshot buildAccountwideSnapshot(Long sinceMs, StatsItemSort sort) {
+    private StatsSnapshot buildAccountwideSnapshot(Long sinceMs, StatsItemSort sort) {
         Set<Long> profileKeys = collectAccountwideProfileKeys();
-        AccountwideStatsAggregator aggregator = PluginInjectorBridge.get(AccountwideStatsAggregator.class);
-        LocalStatsSnapshot aggregated =
+        StatsAggregator aggregator = Bridge.get(StatsAggregator.class);
+        StatsSnapshot aggregated =
             aggregator != null ? aggregator.buildFromProfiles(profileKeys, sinceMs, sort) : null;
-        if (AccountwideStatsAggregator.hasMeaningfulStats(aggregated)) {
+        if (StatsAggregator.hasMeaningfulStats(aggregated)) {
             return aggregated;
         }
-        LocalStatsSnapshot pooled = buildSnapshotForAccount(accountwideKey, sinceMs, sort);
-        if (AccountwideStatsAggregator.hasMeaningfulStats(pooled)) {
+        StatsSnapshot pooled = buildSnapshotForAccount(accountwideKey, sinceMs, sort);
+        if (StatsAggregator.hasMeaningfulStats(pooled)) {
             return pooled;
         }
         return aggregated != null ? aggregated : emptySnapshot();
     }
 
-    private LocalStatsSnapshot buildSnapshotForAccount(long accountKey, Long sinceMs, StatsItemSort sort) {
-        PluginAccess.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
-        LocalStatsCacheService cacheService = PluginInjectorBridge.get(LocalStatsCacheService.class);
-        LocalStatsCache cache = cacheService != null ? cacheService.getOrBuild(accountKey) : null;
+    private StatsSnapshot buildSnapshotForAccount(long accountKey, Long sinceMs, StatsItemSort sort) {
+        Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
+        LocalStatsCacheService cacheService = Bridge.get(LocalStatsCacheService.class);
+        StatsCache cache = cacheService != null ? cacheService.getOrBuild(accountKey) : null;
         if (cache == null) {
             return emptySnapshot();
         }
 
-        LocalStatsSnapshot snapshot = sinceMs == null
-            ? new LocalStatsSnapshot(cache.getSummary(), cache.getItems())
+        StatsSnapshot snapshot = sinceMs == null
+            ? new StatsSnapshot(cache.getSummary(), cache.getItems())
             : cache.buildSnapshotSince(sinceMs);
         if (snapshot == null) {
             return emptySnapshot();
@@ -158,10 +158,10 @@ final class LocalStatsSnapshotService {
         hydrateItemNames(items);
         items.sort(buildComparator(sort));
         StatsSummary summary = snapshot.summary != null ? snapshot.summary : new StatsSummary();
-        return new LocalStatsSnapshot(summary, items);
+        return new StatsSnapshot(summary, items);
     }
 
-    private static LocalStatsSnapshot emptySnapshot() {
-        return new LocalStatsSnapshot(new StatsSummary(), new ArrayList<>());
+    private static StatsSnapshot emptySnapshot() {
+        return new StatsSnapshot(new StatsSummary(), new ArrayList<>());
     }
 }

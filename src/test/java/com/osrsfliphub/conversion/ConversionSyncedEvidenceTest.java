@@ -67,7 +67,7 @@ public class ConversionSyncedEvidenceTest {
     private static final long SALE_NET = 1_365_140L;
     private static final int SALE_GROSS_UNIT = 1_393_000;
 
-    private static final int SYNCED = GeLifecyclePluginConstants.GE_HISTORY_SYNTHETIC_SLOT_START;
+    private static final int SYNCED = Const.GE_HISTORY_SYNTHETIC_SLOT_START;
 
     private static ConversionRecipe guardianBoots() {
         return new ConversionRecipe(
@@ -89,28 +89,28 @@ public class ConversionSyncedEvidenceTest {
         );
     }
 
-    private static ConversionLedger ledger() {
-        return new ConversionLedger(new ConversionRecipeIndex(Collections.singletonList(guardianBoots())));
+    private static Ledger ledger() {
+        return new Ledger(new RecipeIndex(Collections.singletonList(guardianBoots())));
     }
 
-    private static LocalTradeDelta buy(long tsMs, int slot, int itemId, int qty, long gp) {
-        return new LocalTradeDelta(tsMs, slot, itemId, true, qty, gp, "OFFER_COMPLETED", (int) (gp / qty), false);
+    private static Delta buy(long tsMs, int slot, int itemId, int qty, long gp) {
+        return new Delta(tsMs, slot, itemId, true, qty, gp, "OFFER_COMPLETED", (int) (gp / qty), false);
     }
 
-    private static LocalTradeDelta sale(long tsMs, int slot) {
-        return new LocalTradeDelta(
+    private static Delta sale(long tsMs, int slot) {
+        return new Delta(
             tsMs, slot, GUARDIAN_BOOTS, false, 1, SALE_NET, "OFFER_COMPLETED", SALE_GROSS_UNIT, false);
     }
 
-    private static LocalTradeDelta sell(long tsMs, int slot, int itemId, long netGp, int unitPrice) {
-        return new LocalTradeDelta(tsMs, slot, itemId, false, 1, netGp, "OFFER_COMPLETED", unitPrice, false);
+    private static Delta sell(long tsMs, int slot, int itemId, long netGp, int unitPrice) {
+        return new Delta(tsMs, slot, itemId, false, 1, netGp, "OFFER_COMPLETED", unitPrice, false);
     }
 
-    private static List<StatsFlipInstance> guardianBootsHistory(List<LocalTradeDelta> deltas) {
+    private static List<StatsFlipInstance> guardianBootsHistory(List<Delta> deltas) {
         return historyOf(ledger(), deltas, GUARDIAN_BOOTS);
     }
 
-    private static List<StatsFlipInstance> historyOf(ConversionLedger ledger, List<LocalTradeDelta> deltas, int itemId) {
+    private static List<StatsFlipInstance> historyOf(Ledger ledger, List<Delta> deltas, int itemId) {
         Map<Integer, List<StatsFlipInstance>> result = new LocalFlipHistoryService(ledger).buildHistory(deltas, null);
         List<StatsFlipInstance> history = result.get(itemId);
         return history != null ? history : new ArrayList<>();
@@ -118,7 +118,7 @@ public class ConversionSyncedEvidenceTest {
 
     @Test
     public void ingredientsSyncedAfterALiveSaleStillCount() {
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             sale(1_000L, 3),
             buy(5_000L, SYNCED, BANDOS_BOOTS, 1, BOOTS_COST),
             buy(5_008L, SYNCED + 1, CORE, 1, CORE_COST)
@@ -135,14 +135,14 @@ public class ConversionSyncedEvidenceTest {
         // The sale's own timestamp, not the replay's.
         assertEquals(1_000L, activity.completionTsMs);
         assertEquals(ConversionKind.ASSEMBLE, activity.conversionKind);
-        assertEquals(ConversionConfidence.LIKELY, activity.conversionConfidence);
+        assertEquals(Confidence.LIKELY, activity.conversionConfidence);
     }
 
     @Test
     public void liveIngredientsBoughtAfterASaleAreStillRefused() {
         // Same shape, real slots. A live timestamp is evidence, so buying the
         // parts after selling the whole cannot be the same trade.
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             sale(1_000L, 3),
             buy(5_000L, 1, BANDOS_BOOTS, 1, BOOTS_COST),
             buy(5_008L, 2, CORE, 1, CORE_COST)
@@ -153,7 +153,7 @@ public class ConversionSyncedEvidenceTest {
 
     @Test
     public void oneLiveIngredientIsEnoughToRefuseTheWholeConversion() {
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             sale(1_000L, 3),
             buy(5_000L, SYNCED, BANDOS_BOOTS, 1, BOOTS_COST),
             buy(5_008L, 2, CORE, 1, CORE_COST)
@@ -167,7 +167,7 @@ public class ConversionSyncedEvidenceTest {
         // A player who never opens the desktop client gets the whole trade in
         // one sync, in history order, so pass one handles it and nothing is
         // downgraded.
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             buy(5_000L, SYNCED, BANDOS_BOOTS, 1, BOOTS_COST),
             buy(5_008L, SYNCED + 1, CORE, 1, CORE_COST),
             sale(5_016L, SYNCED + 2)
@@ -177,7 +177,7 @@ public class ConversionSyncedEvidenceTest {
 
         assertEquals(1, history.size());
         assertEquals(150_910L, history.get(0).profitGp);
-        assertEquals(ConversionConfidence.CONFIRMED, history.get(0).conversionConfidence);
+        assertEquals(Confidence.CONFIRMED, history.get(0).conversionConfidence);
     }
 
     @Test
@@ -188,7 +188,7 @@ public class ConversionSyncedEvidenceTest {
         // timestamps were invented - but the order inside one read of the
         // history is the game's own, and it says the parts came after. The
         // retry refuses too, and the sale stands unmatched.
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             sale(5_000L, SYNCED),
             buy(5_008L, SYNCED + 1, BANDOS_BOOTS, 1, BOOTS_COST),
             buy(5_016L, SYNCED + 2, CORE, 1, CORE_COST)
@@ -203,9 +203,9 @@ public class ConversionSyncedEvidenceTest {
         // they bought a blade and a hilt to build another. One read of the
         // history, in that order. Calling the sale an assemble would price the
         // sword at parts bought after it and make the parts vanish from stock.
-        ConversionLedger ledger =
-            new ConversionLedger(new ConversionRecipeIndex(Collections.singletonList(armadylGodsword())));
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        Ledger ledger =
+            new Ledger(new RecipeIndex(Collections.singletonList(armadylGodsword())));
+        List<Delta> deltas = Arrays.asList(
             sell(5_000L, SYNCED, ARMADYL_GODSWORD, 11_760_000L, 12_000_000),
             buy(5_008L, SYNCED + 1, GODSWORD_BLADE, 1, 500_000L),
             buy(5_016L, SYNCED + 2, ARMADYL_HILT, 1, 10_800_000L),
@@ -229,7 +229,7 @@ public class ConversionSyncedEvidenceTest {
         // Boots in stock when the sale comes, the core bought after it, all in
         // one read. Pass one refuses for want of the core; the retry may not
         // then take the core, because the same read says it came later.
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             buy(5_000L, SYNCED, BANDOS_BOOTS, 1, BOOTS_COST),
             sale(5_008L, SYNCED + 1),
             buy(5_016L, SYNCED + 2, CORE, 1, CORE_COST)
@@ -245,7 +245,7 @@ public class ConversionSyncedEvidenceTest {
         // again - which is how the two are told apart. Nothing orders one read
         // against another, so this is the invented-timestamp case the retry
         // exists for, and it still takes it.
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             sale(5_000L, SYNCED),
             buy(9_000L, SYNCED, BANDOS_BOOTS, 1, BOOTS_COST),
             buy(9_008L, SYNCED + 1, CORE, 1, CORE_COST)
@@ -255,7 +255,7 @@ public class ConversionSyncedEvidenceTest {
 
         assertEquals(1, history.size());
         assertEquals(150_910L, history.get(0).profitGp);
-        assertEquals(ConversionConfidence.LIKELY, history.get(0).conversionConfidence);
+        assertEquals(Confidence.LIKELY, history.get(0).conversionConfidence);
     }
 
     @Test
@@ -265,7 +265,7 @@ public class ConversionSyncedEvidenceTest {
         // for the second sale is the first read's, which that read lists after
         // it - so it is refused, rather than both sales being called assembles
         // out of one pair of parts each.
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             sale(5_000L, SYNCED),
             sale(5_008L, SYNCED + 1),
             buy(5_016L, SYNCED + 2, BANDOS_BOOTS, 1, BOOTS_COST),
@@ -278,7 +278,7 @@ public class ConversionSyncedEvidenceTest {
 
         assertEquals(1, history.size());
         assertEquals(5_000L, history.get(0).completionTsMs);
-        assertEquals(ConversionConfidence.LIKELY, history.get(0).conversionConfidence);
+        assertEquals(Confidence.LIKELY, history.get(0).conversionConfidence);
     }
 
     @Test
@@ -287,7 +287,7 @@ public class ConversionSyncedEvidenceTest {
         // brings a sale, then boots and a core after it. The only boots in
         // stock are the ones that read lists after the sale; the earlier
         // read's may not answer for them, because they were sold.
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             buy(1_000L, SYNCED, BANDOS_BOOTS, 1, BOOTS_COST),
             sell(2_000L, 1, BANDOS_BOOTS, 750_000L, 765_306),
             sale(5_000L, SYNCED),
@@ -306,7 +306,7 @@ public class ConversionSyncedEvidenceTest {
     public void aSyncedSaleIsNotResurrectedTwice() {
         // Re-syncing the same buys must not produce a second activity out of one
         // sale, and must not double the profit.
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             sale(1_000L, 3),
             buy(5_000L, SYNCED, BANDOS_BOOTS, 1, BOOTS_COST),
             buy(5_008L, SYNCED + 1, CORE, 1, CORE_COST),
@@ -324,8 +324,8 @@ public class ConversionSyncedEvidenceTest {
     public void anOrdinaryUnmatchedSaleIsStillDropped() {
         // No recipe involved: selling something never bought stays invisible,
         // which is what the plugin has always done.
-        List<LocalTradeDelta> deltas = Arrays.asList(
-            new LocalTradeDelta(1_000L, 3, 4151, false, 1, 1_000_000L, "OFFER_COMPLETED", 1_020_408, false),
+        List<Delta> deltas = Arrays.asList(
+            new Delta(1_000L, 3, 4151, false, 1, 1_000_000L, "OFFER_COMPLETED", 1_020_408, false),
             buy(5_000L, SYNCED, BANDOS_BOOTS, 1, BOOTS_COST)
         );
 
@@ -339,12 +339,12 @@ public class ConversionSyncedEvidenceTest {
     public void theStatsCacheRecoversTheSameSaleIncrementally() {
         // The cache is fed one delta at a time and has no end of stream, so its
         // retry has to be driven by the arriving synced buy. Same numbers.
-        Map<Integer, LocalStatsCacheDeltaService.LocalItemAgg> itemAggs = new HashMap<>();
-        Map<Integer, LocalStatsCacheDeltaService.LocalInventoryState> inventory = new HashMap<>();
-        Map<Integer, LocalStatsCacheDeltaService.MatchedSellMarker> markers = new HashMap<>();
-        LocalStatsCacheDeltaService.Totals totals = new LocalStatsCacheDeltaService.Totals();
-        LocalStatsCacheDeltaService service =
-            new LocalStatsCacheDeltaService(itemAggs, inventory, markers, totals, ledger());
+        Map<Integer, StatsCacheDelta.ItemAgg> itemAggs = new HashMap<>();
+        Map<Integer, StatsCacheDelta.LocalInventoryState> inventory = new HashMap<>();
+        Map<Integer, StatsCacheDelta.MatchedSellMarker> markers = new HashMap<>();
+        StatsCacheDelta.Totals totals = new StatsCacheDelta.Totals();
+        StatsCacheDelta service =
+            new StatsCacheDelta(itemAggs, inventory, markers, totals, ledger());
 
         service.applyDelta(sale(1_000L, 3));
         assertTrue("nothing should be attributed before the buys arrive", itemAggs.isEmpty());
@@ -352,7 +352,7 @@ public class ConversionSyncedEvidenceTest {
         service.applyDelta(buy(5_000L, SYNCED, BANDOS_BOOTS, 1, BOOTS_COST));
         service.applyDelta(buy(5_008L, SYNCED + 1, CORE, 1, CORE_COST));
 
-        LocalStatsCacheDeltaService.LocalItemAgg agg = itemAggs.get(GUARDIAN_BOOTS);
+        StatsCacheDelta.ItemAgg agg = itemAggs.get(GUARDIAN_BOOTS);
         assertEquals(INPUT_COST, agg.buyCost);
         assertEquals(SALE_NET, agg.sellRevenue);
         assertEquals(1, agg.completedSells);
@@ -370,12 +370,12 @@ public class ConversionSyncedEvidenceTest {
         // order, and a second sync start its slots over. The first read's
         // parts came after its sale and are refused; the second read's are
         // another import and are taken, exactly as the flip history does it.
-        Map<Integer, LocalStatsCacheDeltaService.LocalItemAgg> itemAggs = new HashMap<>();
-        Map<Integer, LocalStatsCacheDeltaService.LocalInventoryState> inventory = new HashMap<>();
-        Map<Integer, LocalStatsCacheDeltaService.MatchedSellMarker> markers = new HashMap<>();
-        LocalStatsCacheDeltaService.Totals totals = new LocalStatsCacheDeltaService.Totals();
-        LocalStatsCacheDeltaService service =
-            new LocalStatsCacheDeltaService(itemAggs, inventory, markers, totals, ledger());
+        Map<Integer, StatsCacheDelta.ItemAgg> itemAggs = new HashMap<>();
+        Map<Integer, StatsCacheDelta.LocalInventoryState> inventory = new HashMap<>();
+        Map<Integer, StatsCacheDelta.MatchedSellMarker> markers = new HashMap<>();
+        StatsCacheDelta.Totals totals = new StatsCacheDelta.Totals();
+        StatsCacheDelta service =
+            new StatsCacheDelta(itemAggs, inventory, markers, totals, ledger());
 
         service.applyDelta(sale(5_000L, SYNCED));
         service.applyDelta(buy(5_008L, SYNCED + 1, BANDOS_BOOTS, 1, BOOTS_COST));
@@ -386,7 +386,7 @@ public class ConversionSyncedEvidenceTest {
 
         service.applyDelta(buy(9_000L, SYNCED, BANDOS_BOOTS, 1, BOOTS_COST));
         service.applyDelta(buy(9_008L, SYNCED + 1, CORE, 1, CORE_COST));
-        LocalStatsCacheDeltaService.LocalItemAgg agg = itemAggs.get(GUARDIAN_BOOTS);
+        StatsCacheDelta.ItemAgg agg = itemAggs.get(GUARDIAN_BOOTS);
         assertEquals(INPUT_COST, agg.buyCost);
         assertEquals(150_910L, totals.totalProfit);
         assertEquals(1, totals.totalCompleted);

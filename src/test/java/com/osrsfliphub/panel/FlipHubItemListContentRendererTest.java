@@ -42,9 +42,9 @@ import static org.junit.Assert.assertTrue;
 public class FlipHubItemListContentRendererTest {
     private static final long AS_OF = 1_700_000_000_000L;
 
-    private final FlipHubAgeTooltipCoordinator ageTooltipCoordinator =
-        new FlipHubAgeTooltipCoordinator(new FlipHubPanelValueFormatService());
-    private static final FlipHubPanelBookmarkStore NO_BOOKMARKS = new FlipHubPanelBookmarkStore() {
+    private final AgeTooltip ageTooltipCoordinator =
+        new AgeTooltip(new PanelValueFormat());
+    private static final PanelBookmarkStore NO_BOOKMARKS = new PanelBookmarkStore() {
         @Override
         public boolean isBookmarked(int itemId) {
             return false;
@@ -55,7 +55,7 @@ public class FlipHubItemListContentRendererTest {
         }
     };
 
-    private static final FlipHubPanelHiddenItemStore NOTHING_HIDDEN = new FlipHubPanelHiddenItemStore() {
+    private static final PanelHiddenItemStore NOTHING_HIDDEN = new PanelHiddenItemStore() {
         @Override
         public boolean isHidden(int itemId) {
             return false;
@@ -66,9 +66,9 @@ public class FlipHubItemListContentRendererTest {
         }
     };
 
-    private final FlipHubItemCardBuilder cardBuilder = new FlipHubItemCardBuilder(
-        new FlipHubPanelValueFormatService(),
-        new FlipHubUiStyler(),
+    private final ItemCardBuilder cardBuilder = new ItemCardBuilder(
+        new PanelValueFormat(),
+        new UiStyler(),
         null,
         null,
         NO_BOOKMARKS,
@@ -79,9 +79,9 @@ public class FlipHubItemListContentRendererTest {
         null
     );
 
-    private FlipHubItemListContentRenderer renderer() {
-        return new FlipHubItemListContentRenderer(
-            new FlipHubUiStyler(),
+    private ItemListContentRenderer renderer() {
+        return new ItemListContentRenderer(
+            new UiStyler(),
             NOTHING_HIDDEN,
             NO_BOOKMARKS,
             cardBuilder,
@@ -104,7 +104,7 @@ public class FlipHubItemListContentRendererTest {
         return item;
     }
 
-    private static boolean render(FlipHubItemListContentRenderer renderer,
+    private static boolean render(ItemListContentRenderer renderer,
                                   JPanel listPanel,
                                   List<FlipHubItem> items) {
         return renderer.renderList(listPanel, null, 0L, items, AS_OF, false, "");
@@ -112,7 +112,7 @@ public class FlipHubItemListContentRendererTest {
 
     @Test
     public void arefreshOfTheSameItemsKeepsEveryRowAndWritesTheNewValues() {
-        FlipHubItemListContentRenderer renderer = renderer();
+        ItemListContentRenderer renderer = renderer();
         JPanel listPanel = listPanel();
         List<FlipHubItem> items = new ArrayList<>(Arrays.asList(
             item(1933, "Pot of flour", 114),
@@ -134,7 +134,7 @@ public class FlipHubItemListContentRendererTest {
             assertSame("row " + index + " was replaced", afterFirst[index], afterRefresh[index]);
         }
 
-        FlipHubPanelValueFormatService format = new FlipHubPanelValueFormatService();
+        PanelValueFormat format = new PanelValueFormat();
         assertEquals("the row the pointer is on should be showing the new price",
             format.formatGp(121), sellPriceOf(afterRefresh[0]));
         assertEquals(format.formatGp(1_750_000), sellPriceOf(afterRefresh[2]));
@@ -163,7 +163,7 @@ public class FlipHubItemListContentRendererTest {
 
     @Test
     public void adifferentSetOfItemsRebuildsThePanel() {
-        FlipHubItemListContentRenderer renderer = renderer();
+        ItemListContentRenderer renderer = renderer();
         JPanel listPanel = listPanel();
 
         assertTrue(render(renderer, listPanel,
@@ -180,7 +180,7 @@ public class FlipHubItemListContentRendererTest {
 
     @Test
     public void anemptyListShowsItsCardOnceAndThenStandsStill() {
-        FlipHubItemListContentRenderer renderer = renderer();
+        ItemListContentRenderer renderer = renderer();
         JPanel listPanel = listPanel();
 
         assertTrue(render(renderer, listPanel, new ArrayList<>()));
@@ -192,7 +192,7 @@ public class FlipHubItemListContentRendererTest {
 
     @Test
     public void theofferPreviewAndTheListAreDifferentShapes() {
-        FlipHubItemListContentRenderer renderer = renderer();
+        ItemListContentRenderer renderer = renderer();
         JPanel listPanel = listPanel();
         FlipHubItem offer = item(1933, "Pot of flour", 114);
 

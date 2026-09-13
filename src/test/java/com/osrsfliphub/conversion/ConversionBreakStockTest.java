@@ -68,21 +68,21 @@ public class ConversionBreakStockTest {
     }
 
     private static LocalFlipHistoryService serviceWith(ConversionRecipe... recipes) {
-        return new LocalFlipHistoryService(new ConversionLedger(new ConversionRecipeIndex(Arrays.asList(recipes))));
+        return new LocalFlipHistoryService(new Ledger(new RecipeIndex(Arrays.asList(recipes))));
     }
 
-    private static LocalTradeDelta buy(long tsMs, int slot, int itemId, int qty, long gp) {
-        return new LocalTradeDelta(tsMs, slot, itemId, true, qty, gp, "OFFER_COMPLETED", (int) (gp / qty), false);
+    private static Delta buy(long tsMs, int slot, int itemId, int qty, long gp) {
+        return new Delta(tsMs, slot, itemId, true, qty, gp, "OFFER_COMPLETED", (int) (gp / qty), false);
     }
 
     /** Sales are stored net of tax, with the gross unit price kept alongside. */
-    private static LocalTradeDelta sell(long tsMs, int slot, int itemId, int qty, long grossUnit) {
+    private static Delta sell(long tsMs, int slot, int itemId, int qty, long grossUnit) {
         long gross = grossUnit * qty;
         long net = gross - GeTax.forSale(itemId, (int) grossUnit, qty);
-        return new LocalTradeDelta(tsMs, slot, itemId, false, qty, net, "OFFER_COMPLETED", (int) grossUnit, false);
+        return new Delta(tsMs, slot, itemId, false, qty, net, "OFFER_COMPLETED", (int) grossUnit, false);
     }
 
-    private static long totalProfit(LocalFlipHistoryService service, List<LocalTradeDelta> deltas) {
+    private static long totalProfit(LocalFlipHistoryService service, List<Delta> deltas) {
         Map<Integer, List<StatsFlipInstance>> byItem = service.buildHistory(deltas, null);
         long profit = 0L;
         for (List<StatsFlipInstance> entries : byItem.values()) {
@@ -95,7 +95,7 @@ public class ConversionBreakStockTest {
         return profit;
     }
 
-    private static List<StatsFlipInstance> allEntries(LocalFlipHistoryService service, List<LocalTradeDelta> deltas) {
+    private static List<StatsFlipInstance> allEntries(LocalFlipHistoryService service, List<Delta> deltas) {
         Map<Integer, List<StatsFlipInstance>> byItem = service.buildHistory(deltas, null);
         List<StatsFlipInstance> all = new ArrayList<>();
         for (List<StatsFlipInstance> entries : byItem.values()) {
@@ -129,7 +129,7 @@ public class ConversionBreakStockTest {
     @Test
     public void aRebuildCannotSpendTheBreaksOwnPieceAsFreeStock() {
         LocalFlipHistoryService service = serviceWith(assembleGodsword(), disassembleGodsword());
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             buy(1_000L, 1, ARMADYL_GODSWORD, 1, 18_000_000L),
             sell(2_000L, 2, ARMADYL_HILT, 1, 12_000_000L),
             buy(3_000L, 3, ARMADYL_HILT, 1, 11_000_000L),
@@ -146,7 +146,7 @@ public class ConversionBreakStockTest {
                 sawOpenBreak = true;
                 assertFalse("an unfinished break must not count", entry.counted());
             }
-            for (ConversionMatch.Line line : entry.conversionLines) {
+            for (Match.Line line : entry.conversionLines) {
                 if (!line.fee) {
                     assertTrue("an ingredient was taken at no cost: item " + line.itemId,
                         line.costGp > 0L);
@@ -167,7 +167,7 @@ public class ConversionBreakStockTest {
     @Test
     public void aBoughtUnitCarriesItsWholeCostWhenABreakPieceSharesTheBucket() {
         LocalFlipHistoryService service = serviceWith(assembleGodsword(), disassembleGodsword());
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             buy(1_000L, 1, GODSWORD_BLADE, 1, 4_000_000L),
             buy(2_000L, 2, ARMADYL_GODSWORD, 1, 18_000_000L),
             sell(3_000L, 3, ARMADYL_HILT, 1, 12_000_000L),

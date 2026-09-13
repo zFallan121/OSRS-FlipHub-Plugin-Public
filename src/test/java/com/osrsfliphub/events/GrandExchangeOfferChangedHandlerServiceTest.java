@@ -46,8 +46,8 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
- * Drives the real {@link GrandExchangeOfferChangedHandlerService#handle} end to end:
- * snapshot, stamp tracking, {@link OfferEventBuildService#derive}, the deduper, the
+ * Drives the real {@link GrandExchangeOfferChangedHandler#handle} end to end:
+ * snapshot, stamp tracking, {@link OfferEventBuild#derive}, the deduper, the
  * upload queue and the local trade recorder are all the production classes. Only the
  * RuneLite client, the config and the persistence/UI edges are stubbed.
  */
@@ -59,9 +59,9 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
     private static final int PRICE = 100;
 
     private PluginState state;
-    private GeLifecycleOfferStampStateServices stampState;
+    private OfferStampStateServices stampState;
     private GeLifecyclePlugin plugin;
-    private GrandExchangeOfferChangedHandlerService handler;
+    private GrandExchangeOfferChangedHandler handler;
     private final List<GeEvent> uploads = new ArrayList<>();
     private volatile boolean linked = true;
     private volatile GameState gameState = GameState.LOGGED_IN;
@@ -69,21 +69,21 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
     @Before
     public void setUp() {
         state = new PluginState();
-        OfferUpdateStampService stampService = new OfferUpdateStampService();
-        stampState = new GeLifecycleOfferStampStateServices(
+        OfferUpdateStamp stampService = new OfferUpdateStamp();
+        stampState = new OfferStampStateServices(
             FliphubConfigGroups.CONFIG_GROUP,
             FliphubConfigGroups.LEGACY_DEV_CONFIG_GROUP,
-            GeLifecyclePluginConstants.LOGIN_GRACE_MS,
+            Const.LOGIN_GRACE_MS,
             state.getOfferUpdateStamps(),
             () -> null,
             () -> null,
             () -> null,
             () -> stampService
         );
-        GeLifecycleLocalTradesRuntimeService tradesRuntime = new GeLifecycleLocalTradesRuntimeService(
-            GeLifecyclePluginConstants.ACCOUNTWIDE_KEY,
-            GeLifecyclePluginConstants.LOCAL_EVENT_BUCKET_MS,
-            GeLifecyclePluginConstants.DUPLICATE_TRADE_WINDOW_MS,
+        LocalTradesRuntime tradesRuntime = new LocalTradesRuntime(
+            Const.ACCOUNTWIDE_KEY,
+            Const.LOCAL_EVENT_BUCKET_MS,
+            Const.DUPLICATE_TRADE_WINDOW_MS,
             state.getLocalStatsLock(),
             state.getLocalTradeDeltasByAccount(),
             state.getLoadedProfiles(),
@@ -104,29 +104,29 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
         PluginConfig config = config();
         plugin = new GeLifecyclePlugin();
         plugin.client = client;
-        PluginAccess.set(plugin);
+        Access.set(plugin);
         Injector injector = Guice.createInjector(new AbstractModule() {
             @Override
             protected void configure() {
                 bind(Client.class).toInstance(client);
                 bind(PluginConfig.class).toInstance(config);
                 bind(PluginState.class).toInstance(state);
-                bind(OfferUpdateStampService.class).toInstance(stampService);
-                bind(GeLifecycleOfferStampStateServices.class).toInstance(stampState);
-                bind(GeLifecycleLocalTradesRuntimeService.class).toInstance(tradesRuntime);
-                bind(ItemLookupService.class).toProvider(Providers.<ItemLookupService>of(null));
+                bind(OfferUpdateStamp.class).toInstance(stampService);
+                bind(OfferStampStateServices.class).toInstance(stampState);
+                bind(LocalTradesRuntime.class).toInstance(tradesRuntime);
+                bind(ItemLookup.class).toProvider(Providers.<ItemLookup>of(null));
                 bind(LocalStatsCacheService.class).toProvider(Providers.<LocalStatsCacheService>of(null));
-                bind(PanelRefreshCoordinator.class).toProvider(Providers.<PanelRefreshCoordinator>of(null));
+                bind(PanelRefresh.class).toProvider(Providers.<PanelRefresh>of(null));
             }
         });
-        PluginInjectorBridge.set(injector);
-        handler = new GrandExchangeOfferChangedHandlerService(client, state);
+        Bridge.set(injector);
+        handler = new GrandExchangeOfferChangedHandler(client, state);
     }
 
     @After
     public void tearDown() {
-        PluginInjectorBridge.set(null);
-        PluginAccess.set(null);
+        Bridge.set(null);
+        Access.set(null);
     }
 
     // ---- C-2: the stamp must be read before trackOfferUpdate advances it ----
@@ -146,7 +146,7 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
         assertEquals(6, event.delta_qty);
         assertEquals(600L, event.delta_gp);
 
-        List<LocalTradeDelta> recorded = recorded();
+        List<Delta> recorded = recorded();
         assertEquals(1, recorded.size());
         assertEquals(6, recorded.get(0).deltaQty);
         assertEquals(600L, recorded.get(0).deltaGp);
@@ -167,7 +167,7 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
         assertEquals("OFFER_COMPLETED", sent.get(0).event_type);
         assertEquals(6, sent.get(0).delta_qty);
         assertEquals(600L, sent.get(0).delta_gp);
-        List<LocalTradeDelta> recorded = recorded();
+        List<Delta> recorded = recorded();
         assertEquals(1, recorded.size());
         assertEquals(6, recorded.get(0).deltaQty);
     }
@@ -252,9 +252,9 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
         assertEquals(6, completion.delta_qty);
         assertEquals(600L, completion.delta_gp);
 
-        List<LocalTradeDelta> recorded = recorded();
+        List<Delta> recorded = recorded();
         assertEquals(1, recorded.size());
-        LocalTradeDelta offer = recorded.get(0);
+        Delta offer = recorded.get(0);
         assertEquals("OFFER_COMPLETED", offer.eventType);
         assertEquals(10, offer.deltaQty);
         assertEquals(1_000L, offer.deltaGp);
@@ -271,7 +271,7 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
         fire(GrandExchangeOfferState.BUYING, 3, 10, 300L);
         fire(GrandExchangeOfferState.BUYING, 7, 10, 700L);
 
-        List<LocalTradeDelta> filling = recorded();
+        List<Delta> filling = recorded();
         assertEquals(2, filling.size());
         assertEquals(3, filling.get(0).deltaQty);
         assertEquals(4, filling.get(1).deltaQty);
@@ -280,7 +280,7 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
 
         fire(GrandExchangeOfferState.BOUGHT, 10, 10, 1_000L);
 
-        List<LocalTradeDelta> done = recorded();
+        List<Delta> done = recorded();
         assertEquals(1, done.size());
         assertEquals(10, done.get(0).deltaQty);
         assertEquals(1_000L, done.get(0).deltaGp);
@@ -305,7 +305,7 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
         assertEquals(5, completion.delta_qty);
         assertEquals(500L, completion.delta_gp);
 
-        List<LocalTradeDelta> recorded = recorded();
+        List<Delta> recorded = recorded();
         assertEquals(1, recorded.size());
         assertEquals(10, recorded.get(0).deltaQty);
         assertEquals(1_000L, recorded.get(0).deltaGp);
@@ -328,7 +328,7 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
         // A filled offer normally sits uncollected for far longer than the deduper's two
         // second window, so by logout it is no longer recognised as a repeat. Dropping the
         // slot's memory is how that gap looks to the handler.
-        PluginInjectorBridge.get(RecentTradeDeduper.class).clearSlot(SLOT);
+        Bridge.get(RecentTradeDeduper.class).clearSlot(SLOT);
         gameState = GameState.LOGIN_SCREEN;
         fire(GrandExchangeOfferState.EMPTY, 0, 0, 0L);
 
@@ -364,7 +364,7 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
         assertEquals(30, forB.delta_qty);
         assertEquals(210L, forB.delta_gp);
 
-        List<LocalTradeDelta> recorded = recorded();
+        List<Delta> recorded = recorded();
         assertEquals(2, recorded.size());
         assertEquals(itemA, recorded.get(0).itemId);
         assertEquals(5, recorded.get(0).deltaQty);
@@ -382,7 +382,7 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
         fire(GrandExchangeOfferState.BUYING, 4, 10, 400L);
         fire(GrandExchangeOfferState.BOUGHT, 10, 10, 1_000L);
         // The player collects well after the deduper's 2 s window has expired.
-        PluginInjectorBridge.get(RecentTradeDeduper.class).clearSlot(SLOT);
+        Bridge.get(RecentTradeDeduper.class).clearSlot(SLOT);
 
         fire(GrandExchangeOfferState.EMPTY, 0, 0, 0L);
 
@@ -399,7 +399,7 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
 
         // Locally the offer is already one completed record; the collect closes nothing
         // and carries nothing, so it adds nothing.
-        List<LocalTradeDelta> recorded = recorded();
+        List<Delta> recorded = recorded();
         assertEquals(1, recorded.size());
         assertEquals("OFFER_COMPLETED", recorded.get(0).eventType);
         assertEquals(10, recorded.get(0).deltaQty);
@@ -420,7 +420,7 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
 
     private void persistStamp(int filledQty, long spentGp, long firstSeenMs) {
         state.getOfferUpdateStamps().put(SLOT,
-            new OfferUpdateStamp(ITEM, PRICE, 10, filledQty, true, spentGp, firstSeenMs, firstSeenMs, 0L, 0L));
+            new Stamp(ITEM, PRICE, 10, filledQty, true, spentGp, firstSeenMs, firstSeenMs, 0L, 0L));
     }
 
     private List<GeEvent> uploads() {
@@ -431,9 +431,9 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
         return uploads;
     }
 
-    private List<LocalTradeDelta> recorded() {
+    private List<Delta> recorded() {
         synchronized (state.getLocalStatsLock()) {
-            List<LocalTradeDelta> deltas = state.getLocalTradeDeltasByAccount().get(ACCOUNT_HASH);
+            List<Delta> deltas = state.getLocalTradeDeltasByAccount().get(ACCOUNT_HASH);
             return deltas != null ? new ArrayList<>(deltas) : new ArrayList<>();
         }
     }

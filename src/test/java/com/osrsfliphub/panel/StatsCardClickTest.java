@@ -44,8 +44,8 @@ import static org.junit.Assert.assertEquals;
 public class StatsCardClickTest {
     private final AtomicInteger fired = new AtomicInteger();
     private final JPanel card = card();
-    private final FlipHubStatsClickMouseAdapter adapter =
-        new FlipHubStatsClickMouseAdapter(fired::incrementAndGet);
+    private final StatsClickMouseAdapter adapter =
+        new StatsClickMouseAdapter(fired::incrementAndGet);
 
     @Test
     public void aStillClickFires() {

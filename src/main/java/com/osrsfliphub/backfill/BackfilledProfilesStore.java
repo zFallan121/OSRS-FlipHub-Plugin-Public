@@ -34,7 +34,7 @@ import net.runelite.client.config.ConfigManager;
 @Singleton
 final class BackfilledProfilesStore {
     private final String configGroup = FliphubConfigGroups.CONFIG_GROUP;
-    private final String configKey = GeLifecyclePluginConstants.BACKFILLED_PROFILES_KEY;
+    private final String configKey = Const.BACKFILLED_PROFILES_KEY;
     private final ConfigManager configManager;
 
     @Inject

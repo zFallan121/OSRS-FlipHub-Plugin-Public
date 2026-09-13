@@ -97,7 +97,7 @@ final class LinkSessionConfigStore {
     }
 
     private void clearKeyHint() {
-        setString(LinkStatusService.LICENSE_KEY_HINT_KEY, "");
+        setString(LinkStatus.LICENSE_KEY_HINT_KEY, "");
     }
 
     private void setString(String key, String value) {

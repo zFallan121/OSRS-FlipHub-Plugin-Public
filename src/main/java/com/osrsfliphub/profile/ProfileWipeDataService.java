@@ -42,11 +42,11 @@ import org.slf4j.LoggerFactory;
 final class ProfileWipeDataService {
     private static final Logger log = LoggerFactory.getLogger(ProfileWipeDataService.class);
 
-    private final long accountwideKey = GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
+    private final long accountwideKey = Const.ACCOUNTWIDE_KEY;
     private final Object localStatsLock;
-    private final Map<Long, List<LocalTradeDelta>> localTradeDeltasByAccount;
+    private final Map<Long, List<Delta>> localTradeDeltasByAccount;
     private final Map<Long, Long> localSessionStartByAccount;
-    private final Map<Long, LocalStatsCache> statsCacheByAccount;
+    private final Map<Long, StatsCache> statsCacheByAccount;
     private final Set<Long> loadedProfiles;
     private final Map<Long, Long> loadedProfileFileMs;
     private final Gson gson;
@@ -62,8 +62,8 @@ final class ProfileWipeDataService {
         this.gson = gson;
     }
 
-    private boolean writeProfileData(long accountKey, List<LocalTradeDelta> deltas) {
-        ProfileStorageFacadeService storage = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
+    private boolean writeProfileData(long accountKey, List<Delta> deltas) {
+        ProfileStorage storage = Bridge.get(ProfileStorage.class);
         return storage != null && storage.writeProfileData(accountKey, deltas);
     }
 
@@ -76,7 +76,7 @@ final class ProfileWipeDataService {
      */
     boolean clearProfileDataForWipe(long accountKey, String displayName) {
         resetInMemoryProfileData(accountKey);
-        List<LocalTradeDelta> emptyDeltas = new ArrayList<>();
+        List<Delta> emptyDeltas = new ArrayList<>();
         boolean written = writeProfileData(accountKey, emptyDeltas);
         boolean legacyWritten = writeLegacyProfileDataIfPresent(accountKey, displayName, emptyDeltas);
         return written && legacyWritten;
@@ -85,18 +85,18 @@ final class ProfileWipeDataService {
     /** @return whether the accountwide file was actually cleared; see clearProfileDataForWipe. */
     boolean clearAccountwideDataForWipe() {
         resetInMemoryProfileData(accountwideKey);
-        List<LocalTradeDelta> emptyDeltas = new ArrayList<>();
+        List<Delta> emptyDeltas = new ArrayList<>();
         boolean written = writeProfileData(accountwideKey, emptyDeltas);
         boolean legacyWritten = writeLegacyProfileDataIfPresent(accountwideKey, "Accountwide", emptyDeltas);
         return written && legacyWritten;
     }
 
     /** @return whether the legacy copy was cleared, or true when there is no legacy copy. */
-    boolean writeLegacyProfileDataIfPresent(long accountKey, String displayName, List<LocalTradeDelta> deltas) {
+    boolean writeLegacyProfileDataIfPresent(long accountKey, String displayName, List<Delta> deltas) {
         if (gson == null) {
             return true;
         }
-        ProfileStorageFacadeService storage = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
+        ProfileStorage storage = Bridge.get(ProfileStorage.class);
         Path legacyDir = storage != null ? storage.getLegacyProfilesDir() : null;
         if (legacyDir == null || !Files.exists(legacyDir)) {
             return true;
@@ -131,7 +131,7 @@ final class ProfileWipeDataService {
         statsCacheByAccount.remove(accountKey);
         loadedProfiles.remove(accountKey);
         loadedProfileFileMs.remove(accountKey);
-        ConversionRejectionStore rejections = PluginInjectorBridge.get(ConversionRejectionStore.class);
+        RejectionStore rejections = Bridge.get(RejectionStore.class);
         if (rejections != null) {
             rejections.clear(accountKey);
         }

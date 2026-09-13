@@ -43,7 +43,7 @@ public class LocalAccountSessionServiceTest {
      */
     @Test
     public void hoppingWorldsDoesNotRestartTheSessionWindow() {
-        LocalAccountSessionService service = new LocalAccountSessionService(null);
+        AccountSession service = new AccountSession(null);
         Map<Long, Long> starts = new HashMap<>();
         Object lock = new Object();
 
@@ -57,7 +57,7 @@ public class LocalAccountSessionServiceTest {
     /** Reaching the login screen ends the session, so the next login starts a fresh one. */
     @Test
     public void loggingOutEndsTheSessionAndTheNextLoginStartsANewOne() {
-        LocalAccountSessionService service = new LocalAccountSessionService(null);
+        AccountSession service = new AccountSession(null);
         Map<Long, Long> starts = new HashMap<>();
         Object lock = new Object();
         service.startSessionIfAbsent(starts, lock, ACCOUNT, ACCOUNTWIDE, LOGIN_MS);
@@ -71,7 +71,7 @@ public class LocalAccountSessionServiceTest {
 
     @Test
     public void anUnresolvedAccountStartsNothing() {
-        LocalAccountSessionService service = new LocalAccountSessionService(null);
+        AccountSession service = new AccountSession(null);
         Map<Long, Long> starts = new HashMap<>();
 
         service.startSessionIfAbsent(starts, new Object(), -1L, ACCOUNTWIDE, LOGIN_MS);

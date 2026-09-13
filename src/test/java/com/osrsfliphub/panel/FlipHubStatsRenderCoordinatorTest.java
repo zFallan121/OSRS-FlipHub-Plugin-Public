@@ -41,7 +41,7 @@ import static org.junit.Assert.assertTrue;
 public class FlipHubStatsRenderCoordinatorTest {
     @Test
     public void toggleItemExpandedCollapsingCurrentItemClearsHistoryExpansion() {
-        FlipHubStatsRenderCoordinator coordinator = new FlipHubStatsRenderCoordinator();
+        StatsRender coordinator = new StatsRender();
         Set<Integer> expandedHistoryItems = new HashSet<>();
         expandedHistoryItems.add(4151);
 
@@ -53,7 +53,7 @@ public class FlipHubStatsRenderCoordinatorTest {
 
     @Test
     public void toggleItemExpandedSwitchingItemClearsPreviousHistoryExpansion() {
-        FlipHubStatsRenderCoordinator coordinator = new FlipHubStatsRenderCoordinator();
+        StatsRender coordinator = new StatsRender();
         Set<Integer> expandedHistoryItems = new HashSet<>();
         expandedHistoryItems.add(4151);
         expandedHistoryItems.add(11840);
@@ -67,7 +67,7 @@ public class FlipHubStatsRenderCoordinatorTest {
 
     @Test
     public void toggleHistoryExpandedAddsThenRemovesItem() {
-        FlipHubStatsRenderCoordinator coordinator = new FlipHubStatsRenderCoordinator();
+        StatsRender coordinator = new StatsRender();
         Set<Integer> expandedHistoryItems = new HashSet<>();
 
         coordinator.toggleHistoryExpanded(expandedHistoryItems, 4151);
@@ -79,23 +79,23 @@ public class FlipHubStatsRenderCoordinatorTest {
 
     @Test
     public void totalPagesRoundsPartialPagesUp() {
-        assertEquals(1, FlipHubStatsRenderCoordinator.totalPages(0));
-        assertEquals(1, FlipHubStatsRenderCoordinator.totalPages(10));
-        assertEquals(2, FlipHubStatsRenderCoordinator.totalPages(11));
-        assertEquals(3, FlipHubStatsRenderCoordinator.totalPages(25));
+        assertEquals(1, StatsRender.totalPages(0));
+        assertEquals(1, StatsRender.totalPages(10));
+        assertEquals(2, StatsRender.totalPages(11));
+        assertEquals(3, StatsRender.totalPages(25));
     }
 
     @Test
     public void clampPageFallsBackToTheLastPageThatExists() {
-        assertEquals(1, FlipHubStatsRenderCoordinator.clampPage(0, 3));
-        assertEquals(2, FlipHubStatsRenderCoordinator.clampPage(2, 3));
-        assertEquals(3, FlipHubStatsRenderCoordinator.clampPage(9, 3));
-        assertEquals(1, FlipHubStatsRenderCoordinator.clampPage(4, 0));
+        assertEquals(1, StatsRender.clampPage(0, 3));
+        assertEquals(2, StatsRender.clampPage(2, 3));
+        assertEquals(3, StatsRender.clampPage(9, 3));
+        assertEquals(1, StatsRender.clampPage(4, 0));
     }
 
     @Test
     public void renderItemsDrawsOnlyTheRequestedPageOfItems() {
-        FlipHubStatsRenderCoordinator coordinator = new FlipHubStatsRenderCoordinator();
+        StatsRender coordinator = new StatsRender();
         List<StatsItem> rendered = new ArrayList<>();
 
         int page = coordinator.renderItems(
@@ -124,7 +124,7 @@ public class FlipHubStatsRenderCoordinatorTest {
 
     @Test
     public void renderItemsKeepsOnlyTheRequestedRecipeKind() {
-        FlipHubStatsRenderCoordinator coordinator = new FlipHubStatsRenderCoordinator();
+        StatsRender coordinator = new StatsRender();
         List<StatsItem> items = buildItems(3);
         items.get(0).conversionKinds = java.util.EnumSet.of(ConversionKind.ASSEMBLE);
         items.get(1).conversionKinds = java.util.EnumSet.of(ConversionKind.REPAIR);
@@ -155,7 +155,7 @@ public class FlipHubStatsRenderCoordinatorTest {
 
     @Test
     public void allRecipesDropsThePlainFlips() {
-        FlipHubStatsRenderCoordinator coordinator = new FlipHubStatsRenderCoordinator();
+        StatsRender coordinator = new StatsRender();
         List<StatsItem> items = buildItems(3);
         items.get(0).conversionKinds = java.util.EnumSet.of(ConversionKind.ASSEMBLE);
         items.get(1).conversionKinds = java.util.EnumSet.of(ConversionKind.SET_BREAK);
@@ -184,7 +184,7 @@ public class FlipHubStatsRenderCoordinatorTest {
 
     @Test
     public void theDefaultFilterChangesNothingForAnAccountOfPlainFlips() {
-        FlipHubStatsRenderCoordinator coordinator = new FlipHubStatsRenderCoordinator();
+        StatsRender coordinator = new StatsRender();
         List<StatsItem> rendered = new ArrayList<>();
 
         coordinator.renderItems(
@@ -210,7 +210,7 @@ public class FlipHubStatsRenderCoordinatorTest {
 
     @Test
     public void renderItemsClampsAPageThatNoLongerExists() {
-        FlipHubStatsRenderCoordinator coordinator = new FlipHubStatsRenderCoordinator();
+        StatsRender coordinator = new StatsRender();
         List<StatsItem> rendered = new ArrayList<>();
 
         int page = coordinator.renderItems(
@@ -252,7 +252,7 @@ public class FlipHubStatsRenderCoordinatorTest {
      */
     @Test
     public void theFilteredListIsOrderedByWhatTheCardsWillShow() {
-        FlipHubStatsRenderCoordinator coordinator = new FlipHubStatsRenderCoordinator();
+        StatsRender coordinator = new StatsRender();
         List<StatsItem> items = buildItems(2);
         StatsItem mostlyFlipped = items.get(0);
         StatsItem mostlyAssembled = items.get(1);
@@ -307,7 +307,7 @@ public class FlipHubStatsRenderCoordinatorTest {
 
     @Test
     public void toggleItemExpandedIgnoresInvalidItemId() {
-        FlipHubStatsRenderCoordinator coordinator = new FlipHubStatsRenderCoordinator();
+        StatsRender coordinator = new StatsRender();
         Set<Integer> expandedHistoryItems = new HashSet<>();
         expandedHistoryItems.add(4151);
 

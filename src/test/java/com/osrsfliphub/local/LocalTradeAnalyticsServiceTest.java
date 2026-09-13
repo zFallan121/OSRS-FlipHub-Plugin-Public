@@ -41,12 +41,12 @@ public class LocalTradeAnalyticsServiceTest {
 
     @Test
     public void buildLocalTradeInfoUsesLatestBuyAndSell() {
-        LocalTradeAnalyticsService service = new LocalTradeAnalyticsService(
+        TradeAnalytics service = new TradeAnalytics(
             LIMIT_WINDOW_MS,
             FUTURE_TOLERANCE_MS,
             BUCKET_MS
         );
-        List<LocalTradeDelta> snapshot = Arrays.asList(
+        List<Delta> snapshot = Arrays.asList(
             delta(1_000L, 1, 560, true, 10, 1_000L, "OFFER_UPDATED", 100, false),
             delta(1_500L, 1, 560, true, 5, 600L, "OFFER_UPDATED", 120, false),
             delta(1_700L, 1, 560, false, 5, 650L, "OFFER_UPDATED", 130, false),
@@ -54,9 +54,9 @@ public class LocalTradeAnalyticsServiceTest {
             delta(2_000L, 1, 560, false, 2, 200L, "OFFER_UPDATED", 0, false)
         );
 
-        Map<Integer, LocalTradeInfo> infoMap = service.buildLocalTradeInfo(snapshot);
+        Map<Integer, TradeInfo> infoMap = service.buildLocalTradeInfo(snapshot);
 
-        LocalTradeInfo info = infoMap.get(560);
+        TradeInfo info = infoMap.get(560);
         assertEquals(Integer.valueOf(120), info.lastBuyPrice);
         assertEquals(Long.valueOf(1_500L), info.lastBuyTs);
         assertEquals(Integer.valueOf(140), info.lastSellPrice);
@@ -65,23 +65,23 @@ public class LocalTradeAnalyticsServiceTest {
 
     @Test
     public void buildLocalLimitInfoDedupesAndFiltersInvalidRows() {
-        LocalTradeAnalyticsService service = new LocalTradeAnalyticsService(
+        TradeAnalytics service = new TradeAnalytics(
             LIMIT_WINDOW_MS,
             FUTURE_TOLERANCE_MS,
             BUCKET_MS
         );
         long nowMs = 20_000_000L;
         long firstBuyTs = nowMs - 60_000L;
-        List<LocalTradeDelta> snapshot = Arrays.asList(
+        List<Delta> snapshot = Arrays.asList(
             delta(firstBuyTs, 2, 4151, true, 8, 8_000L, "OFFER_UPDATED", 1_000, false),
             delta(firstBuyTs, 2, 4151, true, 8, 8_000L, "OFFER_UPDATED", 1_000, false),
             delta(nowMs + FUTURE_TOLERANCE_MS + 1L, 2, 4151, true, 4, 4_000L, "OFFER_UPDATED", 1_000, false),
             delta(firstBuyTs + 500L, 2, 4151, true, 3, 3_000L, "OFFER_UPDATED", 1_000, true)
         );
 
-        Map<Integer, LocalLimitInfo> infoMap = service.buildLocalLimitInfo(snapshot, nowMs);
+        Map<Integer, LimitInfo> infoMap = service.buildLocalLimitInfo(snapshot, nowMs);
 
-        LocalLimitInfo info = infoMap.get(4151);
+        LimitInfo info = infoMap.get(4151);
         assertEquals(8L, info.buyQty);
         assertEquals(Long.valueOf(firstBuyTs), info.firstBuyTs);
     }
@@ -93,7 +93,7 @@ public class LocalTradeAnalyticsServiceTest {
      */
     @Test
     public void buysInsideAWindowThatHasSinceExpiredNoLongerCount() {
-        LocalTradeAnalyticsService service = new LocalTradeAnalyticsService(
+        TradeAnalytics service = new TradeAnalytics(
             LIMIT_WINDOW_MS,
             FUTURE_TOLERANCE_MS,
             BUCKET_MS
@@ -101,7 +101,7 @@ public class LocalTradeAnalyticsServiceTest {
         long nowMs = 20_000_000L;
         long fiveHoursAgo = nowMs - (5L * 60L * 60L * 1000L);
         long threeHoursAgo = nowMs - (3L * 60L * 60L * 1000L);
-        List<LocalTradeDelta> snapshot = Arrays.asList(
+        List<Delta> snapshot = Arrays.asList(
             delta(fiveHoursAgo, 2, 4151, true, 100, 100_000L, "OFFER_UPDATED", 1_000, false),
             delta(threeHoursAgo, 2, 4151, true, 50, 50_000L, "OFFER_UPDATED", 1_000, false)
         );
@@ -112,7 +112,7 @@ public class LocalTradeAnalyticsServiceTest {
     /** While the window is open every buy inside it counts, and the reset is the window's. */
     @Test
     public void buysInsideAnOpenWindowAreSummedAgainstItsFirstPurchase() {
-        LocalTradeAnalyticsService service = new LocalTradeAnalyticsService(
+        TradeAnalytics service = new TradeAnalytics(
             LIMIT_WINDOW_MS,
             FUTURE_TOLERANCE_MS,
             BUCKET_MS
@@ -120,12 +120,12 @@ public class LocalTradeAnalyticsServiceTest {
         long nowMs = 20_000_000L;
         long threeHoursAgo = nowMs - (3L * 60L * 60L * 1000L);
         long oneHourAgo = nowMs - (60L * 60L * 1000L);
-        List<LocalTradeDelta> snapshot = Arrays.asList(
+        List<Delta> snapshot = Arrays.asList(
             delta(threeHoursAgo, 2, 4151, true, 100, 100_000L, "OFFER_UPDATED", 1_000, false),
             delta(oneHourAgo, 3, 4151, true, 50, 50_000L, "OFFER_UPDATED", 1_100, false)
         );
 
-        LocalLimitInfo info = service.buildLocalLimitInfo(snapshot, nowMs).get(4151);
+        LimitInfo info = service.buildLocalLimitInfo(snapshot, nowMs).get(4151);
 
         assertEquals(150L, info.buyQty);
         assertEquals(Long.valueOf(threeHoursAgo), info.firstBuyTs);
@@ -137,14 +137,14 @@ public class LocalTradeAnalyticsServiceTest {
      */
     @Test
     public void tradesReplayedFromGameHistoryDoNotConsumeTheLimit() {
-        LocalTradeAnalyticsService service = new LocalTradeAnalyticsService(
+        TradeAnalytics service = new TradeAnalytics(
             LIMIT_WINDOW_MS,
             FUTURE_TOLERANCE_MS,
             BUCKET_MS
         );
         long nowMs = 20_000_000L;
-        int syntheticSlot = GeLifecyclePluginConstants.GE_HISTORY_SYNTHETIC_SLOT_START + 3;
-        List<LocalTradeDelta> snapshot = Arrays.asList(
+        int syntheticSlot = Const.GE_HISTORY_SYNTHETIC_SLOT_START + 3;
+        List<Delta> snapshot = Arrays.asList(
             delta(nowMs - 1_000L, syntheticSlot, 4151, true, 100, 100_000L, "OFFER_UPDATED", 1_000, false)
         );
 
@@ -153,24 +153,24 @@ public class LocalTradeAnalyticsServiceTest {
 
     @Test
     public void copySnapshotReturnsNewList() {
-        LocalTradeAnalyticsService service = new LocalTradeAnalyticsService(
+        TradeAnalytics service = new TradeAnalytics(
             LIMIT_WINDOW_MS,
             FUTURE_TOLERANCE_MS,
             BUCKET_MS
         );
-        List<LocalTradeDelta> original = Arrays.asList(
+        List<Delta> original = Arrays.asList(
             delta(1_000L, 1, 560, true, 1, 100L, "OFFER_UPDATED", 100, false)
         );
 
-        List<LocalTradeDelta> copy = service.copySnapshot(original);
+        List<Delta> copy = service.copySnapshot(original);
 
         assertEquals(1, copy.size());
         assertNotSame(original, copy);
     }
 
-    private static LocalTradeDelta delta(long tsClientMs, int slot, int itemId, boolean isBuy, int deltaQty,
+    private static Delta delta(long tsClientMs, int slot, int itemId, boolean isBuy, int deltaQty,
                                          long deltaGp, String eventType, int price, boolean baselineSynthetic) {
-        return new LocalTradeDelta(
+        return new Delta(
             tsClientMs,
             slot,
             itemId,

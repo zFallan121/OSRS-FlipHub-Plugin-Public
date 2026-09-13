@@ -34,50 +34,50 @@ import static org.junit.Assert.assertTrue;
 public class ManageDataCommandServiceTest {
     @Test
     public void buildDialogIncludesExpectedOptionsForUnlinkedState() {
-        ManageDataCommandService service = new ManageDataCommandService();
+        ManageDataCommand service = new ManageDataCommand();
 
-        ManageDataCommandService.DialogModel model = service.buildDialog("Profile 1", false);
+        ManageDataCommand.DialogModel model = service.buildDialog("Profile 1", false);
 
         assertTrue(model.body.contains("Selected profile: Profile 1"));
-        assertTrue(model.options.contains(ManageDataCommandService.OPTION_WIPE_PROFILE));
-        assertTrue(model.options.contains(ManageDataCommandService.OPTION_WIPE_ALL_LOCAL));
-        assertFalse(model.options.contains(ManageDataCommandService.OPTION_WIPE_WEBSITE));
-        assertEquals(ManageDataCommandService.OPTION_WIPE_PROFILE, model.defaultOption);
+        assertTrue(model.options.contains(ManageDataCommand.OPTION_WIPE_PROFILE));
+        assertTrue(model.options.contains(ManageDataCommand.OPTION_WIPE_ALL_LOCAL));
+        assertFalse(model.options.contains(ManageDataCommand.OPTION_WIPE_WEBSITE));
+        assertEquals(ManageDataCommand.OPTION_WIPE_PROFILE, model.defaultOption);
     }
 
     @Test
     public void buildDialogIncludesWebsiteOptionAndWarningWhenLinked() {
-        ManageDataCommandService service = new ManageDataCommandService();
+        ManageDataCommand service = new ManageDataCommand();
 
-        ManageDataCommandService.DialogModel model = service.buildDialog("Profile 2", true);
+        ManageDataCommand.DialogModel model = service.buildDialog("Profile 2", true);
 
-        assertTrue(model.options.contains(ManageDataCommandService.OPTION_WIPE_WEBSITE));
+        assertTrue(model.options.contains(ManageDataCommand.OPTION_WIPE_WEBSITE));
         assertTrue(model.body.contains("Website wipe deletes your My Statistics data"));
     }
 
     @Test
     public void resolveActionMapsKnownOptionsAndDefaultsToCancel() {
-        ManageDataCommandService service = new ManageDataCommandService();
+        ManageDataCommand service = new ManageDataCommand();
 
         assertEquals(
-            ManageDataCommandService.Action.WIPE_SELECTED_PROFILE,
-            service.resolveAction(ManageDataCommandService.OPTION_WIPE_PROFILE)
+            ManageDataCommand.Action.WIPE_SELECTED_PROFILE,
+            service.resolveAction(ManageDataCommand.OPTION_WIPE_PROFILE)
         );
         assertEquals(
-            ManageDataCommandService.Action.WIPE_ALL_LOCAL_PROFILES,
-            service.resolveAction(ManageDataCommandService.OPTION_WIPE_ALL_LOCAL)
+            ManageDataCommand.Action.WIPE_ALL_LOCAL_PROFILES,
+            service.resolveAction(ManageDataCommand.OPTION_WIPE_ALL_LOCAL)
         );
         assertEquals(
-            ManageDataCommandService.Action.WIPE_WEBSITE,
-            service.resolveAction(ManageDataCommandService.OPTION_WIPE_WEBSITE)
+            ManageDataCommand.Action.WIPE_WEBSITE,
+            service.resolveAction(ManageDataCommand.OPTION_WIPE_WEBSITE)
         );
-        assertEquals(ManageDataCommandService.Action.CANCEL, service.resolveAction("unknown"));
-        assertEquals(ManageDataCommandService.Action.CANCEL, service.resolveAction(null));
+        assertEquals(ManageDataCommand.Action.CANCEL, service.resolveAction("unknown"));
+        assertEquals(ManageDataCommand.Action.CANCEL, service.resolveAction(null));
     }
 
     @Test
     public void selectedProfileValidationAndLabelResolutionAreStable() {
-        ManageDataCommandService service = new ManageDataCommandService();
+        ManageDataCommand service = new ManageDataCommand();
 
         assertEquals(
             "Select a non-accountwide profile to wipe a single profile.",
@@ -90,7 +90,7 @@ public class ManageDataCommandServiceTest {
 
     @Test
     public void confirmationMatchingIgnoresCaseAndWhitespace() {
-        ManageDataCommandService service = new ManageDataCommandService();
+        ManageDataCommand service = new ManageDataCommand();
         assertTrue(service.confirmationMatches("  wipe   all ", "WIPE ALL"));
         assertFalse(service.confirmationMatches("WIPE SOME", "WIPE ALL"));
     }

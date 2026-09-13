@@ -39,9 +39,9 @@ final class BackfillSyncMatcher {
     private static final Logger log = LoggerFactory.getLogger(BackfillSyncMatcher.class);
 
     private final int maxBackfillProfileCount =
-        Math.max(1, GeLifecyclePluginConstants.MAX_BACKFILL_PROFILE_COUNT);
+        Math.max(1, Const.MAX_BACKFILL_PROFILE_COUNT);
     private final double backfillMatchScoreThreshold =
-        Math.max(0.0d, GeLifecyclePluginConstants.BACKFILL_MATCH_SCORE_THRESHOLD);
+        Math.max(0.0d, Const.BACKFILL_MATCH_SCORE_THRESHOLD);
 
     @Inject
     BackfillSyncMatcher() {

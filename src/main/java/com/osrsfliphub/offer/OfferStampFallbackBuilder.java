@@ -35,13 +35,13 @@ final class OfferStampFallbackBuilder {
     OfferStampFallbackBuilder() {
     }
 
-    List<FlipHubItem> buildItems(Iterable<OfferUpdateStamp> stamps) {
+    List<FlipHubItem> buildItems(Iterable<Stamp> stamps) {
         List<FlipHubItem> items = new ArrayList<>();
         if (stamps == null) {
             return items;
         }
-        ItemLookupService lookup = PluginInjectorBridge.get(ItemLookupService.class);
-        for (OfferUpdateStamp stamp : stamps) {
+        ItemLookup lookup = Bridge.get(ItemLookup.class);
+        for (Stamp stamp : stamps) {
             if (stamp == null || stamp.itemId <= 0) {
                 continue;
             }
@@ -62,7 +62,7 @@ final class OfferStampFallbackBuilder {
             // game's single guide price written into both the buy and the sell slot, so a card
             // on a fresh install showed one number twice and a margin of nothing, which reads
             // as a broken price feed rather than as a card with no trades behind it yet.
-            LocalItemEnrichmentService enrichment = PluginInjectorBridge.get(LocalItemEnrichmentService.class);
+            ItemEnrichment enrichment = Bridge.get(ItemEnrichment.class);
             if (enrichment != null) {
                 enrichment.applyGuidePrices(item, stamp.itemId, false);
                 enrichment.applyLocalLimitInfo(item, stamp.itemId, null);

@@ -39,7 +39,7 @@ import static org.junit.Assert.assertTrue;
  *
  * <p>Two derivations have to agree before that card is right: the flip-history
  * ledger, which produces the activities, and the stats cache, which produces
- * the per-item rows and the tax figure. LocalStatsViewService.reconcile then
+ * the per-item rows and the tax figure. StatsView.reconcile then
  * makes the history authoritative for profit, cost, ROI, quantity and flip
  * count - so if only one of the two knew about conversions, this would show it.
  */
@@ -56,7 +56,7 @@ public class ProfileSummaryConversionTest {
     private static final int SALE_GROSS_UNIT = 1_393_000;
     private static final long RECIPE_PROFIT = SALE_NET - INPUT_COST;
 
-    private static ConversionLedger ledger() {
+    private static Ledger ledger() {
         ConversionRecipe recipe = new ConversionRecipe(
             ConversionKind.ASSEMBLE,
             "Guardian boots",
@@ -64,28 +64,28 @@ public class ProfileSummaryConversionTest {
             Collections.singletonList(new ConversionItem(GUARDIAN_BOOTS, 1)),
             0L
         );
-        return new ConversionLedger(new ConversionRecipeIndex(Collections.singletonList(recipe)));
+        return new Ledger(new RecipeIndex(Collections.singletonList(recipe)));
     }
 
-    private static LocalTradeDelta buy(long tsMs, int slot, int itemId, int qty, long gp) {
-        return new LocalTradeDelta(tsMs, slot, itemId, true, qty, gp, "OFFER_COMPLETED", (int) (gp / qty), false);
+    private static Delta buy(long tsMs, int slot, int itemId, int qty, long gp) {
+        return new Delta(tsMs, slot, itemId, true, qty, gp, "OFFER_COMPLETED", (int) (gp / qty), false);
     }
 
     /** One assembled sale, and one ordinary flip alongside it. */
-    private static List<LocalTradeDelta> deltas() {
+    private static List<Delta> deltas() {
         return Arrays.asList(
             buy(1_000L, 1, BANDOS_BOOTS, 1, BOOTS_COST),
             buy(2_000L, 2, CORE, 1, CORE_COST),
-            new LocalTradeDelta(3_000L, 3, GUARDIAN_BOOTS, false, 1, SALE_NET, "OFFER_COMPLETED", SALE_GROSS_UNIT, false),
+            new Delta(3_000L, 3, GUARDIAN_BOOTS, false, 1, SALE_NET, "OFFER_COMPLETED", SALE_GROSS_UNIT, false),
             buy(4_000L, 4, MAHOGANY, 10, 12_000L),
-            new LocalTradeDelta(5_000L, 4, MAHOGANY, false, 10, 13_720L, "OFFER_COMPLETED", 1_400, false)
+            new Delta(5_000L, 4, MAHOGANY, false, 10, 13_720L, "OFFER_COMPLETED", 1_400, false)
         );
     }
 
-    private static LocalStatsSnapshot snapshot() {
-        LocalStatsCache cache = new LocalStatsCache(ledger());
+    private static StatsSnapshot snapshot() {
+        StatsCache cache = new StatsCache(ledger());
         cache.rebuild(deltas());
-        return new LocalStatsSnapshot(cache.getSummary(), cache.getItems());
+        return new StatsSnapshot(cache.getSummary(), cache.getItems());
     }
 
     private static Map<Integer, List<StatsFlipInstance>> history() {
@@ -113,9 +113,9 @@ public class ProfileSummaryConversionTest {
 
     @Test
     public void totalProfitIncludesTheRecipeAndTheFlip() {
-        LocalStatsSnapshot snapshot = snapshot();
+        StatsSnapshot snapshot = snapshot();
         StatsSummary summary = snapshot.summary;
-        LocalStatsViewService.reconcileWithFlipHistory(summary, snapshot.items, history());
+        StatsView.reconcileWithFlipHistory(summary, snapshot.items, history());
 
         // 150,910 assembled + 1,720 flipped.
         assertEquals(Long.valueOf(RECIPE_PROFIT + 1_720L), summary.total_profit_gp);
@@ -126,9 +126,9 @@ public class ProfileSummaryConversionTest {
 
     @Test
     public void roiIsProfitOverTheRealInputCost() {
-        LocalStatsSnapshot snapshot = snapshot();
+        StatsSnapshot snapshot = snapshot();
         StatsSummary summary = snapshot.summary;
-        LocalStatsViewService.reconcileWithFlipHistory(summary, snapshot.items, history());
+        StatsView.reconcileWithFlipHistory(summary, snapshot.items, history());
 
         double expected = ((RECIPE_PROFIT + 1_720L) * 100.0) / (INPUT_COST + 12_000L);
         assertEquals(expected, summary.roi_percent, 0.0001);
@@ -142,19 +142,19 @@ public class ProfileSummaryConversionTest {
         // Both ledgers have to know about conversions: the cache's tax stands
         // until reconcile replaces it with the history's, and the card must
         // read the same either way.
-        LocalStatsSnapshot snapshot = snapshot();
+        StatsSnapshot snapshot = snapshot();
         StatsSummary summary = snapshot.summary;
 
         // floor(1,393,000 / 50) + floor(1,400 / 50) x 10 = 27,860 + 280.
         assertEquals(Long.valueOf(28_140L), summary.tax_paid_gp);
-        LocalStatsViewService.reconcileWithFlipHistory(summary, snapshot.items, history());
+        StatsView.reconcileWithFlipHistory(summary, snapshot.items, history());
         assertEquals(Long.valueOf(28_140L), summary.tax_paid_gp);
     }
 
     @Test
     public void theItemRowRoiMatchesItsOwnActivity() {
-        LocalStatsSnapshot snapshot = snapshot();
-        LocalStatsViewService.reconcileWithFlipHistory(snapshot.summary, snapshot.items, history());
+        StatsSnapshot snapshot = snapshot();
+        StatsView.reconcileWithFlipHistory(snapshot.summary, snapshot.items, history());
 
         StatsItem guardianBoots = itemFor(snapshot.items, GUARDIAN_BOOTS);
         assertEquals(Long.valueOf(RECIPE_PROFIT), guardianBoots.total_profit_gp);

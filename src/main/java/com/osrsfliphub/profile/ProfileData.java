@@ -29,7 +29,7 @@ import java.util.List;
 final class ProfileData {
     long accountHash;
     String displayName;
-    List<LocalTradeDelta> deltas;
+    List<Delta> deltas;
     long updatedMs;
     /**
      * Recipe guesses the player dismissed, keyed on the trades above. Absent -

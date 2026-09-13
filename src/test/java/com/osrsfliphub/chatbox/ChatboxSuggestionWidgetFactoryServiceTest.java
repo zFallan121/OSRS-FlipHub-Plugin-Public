@@ -48,7 +48,7 @@ public class ChatboxSuggestionWidgetFactoryServiceTest {
 
     @Test
     public void ensurePriceSuggestionWidgetCreatesAndWiresSelectAction() {
-        ChatboxSuggestionWidgetFactoryService service = new ChatboxSuggestionWidgetFactoryService();
+        ChatboxSuggestionWidgetFactory service = new ChatboxSuggestionWidgetFactory();
         WidgetState containerState = createWidgetState(100, null, 0, 0);
 
         Widget widget = service.ensurePriceSuggestionWidget(containerState.proxy, null);
@@ -67,7 +67,7 @@ public class ChatboxSuggestionWidgetFactoryServiceTest {
 
     @Test
     public void ensureLimitSuggestionWidgetReusesAttachedWidget() {
-        ChatboxSuggestionWidgetFactoryService service = new ChatboxSuggestionWidgetFactoryService();
+        ChatboxSuggestionWidgetFactory service = new ChatboxSuggestionWidgetFactory();
         WidgetState containerState = createWidgetState(200, null, 0, 0);
         Widget existing = containerState.proxy.createChild(-1, WidgetType.TEXT);
         WidgetState existingState = STATES.get(existing);
@@ -88,7 +88,7 @@ public class ChatboxSuggestionWidgetFactoryServiceTest {
 
     @Test
     public void ensureAffordableSuggestionWidgetCreatesRightAlignedWidget() {
-        ChatboxSuggestionWidgetFactoryService service = new ChatboxSuggestionWidgetFactoryService();
+        ChatboxSuggestionWidgetFactory service = new ChatboxSuggestionWidgetFactory();
         WidgetState containerState = createWidgetState(300, null, 0, 0);
 
         Widget widget = service.ensureAffordableLimitSuggestionWidget(containerState.proxy, null);

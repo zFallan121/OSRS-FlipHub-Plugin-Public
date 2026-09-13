@@ -36,7 +36,7 @@ import static org.junit.Assert.assertTrue;
 public class GeHistoryWidgetReadServiceTest {
     @Test
     public void hasCompleteWidgetGroupsRequiresPositiveMultipleOfSix() {
-        GeHistoryWidgetReadService service = new GeHistoryWidgetReadService();
+        WidgetRead service = new WidgetRead();
 
         assertFalse(service.hasCompleteWidgetGroups(null));
         assertFalse(service.hasCompleteWidgetGroups(new Widget[0]));
@@ -47,7 +47,7 @@ public class GeHistoryWidgetReadServiceTest {
 
     @Test
     public void tryParseReadyTradesReturnsNullWhenWidgetsAreIncomplete() {
-        GeHistoryWidgetReadService service = new GeHistoryWidgetReadService();
+        WidgetRead service = new WidgetRead();
 
         assertNull(service.tryParseReadyTrades(null));
         assertNull(service.tryParseReadyTrades(new Widget[5]));
@@ -55,9 +55,9 @@ public class GeHistoryWidgetReadServiceTest {
 
     @Test
     public void tryParseReadyTradesReturnsParsedListWhenWidgetsAreComplete() {
-        GeHistoryWidgetReadService service = new GeHistoryWidgetReadService();
+        WidgetRead service = new WidgetRead();
 
-        List<GeHistoryTrade> trades = service.tryParseReadyTrades(new Widget[6]);
+        List<Trade> trades = service.tryParseReadyTrades(new Widget[6]);
         assertNotNull(trades);
     }
 }

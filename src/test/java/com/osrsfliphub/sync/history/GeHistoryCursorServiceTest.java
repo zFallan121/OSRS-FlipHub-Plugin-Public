@@ -38,7 +38,7 @@ public class GeHistoryCursorServiceTest {
     @Test
     public void buildSignatureReturnsExpectedFormatForValidTrade() {
         GeHistoryCursorService service = new GeHistoryCursorService(45);
-        GeHistoryTrade trade = new GeHistoryTrade(1513, false, 70_000, 1_100, 77_000_000L);
+        Trade trade = new Trade(1513, false, 70_000, 1_100, 77_000_000L);
 
         assertEquals("1513|S|70000|77000000", service.buildSignature(trade));
     }
@@ -47,16 +47,16 @@ public class GeHistoryCursorServiceTest {
     public void buildSignatureReturnsNullForInvalidTrade() {
         GeHistoryCursorService service = new GeHistoryCursorService(45);
         assertNull(service.buildSignature(null));
-        assertNull(service.buildSignature(new GeHistoryTrade(0, true, 1, 1, 1L)));
+        assertNull(service.buildSignature(new Trade(0, true, 1, 1, 1L)));
     }
 
     @Test
     public void buildCursorSignaturesCapsToMaxAndSkipsInvalid() {
         GeHistoryCursorService service = new GeHistoryCursorService(2);
-        List<GeHistoryTrade> trades = new ArrayList<>();
-        trades.add(new GeHistoryTrade(100, true, 1, 10, 10L));
-        trades.add(new GeHistoryTrade(0, true, 1, 10, 10L)); // invalid, skipped
-        trades.add(new GeHistoryTrade(200, false, 2, 20, 40L));
+        List<Trade> trades = new ArrayList<>();
+        trades.add(new Trade(100, true, 1, 10, 10L));
+        trades.add(new Trade(0, true, 1, 10, 10L)); // invalid, skipped
+        trades.add(new Trade(200, false, 2, 20, 40L));
 
         List<String> cursor = service.buildCursorSignatures(trades);
         assertEquals(Arrays.asList("100|B|1|10"), cursor);

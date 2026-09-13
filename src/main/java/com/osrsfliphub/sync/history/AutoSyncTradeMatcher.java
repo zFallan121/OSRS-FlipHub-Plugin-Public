@@ -1,0 +1,554 @@
+/*
+ * Copyright (c) 2026, zFallan121
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ * ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+package com.osrsfliphub;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * Which rows of the in-game history the plugin has not already recorded.
+ *
+ * <p>A row imported twice is a trade counted twice, so every rule here is asked one
+ * question: could this row be an offer already stored? The stored side is one record
+ * per completed offer; a row is one offer. What was watched live can still be lying
+ * around as separate fills - an offer cancelled part way through, say - so the stored
+ * records are first folded into one lot per offer by the same rule the store uses
+ * ({@link TradeOfferCollapser#sameOffer}), and rows are matched against lots.
+ *
+ * <p>The tiers, in the order tried. The first two both match a single lot of the row's
+ * own quantity, and they run for every row before the rest are tried at all, so a row
+ * that one lot explains outright always claims that lot and a looser rule can never
+ * take it away from that row.
+ * <ol>
+ *   <li>A lot of the same quantity at the same coins-per-unit.</li>
+ *   <li>A lot of the same quantity whose coins sit within
+ *       {@link #TOLERANCE_COINS_PER_UNIT} of the row's. An offer that fills at more
+ *       than one price has no single unit price, so the two sides round it
+ *       differently; this is the rule that keeps such an offer from being imported
+ *       a second time.</li>
+ *   <li>Lots of one offer, at that coins-per-unit, that between them cover the row's
+ *       quantity: the row is one offer whose fills the store kept apart. Only lots
+ *       from the same slot are pooled. Pooling across slots let two separate offers
+ *       at the same price "explain" a third, larger row that was never recorded, and
+ *       that row was then silently never imported.</li>
+ *   <li>Whatever the lots at that unit price do cover is taken, and only the
+ *       shortfall is imported.</li>
+ * </ol>
+ */
+final class AutoSyncTradeMatcher {
+    /**
+     * How far a lot's coins may sit from a row's before they stop being the same
+     * offer: one coin per unit traded.
+     *
+     * <p>That is exactly the rounding the two sides can disagree by, and no more.
+     * The history reports what an offer made in total; the plugin recorded it fill
+     * by fill. Where the two differ for one offer it is by a rounding of one coin
+     * per item: the widget's "each" price is a rounded average that the parser may
+     * have to multiply back out, and on a sale the game taxes each item at the
+     * price it actually went for while the plugin can only tax the average, and
+     * the tax rounds down per item. Both are bounded by one coin an item. Anything
+     * wider starts to cover two offers of the same size at genuinely different
+     * prices - a flipper's bread and butter - and would judge a real trade already
+     * recorded.
+     */
+    static final long TOLERANCE_COINS_PER_UNIT = 1L;
+
+    private AutoSyncTradeMatcher() {
+    }
+
+    static SelectionPlan planMissingTrades(List<Trade> historyTrades, List<Delta> existingDeltas) {
+        if (historyTrades == null || historyTrades.isEmpty()) {
+            return SelectionPlan.empty();
+        }
+
+        Map<ItemSide, List<OfferLot>> lotsByItemSide = indexByItemSide(groupOffers(existingDeltas));
+        int size = historyTrades.size();
+        Trade[] missingByIndex = new Trade[size];
+        boolean[] unexplained = new boolean[size];
+
+        // GE history UI order is newest-first; process oldest->newest for stable matching.
+        for (int i = size - 1; i >= 0; i--) {
+            Trade trade = historyTrades.get(i);
+            int unitPrice = resolveUnitPrice(trade);
+            if (trade == null || !trade.isValid() || unitPrice <= 0) {
+                continue;
+            }
+            List<OfferLot> lots = lotsByItemSide.get(new ItemSide(trade.itemId, trade.isBuy));
+            if (claimExact(lots, trade, unitPrice) || claimWithinTolerance(lots, trade)) {
+                continue;
+            }
+            unexplained[i] = true;
+        }
+
+        List<Trade> missing = new ArrayList<>();
+        for (int i = size - 1; i >= 0; i--) {
+            if (!unexplained[i]) {
+                continue;
+            }
+            Trade trade = historyTrades.get(i);
+            List<OfferLot> lots = lotsByItemSide.get(new ItemSide(trade.itemId, trade.isBuy));
+            if (claimCoveredWithinOneOffer(lots, trade, resolveUnitPrice(trade))) {
+                continue;
+            }
+            int covered = consumeAtUnitPrice(lots, resolveUnitPrice(trade), trade.quantity);
+            Trade residualTrade = buildResidualTrade(trade, trade.quantity - covered);
+            if (residualTrade == null) {
+                continue;
+            }
+            missingByIndex[i] = residualTrade;
+            missing.add(residualTrade);
+        }
+        return new SelectionPlan(missingByIndex, missing);
+    }
+
+    static List<Trade> selectMissingTrades(List<Trade> historyTrades, List<Delta> existingDeltas) {
+        return planMissingTrades(historyTrades, existingDeltas).missingTrades;
+    }
+
+    static long toleranceCoins(int quantity) {
+        return TOLERANCE_COINS_PER_UNIT * (long) Math.max(0, quantity);
+    }
+
+    // ---- the tiers ----
+
+    private static boolean claimExact(List<OfferLot> lots, Trade trade, int unitPrice) {
+        if (lots == null) {
+            return false;
+        }
+        Iterator<OfferLot> it = lots.iterator();
+        while (it.hasNext()) {
+            OfferLot lot = it.next();
+            if (lot.qty == trade.quantity && lot.unitPrice == unitPrice) {
+                it.remove();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * One offer's fills, kept apart by the store, that between them cover the row.
+     *
+     * <p>Confined to a single slot. The game runs one offer per slot at a time, so lots
+     * sharing a slot are the only ones that can be pieces of the same offer. Pooling every
+     * lot at the price let two genuinely separate offers cover a third, larger row that was
+     * never recorded at all, and that row was then dropped instead of imported.
+     */
+    private static boolean claimCoveredWithinOneOffer(List<OfferLot> lots, Trade trade, int unitPrice) {
+        if (lots == null || unitPrice <= 0) {
+            return false;
+        }
+        Set<Integer> slots = new LinkedHashSet<>();
+        for (OfferLot lot : lots) {
+            if (lot.unitPrice == unitPrice) {
+                slots.add(lot.slot);
+            }
+        }
+        for (Integer slot : slots) {
+            long available = 0L;
+            for (OfferLot lot : lots) {
+                if (lot.unitPrice == unitPrice && lot.slot == slot) {
+                    available += lot.qty;
+                }
+            }
+            if (available < trade.quantity) {
+                continue;
+            }
+            consumeAtUnitPriceInSlot(lots, unitPrice, slot, trade.quantity);
+            return true;
+        }
+        return false;
+    }
+
+    private static void consumeAtUnitPriceInSlot(List<OfferLot> lots, int unitPrice, int slot, int quantity) {
+        int remaining = Math.max(0, quantity);
+        Iterator<OfferLot> it = lots.iterator();
+        while (it.hasNext() && remaining > 0) {
+            OfferLot lot = it.next();
+            if (lot.unitPrice != unitPrice || lot.slot != slot) {
+                continue;
+            }
+            int taken = Math.min(lot.qty, remaining);
+            lot.qty -= taken;
+            remaining -= taken;
+            if (lot.qty <= 0) {
+                it.remove();
+            }
+        }
+    }
+
+    private static boolean claimWithinTolerance(List<OfferLot> lots, Trade trade) {
+        if (lots == null) {
+            return false;
+        }
+        long tolerance = toleranceCoins(trade.quantity);
+        OfferLot best = null;
+        long bestDistance = Long.MAX_VALUE;
+        for (OfferLot lot : lots) {
+            if (lot.qty != trade.quantity) {
+                continue;
+            }
+            long distance = Math.abs(lot.gp - trade.totalGp);
+            if (distance <= tolerance && distance < bestDistance) {
+                best = lot;
+                bestDistance = distance;
+            }
+        }
+        if (best == null) {
+            return false;
+        }
+        lots.remove(best);
+        return true;
+    }
+
+    /** Takes up to {@code wanted} units off the lots at this unit price, oldest first, and says how many it got. */
+    private static int consumeAtUnitPrice(List<OfferLot> lots, int unitPrice, int wanted) {
+        if (lots == null || unitPrice <= 0 || wanted <= 0) {
+            return 0;
+        }
+        int taken = 0;
+        Iterator<OfferLot> it = lots.iterator();
+        while (it.hasNext() && taken < wanted) {
+            OfferLot lot = it.next();
+            if (lot.unitPrice != unitPrice) {
+                continue;
+            }
+            int take = Math.min(lot.qty, wanted - taken);
+            lot.qty -= take;
+            lot.gp = Math.max(0L, lot.gp - (long) take * (long) unitPrice);
+            taken += take;
+            if (lot.qty <= 0) {
+                it.remove();
+            }
+        }
+        return taken;
+    }
+
+    private static Trade buildResidualTrade(Trade trade, int missingQty) {
+        if (trade == null || !trade.isValid() || missingQty <= 0 || missingQty >= trade.quantity) {
+            if (trade != null && trade.isValid() && missingQty == trade.quantity) {
+                return trade;
+            }
+            return null;
+        }
+        long scaledTotalGp = scaleTotalGp(trade, missingQty);
+        if (scaledTotalGp <= 0L) {
+            return null;
+        }
+        return new Trade(trade.itemId, trade.isBuy, missingQty, trade.price, scaledTotalGp);
+    }
+
+    private static long scaleTotalGp(Trade trade, int quantity) {
+        if (trade == null || !trade.isValid() || quantity <= 0 || trade.quantity <= 0) {
+            return 0L;
+        }
+        if (quantity >= trade.quantity) {
+            return trade.totalGp;
+        }
+        long scaled = (trade.totalGp * (long) quantity) / (long) trade.quantity;
+        if (scaled > 0L) {
+            return scaled;
+        }
+        return Math.max(1L, (long) trade.price * (long) quantity);
+    }
+
+    // ---- the stored side ----
+
+    /**
+     * The stored records as one lot per offer, oldest first.
+     *
+     * <p>The same walk the store makes when it loads: records on one slot that are one
+     * offer's are summed until that offer's completion, or until the slot is seen to
+     * have moved on. The one difference is that a run with no completion is summed
+     * too, because a cancelled offer is in the history as one row however many fills
+     * it managed. Records with no quantity are no offer's fill and are left out.
+     */
+    static List<OfferLot> groupOffers(List<Delta> deltas) {
+        List<OfferLot> lots = new ArrayList<>();
+        if (deltas == null || deltas.isEmpty()) {
+            return lots;
+        }
+        List<Delta> sorted = new ArrayList<>();
+        for (Delta delta : deltas) {
+            if (delta != null && delta.itemId > 0) {
+                sorted.add(delta);
+            }
+        }
+        sorted.sort(Comparator.comparingLong(delta -> delta.tsClientMs));
+
+        Map<Integer, OfferLot> openBySlot = new HashMap<>();
+        for (Delta delta : sorted) {
+            boolean completion = TradeOfferCollapser.isCompletion(delta);
+            if (!completion && delta.deltaQty <= 0) {
+                continue;
+            }
+            OfferLot open = openBySlot.get(delta.slot);
+            if (open != null && !open.belongsTo(delta)) {
+                lots.add(open);
+                openBySlot.remove(delta.slot);
+                open = null;
+            }
+            if (completion) {
+                if (open != null) {
+                    open.absorb(delta);
+                    lots.add(open);
+                    openBySlot.remove(delta.slot);
+                } else if (delta.deltaQty > 0) {
+                    lots.add(new OfferLot(delta));
+                }
+                continue;
+            }
+            if (open == null) {
+                openBySlot.put(delta.slot, new OfferLot(delta));
+            } else {
+                open.absorb(delta);
+            }
+        }
+        lots.addAll(openBySlot.values());
+
+        List<OfferLot> priced = new ArrayList<>(lots.size());
+        for (OfferLot lot : lots) {
+            if (lot.qty > 0 && lot.seal() > 0) {
+                priced.add(lot);
+            }
+        }
+        priced.sort(Comparator.comparingLong(lot -> lot.firstMs));
+        return priced;
+    }
+
+    private static Map<ItemSide, List<OfferLot>> indexByItemSide(List<OfferLot> lots) {
+        Map<ItemSide, List<OfferLot>> index = new HashMap<>();
+        for (OfferLot lot : lots) {
+            index.computeIfAbsent(new ItemSide(lot.itemId, lot.isBuy), key -> new ArrayList<>()).add(lot);
+        }
+        return index;
+    }
+
+    /**
+     * What one unit of this trade actually came to, in coins that moved.
+     *
+     * <p>Deliberately not {@code delta.price}. That is the price the offer was
+     * listed at, and an offer very rarely fills at it - a buy fills at or under,
+     * a sell at or over. The history widget reports what the trade really made,
+     * so a listed price and a realised one are two different numbers, and
+     * comparing them made every trade already recorded live look missing: a
+     * blue dragonhide set bought at a 23,401 offer for 15,000 matched nothing,
+     * and got imported a second time. The coins are the one figure both sides
+     * state the same way, tax and all.
+     */
+    private static int resolveUnitPrice(Delta delta) {
+        if (delta == null || delta.deltaQty <= 0) {
+            return 0;
+        }
+        return resolveUnitPrice(Math.max(0L, delta.deltaGp), delta.deltaQty, delta.price);
+    }
+
+    /** The realised unit price again, read off a history row the same way. */
+    private static int resolveUnitPrice(Trade trade) {
+        if (trade == null || trade.quantity <= 0) {
+            return 0;
+        }
+        return resolveUnitPrice(trade.totalGp, trade.quantity, trade.price);
+    }
+
+    private static int resolveUnitPrice(long totalGp, int quantity, int listedPrice) {
+        if (quantity <= 0) {
+            return 0;
+        }
+        if (totalGp > 0L) {
+            return (int) Math.max(1L, totalGp / (long) quantity);
+        }
+        // No coins recorded at all - a synthetic or malformed record. The listed
+        // price is all there is left to go on.
+        return Math.max(0, listedPrice);
+    }
+
+    static TradeSignature signatureForTrade(Trade trade) {
+        if (trade == null || !trade.isValid()) {
+            return null;
+        }
+        int unitPrice = resolveUnitPrice(trade);
+        if (unitPrice <= 0) {
+            return null;
+        }
+        return new TradeSignature(trade.itemId, trade.isBuy, trade.quantity, unitPrice);
+    }
+
+    static TradeSignature signatureForDelta(Delta delta) {
+        if (delta == null || delta.itemId <= 0 || delta.deltaQty <= 0) {
+            return null;
+        }
+        int unitPrice = resolveUnitPrice(delta);
+        if (unitPrice <= 0) {
+            return null;
+        }
+        return new TradeSignature(delta.itemId, delta.isBuy, delta.deltaQty, unitPrice);
+    }
+
+    /** One stored offer: its fills summed, and what is left of it once rows have claimed their share. */
+    static final class OfferLot {
+        final int itemId;
+        final boolean isBuy;
+        /** The Grand Exchange slot the offer ran in. Only lots from one slot can be one offer. */
+        final int slot;
+        final long firstMs;
+        private final Delta first;
+        private long offerStartMs;
+        int qty;
+        long gp;
+        int unitPrice;
+
+        OfferLot(Delta first) {
+            this.first = first;
+            this.itemId = first.itemId;
+            this.isBuy = first.isBuy;
+            this.slot = first.slot;
+            this.firstMs = first.tsClientMs;
+            this.offerStartMs = first.offerStartMs;
+            this.qty = Math.max(0, first.deltaQty);
+            this.gp = Math.max(0L, first.deltaGp);
+        }
+
+        boolean belongsTo(Delta delta) {
+            if (!TradeOfferCollapser.sameOffer(first, delta)) {
+                return false;
+            }
+            // The first fill may predate start tracking while a later one carries it.
+            return offerStartMs <= 0 || delta.offerStartMs <= 0 || offerStartMs == delta.offerStartMs;
+        }
+
+        void absorb(Delta delta) {
+            qty += Math.max(0, delta.deltaQty);
+            gp += Math.max(0L, delta.deltaGp);
+            if (offerStartMs <= 0) {
+                offerStartMs = delta.offerStartMs;
+            }
+        }
+
+        /** Fixes the unit price once the fills are all in; returns it. */
+        int seal() {
+            unitPrice = resolveUnitPrice(gp, qty, first.price);
+            return unitPrice;
+        }
+    }
+
+    private static final class ItemSide {
+        private final int itemId;
+        private final boolean isBuy;
+
+        ItemSide(int itemId, boolean isBuy) {
+            this.itemId = itemId;
+            this.isBuy = isBuy;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof ItemSide)) {
+                return false;
+            }
+            ItemSide that = (ItemSide) other;
+            return itemId == that.itemId && isBuy == that.isBuy;
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * Integer.hashCode(itemId) + Boolean.hashCode(isBuy);
+        }
+    }
+
+    static final class TradeSignature {
+        private final int itemId;
+        private final boolean isBuy;
+        private final int quantity;
+        private final int unitPrice;
+
+        TradeSignature(int itemId, boolean isBuy, int quantity, int unitPrice) {
+            this.itemId = itemId;
+            this.isBuy = isBuy;
+            this.quantity = quantity;
+            this.unitPrice = unitPrice;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof TradeSignature)) {
+                return false;
+            }
+            TradeSignature that = (TradeSignature) other;
+            return itemId == that.itemId
+                && isBuy == that.isBuy
+                && quantity == that.quantity
+                && unitPrice == that.unitPrice;
+        }
+
+        @Override
+        public int hashCode() {
+            int hash = Integer.hashCode(itemId);
+            hash = 31 * hash + Boolean.hashCode(isBuy);
+            hash = 31 * hash + Integer.hashCode(quantity);
+            hash = 31 * hash + Integer.hashCode(unitPrice);
+            return hash;
+        }
+    }
+
+    static final class SelectionPlan {
+        final Trade[] missingByIndex;
+        final List<Trade> missingTrades;
+
+        SelectionPlan(Trade[] missingByIndex, List<Trade> missingTrades) {
+            this.missingByIndex = missingByIndex != null ? missingByIndex : new Trade[0];
+            this.missingTrades = missingTrades != null ? missingTrades : new ArrayList<>();
+        }
+
+        static SelectionPlan empty() {
+            return new SelectionPlan(new Trade[0], new ArrayList<>());
+        }
+
+        boolean isMissing(int index) {
+            return index >= 0
+                && index < missingByIndex.length
+                && missingByIndex[index] != null;
+        }
+
+        Trade missingTradeAt(int index) {
+            if (index < 0 || index >= missingByIndex.length) {
+                return null;
+            }
+            return missingByIndex[index];
+        }
+    }
+}

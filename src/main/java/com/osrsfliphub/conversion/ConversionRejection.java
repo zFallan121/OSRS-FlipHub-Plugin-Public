@@ -53,13 +53,13 @@ final class ConversionRejection {
     String name;
     long completionTsMs;
     long rejectedAtMs;
-    List<LocalTradeKey> trades;
+    List<TradeKey> trades;
 
     ConversionRejection() {
     }
 
     ConversionRejection(int itemId, String kind, String name, long completionTsMs, long rejectedAtMs,
-                        List<LocalTradeKey> trades) {
+                        List<TradeKey> trades) {
         this.itemId = itemId;
         this.kind = kind;
         this.name = name;
@@ -86,20 +86,20 @@ final class ConversionRejection {
         return ConversionKind.parse(kind);
     }
 
-    List<LocalTradeKey> trades() {
+    List<TradeKey> trades() {
         return trades != null ? Collections.unmodifiableList(trades) : Collections.emptyList();
     }
 
-    boolean covers(LocalTradeKey key) {
+    boolean covers(TradeKey key) {
         return key != null && trades != null && trades.contains(key);
     }
 
     /** Whether any of the sales this covers is among {@code sales}. */
-    boolean touches(Set<LocalTradeKey> sales) {
+    boolean touches(Set<TradeKey> sales) {
         if (sales == null || sales.isEmpty() || trades == null) {
             return false;
         }
-        for (LocalTradeKey key : trades) {
+        for (TradeKey key : trades) {
             if (sales.contains(key)) {
                 return true;
             }

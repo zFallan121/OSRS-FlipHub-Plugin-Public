@@ -37,13 +37,13 @@ import net.runelite.api.widgets.Widget;
 @Singleton
 final class OfferTypeResolver {
     private final Client client;
-    private final OfferPreviewRuntimeFacadeService facade;
+    private final OfferPreviewRuntime facade;
     private Integer newOfferTypeBuyValue;
     private Integer newOfferTypeSellValue;
     private Boolean lastResolvedOfferType;
 
     @Inject
-    OfferTypeResolver(Client client, OfferPreviewRuntimeFacadeService facade) {
+    OfferTypeResolver(Client client, OfferPreviewRuntime facade) {
         this.client = client;
         this.facade = facade;
     }

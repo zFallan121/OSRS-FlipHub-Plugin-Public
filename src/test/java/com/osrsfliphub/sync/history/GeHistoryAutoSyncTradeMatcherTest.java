@@ -53,31 +53,31 @@ public class GeHistoryAutoSyncTradeMatcherTest {
     private static final int NATURE_RUNE = 561;
 
     /** A trade as the client watched it happen: coins real, price as listed. */
-    private static LocalTradeDelta live(int itemId, boolean isBuy, int qty, long gp, int listedPrice) {
-        return new LocalTradeDelta(1_000L, 3, itemId, isBuy, qty, gp, "OFFER_UPDATED", listedPrice, false);
+    private static Delta live(int itemId, boolean isBuy, int qty, long gp, int listedPrice) {
+        return new Delta(1_000L, 3, itemId, isBuy, qty, gp, "OFFER_UPDATED", listedPrice, false);
     }
 
     /** The same trade as the history widget reports it: coins net, price gross. */
-    private static GeHistoryTrade history(int itemId, boolean isBuy, int qty, long netGp, int grossPrice) {
-        return new GeHistoryTrade(itemId, isBuy, qty, grossPrice, netGp);
+    private static Trade history(int itemId, boolean isBuy, int qty, long netGp, int grossPrice) {
+        return new Trade(itemId, isBuy, qty, grossPrice, netGp);
     }
 
     /** A fill of an offer placed at {@code offerStartMs} on {@code slot}, as the client watched it. */
-    private static LocalTradeDelta fill(long tsMs, int slot, long offerStartMs, int itemId, boolean isBuy,
+    private static Delta fill(long tsMs, int slot, long offerStartMs, int itemId, boolean isBuy,
                                         int qty, long gp, int listedPrice) {
-        return new LocalTradeDelta(tsMs, slot, itemId, isBuy, qty, gp, "OFFER_UPDATED", listedPrice, false,
+        return new Delta(tsMs, slot, itemId, isBuy, qty, gp, "OFFER_UPDATED", listedPrice, false,
             offerStartMs, 0L);
     }
 
     /** A finished offer as the store keeps it: one record, fills already folded in. */
-    private static LocalTradeDelta completed(long tsMs, int slot, long offerStartMs, int itemId, boolean isBuy,
+    private static Delta completed(long tsMs, int slot, long offerStartMs, int itemId, boolean isBuy,
                                              int qty, long gp, int listedPrice) {
-        return new LocalTradeDelta(tsMs, slot, itemId, isBuy, qty, gp, "OFFER_COMPLETED", listedPrice, false,
+        return new Delta(tsMs, slot, itemId, isBuy, qty, gp, "OFFER_COMPLETED", listedPrice, false,
             offerStartMs, tsMs + 1L);
     }
 
-    private static List<GeHistoryTrade> missing(List<GeHistoryTrade> historyTrades, List<LocalTradeDelta> deltas) {
-        return GeHistoryAutoSyncTradeMatcher.selectMissingTrades(historyTrades, deltas);
+    private static List<Trade> missing(List<Trade> historyTrades, List<Delta> deltas) {
+        return AutoSyncTradeMatcher.selectMissingTrades(historyTrades, deltas);
     }
 
     @Test
@@ -86,9 +86,9 @@ public class GeHistoryAutoSyncTradeMatcherTest {
         // 15,000, so the listed price matches nothing in the history - and the
         // set was imported a second time, which is what let one set break be
         // recorded as two.
-        List<LocalTradeDelta> deltas = Collections.singletonList(
+        List<Delta> deltas = Collections.singletonList(
             live(BLUE_DHIDE_SET, true, 1, 15_000L, 23_401));
-        List<GeHistoryTrade> historyTrades = Collections.singletonList(
+        List<Trade> historyTrades = Collections.singletonList(
             history(BLUE_DHIDE_SET, true, 1, 15_000L, 15_000));
 
         assertTrue(missing(historyTrades, deltas).isEmpty());
@@ -99,11 +99,11 @@ public class GeHistoryAutoSyncTradeMatcherTest {
         // The three pieces off that set. Each was listed at one price, filled at
         // a higher one, and the history reports the price before tax against the
         // coins after it. Only the coins agree, and they agree exactly.
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             live(BLUE_DHIDE_BODY, false, 1, 4_900L, 4_013),
             live(BLUE_DHIDE_CHAPS, false, 1, 1_940L, 1_534),
             live(BLUE_DHIDE_VAMBRACES, false, 1, 1_261L, 1_000));
-        List<GeHistoryTrade> historyTrades = Arrays.asList(
+        List<Trade> historyTrades = Arrays.asList(
             history(BLUE_DHIDE_BODY, false, 1, 4_900L, 5_000),
             history(BLUE_DHIDE_CHAPS, false, 1, 1_940L, 1_979),
             history(BLUE_DHIDE_VAMBRACES, false, 1, 1_261L, 1_286));
@@ -115,11 +115,11 @@ public class GeHistoryAutoSyncTradeMatcherTest {
     public void aTradeMadeSomewhereElseIsStillImported() {
         // The whole point of the sync. Nothing was watched live, so every row of
         // the history is a trade the plugin has never seen.
-        List<GeHistoryTrade> historyTrades = Arrays.asList(
+        List<Trade> historyTrades = Arrays.asList(
             history(BLUE_DHIDE_SET, true, 1, 15_000L, 15_000),
             history(BLUE_DHIDE_BODY, false, 1, 4_900L, 5_000));
 
-        List<GeHistoryTrade> imported = missing(historyTrades, new ArrayList<LocalTradeDelta>());
+        List<Trade> imported = missing(historyTrades, new ArrayList<Delta>());
 
         assertEquals(2, imported.size());
     }
@@ -129,11 +129,11 @@ public class GeHistoryAutoSyncTradeMatcherTest {
         // One offer, three fills, one history row for the lot. The fills are
         // pooled by what a unit came to, so 300 nature runes at 118 cover a
         // history row of 300 at 118 however many events it took.
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             live(NATURE_RUNE, true, 100, 11_800L, 125),
             live(NATURE_RUNE, true, 50, 5_900L, 125),
             live(NATURE_RUNE, true, 150, 17_700L, 125));
-        List<GeHistoryTrade> historyTrades = Collections.singletonList(
+        List<Trade> historyTrades = Collections.singletonList(
             history(NATURE_RUNE, true, 300, 35_400L, 118));
 
         assertTrue(missing(historyTrades, deltas).isEmpty());
@@ -144,12 +144,12 @@ public class GeHistoryAutoSyncTradeMatcherTest {
         // Half the offer was watched live and half was not. Importing the whole
         // row would double the half already recorded, so only the shortfall is
         // taken.
-        List<LocalTradeDelta> deltas = Collections.singletonList(
+        List<Delta> deltas = Collections.singletonList(
             live(NATURE_RUNE, true, 100, 11_800L, 125));
-        List<GeHistoryTrade> historyTrades = Collections.singletonList(
+        List<Trade> historyTrades = Collections.singletonList(
             history(NATURE_RUNE, true, 300, 35_400L, 118));
 
-        List<GeHistoryTrade> imported = missing(historyTrades, deltas);
+        List<Trade> imported = missing(historyTrades, deltas);
 
         assertEquals(1, imported.size());
         assertEquals(200, imported.get(0).quantity);
@@ -160,13 +160,13 @@ public class GeHistoryAutoSyncTradeMatcherTest {
     public void twoIdenticalTradesBothCountAndBothStayCounted() {
         // A player who buys the same thing twice at the same price has two
         // trades, and one live delta explains only one of them.
-        List<LocalTradeDelta> deltas = Collections.singletonList(
+        List<Delta> deltas = Collections.singletonList(
             live(BLUE_DHIDE_SET, true, 1, 15_000L, 23_401));
-        List<GeHistoryTrade> historyTrades = Arrays.asList(
+        List<Trade> historyTrades = Arrays.asList(
             history(BLUE_DHIDE_SET, true, 1, 15_000L, 15_000),
             history(BLUE_DHIDE_SET, true, 1, 15_000L, 15_000));
 
-        List<GeHistoryTrade> imported = missing(historyTrades, deltas);
+        List<Trade> imported = missing(historyTrades, deltas);
 
         assertEquals(1, imported.size());
         assertEquals(BLUE_DHIDE_SET, imported.get(0).itemId);
@@ -178,10 +178,10 @@ public class GeHistoryAutoSyncTradeMatcherTest {
         // history shows it as one row of 10 for 965 - 96 each - which matches
         // neither fill's price, and the whole offer was imported a second time.
         // The fills are one offer's, so they are summed before anything is compared.
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             fill(1_000L, 3, 500L, NATURE_RUNE, true, 5, 475L, 100),
             fill(2_000L, 3, 500L, NATURE_RUNE, true, 5, 490L, 100));
-        List<GeHistoryTrade> historyTrades = Collections.singletonList(
+        List<Trade> historyTrades = Collections.singletonList(
             history(NATURE_RUNE, true, 10, 965L, 96));
 
         assertTrue(missing(historyTrades, deltas).isEmpty());
@@ -193,9 +193,9 @@ public class GeHistoryAutoSyncTradeMatcherTest {
         // same 10, its "each" price rounded to 97 and multiplied back out. The
         // unit prices land on 96 and 97, so neither exact rule sees them as one
         // offer. One coin per unit is the difference rounding can make.
-        List<LocalTradeDelta> deltas = Collections.singletonList(
+        List<Delta> deltas = Collections.singletonList(
             completed(1_000L, 3, 500L, NATURE_RUNE, true, 10, 969L, 100));
-        List<GeHistoryTrade> historyTrades = Collections.singletonList(
+        List<Trade> historyTrades = Collections.singletonList(
             history(NATURE_RUNE, true, 10, 970L, 97));
 
         assertTrue(missing(historyTrades, deltas).isEmpty());
@@ -206,12 +206,12 @@ public class GeHistoryAutoSyncTradeMatcherTest {
         // Same item, same quantity, fifteen coins apart on ten units: a second
         // offer at a different price, not the first one rounded. The tolerance
         // must not swallow it.
-        List<LocalTradeDelta> deltas = Collections.singletonList(
+        List<Delta> deltas = Collections.singletonList(
             completed(1_000L, 3, 500L, NATURE_RUNE, true, 10, 950L, 100));
-        List<GeHistoryTrade> historyTrades = Collections.singletonList(
+        List<Trade> historyTrades = Collections.singletonList(
             history(NATURE_RUNE, true, 10, 965L, 96));
 
-        List<GeHistoryTrade> imported = missing(historyTrades, deltas);
+        List<Trade> imported = missing(historyTrades, deltas);
 
         assertEquals(1, imported.size());
         assertEquals(965L, imported.get(0).totalGp);
@@ -222,15 +222,15 @@ public class GeHistoryAutoSyncTradeMatcherTest {
         // Five bought at 95 and, once that offer completed, five more at 98 on the
         // same slot. They are two offers and the history has two rows; a later row
         // of 10 for 965 is a third offer and must be imported.
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             completed(1_000L, 3, 500L, NATURE_RUNE, true, 5, 475L, 100),
             completed(2_000L, 3, 900L, NATURE_RUNE, true, 5, 490L, 100));
-        List<GeHistoryTrade> historyTrades = Arrays.asList(
+        List<Trade> historyTrades = Arrays.asList(
             history(NATURE_RUNE, true, 10, 965L, 96),
             history(NATURE_RUNE, true, 5, 490L, 98),
             history(NATURE_RUNE, true, 5, 475L, 95));
 
-        List<GeHistoryTrade> imported = missing(historyTrades, deltas);
+        List<Trade> imported = missing(historyTrades, deltas);
 
         assertEquals(1, imported.size());
         assertEquals(10, imported.get(0).quantity);
@@ -244,13 +244,13 @@ public class GeHistoryAutoSyncTradeMatcherTest {
         // import a shortfall of 100, then find the newer row's offer gone. Rows an
         // offer explains outright claim it first, so the older row imports as the
         // whole 400 it is.
-        List<LocalTradeDelta> deltas = Collections.singletonList(
+        List<Delta> deltas = Collections.singletonList(
             completed(1_000L, 3, 500L, NATURE_RUNE, true, 300, 35_400L, 125));
-        List<GeHistoryTrade> historyTrades = Arrays.asList(
+        List<Trade> historyTrades = Arrays.asList(
             history(NATURE_RUNE, true, 300, 35_400L, 118),
             history(NATURE_RUNE, true, 400, 47_200L, 118));
 
-        List<GeHistoryTrade> imported = missing(historyTrades, deltas);
+        List<Trade> imported = missing(historyTrades, deltas);
 
         assertEquals(1, imported.size());
         assertEquals(400, imported.get(0).quantity);
@@ -269,18 +269,18 @@ public class GeHistoryAutoSyncTradeMatcherTest {
      */
     @Test
     public void twoSeparateOffersDoNotExplainAThirdLargerOne() {
-        List<LocalTradeDelta> stored = Arrays.asList(
+        List<Delta> stored = Arrays.asList(
             completed(2_000L, 1, 1_900L, 561, true, 60, 12_000L, 200),
             completed(3_000L, 2, 2_900L, 561, true, 60, 12_000L, 200)
         );
         // Newest first, as the widget lists them.
-        List<GeHistoryTrade> rows = Arrays.asList(
+        List<Trade> rows = Arrays.asList(
             history(561, true, 60, 12_000L, 200),
             history(561, true, 60, 12_000L, 200),
             history(561, true, 100, 20_000L, 200)
         );
 
-        List<GeHistoryTrade> missing = missing(rows, stored);
+        List<Trade> missing = missing(rows, stored);
 
         assertEquals(1, missing.size());
         assertEquals(100, missing.get(0).quantity);
@@ -293,11 +293,11 @@ public class GeHistoryAutoSyncTradeMatcherTest {
      */
     @Test
     public void oneOfferKeptAsSeparateFillsIsStillRecognised() {
-        List<LocalTradeDelta> stored = Arrays.asList(
+        List<Delta> stored = Arrays.asList(
             fill(2_000L, 4, 1_900L, 561, true, 40, 8_000L, 200),
             fill(2_500L, 4, 1_900L, 561, true, 60, 12_000L, 200)
         );
-        List<GeHistoryTrade> rows = Collections.singletonList(history(561, true, 100, 20_000L, 200));
+        List<Trade> rows = Collections.singletonList(history(561, true, 100, 20_000L, 200));
 
         assertTrue(missing(rows, stored).isEmpty());
     }

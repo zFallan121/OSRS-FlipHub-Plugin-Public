@@ -58,8 +58,8 @@ public class ConversionRepairFeeTest {
         };
     }
 
-    private static ConversionFeeService feeService(boolean armourStand, int smithing) {
-        ConversionFeeService service = new ConversionFeeService(config(armourStand));
+    private static FeeService feeService(boolean armourStand, int smithing) {
+        FeeService service = new FeeService(config(armourStand));
         service.onSmithingLevel(ACCOUNT, smithing);
         return service;
     }
@@ -82,12 +82,12 @@ public class ConversionRepairFeeTest {
             500_000L);
     }
 
-    private static LocalTradeDelta buy(long tsMs, int slot, int itemId, int qty, long gp) {
-        return new LocalTradeDelta(tsMs, slot, itemId, true, qty, gp, "OFFER_COMPLETED", (int) (gp / qty), false);
+    private static Delta buy(long tsMs, int slot, int itemId, int qty, long gp) {
+        return new Delta(tsMs, slot, itemId, true, qty, gp, "OFFER_COMPLETED", (int) (gp / qty), false);
     }
 
-    private static LocalTradeDelta sell(long tsMs, int slot, int itemId, int qty, long gp, int unitPrice) {
-        return new LocalTradeDelta(tsMs, slot, itemId, false, qty, gp, "OFFER_COMPLETED", unitPrice, false);
+    private static Delta sell(long tsMs, int slot, int itemId, int qty, long gp, int unitPrice) {
+        return new Delta(tsMs, slot, itemId, false, qty, gp, "OFFER_COMPLETED", unitPrice, false);
     }
 
     @Test
@@ -109,7 +109,7 @@ public class ConversionRepairFeeTest {
     public void anUnknownSmithingLevelPaysTheNpcPrice() {
         // Nothing has reported a level yet. The NPC price is the one that cannot
         // flatter the flip, so it is what an unknown falls back to.
-        assertEquals(90_000L, new ConversionFeeService(config(true)).feeFor(karilsRepair(), 1, ACCOUNT));
+        assertEquals(90_000L, new FeeService(config(true)).feeFor(karilsRepair(), 1, ACCOUNT));
     }
 
     @Test
@@ -129,7 +129,7 @@ public class ConversionRepairFeeTest {
         // Two characters on one client. Viewing the second's profile while
         // logged in as the first must not price the second's repairs with the
         // first's Smithing: its level is unknown, and unknown is NPC price.
-        ConversionFeeService service = feeService(true, 99);
+        FeeService service = feeService(true, 99);
 
         assertEquals(45_450L, service.feeFor(karilsRepair(), 1, ACCOUNT));
         assertEquals(90_000L, service.feeFor(karilsRepair(), 1, OTHER_ACCOUNT));
@@ -137,7 +137,7 @@ public class ConversionRepairFeeTest {
 
     @Test
     public void aLogoutForgetsEveryLevel() {
-        ConversionFeeService service = feeService(true, 99);
+        FeeService service = feeService(true, 99);
 
         assertTrue(service.clearSmithingLevels());
 
@@ -150,7 +150,7 @@ public class ConversionRepairFeeTest {
         // The client reports every skill at login and again on every world
         // hop, and a change throws every aggregate away - so a report that
         // changes nothing has to say so.
-        ConversionFeeService service = new ConversionFeeService(config(true));
+        FeeService service = new FeeService(config(true));
 
         assertTrue(service.onSmithingLevel(ACCOUNT, 99));
         assertFalse(service.onSmithingLevel(ACCOUNT, 99));
@@ -165,7 +165,7 @@ public class ConversionRepairFeeTest {
         // loading, before it can say whose they are. The level is kept until
         // the account is known and attached then, so a whole session is not
         // priced at NPC rates over a race at login.
-        ConversionFeeService service = new ConversionFeeService(config(true));
+        FeeService service = new FeeService(config(true));
 
         assertFalse(service.onSmithingLevel(-1L, 99));
         assertEquals(0, service.smithingLevel(ACCOUNT));
@@ -178,7 +178,7 @@ public class ConversionRepairFeeTest {
 
     @Test
     public void aLogoutForgetsAPendingLevelToo() {
-        ConversionFeeService service = new ConversionFeeService(config(true));
+        FeeService service = new FeeService(config(true));
         service.onSmithingLevel(-1L, 99);
 
         assertTrue(service.clearSmithingLevels());
@@ -189,10 +189,10 @@ public class ConversionRepairFeeTest {
 
     @Test
     public void bothLedgersPriceTheAccountTheyAreBuiltForNotTheOneLoggedIn() {
-        ConversionLedger ledger = new ConversionLedger(
-            new ConversionRecipeIndex(Collections.singletonList(karilsRepair())),
+        Ledger ledger = new Ledger(
+            new RecipeIndex(Collections.singletonList(karilsRepair())),
             feeService(true, 99));
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             buy(1_000L, 1, KARILS_TOP_0, 1, 721_118L),
             sell(2_000L, 2, KARILS_TOP, 1, 828_582L, 845_441)
         );
@@ -203,10 +203,10 @@ public class ConversionRepairFeeTest {
         assertEquals(721_118L + 90_000L,
             history.buildHistory(deltas, null, OTHER_ACCOUNT).get(KARILS_TOP).get(0).buyCostGp);
 
-        LocalStatsCache own = new LocalStatsCache(ledger, ACCOUNT);
+        StatsCache own = new StatsCache(ledger, ACCOUNT);
         own.rebuild(deltas);
         assertEquals(721_118L + 45_450L, (long) own.getSummary().total_cost_gp);
-        LocalStatsCache other = new LocalStatsCache(ledger, OTHER_ACCOUNT);
+        StatsCache other = new StatsCache(ledger, OTHER_ACCOUNT);
         other.rebuild(deltas);
         assertEquals(721_118L + 90_000L, (long) other.getSummary().total_cost_gp);
     }
@@ -216,10 +216,10 @@ public class ConversionRepairFeeTest {
         // The real trade: a broken top bought for 721,118 and the repaired one
         // sold for 828,582 net of tax. At 99 Smithing on a stand the repair was
         // 45,450, not the 90,000 the table carries.
-        LocalFlipHistoryService service = new LocalFlipHistoryService(new ConversionLedger(
-            new ConversionRecipeIndex(Collections.singletonList(karilsRepair())),
+        LocalFlipHistoryService service = new LocalFlipHistoryService(new Ledger(
+            new RecipeIndex(Collections.singletonList(karilsRepair())),
             feeService(true, 99)));
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             buy(1_000L, 1, KARILS_TOP_0, 1, 721_118L),
             sell(2_000L, 2, KARILS_TOP, 1, 828_582L, 845_441)
         );

@@ -47,13 +47,13 @@ public class AccountwideProfileKeyCollectorTest {
             Files.writeString(dirB.resolve("hash_222.json"), "{}");
             Files.writeString(dirA.resolve("hash_invalid.json"), "{}");
 
-            Map<Long, List<LocalTradeDelta>> localTrades = new HashMap<>();
-            List<LocalTradeDelta> deltas = new ArrayList<>();
-            deltas.add(new LocalTradeDelta(1L, 1, 1, true, 1, 1L, "OFFER_UPDATED", 1, false));
+            Map<Long, List<Delta>> localTrades = new HashMap<>();
+            List<Delta> deltas = new ArrayList<>();
+            deltas.add(new Delta(1L, 1, 1, true, 1, 1L, "OFFER_UPDATED", 1, false));
             localTrades.put(333L, deltas);
             localTrades.put(444L, new ArrayList<>());
 
-            AccountwideProfileKeyCollector collector = new AccountwideProfileKeyCollector();
+            ProfileKeyCollector collector = new ProfileKeyCollector();
             Set<Long> keys = collector.collect(
                 dirA,
                 dirB,
@@ -72,8 +72,8 @@ public class AccountwideProfileKeyCollectorTest {
 
     @Test
     public void collectUsesFallbackWhenNoKeysFound() {
-        Map<Long, List<LocalTradeDelta>> localTrades = new HashMap<>();
-        AccountwideProfileKeyCollector collector = new AccountwideProfileKeyCollector();
+        Map<Long, List<Delta>> localTrades = new HashMap<>();
+        ProfileKeyCollector collector = new ProfileKeyCollector();
         Set<Long> keys = collector.collect(
             null,
             null,

@@ -39,24 +39,24 @@ import static org.junit.Assert.assertTrue;
 public class LocalAccountMergeServiceTest {
     @Test
     public void mergeCombinesSourceIntoTargetWithDedupeAndSessionTransfer() {
-        LocalAccountMergeService service = new LocalAccountMergeService();
-        Map<Long, List<LocalTradeDelta>> deltasByAccount = new HashMap<>();
+        AccountMerge service = new AccountMerge();
+        Map<Long, List<Delta>> deltasByAccount = new HashMap<>();
         Map<Long, Long> sessionStarts = new HashMap<>();
 
-        List<LocalTradeDelta> target = new ArrayList<>();
-        LocalTradeDelta a = delta(1_000L, 1, 4151, true, 1, 1_000L);
+        List<Delta> target = new ArrayList<>();
+        Delta a = delta(1_000L, 1, 4151, true, 1, 1_000L);
         target.add(a);
         deltasByAccount.put(100L, target);
 
-        List<LocalTradeDelta> source = new ArrayList<>();
+        List<Delta> source = new ArrayList<>();
         source.add(delta(1_000L, 1, 4151, true, 1, 1_000L)); // duplicate signature
-        LocalTradeDelta b = delta(2_000L, 2, 561, false, 2, 500L);
+        Delta b = delta(2_000L, 2, 561, false, 2, 500L);
         source.add(b);
         deltasByAccount.put(200L, source);
 
         sessionStarts.put(200L, 12345L);
 
-        LocalAccountMergeService.Result result = service.merge(deltasByAccount, sessionStarts, 100L, 200L);
+        AccountMerge.Result result = service.merge(deltasByAccount, sessionStarts, 100L, 200L);
 
         assertTrue(result.changed);
         assertNotNull(result.mergedSnapshot);
@@ -71,20 +71,20 @@ public class LocalAccountMergeServiceTest {
     /** Nothing is ever trimmed: the oldest purchase is what a later sale is priced against. */
     @Test
     public void mergeKeepsEveryEntryOldestFirst() {
-        LocalAccountMergeService service = new LocalAccountMergeService();
-        Map<Long, List<LocalTradeDelta>> deltasByAccount = new HashMap<>();
+        AccountMerge service = new AccountMerge();
+        Map<Long, List<Delta>> deltasByAccount = new HashMap<>();
         Map<Long, Long> sessionStarts = new HashMap<>();
 
-        List<LocalTradeDelta> target = new ArrayList<>();
+        List<Delta> target = new ArrayList<>();
         target.add(delta(1_000L, 1, 1, true, 1, 100L));
         deltasByAccount.put(10L, target);
 
-        List<LocalTradeDelta> source = new ArrayList<>();
+        List<Delta> source = new ArrayList<>();
         source.add(delta(2_000L, 1, 2, true, 1, 200L));
         source.add(delta(3_000L, 1, 3, true, 1, 300L));
         deltasByAccount.put(20L, source);
 
-        LocalAccountMergeService.Result result = service.merge(deltasByAccount, sessionStarts, 10L, 20L);
+        AccountMerge.Result result = service.merge(deltasByAccount, sessionStarts, 10L, 20L);
 
         assertTrue(result.changed);
         assertEquals(3, result.mergedSnapshot.size());
@@ -95,24 +95,24 @@ public class LocalAccountMergeServiceTest {
 
     @Test
     public void mergeWithEmptySourceDoesNotMarkChanged() {
-        LocalAccountMergeService service = new LocalAccountMergeService();
-        Map<Long, List<LocalTradeDelta>> deltasByAccount = new HashMap<>();
+        AccountMerge service = new AccountMerge();
+        Map<Long, List<Delta>> deltasByAccount = new HashMap<>();
         Map<Long, Long> sessionStarts = new HashMap<>();
 
-        List<LocalTradeDelta> target = new ArrayList<>();
+        List<Delta> target = new ArrayList<>();
         target.add(delta(1_000L, 1, 995, true, 1, 100L));
         deltasByAccount.put(10L, target);
         deltasByAccount.put(20L, new ArrayList<>());
 
-        LocalAccountMergeService.Result result = service.merge(deltasByAccount, sessionStarts, 10L, 20L);
+        AccountMerge.Result result = service.merge(deltasByAccount, sessionStarts, 10L, 20L);
 
         assertFalse(result.changed);
         assertEquals(1, result.mergedSnapshot.size());
         assertNull(deltasByAccount.get(20L));
     }
 
-    private static LocalTradeDelta delta(long tsClientMs, int slot, int itemId, boolean isBuy, int deltaQty, long deltaGp) {
-        return new LocalTradeDelta(
+    private static Delta delta(long tsClientMs, int slot, int itemId, boolean isBuy, int deltaQty, long deltaGp) {
+        return new Delta(
             tsClientMs,
             slot,
             itemId,

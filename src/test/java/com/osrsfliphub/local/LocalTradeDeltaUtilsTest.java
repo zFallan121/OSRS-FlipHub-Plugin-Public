@@ -43,10 +43,10 @@ public class LocalTradeDeltaUtilsTest {
     @Test
     public void dedupeLocalTradesCollapsesUpdateCompletionPair() {
         long ts = System.currentTimeMillis();
-        LocalTradeDelta update = new LocalTradeDelta(ts, 1, 4151, true, 10, 10000L, "OFFER_UPDATED", 1000, false);
-        LocalTradeDelta completion = new LocalTradeDelta(ts + 100, 1, 4151, true, 10, 10000L, "OFFER_COMPLETED", 1000, false);
+        Delta update = new Delta(ts, 1, 4151, true, 10, 10000L, "OFFER_UPDATED", 1000, false);
+        Delta completion = new Delta(ts + 100, 1, 4151, true, 10, 10000L, "OFFER_COMPLETED", 1000, false);
 
-        List<LocalTradeDelta> result = LocalTradeDeltaUtils.dedupeLocalTrades(
+        List<Delta> result = TradeDeltaUtils.dedupeLocalTrades(
             Arrays.asList(update, completion),
             600L,
             2000L
@@ -54,7 +54,7 @@ public class LocalTradeDeltaUtilsTest {
 
         assertNotNull(result);
         assertEquals(1, result.size());
-        LocalTradeDelta offer = result.get(0);
+        Delta offer = result.get(0);
         assertEquals("OFFER_COMPLETED", offer.eventType);
         assertEquals(10, offer.deltaQty);
         assertEquals(10000L, offer.deltaGp);
@@ -70,12 +70,12 @@ public class LocalTradeDeltaUtilsTest {
     @Test
     public void twoSameSizedCollapsedOffersOnOneSlotAreBothKept() {
         long ts = 1_000_000L;
-        LocalTradeDelta first = new LocalTradeDelta(ts, 3, 4151, true, 1_000, 500_000L, "OFFER_COMPLETED", 500, false,
+        Delta first = new Delta(ts, 3, 4151, true, 1_000, 500_000L, "OFFER_COMPLETED", 500, false,
             ts - 10L, ts + 60_000L);
-        LocalTradeDelta second = new LocalTradeDelta(ts + 600_000L, 3, 4151, true, 1_000, 500_000L, "OFFER_COMPLETED",
+        Delta second = new Delta(ts + 600_000L, 3, 4151, true, 1_000, 500_000L, "OFFER_COMPLETED",
             500, false, ts + 590_000L, ts + 660_000L);
 
-        List<LocalTradeDelta> result = LocalTradeDeltaUtils.dedupeLocalTrades(
+        List<Delta> result = TradeDeltaUtils.dedupeLocalTrades(
             Arrays.asList(first, second),
             600L,
             2_000L
@@ -89,9 +89,9 @@ public class LocalTradeDeltaUtilsTest {
 
     @Test
     public void dedupeLocalTradesConvertsGrossSellDeltaToNet() {
-        LocalTradeDelta sell = new LocalTradeDelta(10_000L, 1, 1513, false, 100, 110_000L, "OFFER_UPDATED", 1100, false);
+        Delta sell = new Delta(10_000L, 1, 1513, false, 100, 110_000L, "OFFER_UPDATED", 1100, false);
 
-        List<LocalTradeDelta> result = LocalTradeDeltaUtils.dedupeLocalTrades(
+        List<Delta> result = TradeDeltaUtils.dedupeLocalTrades(
             Arrays.asList(sell),
             600L,
             2_000L
@@ -109,10 +109,10 @@ public class LocalTradeDeltaUtilsTest {
         int price = 420;
         long gross = (long) qty * price;
         long net = gross - (((long) price / 50L) * qty);
-        LocalTradeDelta update = new LocalTradeDelta(ts, 2, 1493, false, qty, gross, "OFFER_UPDATED", price, false);
-        LocalTradeDelta completion = new LocalTradeDelta(ts + 600_000L, 2, 1493, false, qty, net, "OFFER_COMPLETED", price, false);
+        Delta update = new Delta(ts, 2, 1493, false, qty, gross, "OFFER_UPDATED", price, false);
+        Delta completion = new Delta(ts + 600_000L, 2, 1493, false, qty, net, "OFFER_COMPLETED", price, false);
 
-        List<LocalTradeDelta> result = LocalTradeDeltaUtils.dedupeLocalTrades(
+        List<Delta> result = TradeDeltaUtils.dedupeLocalTrades(
             Arrays.asList(update, completion),
             600L,
             2_000L
@@ -122,7 +122,7 @@ public class LocalTradeDeltaUtilsTest {
         // zeroed, and the pair folded into one offer that sold the quantity once, net.
         assertNotNull(result);
         assertEquals(1, result.size());
-        LocalTradeDelta offer = result.get(0);
+        Delta offer = result.get(0);
         assertEquals("OFFER_COMPLETED", offer.eventType);
         assertEquals(qty, offer.deltaQty);
         assertEquals(net, offer.deltaGp);
@@ -137,10 +137,10 @@ public class LocalTradeDeltaUtilsTest {
         int price = 420;
         long gross = (long) qty * price;
         long net = gross - (((long) price / 50L) * qty);
-        LocalTradeDelta completionGross = new LocalTradeDelta(ts, 2, 1493, false, qty, gross, "OFFER_COMPLETED", price, false);
-        LocalTradeDelta completionNet = new LocalTradeDelta(ts + 600_000L, 2, 1493, false, qty, net, "OFFER_COMPLETED", price, false);
+        Delta completionGross = new Delta(ts, 2, 1493, false, qty, gross, "OFFER_COMPLETED", price, false);
+        Delta completionNet = new Delta(ts + 600_000L, 2, 1493, false, qty, net, "OFFER_COMPLETED", price, false);
 
-        List<LocalTradeDelta> result = LocalTradeDeltaUtils.dedupeLocalTrades(
+        List<Delta> result = TradeDeltaUtils.dedupeLocalTrades(
             Arrays.asList(completionGross, completionNet),
             600L,
             2_000L
@@ -153,11 +153,11 @@ public class LocalTradeDeltaUtilsTest {
 
     @Test
     public void duplicateTradeDetectionMatchesSameBucketAndType() {
-        List<LocalTradeDelta> deltas = new ArrayList<>();
-        deltas.add(new LocalTradeDelta(10_000L, 1, 4151, true, 10, 10_000L, "OFFER_UPDATED", 1000, false));
-        LocalTradeDelta candidate = new LocalTradeDelta(10_100L, 1, 4151, true, 10, 10_000L, "OFFER_UPDATED", 1000, false);
+        List<Delta> deltas = new ArrayList<>();
+        deltas.add(new Delta(10_000L, 1, 4151, true, 10, 10_000L, "OFFER_UPDATED", 1000, false));
+        Delta candidate = new Delta(10_100L, 1, 4151, true, 10, 10_000L, "OFFER_UPDATED", 1000, false);
 
-        boolean duplicate = LocalTradeDeltaUtils.isLikelyDuplicateTradeDelta(
+        boolean duplicate = TradeDeltaUtils.isLikelyDuplicateTradeDelta(
             deltas,
             candidate,
             600L,
@@ -170,11 +170,11 @@ public class LocalTradeDeltaUtilsTest {
 
     @Test
     public void duplicateTradeDetectionIgnoresOutsideWindow() {
-        List<LocalTradeDelta> deltas = new ArrayList<>();
-        deltas.add(new LocalTradeDelta(10_000L, 1, 4151, true, 10, 10_000L, "OFFER_UPDATED", 1000, false));
-        LocalTradeDelta candidate = new LocalTradeDelta(20_500L, 1, 4151, true, 10, 10_000L, "OFFER_UPDATED", 1000, false);
+        List<Delta> deltas = new ArrayList<>();
+        deltas.add(new Delta(10_000L, 1, 4151, true, 10, 10_000L, "OFFER_UPDATED", 1000, false));
+        Delta candidate = new Delta(20_500L, 1, 4151, true, 10, 10_000L, "OFFER_UPDATED", 1000, false);
 
-        boolean duplicate = LocalTradeDeltaUtils.isLikelyDuplicateTradeDelta(
+        boolean duplicate = TradeDeltaUtils.isLikelyDuplicateTradeDelta(
             deltas,
             candidate,
             600L,

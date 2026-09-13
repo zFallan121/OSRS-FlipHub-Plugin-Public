@@ -107,7 +107,7 @@ public class InjectableSingletonsTest {
     /** The one that actually broke, named outright so a failure says so plainly. */
     @Test
     public void theHistorySyncDecisionServiceCanBeBuilt() {
-        Object service = Guice.createInjector().getInstance(GeHistoryWipeBaselineDecisionService.class);
+        Object service = Guice.createInjector().getInstance(WipeBaselineDecision.class);
         assertFalse(service == null);
     }
 

@@ -73,9 +73,9 @@ public class ConversionRecipeIndexTest {
         return ids;
     }
 
-    private static ConversionRecipeIndex indexResolving(Map<String, Integer> ids) {
-        ConversionRecipeIndex index =
-            new ConversionRecipeIndex((java.util.function.ToIntFunction<String>) name -> {
+    private static RecipeIndex indexResolving(Map<String, Integer> ids) {
+        RecipeIndex index =
+            new RecipeIndex((java.util.function.ToIntFunction<String>) name -> {
                 Integer id = ids.get(name);
                 return id != null ? id : -1;
             });
@@ -95,7 +95,7 @@ public class ConversionRecipeIndexTest {
 
     @Test
     public void shippedResourceCarriesTheGuardianBootsRecipe() {
-        ConversionRecipeIndex index = indexResolving(guardianBootsNames());
+        RecipeIndex index = indexResolving(guardianBootsNames());
 
         List<ConversionRecipe> recipes = index.recipesProducing(GUARDIAN_BOOTS);
         assertEquals(1, recipes.size());
@@ -121,7 +121,7 @@ public class ConversionRecipeIndexTest {
         Map<String, Integer> ids = guardianBootsNames();
         ids.remove("Bandos boots");
 
-        ConversionRecipeIndex index = indexResolving(ids);
+        RecipeIndex index = indexResolving(ids);
 
         assertTrue(index.recipesProducing(GUARDIAN_BOOTS).isEmpty());
     }
@@ -135,7 +135,7 @@ public class ConversionRecipeIndexTest {
         ids.put("Dharok's helm", DHAROKS_HELM);
         ids.put("Dharok's helm 0", DHAROKS_HELM_0);
 
-        ConversionRecipeIndex index = indexResolving(ids);
+        RecipeIndex index = indexResolving(ids);
 
         List<ConversionRecipe> recipes = index.recipesProducing(DHAROKS_HELM);
         assertEquals(1, recipes.size());
@@ -152,7 +152,7 @@ public class ConversionRecipeIndexTest {
         // Both directions are real trades and both are carried: the combine
         // against the set it makes, the break against every piece it makes, so
         // that a sale of any piece can find it.
-        ConversionRecipeIndex index = indexResolving(dharoksNames());
+        RecipeIndex index = indexResolving(dharoksNames());
 
         List<ConversionRecipe> combine = index.recipesProducing(DHAROKS_ARMOUR_SET);
         assertEquals(1, combine.size());
@@ -203,7 +203,7 @@ public class ConversionRecipeIndexTest {
         ids.put("Torva full helm (damaged)", TORVA_FULL_HELM_DAMAGED);
         ids.put("Bandosian components", BANDOSIAN_COMPONENTS);
 
-        ConversionRecipeIndex index = indexResolving(ids);
+        RecipeIndex index = indexResolving(ids);
 
         List<ConversionRecipe> recipes = index.recipesProducing(TORVA_FULL_HELM);
         assertEquals(1, recipes.size());
@@ -230,7 +230,7 @@ public class ConversionRecipeIndexTest {
             Collections.singletonList(new ConversionItem(TORVA_FULL_HELM, 1)),
             0L);
 
-        ConversionRecipeIndex index = new ConversionRecipeIndex(Arrays.asList(repair, sameAgain));
+        RecipeIndex index = new RecipeIndex(Arrays.asList(repair, sameAgain));
 
         List<ConversionRecipe> recipes = index.recipesProducing(TORVA_FULL_HELM);
         assertEquals(1, recipes.size());
@@ -238,7 +238,7 @@ public class ConversionRecipeIndexTest {
     }
 
     private static JsonObject shippedRoot() throws Exception {
-        try (InputStream stream = ConversionRecipeIndex.class.getResourceAsStream("/com/osrsfliphub/conversions.json");
+        try (InputStream stream = RecipeIndex.class.getResourceAsStream("/com/osrsfliphub/conversions.json");
              Reader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
             return new JsonParser().parse(reader).getAsJsonObject();
         }
@@ -274,7 +274,7 @@ public class ConversionRecipeIndexTest {
 
     @Test
     public void anIndexWithNothingResolvedProducesNothing() {
-        ConversionRecipeIndex index = indexResolving(new HashMap<>());
+        RecipeIndex index = indexResolving(new HashMap<>());
 
         assertTrue(index.isEmpty());
         assertNotNull(index.recipesProducing(GUARDIAN_BOOTS));

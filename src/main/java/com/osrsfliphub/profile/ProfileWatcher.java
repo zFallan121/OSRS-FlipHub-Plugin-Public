@@ -58,12 +58,12 @@ final class ProfileWatcher {
     }
 
     private Path getProfilesDir() {
-        ProfileStorageFacadeService service = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
+        ProfileStorage service = Bridge.get(ProfileStorage.class);
         return service != null ? service.getProfilesDir() : null;
     }
 
     private Path getLegacyProfilesDir() {
-        ProfileStorageFacadeService service = PluginInjectorBridge.get(ProfileStorageFacadeService.class);
+        ProfileStorage service = Bridge.get(ProfileStorage.class);
         return service != null ? service.getLegacyProfilesDir() : null;
     }
 
@@ -71,15 +71,15 @@ final class ProfileWatcher {
         if (file != null) {
             Path fileName = file.getFileName();
             if (fileName != null && "accountwide.json".equalsIgnoreCase(fileName.toString())) {
-                return GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
+                return Const.ACCOUNTWIDE_KEY;
             }
         }
-        ProfileStore store = PluginInjectorBridge.get(ProfileStore.class);
+        ProfileStore store = Bridge.get(ProfileStore.class);
         return store != null ? store.parseAccountKeyFromProfileFile(file) : -1L;
     }
 
     private long getProfileFileModifiedMs(Path file) {
-        ProfileStore store = PluginInjectorBridge.get(ProfileStore.class);
+        ProfileStore store = Bridge.get(ProfileStore.class);
         return store != null ? store.getProfileFileModifiedMs(file) : 0L;
     }
 
@@ -89,17 +89,17 @@ final class ProfileWatcher {
      * which turns the periodic scan into an unconditional reload of every profile.
      */
     private Long getSelfWrittenProfileFileMs(long accountKey) {
-        PluginState state = PluginInjectorBridge.get(PluginState.class);
+        PluginState state = Bridge.get(PluginState.class);
         return state != null ? state.getSelfWrittenProfileFileMs().get(accountKey) : null;
     }
 
     Long getLoadedProfileFileMs(long accountKey) {
-        PluginState state = PluginInjectorBridge.get(PluginState.class);
+        PluginState state = Bridge.get(PluginState.class);
         return state != null ? state.getLoadedProfileFileMs().get(accountKey) : null;
     }
 
     private void reloadProfile(long accountKey) {
-        PluginAccess.plugin().getProfileWorkflowService().reloadProfileFromDisk(accountKey);
+        Access.plugin().getProfileWorkflowService().reloadProfileFromDisk(accountKey);
     }
 
     void start() {

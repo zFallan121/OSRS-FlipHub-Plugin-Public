@@ -36,7 +36,7 @@ final class RecentTradeDeduper {
 
     @Inject
     RecentTradeDeduper() {
-        this(GeLifecyclePluginConstants.DUPLICATE_TRADE_WINDOW_MS);
+        this(Const.DUPLICATE_TRADE_WINDOW_MS);
     }
 
     RecentTradeDeduper(long duplicateTradeWindowMs) {

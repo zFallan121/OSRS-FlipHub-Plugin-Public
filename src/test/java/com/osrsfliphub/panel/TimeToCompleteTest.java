@@ -41,8 +41,8 @@ public class TimeToCompleteTest {
     private static final long HOUR = 60 * MINUTE;
     private static final long DAY = 24 * HOUR;
 
-    private final FlipHubStatsItemFormattingService formatting =
-        new FlipHubStatsItemFormattingService(new FlipHubPanelValueFormatService());
+    private final StatsItemFormatting formatting =
+        new StatsItemFormatting(new PanelValueFormat());
 
     /** One flip, so the stored total is that flip. */
     @Test
@@ -59,7 +59,7 @@ public class TimeToCompleteTest {
     /** The largest two units that carry anything, and no more. */
     @Test
     public void theSpanIsReadableAtEveryScale() {
-        FlipHubPanelValueFormatService values = new FlipHubPanelValueFormatService();
+        PanelValueFormat values = new PanelValueFormat();
 
         assertEquals("3d 4h", values.formatDurationCompact(3 * DAY + 4 * HOUR + 30 * MINUTE));
         assertEquals("2d", values.formatDurationCompact(2 * DAY));
@@ -71,7 +71,7 @@ public class TimeToCompleteTest {
     /** Under a second is still some time, and reporting "0s" would read as an error. */
     @Test
     public void aVeryShortFlipIsNotReportedAsNothing() {
-        assertEquals("1s", new FlipHubPanelValueFormatService().formatDurationCompact(400L));
+        assertEquals("1s", new PanelValueFormat().formatDurationCompact(400L));
     }
 
     /**

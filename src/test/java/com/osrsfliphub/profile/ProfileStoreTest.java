@@ -45,8 +45,8 @@ public class ProfileStoreTest {
         Path baseDir = Files.createTempDirectory("profile-store-write");
         try {
             ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
-            List<LocalTradeDelta> deltas = new ArrayList<>();
-            deltas.add(new LocalTradeDelta(1000L, 1, 4151, true, 5, 500L, "OFFER_UPDATED", 100, false));
+            List<Delta> deltas = new ArrayList<>();
+            deltas.add(new Delta(1000L, 1, 4151, true, 5, 500L, "OFFER_UPDATED", 100, false));
 
             long writtenMs = store.writeProfileData(123L, 0L, "Zezima", deltas);
 

@@ -31,7 +31,7 @@ import static org.junit.Assert.assertEquals;
 public class GeHistoryAutoSyncMessageServiceTest {
     @Test
     public void baselineSetMessageIncludesSafeTradeCount() {
-        GeHistoryAutoSyncMessageService service = new GeHistoryAutoSyncMessageService();
+        AutoSyncMessage service = new AutoSyncMessage();
 
         assertEquals(
             "FlipHub GE history sync: wipe baseline set (3 trades).",
@@ -45,7 +45,7 @@ public class GeHistoryAutoSyncMessageServiceTest {
 
     @Test
     public void baselineMismatchMessageMatchesExpectedText() {
-        GeHistoryAutoSyncMessageService service = new GeHistoryAutoSyncMessageService();
+        AutoSyncMessage service = new AutoSyncMessage();
 
         assertEquals(
             "FlipHub GE history sync: skipped (wipe baseline mismatch).",
@@ -55,7 +55,7 @@ public class GeHistoryAutoSyncMessageServiceTest {
 
     @Test
     public void untrustedReadMessagesSayWhatWasSeen() {
-        GeHistoryAutoSyncMessageService service = new GeHistoryAutoSyncMessageService();
+        AutoSyncMessage service = new AutoSyncMessage();
 
         assertEquals(
             "FlipHub GE history sync: skipped (History tab never finished loading).",
@@ -73,7 +73,7 @@ public class GeHistoryAutoSyncMessageServiceTest {
 
     @Test
     public void cursorFormatResetMessageIncludesSafeTradeCount() {
-        GeHistoryAutoSyncMessageService service = new GeHistoryAutoSyncMessageService();
+        AutoSyncMessage service = new AutoSyncMessage();
 
         assertEquals(
             "FlipHub GE history sync: stored cursor was from an older version, baseline reset (42 trades, nothing imported).",
@@ -87,7 +87,7 @@ public class GeHistoryAutoSyncMessageServiceTest {
 
     @Test
     public void syncResultMessageHandlesAddedAndEmptyCases() {
-        GeHistoryAutoSyncMessageService service = new GeHistoryAutoSyncMessageService();
+        AutoSyncMessage service = new AutoSyncMessage();
 
         assertEquals(
             "FlipHub GE history sync: 4 trades synced (8 events added).",

@@ -68,19 +68,19 @@ final class OfferPreviewItemResolver {
     }
 
     private final Client client;
-    private final OfferPreviewRuntimeFacadeService facade;
+    private final OfferPreviewRuntime facade;
     private final String[] setupBlockers;
 
     @Inject
-    OfferPreviewItemResolver(Client client, OfferPreviewRuntimeFacadeService facade) {
+    OfferPreviewItemResolver(Client client, OfferPreviewRuntime facade) {
         this.client = client;
         this.facade = facade;
-        this.setupBlockers = GeLifecyclePluginConstants.OFFER_SETUP_BLOCKERS != null
-            ? GeLifecyclePluginConstants.OFFER_SETUP_BLOCKERS : new String[0];
+        this.setupBlockers = Const.OFFER_SETUP_BLOCKERS != null
+            ? Const.OFFER_SETUP_BLOCKERS : new String[0];
     }
 
-    private static ItemLookupService itemLookupService() {
-        return PluginInjectorBridge.get(ItemLookupService.class);
+    private static ItemLookup itemLookupService() {
+        return Bridge.get(ItemLookup.class);
     }
 
     private Widget getVisibleGeRoot() {
@@ -90,7 +90,7 @@ final class OfferPreviewItemResolver {
     }
 
     private boolean isOfferStatusOpen(Widget geRoot) {
-        return facade != null && facade.isOfferStatusOpen(geRoot, GeLifecyclePluginConstants.OFFER_STATUS_MARKERS);
+        return facade != null && facade.isOfferStatusOpen(geRoot, Const.OFFER_STATUS_MARKERS);
     }
 
     private int getNewOfferTypeVarbit() {
@@ -118,18 +118,18 @@ final class OfferPreviewItemResolver {
     }
 
     private String findItemNameCandidate(Widget geRoot) {
-        ItemLookupService itemLookupService = itemLookupService();
+        ItemLookup itemLookupService = itemLookupService();
         if (facade == null || itemLookupService == null) {
             return null;
         }
         return facade.findItemNameCandidate(
             geRoot,
-            GeLifecyclePluginConstants.ITEM_NAME_EXCLUDES,
+            Const.ITEM_NAME_EXCLUDES,
             itemLookupService::resolveItemIdFromName);
     }
 
     private int resolveItemIdFromName(String name) {
-        ItemLookupService itemLookupService = itemLookupService();
+        ItemLookup itemLookupService = itemLookupService();
         return itemLookupService != null ? itemLookupService.resolveItemIdFromName(name) : -1;
     }
 

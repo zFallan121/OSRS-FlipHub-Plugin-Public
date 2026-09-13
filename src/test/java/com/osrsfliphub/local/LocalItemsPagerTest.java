@@ -39,7 +39,7 @@ public class LocalItemsPagerTest {
         FlipHubItem c = item("Rune knife", 2000L, null);
         List<FlipHubItem> items = new ArrayList<>(Arrays.asList(a, b, c));
 
-        LocalItemsPager.sortItems(items, StatsItemSort.COMPLETION, false);
+        ItemsPager.sortItems(items, StatsItemSort.COMPLETION, false);
 
         assertEquals("Rune knife", items.get(0).item_name);
         assertEquals("Abyssal whip", items.get(1).item_name);
@@ -54,7 +54,7 @@ public class LocalItemsPagerTest {
         fat.margin_x_limit = 400_000L;
         List<FlipHubItem> items = new ArrayList<>(Arrays.asList(thin, fat));
 
-        LocalItemsPager.sortItems(items, StatsItemSort.PROFIT, false);
+        ItemsPager.sortItems(items, StatsItemSort.PROFIT, false);
 
         assertEquals("Abyssal whip", items.get(0).item_name);
         assertEquals("Mahogany logs", items.get(1).item_name);
@@ -68,7 +68,7 @@ public class LocalItemsPagerTest {
         bad.roi_percent = -1.62d;
         List<FlipHubItem> items = new ArrayList<>(Arrays.asList(good, bad));
 
-        LocalItemsPager.sortItems(items, StatsItemSort.ROI, true);
+        ItemsPager.sortItems(items, StatsItemSort.ROI, true);
 
         assertEquals("Ring of wealth", items.get(0).item_name);
         assertEquals("Abyssal whip", items.get(1).item_name);
@@ -82,10 +82,10 @@ public class LocalItemsPagerTest {
         FlipHubItem unranked = item("Aaa untraded", 1000L, null);
         List<FlipHubItem> items = new ArrayList<>(Arrays.asList(unranked, ranked));
 
-        LocalItemsPager.sortItems(items, StatsItemSort.PROFIT, false);
+        ItemsPager.sortItems(items, StatsItemSort.PROFIT, false);
         assertEquals("Abyssal whip", items.get(0).item_name);
 
-        LocalItemsPager.sortItems(items, StatsItemSort.PROFIT, true);
+        ItemsPager.sortItems(items, StatsItemSort.PROFIT, true);
         assertEquals("Abyssal whip", items.get(0).item_name);
         assertEquals("Aaa untraded", items.get(1).item_name);
     }
@@ -94,7 +94,7 @@ public class LocalItemsPagerTest {
     public void paginateCalculatesPageBounds() {
         List<FlipHubItem> items = Arrays.asList(item("a", 1L, null), item("b", 2L, null), item("c", 3L, null));
 
-        LocalItemsPager.Page page = LocalItemsPager.paginate(items, 2, 2);
+        ItemsPager.Page page = ItemsPager.paginate(items, 2, 2);
 
         assertEquals(2, page.page);
         assertEquals(2, page.pageSize);

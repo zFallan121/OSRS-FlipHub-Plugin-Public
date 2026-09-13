@@ -51,22 +51,22 @@ public class FlipHubStatsConversionCardTest {
             Collections.singletonList(new ConversionItem(GUARDIAN_BOOTS, 1)),
             0L
         );
-        ConversionMatch match = new ConversionMatch(
+        Match match = new Match(
             recipe,
             1L,
             1_214_230L,
             Arrays.asList(
-                new ConversionMatch.Line(11836, 1L, 731_225L, false),
-                new ConversionMatch.Line(21730, 1L, 483_005L, false)
+                new Match.Line(11836, 1L, 731_225L, false),
+                new Match.Line(21730, 1L, 483_005L, false)
             ),
-            ConversionConfidence.CONFIRMED
+            Confidence.CONFIRMED
         );
         return new StatsFlipInstance(
             GUARDIAN_BOOTS, 1_214_230L, 1_365_140L, 1_214_230L, 1_365_140L, 150_910L, 1, 3_000L, match);
     }
 
     /** A Dharok's set guessed broken, one helm sold so far: what the open break carries. */
-    private static ConversionMatch unfinishedDharoksBreak() {
+    private static Match unfinishedDharoksBreak() {
         ConversionRecipe recipe = new ConversionRecipe(
             ConversionKind.SET_BREAK,
             "Dharok's armour set",
@@ -76,30 +76,30 @@ public class FlipHubStatsConversionCardTest {
                 new ConversionItem(4722, 1), new ConversionItem(4718, 1)),
             0L
         );
-        return new ConversionMatch(
+        return new Match(
             recipe, 1L, 7_400_000L,
-            Collections.singletonList(new ConversionMatch.Line(4716, 1L, 1_050_000L, false)),
-            ConversionConfidence.CONFIRMED,
-            Collections.singletonList(new LocalTradeKey(2_000L, 2, 4716)),
+            Collections.singletonList(new Match.Line(4716, 1L, 1_050_000L, false)),
+            Confidence.CONFIRMED,
+            Collections.singletonList(new TradeKey(2_000L, 2, 4716)),
             4242L);
     }
 
     @Test
     public void everyKindOfEntryIsCalledWhatItIs() {
-        assertEquals("#3", FlipHubStatsItemCardBuilder.historyEntryLabel(flip(), 3));
+        assertEquals("#3", StatsItemCardBuilder.historyEntryLabel(flip(), 3));
 
         StatsFlipInstance filling = new StatsFlipInstance(1042, 100L, 130L, 100L, 130L, 30L, 1, 1_000L, null, true);
-        assertEquals("In progress", FlipHubStatsItemCardBuilder.historyEntryLabel(filling, 3));
+        assertEquals("In progress", StatsItemCardBuilder.historyEntryLabel(filling, 3));
 
         ConversionRejection rejection = new ConversionRejection(GUARDIAN_BOOTS, "ASSEMBLE", "Guardian boots",
-            3_000L, 9_000L, Collections.singletonList(new LocalTradeKey(3_000L, 3, GUARDIAN_BOOTS)));
+            3_000L, 9_000L, Collections.singletonList(new TradeKey(3_000L, 3, GUARDIAN_BOOTS)));
         assertEquals("Dismissed",
-            FlipHubStatsItemCardBuilder.historyEntryLabel(StatsFlipInstance.dismissed(rejection, 4242L), 3));
+            StatsItemCardBuilder.historyEntryLabel(StatsFlipInstance.dismissed(rejection, 4242L), 3));
 
         // An unfinished break is not the next activity in the list and not a
         // zero: it is the guess the plugin cannot yet price, shown to be refused.
         StatsFlipInstance open = StatsFlipInstance.openBreak(12881, unfinishedDharoksBreak(), 2_000L);
-        assertEquals("Unfinished", FlipHubStatsItemCardBuilder.historyEntryLabel(open, 3));
+        assertEquals("Unfinished", StatsItemCardBuilder.historyEntryLabel(open, 3));
         assertEquals(ConversionKind.SET_BREAK, open.conversionKind);
         assertEquals(4242L, open.accountKey);
         assertEquals(1, open.conversionTrades.size());
@@ -113,7 +113,7 @@ public class FlipHubStatsConversionCardTest {
     public void aListOfPlainFlipsIsStillCalledFlipHistory() {
         List<StatsFlipInstance> history = Arrays.asList(flip(), flip());
 
-        assertEquals("Flip history (2)", FlipHubStatsItemCardBuilder.historySectionTitle(history));
+        assertEquals("Flip history (2)", StatsItemCardBuilder.historySectionTitle(history));
     }
 
     @Test
@@ -122,35 +122,35 @@ public class FlipHubStatsConversionCardTest {
         // next time. "Flip history" is the wrong word for that list.
         List<StatsFlipInstance> history = Arrays.asList(flip(), assembled(), flip());
 
-        assertEquals("Activity (3)", FlipHubStatsItemCardBuilder.historySectionTitle(history));
+        assertEquals("Activity (3)", StatsItemCardBuilder.historySectionTitle(history));
     }
 
     @Test
     public void everyDirectionHasWordsRatherThanAGlyph() {
-        assertEquals("Assembled from", FlipHubStatsItemCardBuilder.conversionHeading(ConversionKind.ASSEMBLE));
-        assertEquals("Repaired from", FlipHubStatsItemCardBuilder.conversionHeading(ConversionKind.REPAIR));
-        assertEquals("Combined from", FlipHubStatsItemCardBuilder.conversionHeading(ConversionKind.SET_COMBINE));
+        assertEquals("Assembled from", StatsItemCardBuilder.conversionHeading(ConversionKind.ASSEMBLE));
+        assertEquals("Repaired from", StatsItemCardBuilder.conversionHeading(ConversionKind.REPAIR));
+        assertEquals("Combined from", StatsItemCardBuilder.conversionHeading(ConversionKind.SET_COMBINE));
         // The other way round: these are filed against the thing taken apart,
         // so the block lists what came out of it.
-        assertEquals("Disassembled into", FlipHubStatsItemCardBuilder.conversionHeading(ConversionKind.DISASSEMBLE));
-        assertEquals("Broken into", FlipHubStatsItemCardBuilder.conversionHeading(ConversionKind.SET_BREAK));
+        assertEquals("Disassembled into", StatsItemCardBuilder.conversionHeading(ConversionKind.DISASSEMBLE));
+        assertEquals("Broken into", StatsItemCardBuilder.conversionHeading(ConversionKind.SET_BREAK));
     }
 
     @Test
     public void anUnknownDirectionStillSaysSomethingTrue() {
-        assertEquals("Made from", FlipHubStatsItemCardBuilder.conversionHeading(null));
+        assertEquals("Made from", StatsItemCardBuilder.conversionHeading(null));
     }
 
     @Test
     public void everyDirectionCanBeRefusedInItsOwnWords() {
         // The control withdraws a specific claim, so it repeats that claim:
         // "Not a recipe" would be true of all five and clear about none.
-        assertEquals("Not assembled", FlipHubStatsItemCardBuilder.rejectLabel(ConversionKind.ASSEMBLE));
-        assertEquals("Not repaired", FlipHubStatsItemCardBuilder.rejectLabel(ConversionKind.REPAIR));
-        assertEquals("Not combined", FlipHubStatsItemCardBuilder.rejectLabel(ConversionKind.SET_COMBINE));
-        assertEquals("Not disassembled", FlipHubStatsItemCardBuilder.rejectLabel(ConversionKind.DISASSEMBLE));
-        assertEquals("Not broken up", FlipHubStatsItemCardBuilder.rejectLabel(ConversionKind.SET_BREAK));
-        assertEquals("Not a recipe", FlipHubStatsItemCardBuilder.rejectLabel(null));
+        assertEquals("Not assembled", StatsItemCardBuilder.rejectLabel(ConversionKind.ASSEMBLE));
+        assertEquals("Not repaired", StatsItemCardBuilder.rejectLabel(ConversionKind.REPAIR));
+        assertEquals("Not combined", StatsItemCardBuilder.rejectLabel(ConversionKind.SET_COMBINE));
+        assertEquals("Not disassembled", StatsItemCardBuilder.rejectLabel(ConversionKind.DISASSEMBLE));
+        assertEquals("Not broken up", StatsItemCardBuilder.rejectLabel(ConversionKind.SET_BREAK));
+        assertEquals("Not a recipe", StatsItemCardBuilder.rejectLabel(null));
     }
 
     @Test
@@ -161,14 +161,14 @@ public class FlipHubStatsConversionCardTest {
 
     @Test
     public void aWholeInputIsNamedWithNoPercentage() {
-        assertEquals("NPC fee", FlipHubStatsItemCardBuilder.conversionLineLabel(
-            new ConversionMatch.Line(0, 1L, 60_000L, true)));
+        assertEquals("NPC fee", StatsItemCardBuilder.conversionLineLabel(
+            new Match.Line(0, 1L, 60_000L, true)));
         // No item name service in a unit test, so the id stands in for the name.
         // The shape of the label is what is being read here.
-        assertEquals("Item 11836", FlipHubStatsItemCardBuilder.conversionLineLabel(
-            new ConversionMatch.Line(11836, 1L, 731_225L, false)));
-        assertEquals("Item 11836 x3", FlipHubStatsItemCardBuilder.conversionLineLabel(
-            new ConversionMatch.Line(11836, 3L, 731_225L, false)));
+        assertEquals("Item 11836", StatsItemCardBuilder.conversionLineLabel(
+            new Match.Line(11836, 1L, 731_225L, false)));
+        assertEquals("Item 11836 x3", StatsItemCardBuilder.conversionLineLabel(
+            new Match.Line(11836, 3L, 731_225L, false)));
     }
 
     @Test
@@ -176,7 +176,7 @@ public class FlipHubStatsConversionCardTest {
         StatsFlipInstance activity = assembled();
 
         long lines = 0L;
-        for (ConversionMatch.Line line : activity.conversionLines) {
+        for (Match.Line line : activity.conversionLines) {
             lines += line.costGp;
         }
         assertEquals(activity.buyCostGp, lines);

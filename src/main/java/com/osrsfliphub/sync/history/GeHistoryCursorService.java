@@ -79,14 +79,14 @@ final class GeHistoryCursorService {
 
     @javax.inject.Inject
     GeHistoryCursorService() {
-        this(GeLifecyclePluginConstants.GE_HISTORY_CURSOR_MAX_TRADES);
+        this(Const.GE_HISTORY_CURSOR_MAX_TRADES);
     }
 
     GeHistoryCursorService(int maxCursorTrades) {
         this.maxCursorTrades = Math.max(1, maxCursorTrades);
     }
 
-    List<String> buildCursorSignatures(List<GeHistoryTrade> trades) {
+    List<String> buildCursorSignatures(List<Trade> trades) {
         List<String> signatures = new ArrayList<>();
         if (trades == null || trades.isEmpty()) {
             return signatures;
@@ -101,7 +101,7 @@ final class GeHistoryCursorService {
         return signatures;
     }
 
-    String buildSignature(GeHistoryTrade trade) {
+    String buildSignature(Trade trade) {
         if (trade == null || !trade.isValid()) {
             return null;
         }

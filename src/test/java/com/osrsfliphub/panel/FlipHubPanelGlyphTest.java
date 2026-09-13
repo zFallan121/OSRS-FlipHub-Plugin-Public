@@ -55,7 +55,7 @@ import static org.junit.Assert.assertTrue;
  * through review.
  */
 public class FlipHubPanelGlyphTest {
-    /** The panel's own resolution order, from FlipHubUiStyler. */
+    /** The panel's own resolution order, from UiStyler. */
     private static final String[] TEXT_FAMILIES = {
         "Inter", "Segoe UI Variable Text", "Segoe UI", "Avenir Next", "Trebuchet MS"
     };

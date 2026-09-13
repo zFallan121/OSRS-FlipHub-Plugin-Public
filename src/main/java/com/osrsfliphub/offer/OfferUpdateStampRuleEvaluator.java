@@ -37,7 +37,7 @@ final class OfferUpdateStampRuleEvaluator {
         this.loginGraceSupplier = loginGraceSupplier;
     }
 
-    boolean shouldPreserveStamp(OfferUpdateStamp stamp, OfferSnapshot snapshot) {
+    boolean shouldPreserveStamp(Stamp stamp, OfferSnapshot snapshot) {
         if (snapshot == null) {
             return false;
         }
@@ -45,7 +45,7 @@ final class OfferUpdateStampRuleEvaluator {
             snapshot.isBuy, snapshot.filledQty, snapshot.spentGp, false);
     }
 
-    boolean shouldPreserveStamp(OfferUpdateStamp stamp, GrandExchangeOffer offer, boolean isBuy) {
+    boolean shouldPreserveStamp(Stamp stamp, GrandExchangeOffer offer, boolean isBuy) {
         if (offer == null) {
             return false;
         }
@@ -53,7 +53,7 @@ final class OfferUpdateStampRuleEvaluator {
             isBuy, offer.getQuantitySold(), offer.getSpent(), false);
     }
 
-    boolean shouldPreserveStampAfterLogin(OfferUpdateStamp stamp, OfferSnapshot snapshot) {
+    boolean shouldPreserveStampAfterLogin(Stamp stamp, OfferSnapshot snapshot) {
         if (!isWithinLoginGrace() || snapshot == null) {
             return false;
         }
@@ -61,7 +61,7 @@ final class OfferUpdateStampRuleEvaluator {
             snapshot.isBuy, snapshot.filledQty, snapshot.spentGp, true);
     }
 
-    boolean shouldPreserveStampAfterLogin(OfferUpdateStamp stamp, GrandExchangeOffer offer) {
+    boolean shouldPreserveStampAfterLogin(Stamp stamp, GrandExchangeOffer offer) {
         if (!isWithinLoginGrace() || offer == null) {
             return false;
         }
@@ -69,7 +69,7 @@ final class OfferUpdateStampRuleEvaluator {
             OfferUpdateStampStateHelpers.isBuyOffer(offer), offer.getQuantitySold(), offer.getSpent(), true);
     }
 
-    boolean shouldPreserveIdentityAfterLogin(OfferUpdateStamp stamp, OfferSnapshot snapshot) {
+    boolean shouldPreserveIdentityAfterLogin(Stamp stamp, OfferSnapshot snapshot) {
         if (!isWithinLoginGrace() || snapshot == null) {
             return false;
         }
@@ -77,7 +77,7 @@ final class OfferUpdateStampRuleEvaluator {
             snapshot.isBuy, snapshot.filledQty, snapshot.spentGp, OfferUpdateStampStateHelpers.isOfferComplete(snapshot));
     }
 
-    boolean shouldPreserveIdentityAfterLogin(OfferUpdateStamp stamp, GrandExchangeOffer offer) {
+    boolean shouldPreserveIdentityAfterLogin(Stamp stamp, GrandExchangeOffer offer) {
         if (!isWithinLoginGrace() || offer == null) {
             return false;
         }
@@ -86,7 +86,7 @@ final class OfferUpdateStampRuleEvaluator {
             OfferUpdateStampStateHelpers.isOfferComplete(offer));
     }
 
-    boolean shouldPreserveStampAfterEmpty(OfferSnapshot prev, OfferSnapshot next, OfferUpdateStamp stamp) {
+    boolean shouldPreserveStampAfterEmpty(OfferSnapshot prev, OfferSnapshot next, Stamp stamp) {
         if (!isWithinLoginGrace()) {
             return false;
         }
@@ -99,14 +99,14 @@ final class OfferUpdateStampRuleEvaluator {
         return shouldPreserveStampAfterEmptyInternal(stamp, next.itemId, next.price, next.totalQty, next.isBuy);
     }
 
-    boolean shouldPreserveStampAfterEmpty(GrandExchangeOffer offer, OfferUpdateStamp stamp, boolean isBuy) {
+    boolean shouldPreserveStampAfterEmpty(GrandExchangeOffer offer, Stamp stamp, boolean isBuy) {
         if (!isWithinLoginGrace() || offer == null) {
             return false;
         }
         return shouldPreserveStampAfterEmptyInternal(stamp, offer.getItemId(), offer.getPrice(), offer.getTotalQuantity(), isBuy);
     }
 
-    boolean stampMatchesOffer(OfferUpdateStamp stamp, GrandExchangeOffer offer) {
+    boolean stampMatchesOffer(Stamp stamp, GrandExchangeOffer offer) {
         if (stamp == null || offer == null) {
             return false;
         }
@@ -114,7 +114,7 @@ final class OfferUpdateStampRuleEvaluator {
             OfferUpdateStampStateHelpers.isBuyOffer(offer), offer.getQuantitySold(), offer.getSpent());
     }
 
-    boolean stampMatches(OfferUpdateStamp stamp,
+    boolean stampMatches(Stamp stamp,
                          int itemId,
                          int price,
                          int totalQty,
@@ -145,7 +145,7 @@ final class OfferUpdateStampRuleEvaluator {
         return true;
     }
 
-    boolean maybeUpdateStampDetails(OfferUpdateStamp stamp,
+    boolean maybeUpdateStampDetails(Stamp stamp,
                                     int itemId,
                                     int price,
                                     int totalQty,
@@ -192,7 +192,7 @@ final class OfferUpdateStampRuleEvaluator {
     }
 
     private boolean shouldPreserveStampInternal(
-        OfferUpdateStamp stamp,
+        Stamp stamp,
         int itemId,
         int price,
         int totalQty,
@@ -229,7 +229,7 @@ final class OfferUpdateStampRuleEvaluator {
     }
 
     private boolean shouldPreserveIdentityAfterLoginInternal(
-        OfferUpdateStamp stamp,
+        Stamp stamp,
         int itemId,
         int price,
         int totalQty,
@@ -259,7 +259,7 @@ final class OfferUpdateStampRuleEvaluator {
     }
 
     private boolean shouldPreserveStampAfterEmptyInternal(
-        OfferUpdateStamp stamp,
+        Stamp stamp,
         int itemId,
         int price,
         int totalQty,
@@ -278,7 +278,7 @@ final class OfferUpdateStampRuleEvaluator {
         return stamp.isBuy == isBuy;
     }
 
-    private boolean progressMatches(OfferUpdateStamp stamp, int filledQty, long spentGp) {
+    private boolean progressMatches(Stamp stamp, int filledQty, long spentGp) {
         if (stamp == null) {
             return false;
         }
@@ -295,7 +295,7 @@ final class OfferUpdateStampRuleEvaluator {
         return price <= 0 || totalQty <= 0;
     }
 
-    private boolean isMetadataCompatible(OfferUpdateStamp stamp, int price, int totalQty) {
+    private boolean isMetadataCompatible(Stamp stamp, int price, int totalQty) {
         if (stamp == null) {
             return false;
         }
@@ -308,7 +308,7 @@ final class OfferUpdateStampRuleEvaluator {
         return true;
     }
 
-    private boolean stampHasProgress(OfferUpdateStamp stamp) {
+    private boolean stampHasProgress(Stamp stamp) {
         return stamp != null && (stamp.filledQty > 0 || stamp.spentGp > 0);
     }
 

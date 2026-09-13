@@ -31,7 +31,7 @@ import static org.junit.Assert.assertEquals;
 public class FlipHubStatsItemFormattingServiceTest {
     @Test
     public void avgSellUsesFloorDivisionToAvoidRoundingUp() {
-        FlipHubStatsItemFormattingService service = new FlipHubStatsItemFormattingService(new FlipHubPanelValueFormatService());
+        StatsItemFormatting service = new StatsItemFormatting(new PanelValueFormat());
         StatsItem item = new StatsItem();
         item.total_qty = 2;
         item.total_cost_gp = 1_152L;
@@ -42,7 +42,7 @@ public class FlipHubStatsItemFormattingServiceTest {
 
     @Test
     public void avgBuyUsesFloorDivision() {
-        FlipHubStatsItemFormattingService service = new FlipHubStatsItemFormattingService(new FlipHubPanelValueFormatService());
+        StatsItemFormatting service = new StatsItemFormatting(new PanelValueFormat());
         StatsItem item = new StatsItem();
         item.total_qty = 2;
         item.total_cost_gp = 1_153L; // exact average = 576.5

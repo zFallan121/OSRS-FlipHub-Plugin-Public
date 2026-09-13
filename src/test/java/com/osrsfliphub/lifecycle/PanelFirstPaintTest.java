@@ -41,7 +41,7 @@ public class PanelFirstPaintTest {
     /** The tick the panel appears on. Nothing has reached it yet, so ask. */
     @Test
     public void aPanelThatHasJustAppearedIsAskedFor() {
-        assertTrue(GeLifecycleTickServices.shouldAskForRefresh(false, false));
+        assertTrue(TickServices.shouldAskForRefresh(false, false));
     }
 
     /**
@@ -50,13 +50,13 @@ public class PanelFirstPaintTest {
      */
     @Test
     public void aPanelStillWaitingForItsFirstRefreshIsAskedAgain() {
-        assertTrue(GeLifecycleTickServices.shouldAskForRefresh(true, false));
+        assertTrue(TickServices.shouldAskForRefresh(true, false));
     }
 
     /** Once a refresh has landed, stop. Asking every tick would rebuild it forever. */
     @Test
     public void aPanelThatHasBeenFilledInIsLeftAlone() {
-        assertFalse(GeLifecycleTickServices.shouldAskForRefresh(true, true));
+        assertFalse(TickServices.shouldAskForRefresh(true, true));
     }
 
     /**
@@ -65,7 +65,7 @@ public class PanelFirstPaintTest {
      */
     @Test
     public void aPanelReappearingIsAskedOnceMore() {
-        assertTrue(GeLifecycleTickServices.shouldAskForRefresh(false, true));
+        assertTrue(TickServices.shouldAskForRefresh(false, true));
     }
 
     /**
@@ -77,18 +77,18 @@ public class PanelFirstPaintTest {
      */
     @Test
     public void theProfileTabIsAskedForWhileItIsShowingAndEmpty() {
-        assertTrue(PanelRefreshCoordinator.statsNeedRefresh(true, false));
+        assertTrue(PanelRefresh.statsNeedRefresh(true, false));
     }
 
     @Test
     public void theProfileTabIsLeftAloneOnceItHasBeenFilledIn() {
-        assertFalse(PanelRefreshCoordinator.statsNeedRefresh(true, true));
+        assertFalse(PanelRefresh.statsNeedRefresh(true, true));
     }
 
     /** And it is never computed while the player is looking at a different tab. */
     @Test
     public void theProfileTabIsNotAskedForWhileAnotherTabIsShowing() {
-        assertFalse(PanelRefreshCoordinator.statsNeedRefresh(false, false));
-        assertFalse(PanelRefreshCoordinator.statsNeedRefresh(false, true));
+        assertFalse(PanelRefresh.statsNeedRefresh(false, false));
+        assertFalse(PanelRefresh.statsNeedRefresh(false, true));
     }
 }

@@ -38,38 +38,38 @@ import static org.junit.Assert.assertEquals;
  */
 public class PriceAgeColourTest {
     private static final long NOW = 1_700_000_000_000L;
-    private static final long AMBER_AFTER = FlipHubPanelConstants.STALE_PRICE_AGE_MS;
-    private static final long RED_AFTER = FlipHubPanelConstants.VERY_STALE_PRICE_AGE_MS;
+    private static final long AMBER_AFTER = Skin.STALE_PRICE_AGE_MS;
+    private static final long RED_AFTER = Skin.VERY_STALE_PRICE_AGE_MS;
 
     @Test
     public void aFreshPriceIsPlain() {
-        assertEquals(FlipHubPanelConstants.TEXT,
-            FlipHubPanelConstants.priceAgeColor(NOW - 60_000L, NOW));
+        assertEquals(Skin.TEXT,
+            Skin.priceAgeColor(NOW - 60_000L, NOW));
     }
 
     /** Half an hour is the first line, and it turns amber the moment it is reached. */
     @Test
     public void thePriceTurnsAmberAtHalfAnHourAndNotBefore() {
-        assertEquals(FlipHubPanelConstants.TEXT,
-            FlipHubPanelConstants.priceAgeColor(NOW - (AMBER_AFTER - 1L), NOW));
-        assertEquals(FlipHubPanelConstants.WARNING,
-            FlipHubPanelConstants.priceAgeColor(NOW - AMBER_AFTER, NOW));
+        assertEquals(Skin.TEXT,
+            Skin.priceAgeColor(NOW - (AMBER_AFTER - 1L), NOW));
+        assertEquals(Skin.WARNING,
+            Skin.priceAgeColor(NOW - AMBER_AFTER, NOW));
     }
 
     /** An hour is the second, and amber holds right up to it. */
     @Test
     public void thePriceTurnsRedAtTheHourAndNotBefore() {
-        assertEquals(FlipHubPanelConstants.WARNING,
-            FlipHubPanelConstants.priceAgeColor(NOW - (RED_AFTER - 1L), NOW));
-        assertEquals(FlipHubPanelConstants.DANGER,
-            FlipHubPanelConstants.priceAgeColor(NOW - RED_AFTER, NOW));
+        assertEquals(Skin.WARNING,
+            Skin.priceAgeColor(NOW - (RED_AFTER - 1L), NOW));
+        assertEquals(Skin.DANGER,
+            Skin.priceAgeColor(NOW - RED_AFTER, NOW));
     }
 
     /** And it stays red however old it gets, rather than wrapping round to anything else. */
     @Test
     public void aVeryOldPriceStaysRed() {
-        assertEquals(FlipHubPanelConstants.DANGER,
-            FlipHubPanelConstants.priceAgeColor(NOW - (30L * RED_AFTER), NOW));
+        assertEquals(Skin.DANGER,
+            Skin.priceAgeColor(NOW - (30L * RED_AFTER), NOW));
     }
 
     /** The two lines are where they were asked to be: half an hour, then an hour. */
@@ -82,18 +82,18 @@ public class PriceAgeColourTest {
     /** A price nobody has a time for cannot be judged, so it is not. */
     @Test
     public void anUntimedPriceIsNotJudged() {
-        assertEquals(FlipHubPanelConstants.TEXT, FlipHubPanelConstants.priceAgeColor(null, NOW));
-        assertEquals(FlipHubPanelConstants.TEXT, FlipHubPanelConstants.priceAgeColor(0L, NOW));
-        assertEquals(FlipHubPanelConstants.TEXT, FlipHubPanelConstants.priceAgeColor(-1L, NOW));
+        assertEquals(Skin.TEXT, Skin.priceAgeColor(null, NOW));
+        assertEquals(Skin.TEXT, Skin.priceAgeColor(0L, NOW));
+        assertEquals(Skin.TEXT, Skin.priceAgeColor(-1L, NOW));
     }
 
     /** The tooltips are built out of HTML, so the colour has to survive being written as text. */
     @Test
     public void aColourWritesAsSixHexDigits() {
-        assertEquals("#FF0000", FlipHubPanelConstants.toHex(new Color(255, 0, 0)));
-        assertEquals("#0A0B0C", FlipHubPanelConstants.toHex(new Color(10, 11, 12)));
+        assertEquals("#FF0000", Skin.toHex(new Color(255, 0, 0)));
+        assertEquals("#0A0B0C", Skin.toHex(new Color(10, 11, 12)));
         // Alpha is dropped rather than smuggled into the digits.
-        assertEquals("#FFFFFF", FlipHubPanelConstants.toHex(new Color(255, 255, 255, 235)));
-        assertEquals("#FFFFFF", FlipHubPanelConstants.toHex(null));
+        assertEquals("#FFFFFF", Skin.toHex(new Color(255, 255, 255, 235)));
+        assertEquals("#FFFFFF", Skin.toHex(null));
     }
 }

@@ -105,9 +105,9 @@ public class StatsRecipeFilterTest {
             ConversionKind.ASSEMBLE, "Guardian boots",
             Collections.singletonList(new ConversionItem(11836, 1)),
             Collections.singletonList(new ConversionItem(GUARDIAN_BOOTS, 1)), 0L);
-        ConversionMatch match = new ConversionMatch(recipe, 1L, 1_214_230L,
-            Collections.singletonList(new ConversionMatch.Line(11836, 1L, 1_214_230L, false)),
-            ConversionConfidence.CONFIRMED);
+        Match match = new Match(recipe, 1L, 1_214_230L,
+            Collections.singletonList(new Match.Line(11836, 1L, 1_214_230L, false)),
+            Confidence.CONFIRMED);
 
         Map<Integer, List<StatsFlipInstance>> history = new HashMap<>();
         history.put(GUARDIAN_BOOTS, Arrays.asList(
@@ -122,8 +122,8 @@ public class StatsRecipeFilterTest {
 
     @Test
     public void theWholeCardStillTotalsEverything() {
-        FlipHubStatsRenderCoordinator.StatsProfitSlice all =
-            FlipHubStatsRenderCoordinator.sliceActivities(guardianBootsCard(), StatsRecipeFilter.ALL);
+        StatsRender.StatsProfitSlice all =
+            StatsRender.sliceActivities(guardianBootsCard(), StatsRecipeFilter.ALL);
 
         assertEquals(1_057_790L, all.profitGp);
         assertEquals(16_374_744L, all.costGp);
@@ -133,8 +133,8 @@ public class StatsRecipeFilterTest {
 
     @Test
     public void theAssembleSliceLeavesTheFlipOut() {
-        FlipHubStatsRenderCoordinator.StatsProfitSlice assembles =
-            FlipHubStatsRenderCoordinator.sliceActivities(guardianBootsCard(), StatsRecipeFilter.ASSEMBLE);
+        StatsRender.StatsProfitSlice assembles =
+            StatsRender.sliceActivities(guardianBootsCard(), StatsRecipeFilter.ASSEMBLE);
 
         assertEquals(307_790L, assembles.profitGp);
         assertEquals(2_424_744L, assembles.costGp);
@@ -144,8 +144,8 @@ public class StatsRecipeFilterTest {
 
     @Test
     public void theFlipSliceLeavesTheAssemblesOut() {
-        FlipHubStatsRenderCoordinator.StatsProfitSlice flips =
-            FlipHubStatsRenderCoordinator.sliceActivities(guardianBootsCard(), StatsRecipeFilter.FLIP);
+        StatsRender.StatsProfitSlice flips =
+            StatsRender.sliceActivities(guardianBootsCard(), StatsRecipeFilter.FLIP);
 
         assertEquals(750_000L, flips.profitGp);
         assertEquals(13_950_000L, flips.costGp);
@@ -156,9 +156,9 @@ public class StatsRecipeFilterTest {
     @Test
     public void theSlicesAddBackUpToTheWhole() {
         Map<Integer, List<StatsFlipInstance>> card = guardianBootsCard();
-        long whole = FlipHubStatsRenderCoordinator.sliceActivities(card, StatsRecipeFilter.ALL).profitGp;
-        long recipes = FlipHubStatsRenderCoordinator.sliceActivities(card, StatsRecipeFilter.ANY_RECIPE).profitGp;
-        long flips = FlipHubStatsRenderCoordinator.sliceActivities(card, StatsRecipeFilter.FLIP).profitGp;
+        long whole = StatsRender.sliceActivities(card, StatsRecipeFilter.ALL).profitGp;
+        long recipes = StatsRender.sliceActivities(card, StatsRecipeFilter.ANY_RECIPE).profitGp;
+        long flips = StatsRender.sliceActivities(card, StatsRecipeFilter.FLIP).profitGp;
 
         assertEquals(whole, recipes + flips);
     }
@@ -177,10 +177,10 @@ public class StatsRecipeFilterTest {
             Collections.singletonList(new ConversionItem(11836, 1)),
             Collections.singletonList(new ConversionItem(GUARDIAN_BOOTS, 1)),
             0L);
-        ConversionMatch match = new ConversionMatch(
+        Match match = new Match(
             recipe, 1L, 1_214_230L,
-            Collections.singletonList(new ConversionMatch.Line(11836, 1L, 1_214_230L, false)),
-            ConversionConfidence.CONFIRMED);
+            Collections.singletonList(new Match.Line(11836, 1L, 1_214_230L, false)),
+            Confidence.CONFIRMED);
 
         Map<Integer, List<StatsFlipInstance>> history = new HashMap<>();
         history.put(GUARDIAN_BOOTS, Arrays.asList(
@@ -189,7 +189,7 @@ public class StatsRecipeFilterTest {
             new StatsFlipInstance(GUARDIAN_BOOTS, 900L, 1_000L, 900L, 1_000L, 100L, 1, 4_000L)));
 
         List<StatsItem> items = new ArrayList<>(Collections.singletonList(item));
-        LocalStatsViewService.reconcileWithFlipHistory(new StatsSummary(), items, history);
+        StatsView.reconcileWithFlipHistory(new StatsSummary(), items, history);
 
         assertEquals(EnumSet.of(ConversionKind.ASSEMBLE), item.conversionKinds);
         assertTrue(StatsRecipeFilter.ASSEMBLE.matches(item.conversionKinds, item.hasPlainFlip));

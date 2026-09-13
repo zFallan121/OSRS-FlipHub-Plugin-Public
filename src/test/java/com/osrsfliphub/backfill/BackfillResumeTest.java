@@ -44,12 +44,12 @@ import static org.junit.Assert.assertTrue;
 public class BackfillResumeTest {
     @Test
     public void withNothingSentYetItStartsAtTheBeginning() {
-        assertEquals(0, AccountwideProfileBackfillService.resumePoint(null, events("a", "b", "c")));
+        assertEquals(0, ProfileBackfill.resumePoint(null, events("a", "b", "c")));
     }
 
     @Test
     public void itResumesJustAfterTheLastEventTheServerTook() {
-        assertEquals(2, AccountwideProfileBackfillService.resumePoint("b", events("a", "b", "c", "d")));
+        assertEquals(2, ProfileBackfill.resumePoint("b", events("a", "b", "c", "d")));
     }
 
     /**
@@ -61,7 +61,7 @@ public class BackfillResumeTest {
     public void anInsertionAheadOfTheMarkDoesNotSkipAnything() {
         List<GeEvent> rebuilt = events("older-1", "older-2", "a", "b", "c", "d");
 
-        assertEquals(4, AccountwideProfileBackfillService.resumePoint("b", rebuilt));
+        assertEquals(4, ProfileBackfill.resumePoint("b", rebuilt));
     }
 
     /** Everything was taken, so there is nothing left to send. */
@@ -69,7 +69,7 @@ public class BackfillResumeTest {
     public void aFullyAcceptedProfileResumesPastTheEnd() {
         List<GeEvent> all = events("a", "b", "c");
 
-        assertEquals(3, AccountwideProfileBackfillService.resumePoint("c", all));
+        assertEquals(3, ProfileBackfill.resumePoint("c", all));
     }
 
     /**
@@ -78,13 +78,13 @@ public class BackfillResumeTest {
      */
     @Test
     public void aMarkThatNoLongerExistsStartsOver() {
-        assertEquals(0, AccountwideProfileBackfillService.resumePoint("gone", events("a", "b", "c")));
+        assertEquals(0, ProfileBackfill.resumePoint("gone", events("a", "b", "c")));
     }
 
     @Test
     public void anEmptyListHasNowhereToResumeTo() {
-        assertEquals(0, AccountwideProfileBackfillService.resumePoint("a", new ArrayList<>()));
-        assertEquals(0, AccountwideProfileBackfillService.resumePoint("a", null));
+        assertEquals(0, ProfileBackfill.resumePoint("a", new ArrayList<>()));
+        assertEquals(0, ProfileBackfill.resumePoint("a", null));
     }
 
     /**

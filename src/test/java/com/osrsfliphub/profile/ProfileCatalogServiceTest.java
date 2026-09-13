@@ -43,7 +43,7 @@ public class ProfileCatalogServiceTest {
             Gson gson = new Gson();
             Path runeliteDir = Path.of(System.getProperty("user.home"), ".runelite");
             ProfileStore profileStore = new ProfileStore(gson, "fliphub-dev", "fliphub", runeliteDir);
-            ProfileCatalogService service = new ProfileCatalogService(profileStore);
+            ProfileCatalog service = new ProfileCatalog(profileStore);
 
             Path devDir = profileStore.getProfilesDir();
             Path legacyDir = profileStore.getLegacyProfilesDir();
@@ -71,7 +71,7 @@ public class ProfileCatalogServiceTest {
             Gson gson = new Gson();
             Path runeliteDir = Path.of(System.getProperty("user.home"), ".runelite");
             ProfileStore profileStore = new ProfileStore(gson, "fliphub-dev", "fliphub", runeliteDir);
-            ProfileCatalogService service = new ProfileCatalogService(profileStore);
+            ProfileCatalog service = new ProfileCatalog(profileStore);
 
             Path devDir = profileStore.getProfilesDir();
             assertTrue(devDir != null);

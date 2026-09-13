@@ -58,7 +58,7 @@ import static org.junit.Assert.assertTrue;
 public class ConversionRejectionTest {
     private static final long ACCOUNT = 4242L;
     private static final long OTHER_ACCOUNT = 9191L;
-    private static final long ACCOUNTWIDE = GeLifecyclePluginConstants.ACCOUNTWIDE_KEY;
+    private static final long ACCOUNTWIDE = Const.ACCOUNTWIDE_KEY;
 
     private static final int DHAROKS_HELM = 4716;
     private static final int DHAROKS_PLATEBODY = 4720;
@@ -71,7 +71,7 @@ public class ConversionRejectionTest {
     private static final int MAHOGANY = 6332;
 
     /** The helm sale as it is stored: first fill time, slot, item. */
-    private static final LocalTradeKey HELM_SALE = new LocalTradeKey(2_000L, 2, DHAROKS_HELM);
+    private static final TradeKey HELM_SALE = new TradeKey(2_000L, 2, DHAROKS_HELM);
 
     private static ConversionRecipe dharoksSetBreak() {
         return new ConversionRecipe(
@@ -95,20 +95,20 @@ public class ConversionRejectionTest {
             0L);
     }
 
-    private static ConversionLedger ledger(ConversionRejectionStore corrections, ConversionRecipe... recipes) {
-        return new ConversionLedger(new ConversionRecipeIndex(Arrays.asList(recipes)), corrections);
+    private static Ledger ledger(RejectionStore corrections, ConversionRecipe... recipes) {
+        return new Ledger(new RecipeIndex(Arrays.asList(recipes)), corrections);
     }
 
-    private static LocalTradeDelta buy(long tsMs, int slot, int itemId, int qty, long gp) {
-        return new LocalTradeDelta(tsMs, slot, itemId, true, qty, gp, "OFFER_COMPLETED", (int) (gp / qty), false);
+    private static Delta buy(long tsMs, int slot, int itemId, int qty, long gp) {
+        return new Delta(tsMs, slot, itemId, true, qty, gp, "OFFER_COMPLETED", (int) (gp / qty), false);
     }
 
-    private static LocalTradeDelta sell(long tsMs, int slot, int itemId, int qty, long gp, int unitPrice) {
-        return new LocalTradeDelta(tsMs, slot, itemId, false, qty, gp, "OFFER_COMPLETED", unitPrice, false);
+    private static Delta sell(long tsMs, int slot, int itemId, int qty, long gp, int unitPrice) {
+        return new Delta(tsMs, slot, itemId, false, qty, gp, "OFFER_COMPLETED", unitPrice, false);
     }
 
     /** The brief's trades, one stored record each. */
-    private static List<LocalTradeDelta> ownersTrades() {
+    private static List<Delta> ownersTrades() {
         return Arrays.asList(
             buy(1_000L, 1, DHAROKS_ARMOUR_SET, 1, 7_400_000L),
             sell(2_000L, 2, DHAROKS_HELM, 1, 1_050_000L, 1_071_428),
@@ -116,7 +116,7 @@ public class ConversionRejectionTest {
     }
 
     /** The same, with the other three pieces also sold out of the bank, so the guessed break completes. */
-    private static List<LocalTradeDelta> ownersTradesWithEveryPieceSold() {
+    private static List<Delta> ownersTradesWithEveryPieceSold() {
         return Arrays.asList(
             buy(1_000L, 1, DHAROKS_ARMOUR_SET, 1, 7_400_000L),
             sell(2_000L, 2, DHAROKS_HELM, 1, 1_050_000L, 1_071_428),
@@ -127,7 +127,7 @@ public class ConversionRejectionTest {
     }
 
     /** Parts bought, boots sold, then the parts themselves sold on: 18,775 and 16,995 as plain flips. */
-    private static List<LocalTradeDelta> guardianBootsTrades() {
+    private static List<Delta> guardianBootsTrades() {
         return Arrays.asList(
             buy(1_000L, 1, BANDOS_BOOTS, 1, 731_225L),
             buy(2_000L, 2, CORE, 1, 483_005L),
@@ -155,9 +155,9 @@ public class ConversionRejectionTest {
         final long cacheProfit;
         final Map<Integer, Long> cacheProfitByItem = new HashMap<>();
 
-        ProfileTab(ConversionLedger ledger, List<LocalTradeDelta> deltas, long accountKey) {
+        ProfileTab(Ledger ledger, List<Delta> deltas, long accountKey) {
             history = new LocalFlipHistoryService(ledger).buildHistory(deltas, null, accountKey);
-            LocalStatsCache cache = new LocalStatsCache(ledger, accountKey);
+            StatsCache cache = new StatsCache(ledger, accountKey);
             cache.rebuild(deltas);
             summary = cache.getSummary();
             items = cache.getItems();
@@ -165,7 +165,7 @@ public class ConversionRejectionTest {
             for (StatsItem item : items) {
                 cacheProfitByItem.put(item.item_id, item.total_profit_gp != null ? item.total_profit_gp : 0L);
             }
-            LocalStatsViewService.reconcileWithFlipHistory(summary, items, history);
+            StatsView.reconcileWithFlipHistory(summary, items, history);
         }
 
         long headerProfit() {
@@ -228,8 +228,8 @@ public class ConversionRejectionTest {
 
     @Test
     public void theSetSaleIsLostUntilTheHelmSaleIsRejected() {
-        ConversionRejectionStore corrections = new ConversionRejectionStore();
-        ConversionLedger ledger = ledger(corrections, dharoksSetBreak());
+        RejectionStore corrections = new RejectionStore();
+        Ledger ledger = ledger(corrections, dharoksSetBreak());
 
         // Before: the helm sale is taken for a break, the set is consumed by
         // it, and the set's own sale then finds nothing to match. The break
@@ -259,8 +259,8 @@ public class ConversionRejectionTest {
 
     @Test
     public void anUnfinishedBreakIsShownOnTheSetAndCountsForNothing() {
-        ConversionRejectionStore corrections = new ConversionRejectionStore();
-        ConversionLedger ledger = ledger(corrections, dharoksSetBreak());
+        RejectionStore corrections = new RejectionStore();
+        Ledger ledger = ledger(corrections, dharoksSetBreak());
 
         ProfileTab tab = new ProfileTab(ledger, ownersTrades(), ACCOUNT);
 
@@ -309,12 +309,12 @@ public class ConversionRejectionTest {
         // The cache has no row for the set - its cost is stranded in the break
         // - so without one the entry would have no card to sit on and no
         // control to click. The row is nothing but a place for it.
-        ConversionRejectionStore corrections = new ConversionRejectionStore();
+        RejectionStore corrections = new RejectionStore();
         ProfileTab tab = new ProfileTab(ledger(corrections, dharoksSetBreak()), ownersTrades(), ACCOUNT);
         assertTrue(tab.items.isEmpty());
 
         List<StatsItem> panelRows = new ArrayList<>(tab.items);
-        LocalStatsViewService.addRowsForUncountedEntries(panelRows, tab.history, StatsItemSort.COMPLETION);
+        StatsView.addRowsForUncountedEntries(panelRows, tab.history, StatsItemSort.COMPLETION);
 
         assertEquals(1, panelRows.size());
         StatsItem row = panelRows.get(0);
@@ -328,8 +328,8 @@ public class ConversionRejectionTest {
 
     @Test
     public void theOwnersSetSaleIsRecoveredByRejectingTheUnfinishedBreak() {
-        ConversionRejectionStore corrections = new ConversionRejectionStore();
-        ConversionLedger ledger = ledger(corrections, dharoksSetBreak());
+        RejectionStore corrections = new RejectionStore();
+        Ledger ledger = ledger(corrections, dharoksSetBreak());
 
         // Before: 0 profit. The helm sale was taken for a break of the set,
         // the set's own sale then found nothing to match, and 7.4M sits
@@ -379,9 +379,9 @@ public class ConversionRejectionTest {
         // The owner's trades with an ordinary flip alongside. Header, rows and
         // the filter slice are the flip alone, the placeholder row the panel
         // adds for the set is nothing, and the rows still sum to the header.
-        ConversionRejectionStore corrections = new ConversionRejectionStore();
-        ConversionLedger ledger = ledger(corrections, dharoksSetBreak());
-        List<LocalTradeDelta> trades = new ArrayList<>(ownersTrades());
+        RejectionStore corrections = new RejectionStore();
+        Ledger ledger = ledger(corrections, dharoksSetBreak());
+        List<Delta> trades = new ArrayList<>(ownersTrades());
         trades.add(buy(4_000L, 4, MAHOGANY, 10, 12_000L));
         trades.add(sell(5_000L, 4, MAHOGANY, 10, 13_720L, 1_400));
         long mahoganyTax = GeTax.forSale(MAHOGANY, 1_400, 10);
@@ -399,7 +399,7 @@ public class ConversionRejectionTest {
         assertNull(tab.row(DHAROKS_ARMOUR_SET));
 
         List<StatsItem> panelRows = new ArrayList<>(tab.items);
-        LocalStatsViewService.addRowsForUncountedEntries(panelRows, tab.history, StatsItemSort.COMPLETION);
+        StatsView.addRowsForUncountedEntries(panelRows, tab.history, StatsItemSort.COMPLETION);
         assertEquals(2, panelRows.size());
         long rows = 0L;
         for (StatsItem item : panelRows) {
@@ -407,8 +407,8 @@ public class ConversionRejectionTest {
         }
         assertEquals(tab.headerProfit(), rows);
 
-        FlipHubStatsRenderCoordinator.StatsProfitSlice slice =
-            FlipHubStatsRenderCoordinator.sliceActivities(tab.history, StatsRecipeFilter.ALL);
+        StatsRender.StatsProfitSlice slice =
+            StatsRender.sliceActivities(tab.history, StatsRecipeFilter.ALL);
         assertEquals(1_720L, slice.profitGp);
         assertEquals(12_000L, slice.costGp);
         assertEquals(1, slice.count);
@@ -419,8 +419,8 @@ public class ConversionRejectionTest {
         // With every piece sold the guessed break completes and shows on the
         // set as one activity, keyed on all four sales - so one correction
         // covers the lot, rather than moving the guess onto the next piece.
-        ConversionRejectionStore corrections = new ConversionRejectionStore();
-        ConversionLedger ledger = ledger(corrections, dharoksSetBreak());
+        RejectionStore corrections = new RejectionStore();
+        Ledger ledger = ledger(corrections, dharoksSetBreak());
 
         ProfileTab before = new ProfileTab(ledger, ownersTradesWithEveryPieceSold(), ACCOUNT);
         StatsFlipInstance guess = before.counted(DHAROKS_ARMOUR_SET).get(0);
@@ -452,8 +452,8 @@ public class ConversionRejectionTest {
 
     @Test
     public void rejectingAnAssembleLeavesThePartsAsBought() {
-        ConversionRejectionStore corrections = new ConversionRejectionStore();
-        ConversionLedger ledger = ledger(corrections, guardianBoots());
+        RejectionStore corrections = new RejectionStore();
+        Ledger ledger = ledger(corrections, guardianBoots());
 
         ProfileTab before = new ProfileTab(ledger, guardianBootsTrades(), ACCOUNT);
         StatsFlipInstance guess = before.counted(GUARDIAN_BOOTS).get(0);
@@ -476,8 +476,8 @@ public class ConversionRejectionTest {
 
     @Test
     public void restoringPutsTheAttributionBack() {
-        ConversionRejectionStore corrections = new ConversionRejectionStore();
-        ConversionLedger ledger = ledger(corrections, guardianBoots());
+        RejectionStore corrections = new RejectionStore();
+        Ledger ledger = ledger(corrections, guardianBoots());
         StatsFlipInstance guess = new ProfileTab(ledger, guardianBootsTrades(), ACCOUNT).counted(GUARDIAN_BOOTS).get(0);
         corrections.add(ACCOUNT, ConversionRejection.of(guess, 9_000L));
         StatsFlipInstance dismissed = new ProfileTab(ledger, guardianBootsTrades(), ACCOUNT).dismissed(GUARDIAN_BOOTS).get(0);
@@ -498,8 +498,8 @@ public class ConversionRejectionTest {
         // The header is overwritten from the history, and the rows from the
         // cache; if only one of the two honoured the correction the rows would
         // stop adding up to the number above them.
-        ConversionRejectionStore corrections = new ConversionRejectionStore();
-        ConversionLedger ledger = ledger(corrections, dharoksSetBreak());
+        RejectionStore corrections = new RejectionStore();
+        Ledger ledger = ledger(corrections, dharoksSetBreak());
         corrections.add(ACCOUNT, helmWasNotBrokenOffTheSet());
 
         ProfileTab tab = new ProfileTab(ledger, ownersTrades(), ACCOUNT);
@@ -514,8 +514,8 @@ public class ConversionRejectionTest {
         // The cache keeps no placeholder for a dismissed guess - only the
         // history does, and reconcile counts it for nothing - so an item whose
         // only history is a dismissed guess has no row, and the sum still holds.
-        ConversionRejectionStore bootsCorrections = new ConversionRejectionStore();
-        ConversionLedger bootsLedger = ledger(bootsCorrections, guardianBoots());
+        RejectionStore bootsCorrections = new RejectionStore();
+        Ledger bootsLedger = ledger(bootsCorrections, guardianBoots());
         StatsFlipInstance guess = new ProfileTab(bootsLedger, guardianBootsTrades(), ACCOUNT).counted(GUARDIAN_BOOTS).get(0);
         bootsCorrections.add(ACCOUNT, ConversionRejection.of(guess, 9_000L));
         ProfileTab boots = new ProfileTab(bootsLedger, guardianBootsTrades(), ACCOUNT);
@@ -534,8 +534,8 @@ public class ConversionRejectionTest {
         // by construction - and it carries no row that adds up to nothing. The
         // panel adds that row itself, because a dismissed guess has to sit on
         // a card to be undone.
-        ConversionRejectionStore corrections = new ConversionRejectionStore();
-        ConversionLedger ledger = ledger(corrections, guardianBoots());
+        RejectionStore corrections = new RejectionStore();
+        Ledger ledger = ledger(corrections, guardianBoots());
         StatsFlipInstance guess = new ProfileTab(ledger, guardianBootsTrades(), ACCOUNT).counted(GUARDIAN_BOOTS).get(0);
         corrections.add(ACCOUNT, ConversionRejection.of(guess, 9_000L));
         ProfileTab uploaded = new ProfileTab(ledger, guardianBootsTrades(), ACCOUNT);
@@ -545,7 +545,7 @@ public class ConversionRejectionTest {
         assertNull(uploaded.row(GUARDIAN_BOOTS));
 
         List<StatsItem> panelRows = new ArrayList<>(uploaded.items);
-        LocalStatsViewService.addRowsForUncountedEntries(panelRows, uploaded.history, StatsItemSort.COMPLETION);
+        StatsView.addRowsForUncountedEntries(panelRows, uploaded.history, StatsItemSort.COMPLETION);
         assertEquals(3, panelRows.size());
         StatsItem placeholder = null;
         for (StatsItem item : panelRows) {
@@ -575,7 +575,7 @@ public class ConversionRejectionTest {
             assertEquals(ConversionKind.SET_BREAK, read.rejectedConversions.get(0).kindOrNull());
 
             // Loaded the way the profile loader loads it, into a fresh store.
-            ConversionRejectionStore corrections = new ConversionRejectionStore();
+            RejectionStore corrections = new RejectionStore();
             corrections.replace(ACCOUNT, read.rejectedConversions);
             assertTrue(corrections.isRejected(ACCOUNT, HELM_SALE));
             ProfileTab tab = new ProfileTab(ledger(corrections, dharoksSetBreak()), read.deltas, ACCOUNT);
@@ -600,7 +600,7 @@ public class ConversionRejectionTest {
             assertNotNull(read);
             assertEquals(1, read.deltas.size());
             assertNull("no field, no corrections", read.rejectedConversions);
-            ConversionRejectionStore corrections = new ConversionRejectionStore();
+            RejectionStore corrections = new RejectionStore();
             corrections.replace(ACCOUNT, read.rejectedConversions);
             assertTrue(corrections.applicable(ACCOUNT).isEmpty());
             assertFalse(corrections.isRejected(ACCOUNT, HELM_SALE));
@@ -618,20 +618,20 @@ public class ConversionRejectionTest {
         // Rejected while the boots offer was still filling: one fill and the
         // completion are two stored records. On completion they collapse into
         // one, stamped with the first fill's time, which is what the key names.
-        ConversionRejectionStore corrections = new ConversionRejectionStore();
-        ConversionLedger ledger = ledger(corrections, guardianBoots());
-        List<LocalTradeDelta> open = Arrays.asList(
+        RejectionStore corrections = new RejectionStore();
+        Ledger ledger = ledger(corrections, guardianBoots());
+        List<Delta> open = Arrays.asList(
             buy(1_000L, 1, BANDOS_BOOTS, 1, 731_225L),
             buy(2_000L, 2, CORE, 1, 483_005L),
-            new LocalTradeDelta(3_000L, 3, GUARDIAN_BOOTS, false, 1, 1_365_140L, "OFFER_UPDATED", 1_393_000, false),
-            new LocalTradeDelta(3_500L, 3, GUARDIAN_BOOTS, false, 0, 0L, "OFFER_COMPLETED", 1_393_000, false));
+            new Delta(3_000L, 3, GUARDIAN_BOOTS, false, 1, 1_365_140L, "OFFER_UPDATED", 1_393_000, false),
+            new Delta(3_500L, 3, GUARDIAN_BOOTS, false, 0, 0L, "OFFER_COMPLETED", 1_393_000, false));
 
         StatsFlipInstance guess = new ProfileTab(ledger, open, ACCOUNT).counted(GUARDIAN_BOOTS).get(0);
         assertEquals(ConversionKind.ASSEMBLE, guess.conversionKind);
-        assertEquals(Collections.singletonList(new LocalTradeKey(3_000L, 3, GUARDIAN_BOOTS)), guess.conversionTrades);
+        assertEquals(Collections.singletonList(new TradeKey(3_000L, 3, GUARDIAN_BOOTS)), guess.conversionTrades);
         assertTrue(corrections.add(ACCOUNT, ConversionRejection.of(guess, 9_000L)));
 
-        List<LocalTradeDelta> collapsed = LocalTradeOfferCollapser.collapse(new ArrayList<>(open));
+        List<Delta> collapsed = TradeOfferCollapser.collapse(new ArrayList<>(open));
         assertEquals(3, collapsed.size());
         ProfileTab after = new ProfileTab(ledger, collapsed, ACCOUNT);
         assertTrue(after.counted(GUARDIAN_BOOTS).isEmpty());
@@ -640,8 +640,8 @@ public class ConversionRejectionTest {
 
     @Test
     public void theAccountwideReplayHonoursEveryProfilesCorrections() {
-        ConversionRejectionStore corrections = new ConversionRejectionStore();
-        ConversionLedger ledger = ledger(corrections, dharoksSetBreak());
+        RejectionStore corrections = new RejectionStore();
+        Ledger ledger = ledger(corrections, dharoksSetBreak());
         corrections.add(ACCOUNT, helmWasNotBrokenOffTheSet());
 
         // The pooled accountwide replay holds every profile's trades, so it is
@@ -654,7 +654,7 @@ public class ConversionRejectionTest {
         assertEquals(1, pooled.dismissed(DHAROKS_ARMOUR_SET).size());
 
         // A correction filed from the accountwide view reaches the profile's own replay too.
-        ConversionRejectionStore fromThePool = new ConversionRejectionStore();
+        RejectionStore fromThePool = new RejectionStore();
         fromThePool.add(ACCOUNTWIDE, helmWasNotBrokenOffTheSet());
         assertTrue(fromThePool.isRejected(ACCOUNT, HELM_SALE));
         assertTrue("filed once, however many files it reaches", fromThePool.applicable(ACCOUNT).size() == 1);

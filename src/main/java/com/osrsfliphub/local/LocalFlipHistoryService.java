@@ -41,10 +41,10 @@ import java.util.Set;
 
 @javax.inject.Singleton
 final class LocalFlipHistoryService {
-    private final ConversionLedger conversionLedger;
+    private final Ledger conversionLedger;
 
     @javax.inject.Inject
-    LocalFlipHistoryService(ConversionLedger conversionLedger) {
+    LocalFlipHistoryService(Ledger conversionLedger) {
         this.conversionLedger = conversionLedger;
     }
 
@@ -57,7 +57,7 @@ final class LocalFlipHistoryService {
         this(null);
     }
 
-    Map<Integer, List<StatsFlipInstance>> buildHistory(List<LocalTradeDelta> deltas, Long sinceMs) {
+    Map<Integer, List<StatsFlipInstance>> buildHistory(List<Delta> deltas, Long sinceMs) {
         return buildHistory(deltas, sinceMs, 0L);
     }
 
@@ -66,14 +66,14 @@ final class LocalFlipHistoryService {
      *                   player's Smithing level; 0 when unknown, which prices
      *                   the fee as the NPC would.
      */
-    Map<Integer, List<StatsFlipInstance>> buildHistory(List<LocalTradeDelta> deltas, Long sinceMs, long accountKey) {
+    Map<Integer, List<StatsFlipInstance>> buildHistory(List<Delta> deltas, Long sinceMs, long accountKey) {
         Map<Integer, List<StatsFlipInstance>> byItem = new HashMap<>();
         if (deltas == null || deltas.isEmpty()) {
             return byItem;
         }
 
-        List<LocalTradeDelta> snapshot = new ArrayList<>(deltas);
-        snapshot.sort(LocalTradeDeltaUtils.replayOrder());
+        List<Delta> snapshot = new ArrayList<>(deltas);
+        snapshot.sort(TradeDeltaUtils.replayOrder());
 
         Map<Integer, InventoryState> inventoryByItem = new HashMap<>();
         Map<Integer, PendingSellFlip> pendingSellBySlot = new HashMap<>();
@@ -82,8 +82,8 @@ final class LocalFlipHistoryService {
         // become activities then.
         Map<Integer, DeferredSale> deferredSaleBySlot = new HashMap<>();
         List<DeferredSale> completedDeferredSales = new ArrayList<>();
-        ConversionSyncedBatches batches = new ConversionSyncedBatches();
-        for (LocalTradeDelta delta : snapshot) {
+        SyncedBatches batches = new SyncedBatches();
+        for (Delta delta : snapshot) {
             if (delta == null || delta.itemId <= 0) {
                 continue;
             }
@@ -102,7 +102,7 @@ final class LocalFlipHistoryService {
                 }
                 inventory.qty += delta.deltaQty;
                 inventory.cost += Math.max(0L, delta.deltaGp);
-                if (batch != ConversionSyncedBatches.LIVE) {
+                if (batch != SyncedBatches.LIVE) {
                     inventory.synced.add(batch, delta.slot, delta.deltaQty);
                     resolveDeferredSales(byItem, inventoryByItem, completedDeferredSales, sinceMs, accountKey);
                 }
@@ -148,7 +148,7 @@ final class LocalFlipHistoryService {
                     : (matchRevenue * fromBreak) / matchQty;
                 sellFromBreaks(byItem, inventory, delta.itemId, fromBreak, breakRevenue,
                     GeTax.forSale(delta.itemId, delta.price, fromBreak), delta.closedAtMs(), sinceMs,
-                    LocalTradeKey.of(delta));
+                    TradeKey.of(delta));
                 matchRevenue -= breakRevenue;
                 matchQty = boughtQty;
             }
@@ -165,7 +165,7 @@ final class LocalFlipHistoryService {
             // cost basis. Whether the offer as a whole is explained is settled
             // when it completes, because one offer can take a conversion's
             // output over several fills, or one run of the recipe per fill.
-            ConversionMatch matchedConversion = null;
+            Match matchedConversion = null;
             if (inventory.conversion != null && inventory.convertedQty >= inventory.qty) {
                 matchedConversion = inventory.conversion;
             }
@@ -240,7 +240,7 @@ final class LocalFlipHistoryService {
      * record that as they are credited - including the one asked about.
      */
     private void coverShortfallByConversion(Map<Integer, InventoryState> inventoryByItem,
-                                            LocalTradeDelta sale,
+                                            Delta sale,
                                             long shortfallQty,
                                             long accountKey,
                                             int syncBatch) {
@@ -249,7 +249,7 @@ final class LocalFlipHistoryService {
         }
         conversionLedger.coverShortfall(sale.itemId, shortfallQty,
             new InventoryBuckets(inventoryByItem, syncBatch, sale.slot),
-            ConversionEvidence.ORDERED, accountKey, LocalTradeKey.of(sale));
+            Evidence.ORDERED, accountKey, TradeKey.of(sale));
     }
 
     /**
@@ -308,10 +308,10 @@ final class LocalFlipHistoryService {
      * because there is nothing left to correct.
      */
     private void appendDismissedGuesses(Map<Integer, List<StatsFlipInstance>> byItem,
-                                        List<LocalTradeDelta> deltas,
+                                        List<Delta> deltas,
                                         Long sinceMs,
                                         long accountKey) {
-        ConversionRejectionStore rejections = conversionLedger != null ? conversionLedger.rejections() : null;
+        RejectionStore rejections = conversionLedger != null ? conversionLedger.rejections() : null;
         if (rejections == null) {
             return;
         }
@@ -319,10 +319,10 @@ final class LocalFlipHistoryService {
         if (applicable.isEmpty()) {
             return;
         }
-        Set<LocalTradeKey> sales = new HashSet<>();
-        for (LocalTradeDelta delta : deltas) {
+        Set<TradeKey> sales = new HashSet<>();
+        for (Delta delta : deltas) {
             if (delta != null && !delta.isBuy && delta.deltaQty > 0) {
-                sales.add(LocalTradeKey.of(delta));
+                sales.add(TradeKey.of(delta));
             }
         }
         for (ConversionRejection rejection : applicable) {
@@ -338,7 +338,7 @@ final class LocalFlipHistoryService {
     }
 
     private static void deferUnmatchedSale(Map<Integer, DeferredSale> deferredSaleBySlot,
-                                           LocalTradeDelta delta,
+                                           Delta delta,
                                            long unmatchedQty,
                                            int syncBatch) {
         if (unmatchedQty <= 0 || delta.deltaQty <= 0) {
@@ -351,7 +351,7 @@ final class LocalFlipHistoryService {
         int slotKey = resolveSlotKey(delta);
         DeferredSale sale = deferredSaleBySlot.get(slotKey);
         if (sale == null || sale.itemId != delta.itemId) {
-            sale = new DeferredSale(delta.itemId, LocalTradeKey.of(delta), syncBatch);
+            sale = new DeferredSale(delta.itemId, TradeKey.of(delta), syncBatch);
             deferredSaleBySlot.put(slotKey, sale);
         }
         sale.qty += unmatchedQty;
@@ -363,7 +363,7 @@ final class LocalFlipHistoryService {
     /** An offer only becomes a candidate once it has actually completed. */
     private static void promoteDeferredSale(Map<Integer, DeferredSale> deferredSaleBySlot,
                                             List<DeferredSale> completedDeferredSales,
-                                            LocalTradeDelta completion) {
+                                            Delta completion) {
         DeferredSale sale = deferredSaleBySlot.remove(resolveSlotKey(completion));
         if (sale == null || sale.itemId != completion.itemId || sale.qty <= 0) {
             return;
@@ -420,7 +420,7 @@ final class LocalFlipHistoryService {
                 if (shortfall > 0) {
                     covered = conversionLedger.coverShortfall(
                         sale.itemId, shortfall, new InventoryBuckets(inventoryByItem, sale.syncBatch, sale.key.slot),
-                        ConversionEvidence.SYNCED, accountKey, sale.key);
+                        Evidence.SYNCED, accountKey, sale.key);
                 } else {
                     covered = inventory.qty > 0
                         && (inventory.breakQty >= inventory.qty || inventory.convertedQty >= inventory.qty);
@@ -454,7 +454,7 @@ final class LocalFlipHistoryService {
                     continue;
                 }
 
-                ConversionMatch match = inventory.conversion;
+                Match match = inventory.conversion;
                 boolean whollyConverted = match != null
                     && inventory.convertedQty >= inventory.qty
                     && matchQty >= inventory.qty
@@ -512,7 +512,7 @@ final class LocalFlipHistoryService {
                                        long tax,
                                        long tsMs,
                                        Long sinceMs,
-                                       LocalTradeKey sale) {
+                                       TradeKey sale) {
         long remaining = quantity;
         long allocated = 0L;
         long allocatedTax = 0L;
@@ -575,7 +575,7 @@ final class LocalFlipHistoryService {
         ));
     }
 
-    private static int resolveSlotKey(LocalTradeDelta delta) {
+    private static int resolveSlotKey(Delta delta) {
         if (delta == null) {
             return Integer.MIN_VALUE;
         }
@@ -587,7 +587,7 @@ final class LocalFlipHistoryService {
 
     private static void finalizePendingFlip(Map<Integer, List<StatsFlipInstance>> byItem,
                                             Map<Integer, PendingSellFlip> pendingSellBySlot,
-                                            LocalTradeDelta completion,
+                                            Delta completion,
                                             Long sinceMs) {
         if (byItem == null || pendingSellBySlot == null || completion == null || completion.itemId <= 0) {
             return;
@@ -674,10 +674,10 @@ final class LocalFlipHistoryService {
     }
 
     /**
-     * {@link ConversionBuckets} over one replay's inventory map, answering for
+     * {@link Buckets} over one replay's inventory map, answering for
      * one sale: which import it came from, if any, and its place in it.
      */
-    private static final class InventoryBuckets implements ConversionBuckets {
+    private static final class InventoryBuckets implements Buckets {
         private final Map<Integer, InventoryState> inventoryByItem;
         private final int saleBatch;
         private final int saleSlot;
@@ -743,7 +743,7 @@ final class LocalFlipHistoryService {
         }
 
         @Override
-        public void credit(int itemId, long quantity, long cost, ConversionMatch match) {
+        public void credit(int itemId, long quantity, long cost, Match match) {
             // Only the conversion ledger credits a bucket; a purchase adds to it
             // directly. So everything credited here was made, not bought.
             InventoryState state = inventoryByItem.computeIfAbsent(itemId, ignored -> new InventoryState());
@@ -771,11 +771,11 @@ final class LocalFlipHistoryService {
         private long qty;
         private long cost;
         /** The part of the quantity that came from a GE-history replay, and which. */
-        private final ConversionSyncedStock synced = new ConversionSyncedStock();
+        private final SyncedStock synced = new SyncedStock();
         /** How much of the quantity was made rather than bought. */
         private long convertedQty;
         /** The conversion that made those units. */
-        private ConversionMatch conversion;
+        private Match conversion;
         /** How much of the quantity belongs to a break that is still open. */
         private long breakQty;
         /** Those breaks, oldest first. Null until something is taken apart. */
@@ -792,11 +792,11 @@ final class LocalFlipHistoryService {
         private long lastSellTsMs;
         private long completionTsMs;
         /** The stored sale this stands for: the first fill of its offer. */
-        private final LocalTradeKey key;
-        /** Which read of the history it came from; {@link ConversionSyncedBatches#LIVE} if watched. */
+        private final TradeKey key;
+        /** Which read of the history it came from; {@link SyncedBatches#LIVE} if watched. */
         private final int syncBatch;
 
-        private DeferredSale(int itemId, LocalTradeKey key, int syncBatch) {
+        private DeferredSale(int itemId, TradeKey key, int syncBatch) {
             this.itemId = itemId;
             this.key = key;
             this.syncBatch = syncBatch;
@@ -814,7 +814,7 @@ final class LocalFlipHistoryService {
         /** The one recipe every fill so far was made by. */
         private ConversionRecipe conversionRecipe;
         /** Each conversion this offer drew on, and how many of its units it took. */
-        private final Map<ConversionMatch, long[]> takenByConversion = new LinkedHashMap<>();
+        private final Map<Match, long[]> takenByConversion = new LinkedHashMap<>();
         /** Once part of this offer came from elsewhere, no recipe explains it. */
         private boolean conversionDisqualified;
 
@@ -828,7 +828,7 @@ final class LocalFlipHistoryService {
          * the moment any part of it is not one recipe's own output the whole
          * activity loses the claim: the cost basis is a blend by then.
          */
-        void noteConversion(ConversionMatch match, long quantity) {
+        void noteConversion(Match match, long quantity) {
             if (conversionDisqualified) {
                 return;
             }
@@ -850,7 +850,7 @@ final class LocalFlipHistoryService {
          * not a chestplate - and what they cost has to be the cost basis to
          * the coin, or the block would not add up to the number beside it.
          */
-        ConversionMatch explainedBy() {
+        Match explainedBy() {
             if (conversionDisqualified || conversionRecipe == null || takenByConversion.isEmpty()) {
                 return null;
             }
@@ -858,11 +858,11 @@ final class LocalFlipHistoryService {
             long costGp = 0L;
             long accountKey = 0L;
             boolean likely = false;
-            Set<LocalTradeKey> trades = new LinkedHashSet<>();
+            Set<TradeKey> trades = new LinkedHashSet<>();
             // (itemId, fee) -> {itemId, fee, quantity, cost}, in first-seen order.
             Map<Long, long[]> lines = new LinkedHashMap<>();
-            for (Map.Entry<ConversionMatch, long[]> entry : takenByConversion.entrySet()) {
-                ConversionMatch match = entry.getKey();
+            for (Map.Entry<Match, long[]> entry : takenByConversion.entrySet()) {
+                Match match = entry.getKey();
                 if (entry.getValue()[0] != match.quantity) {
                     return null;
                 }
@@ -870,8 +870,8 @@ final class LocalFlipHistoryService {
                 costGp += match.costGp;
                 accountKey = match.accountKey;
                 trades.addAll(match.trades);
-                likely |= match.confidence == ConversionConfidence.LIKELY;
-                for (ConversionMatch.Line line : match.lines) {
+                likely |= match.confidence == Confidence.LIKELY;
+                for (Match.Line line : match.lines) {
                     long key = ((long) line.itemId << 1) | (line.fee ? 1L : 0L);
                     long[] sum = lines.computeIfAbsent(key,
                         ignored -> new long[]{line.itemId, line.fee ? 1L : 0L, 0L, 0L});
@@ -882,12 +882,12 @@ final class LocalFlipHistoryService {
             if (convertedQty != matchedQty || costGp != matchedCost) {
                 return null;
             }
-            List<ConversionMatch.Line> merged = new ArrayList<>(lines.size());
+            List<Match.Line> merged = new ArrayList<>(lines.size());
             for (long[] sum : lines.values()) {
-                merged.add(new ConversionMatch.Line((int) sum[0], sum[2], sum[3], sum[1] == 1L));
+                merged.add(new Match.Line((int) sum[0], sum[2], sum[3], sum[1] == 1L));
             }
-            return new ConversionMatch(conversionRecipe, matchedQty, costGp, merged,
-                likely ? ConversionConfidence.LIKELY : ConversionConfidence.CONFIRMED,
+            return new Match(conversionRecipe, matchedQty, costGp, merged,
+                likely ? Confidence.LIKELY : Confidence.CONFIRMED,
                 new ArrayList<>(trades), accountKey);
         }
     }

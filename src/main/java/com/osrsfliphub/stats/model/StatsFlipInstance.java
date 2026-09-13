@@ -50,14 +50,14 @@ final class StatsFlipInstance {
      * for something taken apart, they are the pieces it became and what each of
      * them sold for, which adds up to {@link #sellRevenueGp} instead.
      */
-    final List<ConversionMatch.Line> conversionLines;
+    final List<Match.Line> conversionLines;
     /** Null for a plain flip. LIKELY when only a made-up timestamp orders it. */
-    final ConversionConfidence conversionConfidence;
+    final Confidence conversionConfidence;
     /**
      * The stored sales the attribution drew on; empty for a plain flip. This is
      * what the player rejects when they say the plugin guessed wrong.
      */
-    final List<LocalTradeKey> conversionTrades;
+    final List<TradeKey> conversionTrades;
     /**
      * Whose ledger this came out of - 0 for the pooled accountwide replay - so
      * a correction is filed against the profile that owns the trade, even
@@ -113,7 +113,7 @@ final class StatsFlipInstance {
                       long profitGp,
                       int quantity,
                       long completionTsMs,
-                      ConversionMatch conversion) {
+                      Match conversion) {
         this(itemId, buyPriceGp, sellPriceGp, buyCostGp, sellRevenueGp, profitGp, quantity, completionTsMs,
             conversion, false);
     }
@@ -126,7 +126,7 @@ final class StatsFlipInstance {
                       long profitGp,
                       int quantity,
                       long completionTsMs,
-                      ConversionMatch conversion,
+                      Match conversion,
                       boolean inProgress) {
         this(itemId, buyPriceGp, sellPriceGp, buyCostGp, sellRevenueGp, profitGp, quantity, completionTsMs,
             conversion, inProgress, 0L);
@@ -140,7 +140,7 @@ final class StatsFlipInstance {
                       long profitGp,
                       int quantity,
                       long completionTsMs,
-                      ConversionMatch conversion,
+                      Match conversion,
                       boolean inProgress,
                       long taxGp) {
         this(itemId, buyPriceGp, sellPriceGp, buyCostGp, sellRevenueGp, profitGp, quantity, completionTsMs,
@@ -159,7 +159,7 @@ final class StatsFlipInstance {
      * activity would go. {@code guess} carries the recipe, the pieces sold so
      * far and the sales the break answered for; none of its figures are taken.
      */
-    static StatsFlipInstance openBreak(int itemId, ConversionMatch guess, long tsMs) {
+    static StatsFlipInstance openBreak(int itemId, Match guess, long tsMs) {
         return new StatsFlipInstance(itemId, 0L, 0L, 0L, 0L, 0L, 0, tsMs,
             guess, false, 0L, guess.accountKey, null, true);
     }
@@ -181,7 +181,7 @@ final class StatsFlipInstance {
                               long profitGp,
                               int quantity,
                               long completionTsMs,
-                              ConversionMatch conversion,
+                              Match conversion,
                               boolean inProgress,
                               long taxGp,
                               long accountKey,

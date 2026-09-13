@@ -41,8 +41,8 @@ final class BackfillRetryScheduler {
 
     @Inject
     BackfillRetryScheduler() {
-        this(GeLifecyclePluginConstants.BACKFILL_RETRY_INTERVAL_SECONDS,
-            GeLifecyclePluginConstants.BACKFILL_RETRY_MAX_INTERVAL_SECONDS);
+        this(Const.BACKFILL_RETRY_INTERVAL_SECONDS,
+            Const.BACKFILL_RETRY_MAX_INTERVAL_SECONDS);
     }
 
     BackfillRetryScheduler(long baseRetryIntervalSeconds, long maxRetryIntervalSeconds) {

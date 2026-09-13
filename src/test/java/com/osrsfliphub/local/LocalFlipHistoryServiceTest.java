@@ -38,7 +38,7 @@ public class LocalFlipHistoryServiceTest {
     @Test
     public void buildsFlipInstancesForMatchedSells() {
         LocalFlipHistoryService service = new LocalFlipHistoryService();
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             delta(1_000L, 1, 560, true, 10, 1_000L, "OFFER_UPDATED", 100, false),
             delta(2_000L, 1, 560, false, 4, 520L, "OFFER_UPDATED", 130, false),
             delta(2_100L, 1, 560, false, 0, 0L, "OFFER_COMPLETED", 130, false)
@@ -62,7 +62,7 @@ public class LocalFlipHistoryServiceTest {
     @Test
     public void rangeFilterIncludesInWindowSellsUsingOlderBuys() {
         LocalFlipHistoryService service = new LocalFlipHistoryService();
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             delta(1_000L, 1, 561, true, 10, 1_000L, "OFFER_UPDATED", 100, false),
             delta(2_000L, 1, 561, false, 5, 700L, "OFFER_COMPLETED", 140, false),
             delta(5_000L, 1, 561, false, 5, 800L, "OFFER_COMPLETED", 160, false)
@@ -83,7 +83,7 @@ public class LocalFlipHistoryServiceTest {
     @Test
     public void multipleSellUpdatesCollapseToSingleHistoryEntryOnCompletion() {
         LocalFlipHistoryService service = new LocalFlipHistoryService();
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             delta(1_000L, 2, 6332, true, 10, 20_000L, "OFFER_UPDATED", 2_000, false),
             delta(2_000L, 2, 6332, false, 3, 6_300L, "OFFER_UPDATED", 2_100, false),
             delta(3_000L, 2, 6332, false, 4, 8_400L, "OFFER_UPDATED", 2_100, false),
@@ -105,7 +105,7 @@ public class LocalFlipHistoryServiceTest {
     @Test
     public void sellPriceUsesFloorDivisionToAvoidRoundingUp() {
         LocalFlipHistoryService service = new LocalFlipHistoryService();
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             delta(1_000L, 3, 536, true, 2, 1_152L, "OFFER_UPDATED", 576, false),
             delta(2_000L, 3, 536, false, 2, 1_105L, "OFFER_UPDATED", 563, false),
             delta(2_100L, 3, 536, false, 0, 0L, "OFFER_COMPLETED", 563, false)
@@ -123,7 +123,7 @@ public class LocalFlipHistoryServiceTest {
     @Test
     public void openSellOfferIsRecordedAsAnInProgressFlip() {
         LocalFlipHistoryService service = new LocalFlipHistoryService();
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             delta(1_000L, 3, 573, true, 1_976, 2_614_248L, "OFFER_UPDATED", 1_323, false),
             delta(1_600L, 3, 573, true, 0, 0L, "OFFER_COMPLETED", 1_323, false),
             // Sold 303 of the 1,976; the offer is still sitting in the exchange.
@@ -145,7 +145,7 @@ public class LocalFlipHistoryServiceTest {
     @Test
     public void completedOfferReplacesItsInProgressEntry() {
         LocalFlipHistoryService service = new LocalFlipHistoryService();
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             delta(1_000L, 3, 573, true, 1_000, 1_000_000L, "OFFER_UPDATED", 1_000, false),
             delta(20_000L, 4, 573, false, 300, 330_000L, "OFFER_UPDATED", 1_100, false),
             delta(30_000L, 4, 573, false, 700, 770_000L, "OFFER_UPDATED", 1_100, false),
@@ -169,7 +169,7 @@ public class LocalFlipHistoryServiceTest {
     @Test
     public void reconcileKeepsProfitFromAnOpenOfferWithoutCountingItAsAFlip() {
         LocalFlipHistoryService service = new LocalFlipHistoryService();
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             // one finished flip
             delta(1_000L, 1, 573, true, 100, 100_000L, "OFFER_UPDATED", 1_000, false),
             delta(2_000L, 2, 573, false, 100, 110_000L, "OFFER_UPDATED", 1_100, false),
@@ -179,12 +179,12 @@ public class LocalFlipHistoryServiceTest {
             delta(10_600L, 3, 573, true, 0, 0L, "OFFER_COMPLETED", 1_323, false),
             delta(20_000L, 4, 573, false, 303, 420_867L, "OFFER_UPDATED", 1_417, false)
         );
-        LocalStatsCache cache = new LocalStatsCache();
+        StatsCache cache = new StatsCache();
         cache.rebuild(deltas);
         StatsSummary summary = cache.getSummary();
         List<StatsItem> items = new ArrayList<>(cache.getItems());
 
-        LocalStatsViewService.reconcileWithFlipHistory(summary, items, service.buildHistory(deltas, null));
+        StatsView.reconcileWithFlipHistory(summary, items, service.buildHistory(deltas, null));
 
         assertEquals(Long.valueOf(29_998L), summary.total_profit_gp);
         assertEquals(Long.valueOf(403L), summary.total_qty);
@@ -205,20 +205,20 @@ public class LocalFlipHistoryServiceTest {
     @Test
     public void reconcileTakesTaxFromTheSameOffersAsProfit() {
         LocalFlipHistoryService service = new LocalFlipHistoryService();
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             delta(1_000L, 1, 560, true, 10, 10_000L, "OFFER_COMPLETED", 1_000, false),
             // Five sold before the range opens, five after; the offer completes inside it.
             delta(60_000L, 2, 560, false, 5, 5_390L, "OFFER_UPDATED", 1_100, false),
             delta(180_000L, 2, 560, false, 5, 5_390L, "OFFER_COMPLETED", 1_100, false)
         );
         Long sinceMs = 120_000L;
-        LocalStatsCache cache = new LocalStatsCache();
+        StatsCache cache = new StatsCache();
         cache.rebuild(deltas);
-        LocalStatsSnapshot snapshot = cache.buildSnapshotSince(sinceMs);
+        StatsSnapshot snapshot = cache.buildSnapshotSince(sinceMs);
         StatsSummary summary = snapshot.summary;
         List<StatsItem> items = new ArrayList<>(snapshot.items);
 
-        LocalStatsViewService.reconcileWithFlipHistory(summary, items, service.buildHistory(deltas, sinceMs));
+        StatsView.reconcileWithFlipHistory(summary, items, service.buildHistory(deltas, sinceMs));
 
         // The whole offer: 10,780 back on 10,000 out, one flip, and floor(1,100 / 50) = 22 on each of the ten.
         assertEquals(Long.valueOf(780L), summary.total_profit_gp);
@@ -238,8 +238,8 @@ public class LocalFlipHistoryServiceTest {
     @Test
     public void aSyncedBatchIsReplayedInItsOwnOrderNotBuysFirst() {
         LocalFlipHistoryService service = new LocalFlipHistoryService();
-        int synced = GeLifecyclePluginConstants.GE_HISTORY_SYNTHETIC_SLOT_START;
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        int synced = Const.GE_HISTORY_SYNTHETIC_SLOT_START;
+        List<Delta> deltas = Arrays.asList(
             delta(5_000L, synced, 560, false, 1, 130L, "OFFER_UPDATED", 130, false),
             delta(5_004L, synced, 560, false, 0, 0L, "OFFER_COMPLETED", 130, false),
             delta(5_008L, synced + 1, 560, true, 1, 100L, "OFFER_UPDATED", 100, false),
@@ -254,7 +254,7 @@ public class LocalFlipHistoryServiceTest {
         // Same shape on real slots: two fills of one tick are believed to be
         // buy-then-sell whatever order the client reported them in.
         LocalFlipHistoryService service = new LocalFlipHistoryService();
-        List<LocalTradeDelta> deltas = Arrays.asList(
+        List<Delta> deltas = Arrays.asList(
             delta(5_000L, 2, 560, false, 1, 130L, "OFFER_COMPLETED", 130, false),
             delta(5_008L, 1, 560, true, 1, 100L, "OFFER_COMPLETED", 100, false)
         );
@@ -265,9 +265,9 @@ public class LocalFlipHistoryServiceTest {
         assertEquals(30L, result.get(560).get(0).profitGp);
     }
 
-    private static LocalTradeDelta delta(long tsClientMs, int slot, int itemId, boolean isBuy, int deltaQty,
+    private static Delta delta(long tsClientMs, int slot, int itemId, boolean isBuy, int deltaQty,
                                          long deltaGp, String eventType, int price, boolean baselineSynthetic) {
-        return new LocalTradeDelta(
+        return new Delta(
             tsClientMs,
             slot,
             itemId,

@@ -24,7 +24,7 @@
  */
 package com.osrsfliphub;
 
-import static com.osrsfliphub.GeLifecyclePluginConstants.*;
+import static com.osrsfliphub.Const.*;
 
 import com.google.gson.Gson;
 import com.google.inject.Provides;
@@ -110,15 +110,15 @@ public class GeLifecyclePlugin extends Plugin {
     private static final int SHUTDOWN_FLUSH_MAX_BATCHES = 10;
 
     ApiClient apiClient;
-    final GeLifecyclePanelBootstrapService panelBootstrapService = new GeLifecyclePanelBootstrapService();
-    final GeLifecycleRuntimeSchedulerServices runtimeSchedulerServices = new GeLifecycleRuntimeSchedulerServices();
-    final GeLifecycleRuntimeUtilityServices runtimeUtilityServices = new GeLifecycleRuntimeUtilityServices();
+    final PanelBootstrap panelBootstrapService = new PanelBootstrap();
+    final RuntimeSchedulerServices runtimeSchedulerServices = new RuntimeSchedulerServices();
+    final RuntimeUtilityServices runtimeUtilityServices = new RuntimeUtilityServices();
     private ProfileWatcher profileWatcher;
     ScheduledExecutorService scheduler;
     ExecutorService ioExecutor;
     volatile Integer offerPreviewItemId;
     volatile FlipHubItem offerPreviewItem;
-    FlipHubPanel panel;
+    Panel panel;
     NavigationButton navButton;
     volatile String currentQuery = "";
     volatile int currentPage = 1;
@@ -144,29 +144,29 @@ public class GeLifecyclePlugin extends Plugin {
 
     @Override
     protected void startUp() {
-        PluginInjectorBridge.set(getInjector());
-        PluginAccess.set(this);
-        GeLifecyclePluginLifecycleCoordinator.startUp(this);
+        Bridge.set(getInjector());
+        Access.set(this);
+        PluginLifecycle.startUp(this);
     }
 
     @Override
     protected void shutDown() {
-        GeLifecyclePluginLifecycleCoordinator.shutDown(this);
+        PluginLifecycle.shutDown(this);
     }
 
     @Subscribe
     public void onConfigChanged(ConfigChanged event) {
-        PluginInjectorBridge.get(ConfigChangedHandlerService.class).handle(event);
+        Bridge.get(ConfigChangedHandler.class).handle(event);
     }
 
     @Subscribe
     public void onGameStateChanged(GameStateChanged event) {
-        PluginInjectorBridge.get(GameStateChangedHandlerService.class).handle(event.getGameState());
+        Bridge.get(GameStateChangedHandler.class).handle(event.getGameState());
     }
 
     @Subscribe
     public void onGrandExchangeOfferChanged(GrandExchangeOfferChanged event) {
-        PluginInjectorBridge.get(GrandExchangeOfferChangedHandlerService.class).handle(event);
+        Bridge.get(GrandExchangeOfferChangedHandler.class).handle(event);
     }
 
     /**
@@ -177,9 +177,9 @@ public class GeLifecyclePlugin extends Plugin {
     @Subscribe
     public void onClientShutdown(ClientShutdown event) {
         ExecutorService activeIoExecutor = ioExecutor;
-        UploadEventDispatchFacadeService dispatch =
-            PluginInjectorBridge.get(UploadEventDispatchFacadeService.class);
-        ApiClient apiClient = PluginInjectorBridge.get(ApiClient.class);
+        UploadEventDispatch dispatch =
+            Bridge.get(UploadEventDispatch.class);
+        ApiClient apiClient = Bridge.get(ApiClient.class);
         // Writing the player's own trades is not conditional on the upload pipeline being
         // healthy. These used to share one guard, so a null dispatch service - which Guice can
         // produce silently at runtime - threw away the evening's unsaved trades on the way out.
@@ -208,7 +208,7 @@ public class GeLifecyclePlugin extends Plugin {
      */
     private void flushUnsavedProfilesQuietly() {
         try {
-            GeLifecycleLocalTradesRuntimeService runtimeService = getLocalTradesRuntimeService();
+            LocalTradesRuntime runtimeService = getLocalTradesRuntimeService();
             if (runtimeService != null) {
                 runtimeService.flushUnsavedProfiles();
             } else {
@@ -221,7 +221,7 @@ public class GeLifecyclePlugin extends Plugin {
 
     @Subscribe
     public void onPostClientTick(PostClientTick event) {
-        panelVisible = PluginInjectorBridge.get(GeLifecycleTickServices.class).handlePostClientTick(panelVisible);
+        panelVisible = Bridge.get(TickServices.class).handlePostClientTick(panelVisible);
         // local profile loads are handled on login/selection
     }
 
@@ -233,17 +233,17 @@ public class GeLifecyclePlugin extends Plugin {
         // only keeps the number - per account, since the profile being viewed
         // is not always the one logged in.
         if (event.getSkill() == Skill.SMITHING) {
-            ConversionFeeService feeService = PluginInjectorBridge.get(ConversionFeeService.class);
+            FeeService feeService = Bridge.get(FeeService.class);
             long accountKey = client != null ? client.getAccountHash() : -1L;
             if (feeService != null && feeService.onSmithingLevel(accountKey, event.getLevel())) {
                 // Every repair of this account was priced with the old level.
                 // The ledgers are pure functions over the deltas, so throwing
                 // the aggregates away is the whole of the migration.
-                LocalStatsCacheService statsCacheService = PluginInjectorBridge.get(LocalStatsCacheService.class);
+                LocalStatsCacheService statsCacheService = Bridge.get(LocalStatsCacheService.class);
                 if (statsCacheService != null) {
                     statsCacheService.invalidateAll();
                 }
-                PanelRefreshCoordinator coordinator = getPanelRefreshCoordinator();
+                PanelRefresh coordinator = getPanelRefreshCoordinator();
                 if (coordinator != null) {
                     coordinator.triggerStatsRefresh(scheduler);
                 }
@@ -257,7 +257,7 @@ public class GeLifecyclePlugin extends Plugin {
         if (scriptId == ScriptID.CHAT_TEXT_INPUT_REBUILD ||
             scriptId == ScriptID.CHAT_PROMPT_INIT ||
             scriptId == ScriptID.MESSAGE_LAYER_OPEN) {
-            PluginInjectorBridge.get(ChatboxSuggestionRuntimeStateService.class).markSuggestionDirty();
+            Bridge.get(ChatboxSuggestionRuntimeState.class).markSuggestionDirty();
         }
     }
 
@@ -267,19 +267,19 @@ public class GeLifecyclePlugin extends Plugin {
             return;
         }
         // Fallback trigger for GE chatbox prompts when specific chat scripts do not fire on some client builds.
-        PluginInjectorBridge.get(ChatboxSuggestionRuntimeStateService.class).markSuggestionDirty();
+        Bridge.get(ChatboxSuggestionRuntimeState.class).markSuggestionDirty();
     }
 
     long getOfferLastUpdateMs(int slot, GrandExchangeOffer offer) {
         return getOfferStampStateServices().getOfferLastUpdateMs(slot, offer);
     }
 
-    GeLifecycleOfferStampStateServices getOfferStampStateServices() {
-        return PluginInjectorBridge.get(GeLifecycleOfferStampStateServices.class);
+    OfferStampStateServices getOfferStampStateServices() {
+        return Bridge.get(OfferStampStateServices.class);
     }
 
     boolean isOfferStatusOpen() {
-        OfferPreviewRuntimeFacadeService previewFacade = PluginInjectorBridge.get(OfferPreviewRuntimeFacadeService.class);
+        OfferPreviewRuntime previewFacade = Bridge.get(OfferPreviewRuntime.class);
         Widget geRoot = previewFacade
             .getVisibleGeRoot(client, ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
         if (geRoot == null) {
@@ -289,8 +289,8 @@ public class GeLifecyclePlugin extends Plugin {
     }
 
 
-    GeLifecycleLocalTradesRuntimeService getLocalTradesRuntimeService() {
-        return PluginInjectorBridge.get(GeLifecycleLocalTradesRuntimeService.class);
+    LocalTradesRuntime getLocalTradesRuntimeService() {
+        return Bridge.get(LocalTradesRuntime.class);
     }
 
     void refreshPanelData() {
@@ -327,13 +327,13 @@ public class GeLifecyclePlugin extends Plugin {
         return apiClient.wipeWebsiteStats(sessionToken, signingSecret);
     }
 
-    PanelRefreshCoordinator getPanelRefreshCoordinator() {
-        return PluginInjectorBridge.get(PanelRefreshCoordinator.class);
+    PanelRefresh getPanelRefreshCoordinator() {
+        return Bridge.get(PanelRefresh.class);
     }
 
 
     long getProfileFileModifiedMs(Path file) {
-        return PluginInjectorBridge.get(ProfileStore.class).getProfileFileModifiedMs(file);
+        return Bridge.get(ProfileStore.class).getProfileFileModifiedMs(file);
     }
 
     /**
@@ -384,9 +384,9 @@ public class GeLifecyclePlugin extends Plugin {
     }
 
     void markAccountwideUploadDirty() {
-        PluginInjectorBridge.get(AccountwideSummaryUploader.class).markDirty();
-        if (PluginInjectorBridge.get(ProfileSelectionPresentationFacadeService.class).isLinked()) {
-            PluginInjectorBridge.get(UploadBackfillDispatchService.class).requestAccountwideSync();
+        Bridge.get(SummaryUploader.class).markDirty();
+        if (Bridge.get(ProfileSelectionPresentation.class).isLinked()) {
+            Bridge.get(UploadBackfillDispatch.class).requestAccountwideSync();
         }
     }
 
@@ -406,8 +406,8 @@ public class GeLifecyclePlugin extends Plugin {
         }
     }
 
-    GeLifecycleProfileWorkflowService getProfileWorkflowService() {
-        return PluginInjectorBridge.get(GeLifecycleProfileWorkflowService.class);
+    ProfileWorkflow getProfileWorkflowService() {
+        return Bridge.get(ProfileWorkflow.class);
     }
 
 }

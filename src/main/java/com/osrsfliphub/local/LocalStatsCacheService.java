@@ -32,8 +32,8 @@ import javax.inject.Singleton;
 
 @Singleton
 final class LocalStatsCacheService {
-    private final Map<Long, LocalStatsCache> statsCacheByAccount;
-    private final Map<Long, List<LocalTradeDelta>> localTradeDeltasByAccount;
+    private final Map<Long, StatsCache> statsCacheByAccount;
+    private final Map<Long, List<Delta>> localTradeDeltasByAccount;
     private final Object localStatsLock;
 
     @Inject
@@ -43,34 +43,34 @@ final class LocalStatsCacheService {
             pluginState.getLocalStatsLock());
     }
 
-    LocalStatsCacheService(Map<Long, LocalStatsCache> statsCacheByAccount,
-                           Map<Long, List<LocalTradeDelta>> localTradeDeltasByAccount,
+    LocalStatsCacheService(Map<Long, StatsCache> statsCacheByAccount,
+                           Map<Long, List<Delta>> localTradeDeltasByAccount,
                            Object localStatsLock) {
         this.statsCacheByAccount = statsCacheByAccount;
         this.localTradeDeltasByAccount = localTradeDeltasByAccount;
         this.localStatsLock = localStatsLock;
     }
 
-    LocalStatsCache getOrBuild(long accountKey) {
+    StatsCache getOrBuild(long accountKey) {
         if (accountKey <= 0) {
             return null;
         }
-        LocalStatsCache cache = statsCacheByAccount.get(accountKey);
+        StatsCache cache = statsCacheByAccount.get(accountKey);
         if (cache != null) {
             return cache;
         }
-        List<LocalTradeDelta> snapshot = snapshotDeltas(accountKey);
-        LocalStatsCache created = new LocalStatsCache(accountKey);
+        List<Delta> snapshot = snapshotDeltas(accountKey);
+        StatsCache created = new StatsCache(accountKey);
         created.rebuild(snapshot);
         statsCacheByAccount.put(accountKey, created);
         return created;
     }
 
-    void rebuild(long accountKey, List<LocalTradeDelta> deltas) {
+    void rebuild(long accountKey, List<Delta> deltas) {
         if (accountKey <= 0) {
             return;
         }
-        LocalStatsCache cache = new LocalStatsCache(accountKey);
+        StatsCache cache = new StatsCache(accountKey);
         cache.rebuild(deltas != null ? deltas : new ArrayList<>());
         statsCacheByAccount.put(accountKey, cache);
     }
@@ -96,11 +96,11 @@ final class LocalStatsCacheService {
         statsCacheByAccount.clear();
     }
 
-    void applyDelta(long accountKey, LocalTradeDelta delta) {
+    void applyDelta(long accountKey, Delta delta) {
         if (accountKey <= 0 || delta == null) {
             return;
         }
-        LocalStatsCache cache = statsCacheByAccount.get(accountKey);
+        StatsCache cache = statsCacheByAccount.get(accountKey);
         if (cache == null) {
             // No aggregate yet, because it was invalidated, wiped, or never built. Callers
             // append the delta to the stored list before applying it here, so a rebuild sees
@@ -114,9 +114,9 @@ final class LocalStatsCacheService {
         }
     }
 
-    private List<LocalTradeDelta> snapshotDeltas(long accountKey) {
+    private List<Delta> snapshotDeltas(long accountKey) {
         synchronized (localStatsLock) {
-            List<LocalTradeDelta> deltas = localTradeDeltasByAccount.get(accountKey);
+            List<Delta> deltas = localTradeDeltasByAccount.get(accountKey);
             return deltas != null ? new ArrayList<>(deltas) : new ArrayList<>();
         }
     }

@@ -46,7 +46,7 @@ public class OfferUpdateStampStoreTest {
             + "\"1\":null"
             + "}";
 
-        Map<Integer, OfferUpdateStamp> parsed = OfferUpdateStampStore.parse(raw, gson, 0, 7);
+        Map<Integer, Stamp> parsed = OfferUpdateStampStore.parse(raw, gson, 0, 7);
 
         assertEquals(2, parsed.size());
         assertNotNull(parsed.get(0));
@@ -56,17 +56,17 @@ public class OfferUpdateStampStoreTest {
 
     @Test
     public void parseReturnsEmptyForMalformedJson() {
-        Map<Integer, OfferUpdateStamp> parsed = OfferUpdateStampStore.parse("{bad json", new Gson(), 0, 7);
+        Map<Integer, Stamp> parsed = OfferUpdateStampStore.parse("{bad json", new Gson(), 0, 7);
         assertTrue(parsed.isEmpty());
     }
 
     @Test
     public void serializeSortsKeysAndSkipsNullEntries() {
         Gson gson = new Gson();
-        Map<Integer, OfferUpdateStamp> stamps = new HashMap<>();
-        stamps.put(2, new OfferUpdateStamp(200, 10, 20, 1, true, 10L, 1L, 1L, 0L, 0L));
-        stamps.put(1, new OfferUpdateStamp(100, 10, 20, 1, true, 10L, 1L, 1L, 0L, 0L));
-        stamps.put(null, new OfferUpdateStamp(999, 10, 20, 1, true, 10L, 1L, 1L, 0L, 0L));
+        Map<Integer, Stamp> stamps = new HashMap<>();
+        stamps.put(2, new Stamp(200, 10, 20, 1, true, 10L, 1L, 1L, 0L, 0L));
+        stamps.put(1, new Stamp(100, 10, 20, 1, true, 10L, 1L, 1L, 0L, 0L));
+        stamps.put(null, new Stamp(999, 10, 20, 1, true, 10L, 1L, 1L, 0L, 0L));
         stamps.put(3, null);
 
         String json = OfferUpdateStampStore.serialize(stamps, gson);

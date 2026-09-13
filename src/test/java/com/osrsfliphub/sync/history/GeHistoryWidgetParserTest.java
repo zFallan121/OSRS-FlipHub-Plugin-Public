@@ -32,7 +32,7 @@ import static org.junit.Assert.assertNotNull;
 public class GeHistoryWidgetParserTest {
     @Test
     public void parseTradeUsesGrossPriceWhenTaxBreakdownPresent() {
-        GeHistoryTrade trade = GeHistoryWidgetParser.parseTrade(
+        Trade trade = WidgetParser.parseTrade(
             "Sold:",
             6332,
             11_314,
@@ -49,7 +49,7 @@ public class GeHistoryWidgetParserTest {
 
     @Test
     public void parseTradeInfersGrossSellPriceWhenOnlyNetShown() {
-        GeHistoryTrade trade = GeHistoryWidgetParser.parseTrade(
+        Trade trade = WidgetParser.parseTrade(
             "Sold:",
             20997,
             8_935,
@@ -63,7 +63,7 @@ public class GeHistoryWidgetParserTest {
 
     @Test
     public void parseTradeBuildsBuyTradeUsingDisplayedTotals() {
-        GeHistoryTrade trade = GeHistoryWidgetParser.parseTrade(
+        Trade trade = WidgetParser.parseTrade(
             "Bought:",
             8780,
             13_000,
@@ -78,7 +78,7 @@ public class GeHistoryWidgetParserTest {
 
     @Test
     public void parseTradePrefersStateQuantityWhenWidgetQuantityIsStale() {
-        GeHistoryTrade trade = GeHistoryWidgetParser.parseTrade(
+        Trade trade = WidgetParser.parseTrade(
             "Bought: Coconut x 11,006",
             593,
             1_630,
@@ -94,7 +94,7 @@ public class GeHistoryWidgetParserTest {
 
     @Test
     public void parseTradeInfersQuantityFromDetailsWhenStateOmitsIt() {
-        GeHistoryTrade trade = GeHistoryWidgetParser.parseTrade(
+        Trade trade = WidgetParser.parseTrade(
             "Bought:",
             593,
             1_630,
@@ -109,14 +109,14 @@ public class GeHistoryWidgetParserTest {
 
     @Test
     public void parseCoinsHandlesNbspBetweenAmountAndCoins() {
-        long total = GeHistoryWidgetParser.parseCoins("19,855,000\u00A0coins\n= 1,805 each");
+        long total = WidgetParser.parseCoins("19,855,000\u00A0coins\n= 1,805 each");
 
         assertEquals(19_855_000L, total);
     }
 
     @Test
     public void parseGrossCoinsHandlesPlusBreakdownVariant() {
-        long gross = GeHistoryWidgetParser.parseGrossCoins("(20,142,000 + 16,000)");
+        long gross = WidgetParser.parseGrossCoins("(20,142,000 + 16,000)");
 
         assertEquals(20_142_000L, gross);
     }

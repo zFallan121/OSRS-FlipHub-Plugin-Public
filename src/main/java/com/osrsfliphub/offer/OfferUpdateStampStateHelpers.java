@@ -73,7 +73,7 @@ final class OfferUpdateStampStateHelpers {
     static boolean shouldRefreshOfferTimestamp(
         OfferSnapshot prev,
         OfferSnapshot next,
-        OfferUpdateStamp stamp,
+        Stamp stamp,
         int filledBefore,
         long spentBefore,
         BooleanSupplier isWithinLoginGraceSupplier
@@ -107,7 +107,7 @@ final class OfferUpdateStampStateHelpers {
         return true;
     }
 
-    static boolean markCompletedIfNeeded(OfferUpdateStamp stamp, OfferSnapshot snapshot, LongSupplier nowMsSupplier) {
+    static boolean markCompletedIfNeeded(Stamp stamp, OfferSnapshot snapshot, LongSupplier nowMsSupplier) {
         if (stamp == null || snapshot == null) {
             return false;
         }
@@ -125,7 +125,7 @@ final class OfferUpdateStampStateHelpers {
         return true;
     }
 
-    static boolean markCompletedIfNeeded(OfferUpdateStamp stamp, GrandExchangeOffer offer, LongSupplier nowMsSupplier) {
+    static boolean markCompletedIfNeeded(Stamp stamp, GrandExchangeOffer offer, LongSupplier nowMsSupplier) {
         if (stamp == null || offer == null) {
             return false;
         }
@@ -167,7 +167,7 @@ final class OfferUpdateStampStateHelpers {
         return offer.getTotalQuantity() <= 0 || offer.getQuantitySold() >= offer.getTotalQuantity();
     }
 
-    static long computeCompletedDisplayTimestamp(OfferUpdateStamp stamp, LongSupplier nowMsSupplier) {
+    static long computeCompletedDisplayTimestamp(Stamp stamp, LongSupplier nowMsSupplier) {
         if (stamp == null) {
             return -1;
         }
