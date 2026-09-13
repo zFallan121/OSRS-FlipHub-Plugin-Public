@@ -21,6 +21,35 @@ completion, profit or ROI.
 
 ![The FlipHub Activity panel in the RuneLite sidebar, showing sell and buy price, last traded prices, margin, margin x limit, ROI and remaining GE buy limit](docs/panel-activity.png)
 
+#### You can see how old a price is
+
+A live price is only ever the last trade someone made, and plenty of items go an hour between
+trades. So the two live prices are coloured by the age of the trade behind them:
+
+- **white** — traded within the last half hour
+- **amber** — nothing for 30 minutes, and going cold
+- **red** — nothing for an hour, so don't type it into an offer without checking
+
+Each side is judged on its own. An item that sells briskly but is bought rarely shows one of each,
+which is the whole point: it is the stale side that costs you.
+
+![Three Grand Exchange items in the panel: one with a red sell price beside a white buy price, one with both prices amber, and prices in white on an item still trading](docs/panel-price-age.png)
+
+Hover either price for the exact age of both.
+
+![A tooltip over the sell price reading "Sell price age: 01:30:14" in red and "Buy price age: 00:06:54" in white](docs/panel-price-age-tooltip.png)
+
+The same three colours run the **offer timers** in game: each Grand Exchange slot carries the time
+since that offer last moved — green under five minutes, yellow under thirty, red beyond. Turn them
+off with **Show GE offer timers**.
+
+#### Bookmarks
+
+Star the items you flip often and filter the list down to just those. An item you never want to see
+again can be hidden from its icon.
+
+![The panel filtered to bookmarked items, the star in the search row lit gold and the list headed "Bookmarked items"](docs/panel-bookmarks.png)
+
 #### Grand Exchange suggestions
 
 Setting up an offer fills the prompts in with the numbers you'd otherwise alt-tab for.
@@ -47,10 +76,15 @@ Turn it off with **Type decimal amounts** in the plugin settings.
 
 #### Profile
 
-Completed flips totalled per item over **Session**, **1h**, **4h**, **24h**, **7d** or **All
+Completed flips totalled per item over **Session**, **Last 1h**, **4h**, **24h**, **7d** or **All
 time**. Sort by completion, profit or ROI.
 
 ![The Profile tab, showing total profit, ROI, flips made and tax paid over the selected range, above a sortable list of per-item totals](docs/panel-profile.png)
+
+Open an item for what those totals are made of — average buy and sell, quantity, how long a flip
+took to fill — and every flip behind them, listed one by one.
+
+![An opened item showing total profit, total cost, average sell and buy, ROI, flips, quantity and average time to complete, over a flip history listing each flip's quantity, buy, sell and profit](docs/panel-profile-item.png)
 
 #### Recipes
 
@@ -58,13 +92,23 @@ Bought a blade and a hilt, made a godsword, sold it? The game never tells a plug
 became one, so the three trades would otherwise be counted as three separate flips — one of them
 looking like a windfall and the others like losses.
 
-**Record a recipe** on the Profile tab. Your finished trades are listed newest first; tick the
-ones the recipe was made from — the purchases that went in and the sales the result went out
-through — and they become one activity with one profit. Assembling, disassembling, repairing and
-making or breaking sets are all covered, and a repair fee counts towards the cost.
+**Record a recipe** on the Profile tab. Your finished trades are listed newest first; tick the ones
+the recipe was made from — the purchases that went in and the sales the result went out through.
+Assembling, disassembling, repairing and making or breaking sets are all covered.
 
-Nothing is guessed and nothing is recorded for you. Everything you record is listed underneath,
-and any of it can be undone.
+![The recipe recorder, set to "Broke up a set", with a set purchase and four piece sales ticked and the count reading "1 in, 4 out"](docs/panel-recipe-pick.png)
+
+A repair fee counts towards the cost, and the total is worked out in front of you before anything
+is written down. Everything you have recorded is listed underneath, and any of it can be undone.
+
+![The recorder's total: cost 159,995 gp, received 129,819 gp, tax 2,202 gp and a profit of -30,176 gp, above the Record button and a list of recipes already recorded, each with a Forget link](docs/panel-recipe-record.png)
+
+Afterwards the trades are one activity with one profit, filed under the item the recipe was about,
+and the Profile tab says which kind each one was.
+
+![An item's activity list: "Broken into" and "Combined from" entries alongside an ordinary flip, each with its own quantity, buy, sell and profit](docs/panel-recipe-activity.png)
+
+Nothing is guessed and nothing is recorded for you.
 
 #### Sync with FlipHub OSRS
 
@@ -89,7 +133,8 @@ and ranks as your total climbs.
 #### Also
 
 - **Offer preview** — open an offer in game and the panel jumps to that item.
-- **Bookmarks** — star the items you flip often, filter to just those, hide the rest.
+- **One character or all of them** — the name above the tabs picks whose trades you are looking at,
+  or adds them all together.
 
 ## Getting started
 
