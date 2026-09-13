@@ -153,6 +153,6 @@ final class OfferEventBuildMath {
         }
         return listedPrice > 0
             ? GeTax.forSale(itemId, listedPrice, qty)
-            : GeTax.forGrossTotal(itemId, grossTotal);
+            : GeTax.forGrossTotal(itemId, grossTotal, qty);
     }
 }

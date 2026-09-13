@@ -122,8 +122,4 @@ final class RecipeFlipStore {
     synchronized void clear(long accountKey) {
         byAccount.remove(accountKey);
     }
-
-    synchronized void clearAll() {
-        byAccount.clear();
-    }
 }

@@ -108,11 +108,18 @@ final class GeTax {
      * Tax estimated from the coins received when the price per item is not known. Less accurate
      * than {@link #forSale} because the per-item rounding cannot be reproduced, so it is only
      * for the paths that have a total and nothing else.
+     *
+     * <p>The cap still has to hold. Two per cent of the total is the right estimate right up to
+     * the point where an item is worth more than 250,000,000, and the pieces that are - a
+     * twisted bow, a scythe - would otherwise be taxed five times over: 24,000,000 charged on a
+     * 1,200,000,000 sale the game takes 5,000,000 on. So the quantity comes in too, and the
+     * estimate is held to what that many items could possibly have been taxed.
      */
-    static long forGrossTotal(int itemId, long grossTotal) {
+    static long forGrossTotal(int itemId, long grossTotal, long quantity) {
         if (grossTotal <= 0L || isExempt(itemId)) {
             return 0L;
         }
-        return grossTotal / RATE_DIVISOR;
+        long estimated = grossTotal / RATE_DIVISOR;
+        return quantity > 0L ? Math.min(estimated, MAX_TAX_PER_ITEM * quantity) : estimated;
     }
 }

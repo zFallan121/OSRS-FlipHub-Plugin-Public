@@ -32,6 +32,7 @@ import static org.junit.Assert.assertTrue;
 
 public class GeTaxTest {
     private static final int NATURE_RUNE = 561;
+    private static final int TWISTED_BOW = 20997;
     private static final int OLD_SCHOOL_BOND = 13190;
     private static final int LOBSTER = 379;
     private static final int RAW_LOBSTER = 377;
@@ -81,8 +82,21 @@ public class GeTaxTest {
 
     @Test
     public void aTotalWithNoKnownUnitPriceFallsBackToTwoPercentOfIt() {
-        assertEquals(209L, GeTax.forGrossTotal(NATURE_RUNE, 10_490L));
-        assertEquals(0L, GeTax.forGrossTotal(NATURE_RUNE, 0L));
+        assertEquals(209L, GeTax.forGrossTotal(NATURE_RUNE, 10_490L, 5L));
+        assertEquals(0L, GeTax.forGrossTotal(NATURE_RUNE, 0L, 5L));
+    }
+
+    /**
+     * The estimate is still an estimate, but it cannot exceed what the game could have taken.
+     * A twisted bow sells for well over 250,000,000, where two per cent of the total is five
+     * times the 5,000,000 the game actually charges.
+     */
+    @Test
+    public void theEstimateIsStillHeldToTheCap() {
+        assertEquals(5_000_000L, GeTax.forGrossTotal(TWISTED_BOW, 1_200_000_000L, 1L));
+        assertEquals(10_000_000L, GeTax.forGrossTotal(TWISTED_BOW, 2_400_000_000L, 2L));
+        assertEquals("under the cap it is still two per cent",
+            2_000_000L, GeTax.forGrossTotal(TWISTED_BOW, 100_000_000L, 1L));
     }
 
     /** An exempt item pays nothing at any price, so the cap never even comes into it. */
@@ -91,7 +105,7 @@ public class GeTaxTest {
         assertTrue(GeTax.isExempt(OLD_SCHOOL_BOND));
         assertEquals(0L, GeTax.perItem(OLD_SCHOOL_BOND, 11_700_000L));
         assertEquals(0L, GeTax.forSale(OLD_SCHOOL_BOND, 11_700_000L, 5L));
-        assertEquals(0L, GeTax.forGrossTotal(OLD_SCHOOL_BOND, 58_500_000L));
+        assertEquals(0L, GeTax.forGrossTotal(OLD_SCHOOL_BOND, 58_500_000L, 5L));
 
         assertTrue(GeTax.isExempt(LOBSTER));
         assertEquals(0L, GeTax.forSale(LOBSTER, 200L, 10_000L));

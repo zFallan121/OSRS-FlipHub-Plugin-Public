@@ -350,7 +350,7 @@ final class TradeDeltaUtils {
         }
         return unitPrice > 0L
             ? GeTax.forSale(itemId, unitPrice, qty)
-            : GeTax.forGrossTotal(itemId, grossTotal);
+            : GeTax.forGrossTotal(itemId, grossTotal, qty);
     }
 
     private static String buildCompletionDedupSignature(Delta delta, long localEventBucketMs) {
