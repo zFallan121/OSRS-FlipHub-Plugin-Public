@@ -26,10 +26,8 @@ package com.osrsfliphub;
 
 import java.awt.event.KeyEvent;
 import java.util.function.UnaryOperator;
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import net.runelite.api.Client;
-import net.runelite.api.ScriptID;
+import javax.inject.*;
+import net.runelite.api.*;
 import net.runelite.api.gameval.VarClientID;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.input.KeyListener;

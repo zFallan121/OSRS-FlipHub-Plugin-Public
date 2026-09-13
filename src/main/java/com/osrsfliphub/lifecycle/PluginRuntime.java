@@ -24,10 +24,8 @@
  */
 package com.osrsfliphub;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import lombok.Getter;
-import lombok.Setter;
+import javax.inject.*;
+import lombok.*;
 
 /**
  * The handful of flags the client thread records for everyone else to read.

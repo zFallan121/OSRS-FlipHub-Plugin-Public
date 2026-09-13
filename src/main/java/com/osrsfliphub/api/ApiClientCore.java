@@ -24,17 +24,10 @@
  */
 package com.osrsfliphub;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonParseException;
+import com.google.gson.*;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
+import java.util.*;
+import okhttp3.*;
 
 final class ApiClientCore {
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");

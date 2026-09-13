@@ -24,8 +24,7 @@
  */
 package com.osrsfliphub;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import javax.inject.*;
 import net.runelite.api.GameState;
 
 @Singleton

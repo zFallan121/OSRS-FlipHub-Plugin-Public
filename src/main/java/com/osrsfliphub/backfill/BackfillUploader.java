@@ -26,10 +26,8 @@ package com.osrsfliphub;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.UUID;
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import java.util.*;
+import javax.inject.*;
 import net.runelite.api.GrandExchangeOfferState;
 
 @Singleton

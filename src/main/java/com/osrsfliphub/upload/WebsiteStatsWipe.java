@@ -25,8 +25,7 @@
 package com.osrsfliphub;
 
 import java.util.concurrent.ExecutorService;
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import javax.inject.*;
 
 @Singleton
 final class WebsiteStatsWipe {

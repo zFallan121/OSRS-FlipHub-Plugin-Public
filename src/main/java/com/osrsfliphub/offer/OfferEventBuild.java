@@ -24,11 +24,9 @@
  */
 package com.osrsfliphub;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import javax.inject.*;
+import lombok.*;
 import net.runelite.api.GrandExchangeOfferState;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 @Singleton
 final class OfferEventBuild {

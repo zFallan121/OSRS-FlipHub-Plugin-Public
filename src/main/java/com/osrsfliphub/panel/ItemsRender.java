@@ -25,10 +25,7 @@
 package com.osrsfliphub;
 
 import java.util.List;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollBar;
-import javax.swing.JScrollPane;
+import javax.swing.*;
 
 final class ItemsRender {
     @FunctionalInterface

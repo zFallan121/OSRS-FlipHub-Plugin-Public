@@ -25,12 +25,11 @@
 package com.osrsfliphub;
 
 import java.awt.image.BufferedImage;
+import lombok.Getter;
 import net.runelite.api.Client;
 import net.runelite.client.game.ItemManager;
-import net.runelite.client.ui.ClientToolbar;
-import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.ui.*;
 import net.runelite.client.ui.overlay.OverlayManager;
-import lombok.Getter;
 
 final class PanelBootstrap {
     static final class UiState {

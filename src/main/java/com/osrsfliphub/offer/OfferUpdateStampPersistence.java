@@ -26,12 +26,10 @@ package com.osrsfliphub;
 
 import com.google.gson.Gson;
 import java.util.Map;
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import net.runelite.api.Client;
-import net.runelite.api.GrandExchangeOffer;
-import net.runelite.client.config.ConfigManager;
+import javax.inject.*;
 import lombok.RequiredArgsConstructor;
+import net.runelite.api.*;
+import net.runelite.client.config.ConfigManager;
 
 @Singleton
 final class OfferUpdateStampPersistence {

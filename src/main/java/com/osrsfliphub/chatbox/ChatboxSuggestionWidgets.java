@@ -24,8 +24,7 @@
  */
 package com.osrsfliphub;
 
-import net.runelite.api.widgets.Widget;
-import net.runelite.api.widgets.WidgetType;
+import net.runelite.api.widgets.*;
 
 final class ChatboxSuggestionWidgets {
     private ChatboxSuggestionWidgets() {

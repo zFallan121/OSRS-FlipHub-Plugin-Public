@@ -24,9 +24,7 @@
  */
 package com.osrsfliphub;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 final class ItemsResponseFactory {
     private ItemsResponseFactory() {

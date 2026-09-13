@@ -26,13 +26,10 @@ package com.osrsfliphub;
 
 import java.text.NumberFormat;
 import java.util.Locale;
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import net.runelite.api.Client;
-import net.runelite.api.VarClientInt;
-import net.runelite.api.widgets.ComponentID;
-import net.runelite.api.widgets.Widget;
+import javax.inject.*;
 import lombok.Getter;
+import net.runelite.api.*;
+import net.runelite.api.widgets.*;
 
 @Singleton
 final class ChatboxSuggestionRuntimeState {

@@ -24,25 +24,11 @@
  */
 package com.osrsfliphub;
 
-import static com.osrsfliphub.Skin.*;
-
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Cursor;
-import java.awt.Dimension;
-import java.awt.Insets;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import javax.swing.BorderFactory;
-import javax.swing.BoxLayout;
-import javax.swing.JButton;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JPasswordField;
-import javax.swing.SwingConstants;
+import java.awt.*;
+import java.awt.event.*;
+import javax.swing.*;
 import lombok.RequiredArgsConstructor;
+import static com.osrsfliphub.Skin.*;
 
 /**
  * The account card: linking lives here rather than in the RuneLite settings window.

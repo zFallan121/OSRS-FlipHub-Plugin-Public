@@ -25,10 +25,8 @@
 package com.osrsfliphub;
 
 import com.google.gson.Gson;
-import java.util.ArrayList;
-import java.util.List;
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import java.util.*;
+import javax.inject.*;
 
 @Singleton
 final class ProfileTradesLoad {

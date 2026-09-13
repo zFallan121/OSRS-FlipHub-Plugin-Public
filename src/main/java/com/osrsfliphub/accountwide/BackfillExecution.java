@@ -26,8 +26,7 @@ package com.osrsfliphub;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import javax.inject.*;
 import net.runelite.api.Client;
 import net.runelite.client.config.ConfigManager;
 

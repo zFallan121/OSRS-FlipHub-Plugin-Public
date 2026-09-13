@@ -24,10 +24,10 @@
  */
 package com.osrsfliphub;
 
+import lombok.RequiredArgsConstructor;
 import net.runelite.api.Client;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.util.Text;
-import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 final class GeOfferStatusWindowDetector {

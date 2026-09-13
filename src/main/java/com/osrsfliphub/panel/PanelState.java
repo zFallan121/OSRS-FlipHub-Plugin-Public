@@ -24,21 +24,12 @@
  */
 package com.osrsfliphub;
 
-import static com.osrsfliphub.Skin.REFRESH_TIME_FORMATTER;
-
 import java.awt.CardLayout;
 import java.time.Instant;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Consumer;
-import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JTextField;
-import javax.swing.JToggleButton;
+import javax.swing.*;
+import static com.osrsfliphub.Skin.REFRESH_TIME_FORMATTER;
 
 final class PanelState {
     void switchTab(

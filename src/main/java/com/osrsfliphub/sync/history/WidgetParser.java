@@ -24,11 +24,8 @@
  */
 package com.osrsfliphub;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.*;
+import java.util.regex.*;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.util.Text;
 

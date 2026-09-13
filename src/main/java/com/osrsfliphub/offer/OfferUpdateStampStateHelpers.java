@@ -24,10 +24,8 @@
  */
 package com.osrsfliphub;
 
-import java.util.function.BooleanSupplier;
-import java.util.function.LongSupplier;
-import net.runelite.api.GrandExchangeOffer;
-import net.runelite.api.GrandExchangeOfferState;
+import java.util.function.*;
+import net.runelite.api.*;
 
 final class OfferUpdateStampStateHelpers {
     private OfferUpdateStampStateHelpers() {

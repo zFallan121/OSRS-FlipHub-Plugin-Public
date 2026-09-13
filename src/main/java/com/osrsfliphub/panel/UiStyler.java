@@ -24,6 +24,13 @@
  */
 package com.osrsfliphub;
 
+import java.awt.*;
+import java.awt.font.*;
+import java.util.*;
+import javax.swing.*;
+import javax.swing.border.*;
+import javax.swing.event.*;
+import net.runelite.client.ui.FontManager;
 import static com.osrsfliphub.Skin.ACCENT;
 import static com.osrsfliphub.Skin.BOOKMARK_GLYPH;
 import static com.osrsfliphub.Skin.BOOKMARK_GLYPH_SIZE;
@@ -42,35 +49,6 @@ import static com.osrsfliphub.Skin.OVERLAY_BASE;
 import static com.osrsfliphub.Skin.SORT_ICON_SIZE;
 import static com.osrsfliphub.Skin.TEXT;
 import static com.osrsfliphub.Skin.TRAILING_CONTROL_WIDTH;
-
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Container;
-import java.awt.Cursor;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.Insets;
-import java.awt.LayoutManager;
-import java.awt.font.FontRenderContext;
-import java.awt.font.TextAttribute;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-import javax.swing.AbstractButton;
-import javax.swing.ButtonModel;
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JToggleButton;
-import javax.swing.JTextField;
-import javax.swing.SwingUtilities;
-import javax.swing.border.Border;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-import javax.swing.border.EmptyBorder;
-import net.runelite.client.ui.FontManager;
 
 /**
  * Type and controls for the panel, following STYLEGUIDE.md §4 and §9.

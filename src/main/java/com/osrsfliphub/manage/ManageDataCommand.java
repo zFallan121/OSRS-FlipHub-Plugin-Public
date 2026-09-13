@@ -24,9 +24,7 @@
  */
 package com.osrsfliphub;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 import javax.inject.Singleton;
 import lombok.RequiredArgsConstructor;
 

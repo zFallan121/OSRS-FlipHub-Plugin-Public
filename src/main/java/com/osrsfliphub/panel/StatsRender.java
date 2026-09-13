@@ -24,27 +24,16 @@
  */
 package com.osrsfliphub;
 
+import java.awt.*;
+import java.util.*;
+import java.util.List;
+import java.util.function.*;
+import javax.swing.*;
+import javax.swing.Timer;
 import static com.osrsfliphub.Skin.DANGER;
 import static com.osrsfliphub.Skin.STATS_ITEMS_PER_PAGE;
 import static com.osrsfliphub.Skin.SUCCESS;
 import static com.osrsfliphub.Skin.TEXT;
-
-import java.awt.Color;
-import java.awt.Container;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.function.IntConsumer;
-import java.util.function.UnaryOperator;
-import javax.swing.Box;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.Timer;
 
 final class StatsRender {
     /**

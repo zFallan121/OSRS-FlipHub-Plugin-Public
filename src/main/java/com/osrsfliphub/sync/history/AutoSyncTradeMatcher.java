@@ -24,16 +24,8 @@
  */
 package com.osrsfliphub;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import lombok.EqualsAndHashCode;
-import lombok.RequiredArgsConstructor;
+import java.util.*;
+import lombok.*;
 
 /**
  * Which rows of the in-game history the plugin has not already recorded.

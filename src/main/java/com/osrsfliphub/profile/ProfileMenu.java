@@ -24,18 +24,15 @@
  */
 package com.osrsfliphub;
 
+import java.util.List;
+import javax.swing.*;
+import lombok.RequiredArgsConstructor;
 import static com.osrsfliphub.Skin.ACCENT;
 import static com.osrsfliphub.Skin.LINE;
-import static com.osrsfliphub.Skin.OVERLAY_BASE;
 import static com.osrsfliphub.Skin.MUTED;
+import static com.osrsfliphub.Skin.OVERLAY_BASE;
 import static com.osrsfliphub.Skin.SUCCESS;
 import static com.osrsfliphub.Skin.TEXT;
-
-import java.util.List;
-import javax.swing.JMenuItem;
-import javax.swing.JPopupMenu;
-import javax.swing.JButton;
-import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 final class ProfileMenu {

@@ -24,17 +24,12 @@
  */
 package com.osrsfliphub;
 
-import static com.osrsfliphub.Skin.STATS_CARD_TOGGLE_SKIP_KEY;
-
-import java.awt.Component;
-import java.awt.Container;
-import java.awt.Cursor;
+import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.util.function.IntConsumer;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
+import javax.swing.*;
 import lombok.RequiredArgsConstructor;
+import static com.osrsfliphub.Skin.STATS_CARD_TOGGLE_SKIP_KEY;
 
 @RequiredArgsConstructor
 final class StatsCardInteractionInstaller {

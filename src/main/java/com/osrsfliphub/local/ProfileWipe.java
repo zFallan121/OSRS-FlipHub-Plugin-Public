@@ -24,20 +24,13 @@
  */
 package com.osrsfliphub;
 
+import java.util.*;
+import javax.inject.*;
+import net.runelite.api.*;
+import net.runelite.api.widgets.Widget;
 import static com.osrsfliphub.Const.ACCOUNTWIDE_KEY;
 import static com.osrsfliphub.Const.GE_HISTORY_CONTAINER_CHILD_ID;
 import static com.osrsfliphub.Const.GE_HISTORY_GROUP_ID;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import net.runelite.api.Client;
-import net.runelite.api.GameState;
-import net.runelite.api.widgets.Widget;
 
 @Singleton
 final class ProfileWipe {

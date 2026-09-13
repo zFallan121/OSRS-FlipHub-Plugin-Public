@@ -24,11 +24,9 @@
  */
 package com.osrsfliphub;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import javax.inject.*;
 import net.runelite.api.Client;
-import net.runelite.api.widgets.ComponentID;
-import net.runelite.api.widgets.Widget;
+import net.runelite.api.widgets.*;
 
 @Singleton
 final class ChatboxSuggestionCycle {

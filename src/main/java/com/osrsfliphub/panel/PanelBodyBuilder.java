@@ -24,12 +24,7 @@
  */
 package com.osrsfliphub;
 
-import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTextField;
+import javax.swing.*;
 import lombok.RequiredArgsConstructor;
 
 final class PanelBodyBuilder {

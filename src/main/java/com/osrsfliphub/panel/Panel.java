@@ -24,28 +24,15 @@
  */
 package com.osrsfliphub;
 
-import static com.osrsfliphub.Skin.*;
-
-import java.awt.CardLayout;
-import java.awt.Rectangle;
-import java.awt.image.BufferedImage;
+import java.awt.*;
 import java.awt.event.MouseWheelListener;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.awt.image.BufferedImage;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTextField;
-import javax.swing.JToggleButton;
-import javax.swing.ImageIcon;
-import javax.swing.SwingUtilities;
+import javax.swing.*;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.ui.PluginPanel;
+import static com.osrsfliphub.Skin.*;
 
 public class Panel extends PluginPanel {
     private final CardLayout cardLayout = new CardLayout();

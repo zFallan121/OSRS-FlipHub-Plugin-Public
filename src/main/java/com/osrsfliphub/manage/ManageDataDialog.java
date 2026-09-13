@@ -24,10 +24,8 @@
  */
 package com.osrsfliphub;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
+import javax.inject.*;
+import javax.swing.*;
 
 @Singleton
 final class ManageDataDialog {

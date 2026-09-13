@@ -25,10 +25,7 @@
 package com.osrsfliphub;
 
 import java.nio.file.Path;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Supplier;
 import javax.inject.Singleton;
 

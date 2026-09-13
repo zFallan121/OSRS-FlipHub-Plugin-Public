@@ -24,18 +24,11 @@
  */
 package com.osrsfliphub;
 
-import static com.osrsfliphub.Skin.*;
-
-import java.awt.BorderLayout;
-import java.awt.CardLayout;
+import java.awt.*;
 import java.awt.event.MouseWheelListener;
-import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTextField;
+import javax.swing.*;
 import lombok.RequiredArgsConstructor;
+import static com.osrsfliphub.Skin.*;
 
 final class StatsPanelBuilder {
     @RequiredArgsConstructor

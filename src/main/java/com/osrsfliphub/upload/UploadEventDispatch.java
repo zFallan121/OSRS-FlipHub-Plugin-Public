@@ -25,10 +25,8 @@
 package com.osrsfliphub;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import java.util.*;
+import javax.inject.*;
 import org.slf4j.Logger;
 
 @Singleton

@@ -24,24 +24,12 @@
  */
 package com.osrsfliphub;
 
-import static com.osrsfliphub.Skin.SCROLL_UNIT_INCREMENT;
-
-import java.awt.AWTEvent;
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.MouseInfo;
-import java.awt.Point;
-import java.awt.PointerInfo;
-import java.awt.Toolkit;
-import java.awt.event.AWTEventListener;
-import java.awt.event.MouseWheelEvent;
-import java.awt.event.MouseWheelListener;
+import java.awt.*;
+import java.awt.event.*;
 import java.util.function.Supplier;
-import javax.swing.JScrollBar;
-import javax.swing.JScrollPane;
-import javax.swing.JViewport;
-import javax.swing.SwingUtilities;
+import javax.swing.*;
 import lombok.RequiredArgsConstructor;
+import static com.osrsfliphub.Skin.SCROLL_UNIT_INCREMENT;
 
 @RequiredArgsConstructor
 final class WheelScroll {

@@ -25,8 +25,7 @@
 package com.osrsfliphub;
 
 import java.util.concurrent.ScheduledExecutorService;
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import javax.inject.*;
 import lombok.Getter;
 
 @Singleton

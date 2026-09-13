@@ -24,14 +24,9 @@
  */
 package com.osrsfliphub;
 
-import java.util.Map;
-import java.util.Set;
-import java.util.function.IntConsumer;
-import java.util.function.Supplier;
-import javax.swing.ImageIcon;
-import javax.swing.JScrollPane;
-import javax.swing.JTextField;
-import javax.swing.JToggleButton;
+import java.util.*;
+import java.util.function.*;
+import javax.swing.*;
 import net.runelite.client.game.ItemManager;
 
 final class PanelComponentsFactory {

@@ -26,8 +26,7 @@ package com.osrsfliphub;
 
 import java.io.IOException;
 import java.util.List;
-import net.runelite.api.ChatMessageType;
-import net.runelite.api.Client;
+import net.runelite.api.*;
 
 final class RuntimeUtilityServices {
     void scheduleRefreshSoon(PanelRefresh coordinator, java.util.concurrent.ScheduledExecutorService scheduler) {

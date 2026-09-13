@@ -25,8 +25,7 @@
 package com.osrsfliphub;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @javax.inject.Singleton
 final class ProfileStorage {

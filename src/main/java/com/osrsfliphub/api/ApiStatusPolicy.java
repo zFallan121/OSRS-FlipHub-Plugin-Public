@@ -24,8 +24,7 @@
  */
 package com.osrsfliphub;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.regex.*;
 
 final class ApiStatusPolicy {
     private static final Pattern AUTH_STATUS_PATTERN = Pattern.compile("(^|\\D)(401|403)(\\D|$)");

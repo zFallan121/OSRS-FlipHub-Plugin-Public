@@ -24,8 +24,7 @@
  */
 package com.osrsfliphub;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 final class HiddenItemConfigStore {

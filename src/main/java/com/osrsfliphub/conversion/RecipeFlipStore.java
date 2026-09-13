@@ -24,12 +24,8 @@
  */
 package com.osrsfliphub;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import java.util.*;
+import javax.inject.*;
 
 /**
  * The conversions each account has recorded, held in memory and written into that account's

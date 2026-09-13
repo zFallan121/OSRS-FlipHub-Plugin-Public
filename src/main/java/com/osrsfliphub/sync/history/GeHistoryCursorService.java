@@ -24,10 +24,7 @@
  */
 package com.osrsfliphub;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * Where the last history sync got to, as the signatures of the rows it saw.

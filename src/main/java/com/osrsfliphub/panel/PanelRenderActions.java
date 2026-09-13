@@ -25,11 +25,8 @@
 package com.osrsfliphub;
 
 import java.util.Set;
-import java.util.function.BiFunction;
-import java.util.function.IntConsumer;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
+import java.util.function.*;
+import javax.swing.*;
 
 final class PanelRenderActions {
     void updateStatsUpdatedLabel(

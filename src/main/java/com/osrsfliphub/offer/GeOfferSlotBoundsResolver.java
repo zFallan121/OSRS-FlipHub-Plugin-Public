@@ -25,15 +25,10 @@
 package com.osrsfliphub;
 
 import java.awt.Rectangle;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import net.runelite.api.Client;
-import net.runelite.api.Point;
-import net.runelite.api.widgets.InterfaceID;
-import net.runelite.api.widgets.Widget;
+import java.util.*;
 import lombok.RequiredArgsConstructor;
+import net.runelite.api.*;
+import net.runelite.api.widgets.*;
 
 @RequiredArgsConstructor
 final class GeOfferSlotBoundsResolver {

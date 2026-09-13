@@ -24,14 +24,9 @@
  */
 package com.osrsfliphub;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
-import javax.swing.JButton;
-import javax.swing.JLabel;
-import javax.swing.SwingUtilities;
+import java.util.*;
+import java.util.function.*;
+import javax.swing.*;
 
 final class PanelAsyncActions {
     void setItemsAsync(

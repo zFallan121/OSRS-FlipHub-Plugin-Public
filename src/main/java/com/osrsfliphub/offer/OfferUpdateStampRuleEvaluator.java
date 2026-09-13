@@ -24,10 +24,9 @@
  */
 package com.osrsfliphub;
 
-import java.util.function.BooleanSupplier;
-import java.util.function.LongSupplier;
-import net.runelite.api.GrandExchangeOffer;
+import java.util.function.*;
 import lombok.RequiredArgsConstructor;
+import net.runelite.api.GrandExchangeOffer;
 
 @RequiredArgsConstructor
 final class OfferUpdateStampRuleEvaluator {

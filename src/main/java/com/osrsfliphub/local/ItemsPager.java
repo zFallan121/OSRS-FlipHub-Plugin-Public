@@ -24,9 +24,7 @@
  */
 package com.osrsfliphub;
 
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 final class ItemsPager {
     static final class Page {

@@ -25,10 +25,8 @@
 package com.osrsfliphub;
 
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.Map;
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import java.util.*;
+import javax.inject.*;
 
 @Singleton
 final class ProfileCatalog {

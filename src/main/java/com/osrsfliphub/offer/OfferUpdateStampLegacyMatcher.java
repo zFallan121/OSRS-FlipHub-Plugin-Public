@@ -25,8 +25,7 @@
 package com.osrsfliphub;
 
 import java.util.Map;
-import net.runelite.api.GrandExchangeOffer;
-import net.runelite.api.GrandExchangeOfferState;
+import net.runelite.api.*;
 
 final class OfferUpdateStampLegacyMatcher {
     boolean matchesCurrentOffers(Map<Integer, Stamp> stamps, GrandExchangeOffer[] offers) {

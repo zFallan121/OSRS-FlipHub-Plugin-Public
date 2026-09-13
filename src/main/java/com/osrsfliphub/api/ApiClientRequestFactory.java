@@ -26,10 +26,8 @@ package com.osrsfliphub;
 
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
-import okhttp3.MediaType;
-import okhttp3.Request;
-import okhttp3.RequestBody;
 import lombok.RequiredArgsConstructor;
+import okhttp3.*;
 
 @RequiredArgsConstructor
 final class ApiClientRequestFactory {

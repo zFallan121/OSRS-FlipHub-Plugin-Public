@@ -25,14 +25,10 @@
 package com.osrsfliphub;
 
 import java.util.List;
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import net.runelite.api.Client;
-import net.runelite.api.GrandExchangeOffer;
-import net.runelite.api.GrandExchangeOfferState;
+import javax.inject.*;
+import net.runelite.api.*;
 import net.runelite.api.gameval.VarbitID;
-import net.runelite.api.widgets.ComponentID;
-import net.runelite.api.widgets.Widget;
+import net.runelite.api.widgets.*;
 
 @Singleton
 final class OfferTypeResolver {

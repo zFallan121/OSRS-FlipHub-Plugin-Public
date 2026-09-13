@@ -24,18 +24,12 @@
  */
 package com.osrsfliphub;
 
+import java.awt.*;
+import java.util.function.IntConsumer;
+import javax.swing.*;
+import lombok.RequiredArgsConstructor;
 import static com.osrsfliphub.Skin.MUTED_2;
 import static com.osrsfliphub.Skin.TEXT;
-
-import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.Insets;
-import java.util.function.IntConsumer;
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import lombok.RequiredArgsConstructor;
 
 /**
  * The completed-flip list scrolls with the rest of the Flip Profile tab rather than sitting in a

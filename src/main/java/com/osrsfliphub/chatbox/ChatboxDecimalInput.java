@@ -24,10 +24,8 @@
  */
 package com.osrsfliphub;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.math.*;
+import java.util.regex.*;
 
 /**
  * Text rules for typing a decimal amount into a chatbox quantity prompt.

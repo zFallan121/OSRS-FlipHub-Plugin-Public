@@ -24,9 +24,8 @@
  */
 package com.osrsfliphub;
 
-import net.runelite.api.GrandExchangeOffer;
-import net.runelite.api.GrandExchangeOfferState;
 import lombok.RequiredArgsConstructor;
+import net.runelite.api.*;
 
 @RequiredArgsConstructor
 public class OfferSnapshot {

@@ -27,14 +27,9 @@ package com.osrsfliphub;
 import com.google.gson.Gson;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import java.nio.file.*;
+import java.util.*;
+import javax.inject.*;
 import lombok.extern.slf4j.Slf4j;
 
 @Singleton

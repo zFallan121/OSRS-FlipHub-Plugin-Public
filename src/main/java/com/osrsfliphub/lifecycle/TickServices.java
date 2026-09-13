@@ -24,14 +24,11 @@
  */
 package com.osrsfliphub;
 
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import net.runelite.api.Client;
-import net.runelite.api.GameState;
+import javax.inject.*;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.*;
 
 @Singleton
 @Slf4j

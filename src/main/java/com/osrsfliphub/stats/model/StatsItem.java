@@ -24,8 +24,7 @@
  */
 package com.osrsfliphub;
 
-import java.util.EnumSet;
-import java.util.Set;
+import java.util.*;
 
 public class StatsItem {
     public int item_id;

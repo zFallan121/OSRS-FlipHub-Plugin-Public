@@ -26,8 +26,7 @@ package com.osrsfliphub;
 
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import javax.inject.*;
 
 @Singleton
 final class UploadBackfillDispatch {

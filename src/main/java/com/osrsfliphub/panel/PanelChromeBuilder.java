@@ -24,32 +24,16 @@
  */
 package com.osrsfliphub;
 
-import static com.osrsfliphub.Skin.*;
-
-import java.awt.BorderLayout;
-import java.awt.Cursor;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.Font;
-import java.awt.Graphics2D;
-import java.awt.Insets;
-import java.awt.font.FontRenderContext;
-import java.awt.font.LineMetrics;
+import java.awt.*;
+import java.awt.font.*;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.util.function.Consumer;
-import javax.swing.BorderFactory;
-import javax.swing.BoxLayout;
-import javax.swing.ButtonGroup;
-import javax.swing.Icon;
-import javax.swing.ImageIcon;
-import javax.swing.JButton;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JToggleButton;
+import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import net.runelite.client.util.ImageUtil;
 import lombok.RequiredArgsConstructor;
+import net.runelite.client.util.ImageUtil;
+import static com.osrsfliphub.Skin.*;
 
 @RequiredArgsConstructor
 final class PanelChromeBuilder {

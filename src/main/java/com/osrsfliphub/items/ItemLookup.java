@@ -26,12 +26,10 @@ package com.osrsfliphub;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import javax.inject.*;
 import net.runelite.api.ItemComposition;
 import net.runelite.client.callback.ClientThread;
-import net.runelite.client.game.ItemManager;
-import net.runelite.client.game.ItemStats;
+import net.runelite.client.game.*;
 import net.runelite.http.api.item.ItemPrice;
 
 @Singleton

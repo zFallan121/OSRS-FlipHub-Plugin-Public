@@ -24,14 +24,9 @@
  */
 package com.osrsfliphub;
 
-import java.awt.Component;
-import java.awt.MouseInfo;
-import java.awt.Point;
-import java.awt.PointerInfo;
-import java.awt.Window;
+import java.awt.*;
 import java.awt.event.MouseEvent;
-import javax.swing.JComponent;
-import javax.swing.SwingUtilities;
+import javax.swing.*;
 
 /**
  * Puts the pointer back over whatever it was already over.

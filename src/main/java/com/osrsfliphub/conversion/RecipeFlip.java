@@ -24,8 +24,7 @@
  */
 package com.osrsfliphub;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 /**
  * One conversion the player recorded themselves: the trades they bought the parts with, the

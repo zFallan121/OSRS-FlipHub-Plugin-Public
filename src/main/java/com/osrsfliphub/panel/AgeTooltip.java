@@ -24,36 +24,18 @@
  */
 package com.osrsfliphub;
 
+import java.awt.*;
+import java.awt.event.*;
+import java.util.*;
+import java.util.List;
+import javax.swing.*;
+import javax.swing.Timer;
+import lombok.RequiredArgsConstructor;
 import static com.osrsfliphub.Skin.AGE_TOOLTIP_LEFT_GAP;
 import static com.osrsfliphub.Skin.LINE_STRONG;
 import static com.osrsfliphub.Skin.MUTED_2;
 import static com.osrsfliphub.Skin.OVERLAY_BASE;
 import static com.osrsfliphub.Skin.TEXT;
-
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.Frame;
-import java.awt.Insets;
-import java.awt.MouseInfo;
-import java.awt.Point;
-import java.awt.PointerInfo;
-import java.awt.Rectangle;
-import java.awt.Toolkit;
-import java.awt.Window;
-import java.awt.event.HierarchyBoundsAdapter;
-import java.awt.event.HierarchyEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.util.ArrayList;
-import java.util.List;
-import javax.swing.BorderFactory;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JToolTip;
-import javax.swing.JWindow;
-import javax.swing.SwingUtilities;
-import javax.swing.Timer;
-import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 final class AgeTooltip {

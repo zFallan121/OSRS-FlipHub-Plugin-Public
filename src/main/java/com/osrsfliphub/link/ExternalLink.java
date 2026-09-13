@@ -26,8 +26,8 @@ package com.osrsfliphub;
 
 import java.awt.Cursor;
 import javax.swing.JComponent;
-import net.runelite.client.util.LinkBrowser;
 import lombok.RequiredArgsConstructor;
+import net.runelite.client.util.LinkBrowser;
 
 @RequiredArgsConstructor
 final class ExternalLink {

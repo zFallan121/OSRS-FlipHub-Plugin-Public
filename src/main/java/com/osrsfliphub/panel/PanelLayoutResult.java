@@ -24,9 +24,7 @@
  */
 package com.osrsfliphub;
 
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
+import javax.swing.*;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor

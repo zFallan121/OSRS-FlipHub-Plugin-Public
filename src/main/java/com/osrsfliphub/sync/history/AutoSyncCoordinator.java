@@ -24,15 +24,12 @@
  */
 package com.osrsfliphub;
 
-import java.util.ArrayList;
-import java.util.List;
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import net.runelite.api.Client;
-import net.runelite.api.GameState;
-import net.runelite.api.widgets.Widget;
-import lombok.extern.slf4j.Slf4j;
+import java.util.*;
+import javax.inject.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.*;
+import net.runelite.api.widgets.Widget;
 
 @Singleton
 @Slf4j

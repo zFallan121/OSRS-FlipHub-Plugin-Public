@@ -24,15 +24,11 @@
  */
 package com.osrsfliphub;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import net.runelite.api.Client;
-import net.runelite.api.GrandExchangeOffer;
-import net.runelite.api.VarPlayer;
-import net.runelite.api.gameval.VarbitID;
-import net.runelite.api.widgets.ComponentID;
-import net.runelite.api.widgets.Widget;
+import javax.inject.*;
 import lombok.Getter;
+import net.runelite.api.*;
+import net.runelite.api.gameval.VarbitID;
+import net.runelite.api.widgets.*;
 
 @Singleton
 final class OfferPreviewItemResolver {

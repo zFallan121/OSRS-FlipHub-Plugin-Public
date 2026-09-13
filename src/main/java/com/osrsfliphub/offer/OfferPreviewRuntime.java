@@ -24,11 +24,9 @@
  */
 package com.osrsfliphub;
 
-import java.util.function.IntPredicate;
-import java.util.function.ToIntFunction;
+import java.util.function.*;
 import javax.inject.Singleton;
-import net.runelite.api.Client;
-import net.runelite.api.GrandExchangeOffer;
+import net.runelite.api.*;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.callback.ClientThread;
 

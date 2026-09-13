@@ -24,17 +24,10 @@
  */
 package com.osrsfliphub;
 
-import java.util.ArrayList;
-import java.util.ArrayDeque;
-import java.util.Collections;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import net.runelite.api.Client;
+import java.util.*;
+import javax.inject.*;
 import lombok.RequiredArgsConstructor;
+import net.runelite.api.Client;
 
 @Singleton
 final class AutoSync {

@@ -24,22 +24,15 @@
  */
 package com.osrsfliphub;
 
-import static com.osrsfliphub.Skin.LINE;
+import java.awt.*;
+import java.util.*;
+import java.util.List;
+import javax.swing.*;
+import lombok.RequiredArgsConstructor;
 import static com.osrsfliphub.Skin.CARD_ARC;
+import static com.osrsfliphub.Skin.LINE;
 import static com.osrsfliphub.Skin.MUTED;
 import static com.osrsfliphub.Skin.TEXT;
-
-import java.awt.BorderLayout;
-import java.awt.Component;
-import java.awt.Dimension;
-import java.util.ArrayList;
-import java.util.List;
-import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import lombok.RequiredArgsConstructor;
 
 /**
  * The list of item rows, kept between refreshes.

@@ -25,10 +25,8 @@
 package com.osrsfliphub;
 
 import java.util.Map;
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import net.runelite.api.GrandExchangeOffer;
-import net.runelite.api.GrandExchangeOfferState;
+import javax.inject.*;
+import net.runelite.api.*;
 
 @Singleton
 final class OfferUpdateStamp {
