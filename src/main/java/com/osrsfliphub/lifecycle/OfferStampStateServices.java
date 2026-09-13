@@ -31,6 +31,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.client.config.ConfigManager;
+import lombok.Getter;
 
 @Singleton
 final class OfferStampStateServices {
@@ -45,6 +46,7 @@ final class OfferStampStateServices {
 
     private volatile long offerUpdateStampsAccountKey = -1L;
     private volatile boolean offerUpdateStampsLoaded = false;
+    @Getter
     private volatile long lastLoginMs;
 
     @Inject
@@ -170,10 +172,6 @@ final class OfferStampStateServices {
 
     void setLastLoginNow() {
         lastLoginMs = System.currentTimeMillis();
-    }
-
-    long getLastLoginMs() {
-        return lastLoginMs;
     }
 
     private void migrateLegacyDevConfigValue(ConfigManager configManager, String key) {

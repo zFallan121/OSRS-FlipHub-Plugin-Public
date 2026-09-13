@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import lombok.Getter;
 
 /**
  * Singleton holder for the plugin's shared mutable state (caches, in-memory
@@ -40,123 +41,57 @@ import javax.inject.Singleton;
  */
 @Singleton
 final class PluginState {
+    @Getter
     private final Map<Integer, OfferSnapshot> snapshots = new ConcurrentHashMap<>();
+    @Getter
     private final Map<Integer, Stamp> offerUpdateStamps = new ConcurrentHashMap<>();
+    @Getter
     private final Set<Integer> bookmarkedItems = ConcurrentHashMap.newKeySet();
+    @Getter
     private final Set<Integer> hiddenItems = ConcurrentHashMap.newKeySet();
+    @Getter
     private final Map<String, Integer> itemNameLookupCache = new ConcurrentHashMap<>();
+    @Getter
     private final Map<Integer, String> itemNameCache = new ConcurrentHashMap<>();
+    @Getter
     private final Set<Long> loadedProfiles = ConcurrentHashMap.newKeySet();
+    @Getter
     private final Map<Long, Long> loadedProfileFileMs = new ConcurrentHashMap<>();
+    @Getter
     private final Map<Long, Long> selfWrittenProfileFileMs = new ConcurrentHashMap<>();
+    @Getter
     private final Map<Long, String> profileDisplayNames = new ConcurrentHashMap<>();
+    @Getter
     private final Map<Long, StatsCache> statsCacheByAccount = new ConcurrentHashMap<>();
+    @Getter
     private final Object localStatsLock = new Object();
     private final Map<Long, List<Delta>> localTradeDeltasByAccount = new HashMap<>();
+    @Getter
     private final Map<Long, Long> localSessionStartByAccount = new HashMap<>();
+    @Getter
     private final TradesLoad.State localTradesLoadState = new TradesLoad.State();
 
+    @Getter
     private final ProfileSelectionState profileSelection =
         new ProfileSelectionState(Const.ACCOUNTWIDE_KEY_STRING);
+    @Getter
     private final BookmarkConfigStore bookmarkConfigStore =
         new BookmarkConfigStore(Const.ACCOUNTWIDE_KEY);
+    @Getter
     private final HiddenItemConfigStore hiddenItemConfigStore = new HiddenItemConfigStore();
+    @Getter
     private final OfferUpdateStampConfigStore offerUpdateStampConfigStore = new OfferUpdateStampConfigStore();
+    @Getter
     private final OfferUpdateStampLegacyMatcher offerUpdateStampLegacyMatcher = new OfferUpdateStampLegacyMatcher();
+    @Getter
     private final UploadDiagnosticsState uploadState = new UploadDiagnosticsState();
 
     @Inject
     PluginState() {
     }
 
-    Map<Integer, OfferSnapshot> getSnapshots() {
-        return snapshots;
-    }
-
-    Map<Integer, Stamp> getOfferUpdateStamps() {
-        return offerUpdateStamps;
-    }
-
-    Set<Integer> getBookmarkedItems() {
-        return bookmarkedItems;
-    }
-
-    Set<Integer> getHiddenItems() {
-        return hiddenItems;
-    }
-
-    Map<String, Integer> getItemNameLookupCache() {
-        return itemNameLookupCache;
-    }
-
-    Map<Integer, String> getItemNameCache() {
-        return itemNameCache;
-    }
-
-    Set<Long> getLoadedProfiles() {
-        return loadedProfiles;
-    }
-
-    /**
-     * The modification stamp of the last write this process made to each profile file.
-     *
-     * <p>The file watcher cannot otherwise tell its own writes from somebody else's. Every
-     * write woke the watcher, which reloaded the file a second later and replaced the live
-     * in-memory list with what was on disk - discarding any fill recorded in between.</p>
-     */
-    Map<Long, Long> getSelfWrittenProfileFileMs() {
-        return selfWrittenProfileFileMs;
-    }
-
-    Map<Long, Long> getLoadedProfileFileMs() {
-        return loadedProfileFileMs;
-    }
-
-    Map<Long, String> getProfileDisplayNames() {
-        return profileDisplayNames;
-    }
-
-    Map<Long, StatsCache> getStatsCacheByAccount() {
-        return statsCacheByAccount;
-    }
-
-    Object getLocalStatsLock() {
-        return localStatsLock;
-    }
-
     Map<Long, List<Delta>> getLocalTradeDeltasByAccount() {
         return localTradeDeltasByAccount;
     }
 
-    Map<Long, Long> getLocalSessionStartByAccount() {
-        return localSessionStartByAccount;
-    }
-
-    TradesLoad.State getLocalTradesLoadState() {
-        return localTradesLoadState;
-    }
-
-    ProfileSelectionState getProfileSelection() {
-        return profileSelection;
-    }
-
-    BookmarkConfigStore getBookmarkConfigStore() {
-        return bookmarkConfigStore;
-    }
-
-    HiddenItemConfigStore getHiddenItemConfigStore() {
-        return hiddenItemConfigStore;
-    }
-
-    OfferUpdateStampConfigStore getOfferUpdateStampConfigStore() {
-        return offerUpdateStampConfigStore;
-    }
-
-    OfferUpdateStampLegacyMatcher getOfferUpdateStampLegacyMatcher() {
-        return offerUpdateStampLegacyMatcher;
-    }
-
-    UploadDiagnosticsState getUploadState() {
-        return uploadState;
-    }
 }

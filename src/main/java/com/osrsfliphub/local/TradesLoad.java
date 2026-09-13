@@ -27,15 +27,13 @@ package com.osrsfliphub;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import lombok.Getter;
 
 @Singleton
 final class TradesLoad {
     static final class State {
+        @Getter
         private long lastAttemptMs;
-
-        long getLastAttemptMs() {
-            return lastAttemptMs;
-        }
 
         void setLastAttemptMs(long lastAttemptMs) {
             this.lastAttemptMs = Math.max(0L, lastAttemptMs);

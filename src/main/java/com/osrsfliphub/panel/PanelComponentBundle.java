@@ -25,17 +25,27 @@
 package com.osrsfliphub;
 
 import java.awt.event.MouseWheelListener;
+import lombok.Getter;
 
 final class PanelComponentBundle {
+    @Getter
     private final ItemIconResolver itemIconResolver;
+    @Getter
     private final WheelScroll wheelScrollCoordinator;
+    @Getter
     private final MouseWheelListener wheelForwarder;
+    @Getter
     private final ProfileMenu profileMenuCoordinator;
+    @Getter
     private final AgeTooltip ageTooltipCoordinator;
     private final ItemCardBuilder itemCardBuilder;
+    @Getter
     private final ItemListContentRenderer itemListContentRenderer;
+    @Getter
     private final FlippingPanelBuilder flippingPanelBuilder;
+    @Getter
     private final StatsPanelBuilder statsPanelBuilder;
+    @Getter
     private final StatsItemCardBuilder statsItemCardBuilder;
 
     PanelComponentBundle(
@@ -62,39 +72,4 @@ final class PanelComponentBundle {
         this.statsItemCardBuilder = statsItemCardBuilder;
     }
 
-    ItemIconResolver getItemIconResolver() {
-        return itemIconResolver;
-    }
-
-    WheelScroll getWheelScrollCoordinator() {
-        return wheelScrollCoordinator;
-    }
-
-    MouseWheelListener getWheelForwarder() {
-        return wheelForwarder;
-    }
-
-    ProfileMenu getProfileMenuCoordinator() {
-        return profileMenuCoordinator;
-    }
-
-    AgeTooltip getAgeTooltipCoordinator() {
-        return ageTooltipCoordinator;
-    }
-
-    ItemListContentRenderer getItemListContentRenderer() {
-        return itemListContentRenderer;
-    }
-
-    FlippingPanelBuilder getFlippingPanelBuilder() {
-        return flippingPanelBuilder;
-    }
-
-    StatsPanelBuilder getStatsPanelBuilder() {
-        return statsPanelBuilder;
-    }
-
-    StatsItemCardBuilder getStatsItemCardBuilder() {
-        return statsItemCardBuilder;
-    }
 }

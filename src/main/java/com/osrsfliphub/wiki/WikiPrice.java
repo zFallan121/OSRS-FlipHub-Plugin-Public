@@ -40,12 +40,11 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 @Singleton
+@Slf4j
 final class WikiPrice {
-    private static final Logger log = LoggerFactory.getLogger(WikiPrice.class);
 
     interface Fetcher {
         interface Callback {

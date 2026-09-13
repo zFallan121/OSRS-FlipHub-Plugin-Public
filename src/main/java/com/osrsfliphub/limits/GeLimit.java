@@ -36,12 +36,11 @@ import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.game.ItemManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 @Singleton
+@Slf4j
 final class GeLimit {
-    private static final Logger log = LoggerFactory.getLogger(GeLimit.class);
 
     private final int maxLookupsPerRequest;
     private final ItemManager itemManager;

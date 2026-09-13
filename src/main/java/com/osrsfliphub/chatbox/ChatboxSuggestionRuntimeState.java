@@ -32,12 +32,16 @@ import net.runelite.api.Client;
 import net.runelite.api.VarClientInt;
 import net.runelite.api.widgets.ComponentID;
 import net.runelite.api.widgets.Widget;
+import lombok.Getter;
 
 @Singleton
 final class ChatboxSuggestionRuntimeState {
     private final Client client;
+    @Getter
     private Widget priceSuggestionWidget;
+    @Getter
     private Widget limitSuggestionWidget;
+    @Getter
     private Widget affordableLimitSuggestionWidget;
     private Widget cachedPricePromptWidget;
     private Widget cachedQuantityPromptWidget;
@@ -226,24 +230,12 @@ final class ChatboxSuggestionRuntimeState {
         return affordableLimitSuggestionWidget;
     }
 
-    Widget getPriceSuggestionWidget() {
-        return priceSuggestionWidget;
-    }
-
     void setPriceSuggestionWidget(Widget widget) {
         priceSuggestionWidget = widget;
     }
 
-    Widget getLimitSuggestionWidget() {
-        return limitSuggestionWidget;
-    }
-
     void setLimitSuggestionWidget(Widget widget) {
         limitSuggestionWidget = widget;
-    }
-
-    Widget getAffordableLimitSuggestionWidget() {
-        return affordableLimitSuggestionWidget;
     }
 
     void setAffordableLimitSuggestionWidget(Widget widget) {

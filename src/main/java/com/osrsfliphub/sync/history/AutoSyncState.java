@@ -25,6 +25,7 @@
 package com.osrsfliphub;
 
 import java.util.List;
+import lombok.Getter;
 
 /**
  * Whether a sync is due, and whether the history list has been read completely.
@@ -50,6 +51,7 @@ final class AutoSyncState {
 
     private final long widgetSettleMs;
     private final long readGiveUpMs;
+    @Getter
     private volatile boolean pending;
     private volatile long historyVisibleSinceMs;
     private volatile String lastReadFingerprint;
@@ -78,10 +80,6 @@ final class AutoSyncState {
     void disarm() {
         pending = false;
         forgetRead();
-    }
-
-    boolean isPending() {
-        return pending;
     }
 
     void markHistoryHidden() {

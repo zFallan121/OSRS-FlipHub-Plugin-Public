@@ -27,6 +27,7 @@ package com.osrsfliphub;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.GrandExchangeOfferState;
+import lombok.Getter;
 
 @Singleton
 final class OfferEventBuild {
@@ -57,7 +58,9 @@ final class OfferEventBuild {
     }
 
     static final class Result {
+        @Getter
         private final GeEvent event;
+        @Getter
         private final boolean baselineSynthetic;
         private final boolean clearRecentSlot;
         private final boolean ignore;
@@ -84,14 +87,6 @@ final class OfferEventBuild {
                                boolean clearRecentSlot,
                                boolean shouldScheduleRefresh) {
             return new Result(event, baselineSynthetic, clearRecentSlot, false, shouldScheduleRefresh);
-        }
-
-        GeEvent getEvent() {
-            return event;
-        }
-
-        boolean isBaselineSynthetic() {
-            return baselineSynthetic;
         }
 
         boolean shouldClearRecentSlot() {

@@ -33,12 +33,11 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 @Singleton
+@Slf4j
 final class LinkAttempt {
-    private static final Logger log = LoggerFactory.getLogger(LinkAttempt.class);
     private static final String PLUGIN_VERSION = "1.0.0";
 
     private static final long RETRY_DELAY_SECONDS = 5L;

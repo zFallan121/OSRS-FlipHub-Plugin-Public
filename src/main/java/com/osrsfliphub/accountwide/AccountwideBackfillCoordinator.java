@@ -33,12 +33,11 @@ import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.client.config.ConfigManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 @Singleton
+@Slf4j
 final class AccountwideBackfillCoordinator {
-    private static final Logger log = LoggerFactory.getLogger(AccountwideBackfillCoordinator.class);
 
     static final class Result {
         final boolean shouldRetry;

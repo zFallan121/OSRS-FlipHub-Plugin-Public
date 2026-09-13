@@ -20,6 +20,13 @@ def devRuneLiteProfile = 'fliphub-dev'
 dependencies {
 	compileOnly group: 'net.runelite', name: 'client', version: runeLiteVersion
 
+	// Versions match the plugin hub's standard-build.gradle, which replaces this file at
+	// package time. Keeping them in step means a local build compiles what the hub compiles.
+	compileOnly 'org.projectlombok:lombok:1.18.30'
+	annotationProcessor 'org.projectlombok:lombok:1.18.30'
+	testCompileOnly 'org.projectlombok:lombok:1.18.30'
+	testAnnotationProcessor 'org.projectlombok:lombok:1.18.30'
+
 	testImplementation 'junit:junit:4.13.2'
 	testImplementation group: 'net.runelite', name: 'client', version: runeLiteVersion
 	testImplementation group: 'net.runelite', name: 'jshell', version: runeLiteVersion

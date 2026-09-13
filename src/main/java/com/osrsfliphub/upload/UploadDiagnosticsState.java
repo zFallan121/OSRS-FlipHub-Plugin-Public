@@ -32,6 +32,7 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import lombok.Getter;
 
 final class UploadDiagnosticsState {
     private static final DateTimeFormatter UPLOAD_STATUS_TIME_FORMATTER =
@@ -47,6 +48,7 @@ final class UploadDiagnosticsState {
     private volatile String lastUploadError;
     /** Earliest the next attempt may run, while a failure is being backed off. */
     private volatile long nextAttemptAllowedMs = 0L;
+    @Getter
     private volatile long currentBackoffMs = 0L;
 
     /**
@@ -68,10 +70,6 @@ final class UploadDiagnosticsState {
 
     boolean isBackingOff(long nowMs) {
         return nowMs < nextAttemptAllowedMs;
-    }
-
-    long getCurrentBackoffMs() {
-        return currentBackoffMs;
     }
 
     void enqueueEvent(GeEvent event, int maxPendingUploadEvents) {

@@ -40,6 +40,7 @@ import net.runelite.client.callback.ClientThread;
 import okhttp3.OkHttpClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import lombok.Getter;
 
 final class RuntimeSchedulerServices {
     private static final Logger log = LoggerFactory.getLogger(RuntimeSchedulerServices.class);
@@ -70,8 +71,11 @@ final class RuntimeSchedulerServices {
     }
 
     static final class RuntimeState {
+        @Getter
         private final ApiClient apiClient;
+        @Getter
         private final ScheduledExecutorService scheduler;
+        @Getter
         private final ExecutorService ioExecutor;
 
         RuntimeState(ApiClient apiClient, ScheduledExecutorService scheduler, ExecutorService ioExecutor) {
@@ -80,17 +84,6 @@ final class RuntimeSchedulerServices {
             this.ioExecutor = ioExecutor;
         }
 
-        ApiClient getApiClient() {
-            return apiClient;
-        }
-
-        ScheduledExecutorService getScheduler() {
-            return scheduler;
-        }
-
-        ExecutorService getIoExecutor() {
-            return ioExecutor;
-        }
     }
 
     RuntimeState start(

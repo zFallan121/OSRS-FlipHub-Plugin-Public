@@ -31,12 +31,11 @@ import javax.inject.Singleton;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.widgets.Widget;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 @Singleton
+@Slf4j
 final class AutoSyncCoordinator {
-    private static final Logger log = LoggerFactory.getLogger(AutoSyncCoordinator.class);
 
     static final class HistorySnapshot {
         final boolean visible;

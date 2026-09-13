@@ -26,6 +26,8 @@ package com.osrsfliphub;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * The handful of flags the client thread records for everyone else to read.
@@ -38,36 +40,15 @@ import javax.inject.Singleton;
  */
 @Singleton
 final class PluginRuntime {
+    @Getter
+    @Setter
     private volatile boolean panelVisible;
+    @Getter
+    @Setter
     private volatile boolean clientFullyReady;
 
     @Inject
     PluginRuntime() {
     }
 
-    boolean isPanelVisible() {
-        return panelVisible;
-    }
-
-    void setPanelVisible(boolean panelVisible) {
-        this.panelVisible = panelVisible;
-    }
-
-    /**
-     * Whether the client was logged in with a local player present, as last seen on the client
-     * thread.
-     *
-     * <p>Background threads must read this rather than calling {@code client.getLocalPlayer()}
-     * themselves. That returns a mutable object the client can swap mid-frame, so reading it off
-     * the client thread is the one call in this area a plugin hub reviewer will challenge. The
-     * post-client-tick handler refreshes it every tick, so it is never more than one tick stale,
-     * and every consumer only uses it to decide whether to skip work this pass.
-     */
-    boolean isClientFullyReady() {
-        return clientFullyReady;
-    }
-
-    void setClientFullyReady(boolean clientFullyReady) {
-        this.clientFullyReady = clientFullyReady;
-    }
 }

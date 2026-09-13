@@ -37,20 +37,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.client.RuneLite;
+import lombok.extern.slf4j.Slf4j;
 
 @Singleton
+@Slf4j
 final class ProfileStore {
     private final Gson gson;
     private final String profileDirName;
     private final String legacyProfileDirName;
     private final Path runeliteDir;
-    private static final Logger log = LoggerFactory.getLogger(ProfileStore.class);
 
     private final AtomicBoolean legacyProfilesMigrated = new AtomicBoolean(false);
     /**

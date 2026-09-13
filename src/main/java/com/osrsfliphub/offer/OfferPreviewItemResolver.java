@@ -32,10 +32,12 @@ import net.runelite.api.VarPlayer;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.widgets.ComponentID;
 import net.runelite.api.widgets.Widget;
+import lombok.Getter;
 
 @Singleton
 final class OfferPreviewItemResolver {
     static final class Resolution {
+        @Getter
         private final Integer itemId;
         private final boolean clear;
 
@@ -54,10 +56,6 @@ final class OfferPreviewItemResolver {
 
         boolean shouldClear() {
             return clear;
-        }
-
-        Integer getItemId() {
-            return itemId;
         }
 
     }

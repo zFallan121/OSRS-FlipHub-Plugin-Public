@@ -31,12 +31,11 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 @Singleton
+@Slf4j
 final class TickServices {
-    private static final Logger log = LoggerFactory.getLogger(TickServices.class);
 
     /** Steps already complained about, so a failure every tick is said once, not forever. */
     private final Set<String> reportedFailures = ConcurrentHashMap.newKeySet();

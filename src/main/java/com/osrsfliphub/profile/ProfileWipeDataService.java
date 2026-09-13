@@ -35,12 +35,11 @@ import java.util.Map;
 import java.util.Set;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 @Singleton
+@Slf4j
 final class ProfileWipeDataService {
-    private static final Logger log = LoggerFactory.getLogger(ProfileWipeDataService.class);
 
     private final long accountwideKey = Const.ACCOUNTWIDE_KEY;
     private final Object localStatsLock;

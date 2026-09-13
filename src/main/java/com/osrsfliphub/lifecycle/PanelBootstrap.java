@@ -30,11 +30,15 @@ import net.runelite.client.game.ItemManager;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.overlay.OverlayManager;
+import lombok.Getter;
 
 final class PanelBootstrap {
     static final class UiState {
+        @Getter
         private final Panel panel;
+        @Getter
         private final NavigationButton navButton;
+        @Getter
         private final GeOfferTimerOverlay offerTimerOverlay;
 
         UiState(Panel panel, NavigationButton navButton, GeOfferTimerOverlay offerTimerOverlay) {
@@ -43,17 +47,6 @@ final class PanelBootstrap {
             this.offerTimerOverlay = offerTimerOverlay;
         }
 
-        Panel getPanel() {
-            return panel;
-        }
-
-        NavigationButton getNavButton() {
-            return navButton;
-        }
-
-        GeOfferTimerOverlay getOfferTimerOverlay() {
-            return offerTimerOverlay;
-        }
     }
 
     UiState initialize(
