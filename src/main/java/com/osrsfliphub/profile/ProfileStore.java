@@ -55,6 +55,12 @@ final class ProfileStore {
     private final AtomicBoolean legacyProfilesMigrated = new AtomicBoolean(false);
     /**
      * One lock per profile file.
+     *
+     * <p>Several callers write these files and they do not all come through the same queue:
+     * the coalescing writer on the IO pool, the flush at shutdown, the display-name stamp on
+     * the game thread, and a wipe. Two of them writing one file at once used to interleave
+     * through a shared scratch file and could publish half a document, which reads back as an
+     * account with no history at all.
      */
     private final Map<Path, Object> fileLocks = new ConcurrentHashMap<>();
 

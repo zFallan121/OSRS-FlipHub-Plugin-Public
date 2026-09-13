@@ -28,6 +28,14 @@ import java.util.List;
 
 /**
  * Whether a sync is due, and whether the history list has been read completely.
+ *
+ * <p>A cursor persisted from a partial read loses trades for good: everything between
+ * the old cursor and the truncated one is never imported. So no read is acted on until
+ * it is complete, and complete means two things. Its widgets form whole rows, and the
+ * rows it parses to have held still for the settle window - a list still being filled
+ * in changes from one tick to the next, a loaded one does not. A read that has not
+ * managed that by the give-up window is abandoned for this login, with nothing
+ * persisted; the next login tries again.
  */
 @javax.inject.Singleton
 final class GeHistoryAutoSyncStateService {
@@ -115,6 +123,11 @@ final class GeHistoryAutoSyncStateService {
 
     /**
      * Whether the list has stopped making progress, as opposed to simply taking a while.
+     *
+     * <p>Measured from the last time anything changed, not from when the tab was opened. A
+     * list that is still changing is still loading, however long the tab has been up. On the
+     * old clock, leaving the History tab open while offers completed switched the sync off
+     * for the rest of the login the first time a read was not yet settled.
      */
     private boolean givenUp(long nowMs) {
         if (readGiveUpMs <= 0L) {

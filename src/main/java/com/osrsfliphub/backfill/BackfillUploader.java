@@ -36,6 +36,11 @@ import net.runelite.api.GrandExchangeOfferState;
 final class BackfillUploader {
     /**
      * What became of one batch, and therefore whether trying again can help.
+     *
+     * <p>A boolean could not tell "the server is having a moment" from "the server will never
+     * take this". Both read as failure, so a batch the server had permanently refused was
+     * retried every ninety seconds for as long as the client stayed open, and each cycle
+     * re-sent every batch before it.
      */
     enum Outcome {
         /** Accepted. */

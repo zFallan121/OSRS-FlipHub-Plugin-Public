@@ -43,6 +43,11 @@ final class ApiStatusPolicy {
 
     /**
      * Whether an upload the server answered 200 to actually kept anything.
+     *
+     * <p>A batch can be accepted as a request and have every event in it thrown away. That is
+     * not a successful upload, and calling it one told the player their trades were on the
+     * website when none of them were. Both upload paths ask this same question, because they
+     * talk to the same endpoint and used to give opposite answers about it.
      */
     static boolean keptSomething(ApiClient.EventUploadResponse upload, int batchSize) {
         if (upload == null || batchSize <= 0) {

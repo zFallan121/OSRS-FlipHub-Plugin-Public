@@ -115,6 +115,15 @@ final class LocalStatsSnapshotService {
 
     /**
      * Every character's figures, added up character by character.
+     *
+     * <p>The alternative, pooling all their trades into one ledger, matches a buy made on one
+     * character against a sell made on another: main buys a thousand sharks, an alt sells five
+     * hundred it looted, and the pair is booked as a flip at a blended cost that never existed.
+     * The flip list is already built per character, so pooling also left the item rows unable
+     * to add up to the total above them. Adding up per character agrees with both.
+     *
+     * <p>The pooled ledger is still the fallback for the case where no per-character files can
+     * be found, so an account that has one is never shown nothing.
      */
     private LocalStatsSnapshot buildAccountwideSnapshot(Long sinceMs, StatsItemSort sort) {
         Set<Long> profileKeys = collectAccountwideProfileKeys();

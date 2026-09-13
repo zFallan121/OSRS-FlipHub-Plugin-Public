@@ -89,6 +89,11 @@ final class LocalTradeAnalyticsService {
 
     /**
      * How much of each item's four-hour buy limit is spoken for.
+     *
+     * <p>The game opens the window at the first purchase made once the previous one has run
+     * out, and closes it four hours later, so buys sitting in an expired window no longer
+     * count at all. Measuring a plain four hours back from now instead would keep charging a
+     * purchase made five hours ago against a window that has already reset.
      */
     Map<Integer, LocalLimitInfo> buildLocalLimitInfo(List<LocalTradeDelta> snapshot, long nowMs) {
         Map<Integer, LocalLimitInfo> infoMap = new HashMap<>();

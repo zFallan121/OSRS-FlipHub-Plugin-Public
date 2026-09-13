@@ -1,3 +1,27 @@
+/*
+ * Copyright (c) 2026, zFallan121
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ * ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 package com.osrsfliphub;
 
 import java.awt.BasicStroke;
@@ -14,6 +38,27 @@ import javax.swing.Icon;
 
 /**
  * What a card's activity was, drawn rather than typed.
+ *
+ * <p>These are painted instead of set as text because a font glyph is not
+ * dependable here: the panel's stack has no hammer and no small caret, and the
+ * caret shipped as a tofu box before anyone noticed. A path always draws.
+ *
+ * <p>They are a system, not six pictures. Every shape is solid, because a
+ * stroked one turns to mush at the size these ship at, and every pair is a
+ * mirror, so the two halves of a reversible trade read as opposites at a
+ * glance:
+ *
+ * <pre>
+ *   Flip           two arrows passing - the same item out as went in
+ *   Assemble       two arrows pressed in against a seam
+ *   Disassemble    the same two driven back out of it   (the mirror)
+ *   Repair         a wrench
+ *   Set combine    loose bars into a solid block
+ *   Set break      a solid block into loose bars        (the mirror)
+ * </pre>
+ *
+ * <p>Everything is laid out on a 14x14 grid and scaled to the requested size,
+ * so the proportions hold wherever it is drawn.
  */
 final class FlipHubActivityIcon implements Icon {
     private static final double GRID = 14.0;
@@ -90,6 +135,10 @@ final class FlipHubActivityIcon implements Icon {
 
     /**
      * Two arrows passing in opposite directions: bought, then sold.
+     *
+     * <p>Solid, not stroked. At the size these actually ship a hairline arrow
+     * collapses into a dash and the whole mark reads as an equals sign - the
+     * first cut of these did exactly that.
      */
     private void paintFlip(Graphics2D g) {
         g.fill(new Rectangle2D.Double(1.8, 3.5, 7.6, 2.1));

@@ -223,6 +223,11 @@ public class FlipHubPanel extends PluginPanel {
 
     /**
      * Releases everything the panel holds outside itself.
+     *
+     * <p>Disabling the plugin drops the panel, but two one-second Swing timers and a global AWT
+     * wheel listener kept referring back to it, so each toggle left a whole panel alive and
+     * ticking. removeNotify is not enough on its own: it never runs if the side panel was never
+     * opened, because the wheel listener is installed in the constructor.
      */
     void dispose() {
         ageTooltipCoordinator.shutDown();

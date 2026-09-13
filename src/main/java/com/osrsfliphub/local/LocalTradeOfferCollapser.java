@@ -1,3 +1,27 @@
+/*
+ * Copyright (c) 2026, zFallan121
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ * ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 package com.osrsfliphub;
 
 import java.util.ArrayList;
@@ -8,6 +32,25 @@ import java.util.Map;
 
 /**
  * One stored record per Grand Exchange offer.
+ *
+ * <p>The offer pipeline reports an offer chunk by chunk - an {@code OFFER_UPDATED} per
+ * fill, then an {@code OFFER_COMPLETED} - and every one of those is stored as it
+ * arrives, so an offer still filling counts towards the Profile tab as it fills. The
+ * moment it completes, the fills it left behind are replaced by one record holding the
+ * offer's totals. A finished offer is then one record, whatever it took to fill.
+ *
+ * <p><b>Which fills are this offer's.</b> A slot is reused, so slot alone is not
+ * identity. Two records belong to the same offer when they are on the same slot for the
+ * same item, side and price, and - when both carry one - were placed at the same moment
+ * ({@link LocalTradeDelta#offerStartMs}, the slot's stamp). That run is closed by its
+ * completion; and a record on the slot that fails the test closes whatever run was open
+ * there too, because the slot has plainly moved on to another offer. Records written
+ * before the start was tracked have none, so for them the item, side, price and the
+ * completion boundary are the whole rule.
+ *
+ * <p>The same rule serves both paths: {@link #append} as a completion arrives live, and
+ * {@link #collapse} over a whole stored list when it is loaded, which is what migrates a
+ * file written fill by fill.
  */
 final class LocalTradeOfferCollapser {
     enum Outcome {

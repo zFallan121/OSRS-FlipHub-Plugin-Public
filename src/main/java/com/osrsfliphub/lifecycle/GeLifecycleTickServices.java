@@ -50,6 +50,12 @@ final class GeLifecycleTickServices {
 
     /**
      * Run one step of the tick, and let the rest of the tick carry on if it fails.
+     *
+     * <p>These steps have nothing to do with one another, but they shared a fate: the first to
+     * throw took every later one with it, every tick, in silence. A service that could not be
+     * built at all stopped the in-game history sync, the display-name stamp, the wiki price
+     * refresh and the panel refresh together, and the only visible symptom was that the
+     * history sync said nothing any more.
      */
     private void step(String name, Runnable work) {
         try {

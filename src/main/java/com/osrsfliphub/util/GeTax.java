@@ -1,9 +1,43 @@
+/*
+ * Copyright (c) 2026, zFallan121
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ * ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 package com.osrsfliphub;
 
 import java.util.Set;
 
 /**
  * The Grand Exchange sale tax, in one place.
+ *
+ * <p>The game charges two percent of what a single item sold for, rounded down, which is why
+ * anything under fifty coins is taxed nothing at all. No single item is ever taxed more than
+ * five million, and a short list of items is exempt outright whatever it sells for. Buying is
+ * never taxed.
+ *
+ * <p>Everything that needs the tax asks here. The Activity card, both trade ledgers and the
+ * offer pipeline each used to carry their own version, and they disagreed: one applied the cap
+ * and one did not, one rounded per item and one took two percent of the whole sale. Two numbers
+ * on the same card could be computed from two different taxes.
  */
 final class GeTax {
     /** No single item is taxed more than this, however much it sold for. */
@@ -14,6 +48,16 @@ final class GeTax {
 
     /**
      * The items the game charges no sale tax on, whatever they sell for.
+     *
+     * <p>Jagex exempted low-value and early-game items when the tax went to two percent on
+     * 29 May 2025, and the list has not moved since. It is keyed on item id alone: price,
+     * quantity and whether the stack was noted make no difference, and the fifty-coin rounding
+     * threshold is a separate reason a sale can be untaxed rather than a substitute for this.
+     *
+     * <p>Ids verified against the wiki's own item infoboxes, the wiki's price mapping data and
+     * an independent third source. The near misses matter more than the hits here: the raw form
+     * of every exempt fish, the poisoned form of every exempt arrow and dart, Chocolate cake,
+     * Gilded spade and the other standard teleport tablets are all taxed normally.
      */
     private static final Set<Integer> EXEMPT_ITEM_IDS = Set.of(
         // Old school bond

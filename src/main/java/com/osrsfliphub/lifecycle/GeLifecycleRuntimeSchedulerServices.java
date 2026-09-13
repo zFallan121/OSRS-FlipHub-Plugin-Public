@@ -49,6 +49,13 @@ final class GeLifecycleRuntimeSchedulerServices {
 
     /**
      * Wraps a repeating scheduled task so one failure cannot end it.
+     *
+     * <p>A ScheduledExecutorService cancels a periodic task the first time it throws, and the
+     * Future is discarded here, so nothing observes the exception and nothing is logged. Every
+     * one of these bodies reaches for a service through the injector, which is exactly where
+     * this codebase has produced runtime-only failures before. Unguarded, a single throw ended
+     * event upload, the accountwide sync, both panel refreshes or the offer preview for the
+     * rest of the client session, in silence.</p>
      */
     private static Runnable guarded(String name, Runnable work) {
         return () -> {

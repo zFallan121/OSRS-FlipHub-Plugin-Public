@@ -32,6 +32,10 @@ import java.util.List;
  * the wipe barrier is armed for the account the rules are stricter, because the cursor
  * the wipe set is the only thing standing between the rows the player just wiped and
  * a second import of every one of them.
+ *
+ * <p>Before either path: the in-game list never shrinks, so a read with fewer rows
+ * than the stored cursor is a partial read that got past the settle rules, or a parser
+ * that has started rejecting rows. Neither may become the cursor, on any path.
  */
 @javax.inject.Singleton
 final class GeHistoryWipeBaselineDecisionService {

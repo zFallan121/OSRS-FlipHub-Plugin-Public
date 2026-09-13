@@ -32,10 +32,23 @@ import javax.swing.SwingUtilities;
 
 /**
  * A click on part of a card, as a person means it rather than as the toolkit defines it.
+ *
+ * <p>This listened for {@code mouseClicked}, which the toolkit only sends when the pointer
+ * has not moved between the press and the release. A few pixels of drift, which is ordinary
+ * on a trackpad and common with a mouse, cancels it outright and nothing at all happens. The
+ * card then feels like it has dead patches, and which patch is dead changes every time,
+ * because the real variable is how steady the hand was rather than where it was.
+ *
+ * <p>So the press is remembered and the release decides, as long as the pointer is still on
+ * the thing that was pressed. That is the same rule a button follows: press it, slide off it
+ * and let go, and nothing happens; let go while still on it, and it fires.
  */
 final class FlipHubStatsClickMouseAdapter extends MouseAdapter {
     /**
      * How far the pointer may sit outside the pressed component and still count.
+     *
+     * <p>A card's parts abut one another with no gaps, so releasing a pixel over the edge of
+     * a label is still, to the person doing it, a release on the same row.
      */
     private static final int EDGE_SLACK_PX = 2;
 

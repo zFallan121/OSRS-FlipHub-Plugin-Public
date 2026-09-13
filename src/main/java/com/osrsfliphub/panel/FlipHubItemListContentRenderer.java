@@ -43,6 +43,13 @@ import javax.swing.JPanel;
 
 /**
  * The list of item rows, kept between refreshes.
+ *
+ * <p>A refresh a second brings new prices for the same items in the same order, which is a list
+ * that has not changed shape - only its numbers. Rebuilding it would throw away the row the
+ * pointer is on, the tooltip it has open and every icon, and put back an identical list; so the
+ * rows are held here by item id and the refresh writes into them. The panel is only emptied and
+ * rebuilt when the shape genuinely changes: a different set of items, a different order, a
+ * filter turned on, the offer preview taking over.
  */
 final class FlipHubItemListContentRenderer {
     private final FlipHubUiStyler uiStyler;

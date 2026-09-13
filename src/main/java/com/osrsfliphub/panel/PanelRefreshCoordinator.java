@@ -42,10 +42,20 @@ final class PanelRefreshCoordinator {
     private final AtomicBoolean refreshMissed = new AtomicBoolean(false);
     /**
      * Whether a refresh has actually reached the panel since it was last shown.
+     *
+     * <p>The refresh is triggered once, on the tick where the panel becomes visible, and that
+     * one attempt is dropped if the client is not ready yet, which at login it usually is not.
+     * Nothing tried again, so the panel sat empty until some unrelated event happened to
+     * rebuild it: a batch of buy limits, an item name, an offer changing. That was tens of
+     * seconds of an empty Activity list on a perfectly working client.
      */
     private volatile boolean renderedSincePanelShown;
     /**
      * The same, for the Profile tab.
+     *
+     * <p>Its refresh is deliberately skipped while the tab is not showing, which is right, but
+     * nothing asked for one when it was selected either. So the tab arrived empty and stayed
+     * empty until some unrelated event fired while it happened to be the tab on screen.
      */
     private volatile boolean renderedStatsSinceShown;
     private final AtomicBoolean refreshQueued = new AtomicBoolean(false);

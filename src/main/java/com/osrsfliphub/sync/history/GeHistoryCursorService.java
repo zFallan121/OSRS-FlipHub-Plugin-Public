@@ -31,6 +31,18 @@ import java.util.Objects;
 
 /**
  * Where the last history sync got to, as the signatures of the rows it saw.
+ *
+ * <p>A signature is a row's item, side, quantity and coins - the four numbers read
+ * straight off the widget. Not its unit price: the parser derives that, and for a
+ * sale it is inferred back through the tax, so it moves whenever that inference
+ * does. A cursor built on it stopped matching the moment the parser was touched,
+ * and a cursor that matches nothing reads as "every row is new" - which after a
+ * wipe means importing every row the player just wiped.
+ *
+ * <p>For the same reason the stored form carries {@link #FORMAT_VERSION}. A cursor
+ * this code did not write is no cursor at all, and no cursor re-baselines without
+ * importing anything. The config key it is stored under does not change with it;
+ * the value says what it is.
  */
 @javax.inject.Singleton
 final class GeHistoryCursorService {

@@ -175,6 +175,13 @@ final class GeLifecycleLocalTradesRuntimeService {
 
     /**
      * Records that an account's trades need saving, and gets the file written.
+     *
+     * <p>Callers are usually on the thread drawing the game: this runs once per Grand Exchange
+     * fill, and serialising thousands of deltas and writing them there costs frames. The write
+     * moves to the IO pool, coalesced per account so a burst of fills produces one write of the
+     * latest state rather than a queue of stale ones, and serialised so two writers never race
+     * the same file. If there is no pool to hand the work to it is written here instead, because
+     * losing it would be worse than the delay.
      */
     void persistLocalTrades(long accountKey) {
         if (accountKey < 0) {

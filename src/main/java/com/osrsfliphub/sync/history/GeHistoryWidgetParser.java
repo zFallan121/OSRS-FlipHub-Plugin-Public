@@ -69,6 +69,13 @@ final class GeHistoryWidgetParser {
 
     /**
      * One row of the history as a trade.
+     *
+     * <p>The quantity and coins this returns are what the sync's cursor signatures are
+     * built from ({@link GeHistoryCursorService#buildSignature}). A change to how either
+     * is read makes every stored cursor stop matching, and a cursor that matches nothing
+     * is read as a history that rolled over. Bump
+     * {@link GeHistoryCursorService#FORMAT_VERSION} with any such change, so stored
+     * cursors are retired instead.
      */
     static GeHistoryTrade parseTrade(String stateText, int itemId, int quantity, String detailsText) {
         if (itemId <= 0) {

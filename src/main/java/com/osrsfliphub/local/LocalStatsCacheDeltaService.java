@@ -295,6 +295,13 @@ final class LocalStatsCacheDeltaService {
 
     /**
      * The part of a hold that one sale closes.
+     *
+     * <p>Active time is what gold per hour divides by, and a purchase held for
+     * an hour was an hour in the market however many fills it took to sell.
+     * Each fill therefore carries the share of the position it closed - the
+     * units it sold over everything that entered the pool since it was last
+     * empty - so a purchase sold in ten pieces adds up to one hold, not ten.
+     * A negative hold is a fiction of a replay and counts as nothing.
      */
     private static long heldShare(long holdMs, long soldQty, long positionQty) {
         if (holdMs <= 0L || soldQty <= 0L) {
@@ -574,6 +581,11 @@ final class LocalStatsCacheDeltaService {
     /**
      * {@link ConversionBuckets} over the cache's inventory, answering for one
      * sale: which import it came from, if any, and its place in it.
+     *
+     * <p>It carries the earliest buy time of the inputs onto the item they
+     * made, so an assembled item is held from the moment its first ingredient
+     * was bought. Without that the hold time would start at the sale and the
+     * activity would report an infinite gp per hour.
      */
     private final class CacheBuckets implements ConversionBuckets {
         private final int saleBatch;

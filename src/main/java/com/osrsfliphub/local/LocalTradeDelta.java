@@ -26,6 +26,11 @@ package com.osrsfliphub;
 
 /**
  * One stored trade record.
+ *
+ * <p>While an offer is filling there is one of these per fill, holding that fill's
+ * increment. When the offer completes, {@link LocalTradeOfferCollapser} replaces
+ * them with one record holding the offer's totals, so a finished offer is always
+ * exactly one record however many chunks it filled in.
  */
 final class LocalTradeDelta {
     /**
@@ -82,6 +87,14 @@ final class LocalTradeDelta {
 
     /**
      * When the offer ended: {@link #endMs} when it has one, else the record's own time.
+     *
+     * <p>A sale is booked at this moment - replayed against the stock held by then,
+     * given the flip's completion time, placed in a range, the end of the hold - because
+     * a sale offer left up while more of the item is bought sells its later units out of
+     * that later stock, and one record can only be matched once. Booking it when it
+     * ended is the one choice that never leaves a real sale unmatched. A purchase keeps
+     * {@link #tsClientMs} for its anchors: the position opens, and the buy-limit window
+     * starts, at the first unit bought.
      */
     long closedAtMs() {
         return endMs > 0 ? endMs : tsClientMs;

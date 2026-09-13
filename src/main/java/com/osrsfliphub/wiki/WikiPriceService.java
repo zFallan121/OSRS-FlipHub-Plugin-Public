@@ -224,6 +224,15 @@ final class WikiPriceService {
 
     /**
      * Tell the panel there are prices now.
+     *
+     * <p>The panel builds its cards once, when it becomes visible, and the first prices arrive
+     * a moment after that. Nothing used to say so, so the cards kept whatever they had been
+     * built with until some unrelated event happened to rebuild them: a batch of buy limits
+     * finishing, an item name being looked up, an offer changing. On a list of any size that
+     * is tens of seconds of a panel that looks broken.
+     *
+     * <p>The refresh is debounced by the coordinator, and a successful fetch happens at most
+     * once per cache window, so this is cheap.
      */
     private void notifyPricesArrived() {
         GeLifecyclePlugin plugin = PluginAccess.pluginOrNull();
