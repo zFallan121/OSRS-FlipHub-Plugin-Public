@@ -45,6 +45,7 @@ final class ProfileTradesLoader {
         final boolean unreadable;
         /** The recipe guesses the file says the player dismissed; empty for a file that predates them. */
         final List<ConversionRejection> rejectedConversions;
+        final List<RecipeFlip> recipeFlips;
 
         Result(List<Delta> deltas, String resolvedDisplayName, long profileFileModifiedMs) {
             this(deltas, resolvedDisplayName, profileFileModifiedMs, false);
@@ -62,6 +63,16 @@ final class ProfileTradesLoader {
                long profileFileModifiedMs,
                boolean unreadable,
                List<ConversionRejection> rejectedConversions) {
+            this(deltas, resolvedDisplayName, profileFileModifiedMs, unreadable, rejectedConversions, null);
+        }
+
+        Result(List<Delta> deltas,
+               String resolvedDisplayName,
+               long profileFileModifiedMs,
+               boolean unreadable,
+               List<ConversionRejection> rejectedConversions,
+               List<RecipeFlip> recipeFlips) {
+            this.recipeFlips = recipeFlips != null ? recipeFlips : new ArrayList<>();
             this.deltas = deltas != null ? deltas : new ArrayList<>();
             this.resolvedDisplayName = resolvedDisplayName;
             this.profileFileModifiedMs = profileFileModifiedMs;
@@ -127,6 +138,7 @@ final class ProfileTradesLoader {
             resolvedName = profileName.trim();
         }
         List<ConversionRejection> corrections = profile != null ? profile.rejectedConversions : null;
-        return new Result(merged, resolvedName, Math.max(0L, fileMs), false, corrections);
+        List<RecipeFlip> recorded = profile != null ? profile.recipeFlips : null;
+        return new Result(merged, resolvedName, Math.max(0L, fileMs), false, corrections, recorded);
     }
 }

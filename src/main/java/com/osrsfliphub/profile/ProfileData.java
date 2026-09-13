@@ -38,4 +38,10 @@ final class ProfileData {
      * looks the way it always has.
      */
     List<ConversionRejection> rejectedConversions;
+    /**
+     * Conversions the player recorded themselves. Replaces the guessed attribution that
+     * {@link #rejectedConversions} used to correct; that field is still read so a file written
+     * by an older build still loads, and is no longer written.
+     */
+    List<RecipeFlip> recipeFlips;
 }

@@ -80,6 +80,10 @@ final class ProfileTradesLoad {
         if (rejections != null) {
             rejections.replace(accountHash, loaded.rejectedConversions);
         }
+        RecipeFlipStore recorded = Bridge.get(RecipeFlipStore.class);
+        if (recorded != null) {
+            recorded.replace(accountHash, loaded.recipeFlips);
+        }
         LocalStatsCacheService statsCache = Bridge.get(LocalStatsCacheService.class);
         if (statsCache != null) {
             statsCache.rebuild(accountHash, merged);

@@ -565,7 +565,7 @@ public class ConversionRejectionTest {
         try {
             ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
             List<ConversionRejection> filed = Collections.singletonList(helmWasNotBrokenOffTheSet());
-            assertTrue(store.writeProfileData(ACCOUNT, ACCOUNTWIDE, "Zezima", ownersTrades(), filed) > 0L);
+            assertTrue(store.writeProfileData(ACCOUNT, ACCOUNTWIDE, "Zezima", ownersTrades(), filed, null) > 0L);
 
             ProfileData read = store.readProfileData(ACCOUNT, ACCOUNTWIDE);
             assertNotNull(read);
@@ -606,7 +606,7 @@ public class ConversionRejectionTest {
             assertFalse(corrections.isRejected(ACCOUNT, HELM_SALE));
 
             // And a file with nothing to say is written the way it always was.
-            assertTrue(store.writeProfileData(ACCOUNT, ACCOUNTWIDE, "Zezima", read.deltas, new ArrayList<>()) > 0L);
+            assertTrue(store.writeProfileData(ACCOUNT, ACCOUNTWIDE, "Zezima", read.deltas, new ArrayList<>(), null) > 0L);
             assertFalse(Files.readString(file, StandardCharsets.UTF_8).contains("rejectedConversions"));
         } finally {
             deleteRecursively(baseDir);

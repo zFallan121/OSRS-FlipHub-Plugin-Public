@@ -87,7 +87,10 @@ final class ProfileStorage {
         // The corrections travel with the trades they name, in the same file.
         RejectionStore rejections = Bridge.get(RejectionStore.class);
         List<ConversionRejection> corrections = rejections != null ? rejections.snapshotForFile(accountHash) : null;
-        long fileMs = store.writeProfileData(accountHash, accountwideKey, displayName, snapshot, corrections);
+        RecipeFlipStore recorded = Bridge.get(RecipeFlipStore.class);
+        List<RecipeFlip> flips = recorded != null ? recorded.snapshotForFile(accountHash) : null;
+        long fileMs = store.writeProfileData(
+            accountHash, accountwideKey, displayName, snapshot, corrections, flips);
         if (fileMs > 0) {
             pluginState.getLoadedProfileFileMs().put(accountHash, fileMs);
             // Remember that this write was ours, so the watcher does not treat it as an
