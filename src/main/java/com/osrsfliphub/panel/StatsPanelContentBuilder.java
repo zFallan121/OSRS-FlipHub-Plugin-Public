@@ -194,7 +194,7 @@ final class StatsPanelContentBuilder {
         row.add(heading, BorderLayout.WEST);
 
         row.add(uiStyler.actionLink("Record a recipe",
-            "Tell FlipHub that some of your trades were one conversion",
+            "Record trades as one recipe",
             () -> {
                 if (openRecorder != null) {
                     openRecorder.run();
@@ -403,10 +403,10 @@ final class StatsPanelContentBuilder {
         // tofu box; this is the same triangle the sort button and the card
         // chevrons use, and having been seen is the only evidence a glyph
         // is safe here.
-        JLabel labelView = new JLabel("Total Profit \u25bc");
+        JLabel labelView = new TipLabel("Total Profit \u25bc", SwingConstants.LEADING);
         uiStyler.styleMicroLabel(labelView, 9.5f);
         labelView.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
-        labelView.setToolTipText("Show this total for one kind of activity");
+        labelView.setToolTipText("One kind of activity");
         installProfitFilterMenu(labelView);
 
         totalProfitValue.setForeground(SUCCESS);
@@ -434,7 +434,7 @@ final class StatsPanelContentBuilder {
         row.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, LINE));
         row.setAlignmentX(JPanel.LEFT_ALIGNMENT);
 
-        JLabel labelView = new JLabel(label);
+        JLabel labelView = new TipLabel(label, SwingConstants.LEADING);
         labelView.setForeground(MUTED);
         labelView.setFont(uiStyler.font(10.5f));
 

@@ -144,7 +144,7 @@ final class PanelChromeBuilder {
     }
 
     JButton buildDiscordButton(Runnable onDiscordRequested) {
-        JButton button = new JButton();
+        JButton button = new TipButton();
         button.setToolTipText("Join the FlipHub Discord");
         Icon mark = buildDiscordMark();
         if (mark != null) {

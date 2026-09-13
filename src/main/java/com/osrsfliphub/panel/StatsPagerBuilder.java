@@ -68,7 +68,7 @@ final class StatsPagerBuilder {
     }
 
     private JButton buildPagerButton(String text, boolean enabled, Runnable action) {
-        JButton button = new JButton(text);
+        JButton button = new TipButton(text);
         uiStyler.styleGhostControl(button, 11f, new Insets(4, 12, 4, 12));
         // A control that cannot do anything says so in the ramp rather than by looking pressable:
         // page 1 has no newer page, and --muted-2 is the floor for text that still carries meaning.

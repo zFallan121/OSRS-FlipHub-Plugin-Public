@@ -119,7 +119,7 @@ final class ItemCardBuilder {
         header.add(iconLayer, BorderLayout.WEST);
         header.add(nameLabel, BorderLayout.CENTER);
 
-        JButton bookmarkButton = new JButton();
+        JButton bookmarkButton = new TipButton();
         bookmarkButton.setFocusPainted(false);
         bookmarkButton.setBorder(BorderFactory.createEmptyBorder(2, 6, 2, 6));
         bookmarkButton.setBorderPainted(false);
@@ -374,7 +374,7 @@ final class ItemCardBuilder {
      * hover affordance the rest of the panel's ghost controls use.
      */
     private JButton buildRemoveButton(FlipHubItem item) {
-        JButton removeButton = new JButton() {
+        JButton removeButton = new TipButton() {
             @Override
             protected void paintComponent(Graphics g) {
                 int size = Math.min(getWidth(), getHeight()) - 1;

@@ -71,8 +71,12 @@ import javax.swing.SwingUtilities;
  * Both are visible here, and both can be undone here.
  */
 final class RecipeRecorder {
-    /** How many unpicked trades a side shows at once. The rest are a page away. */
+    /** How many trades a page shows. The rest are a page away. */
     private static final int PAGE_SIZE = 10;
+
+    /** One trade's row, and the line inside it the name sits on. Neither ever changes. */
+    private static final int ROW_HEIGHT = 36;
+    private static final int NAME_HEIGHT = 20;
 
     /** One stored trade the player may pick, and how much of it is still unspoken for. */
     private static final class Candidate {
@@ -109,7 +113,7 @@ final class RecipeRecorder {
     private final JLabel receivedValue = new JLabel();
     private final JLabel taxValue = new JLabel();
     private final JLabel profitValue = new JLabel();
-    private final JButton recordButton = new JButton("Record");
+    private final JButton recordButton = new TipButton("Record");
     private final JPanel form = column();
     private final JPanel storedSection = column();
     private final JLabel nothingToDo = new Line();
@@ -194,7 +198,7 @@ final class RecipeRecorder {
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
 
         content.add(headingRow("Record a recipe",
-            uiStyler.actionLink("Cancel", "Leave without recording anything", this::close)));
+            uiStyler.actionLink("Cancel", "Leave without recording", this::close)));
 
         nothingToDo.setForeground(MUTED_2);
         nothingToDo.setFont(uiStyler.font(10.5f));
@@ -227,7 +231,7 @@ final class RecipeRecorder {
         form.add(Box.createVerticalStrut(8));
         form.add(headingRow("Fee (if any)", null));
         field(feeField, this::price);
-        feeField.setToolTipText("Coins the conversion itself cost, for the whole of this record");
+        feeField.setToolTipText("What the recipe itself cost");
         form.add(feeField);
 
         form.add(Box.createVerticalStrut(8));
@@ -295,12 +299,16 @@ final class RecipeRecorder {
      * recipe's trades sit beside each other, which is where the player looks for them.
      *
      * <p>Ten rows, because a thousand-trade history rendered whole is a screen nobody can
-     * record anything from. Ticked trades sort to the front of the whole list rather than being
-     * pinned on top of every page, which keeps the page exactly ten rows and still puts every
-     * tick on the first page: a tick whose coins are in the tally below but whose row is four
-     * pages away is how a record ends up naming trades the player can no longer see.
+     * record anything from.
      *
-     * <p>The search narrows what is still pickable and never what is already picked, for the
+     * <p>Nothing moves when it is ticked. Sorting the ticked ones to the front put every pick
+     * on the first page, which sounds useful until you are ticking four things in a row: each
+     * tick shuffles the list under the cursor and the next thing you meant to tick is no longer
+     * where you were looking at it. Keeping the order fixed costs a pick the chance of being
+     * paged away from, and the two figures beside the heading are there to say how many are
+     * ticked when their rows are not on screen.
+     *
+     * <p>The search narrows what is still pickable and never what is already picked, for that
      * same reason - typing a name must not take a tick off the screen while its money stays in
      * the tally.
      */
@@ -310,21 +318,20 @@ final class RecipeRecorder {
             ? findField.getText().trim().toLowerCase(Locale.US)
             : "";
         List<Candidate> ordered = new ArrayList<>();
-        int pickedRows = 0;
         int bought = 0;
         int sold = 0;
         for (Candidate candidate : picks) {
             if (candidate.picked()) {
-                ordered.add(pickedRows++, candidate);
                 if (candidate.trade.isBuy) {
                     bought++;
                 } else {
                     sold++;
                 }
-            } else if (query.isEmpty()
-                || itemName(candidate.trade.itemId).toLowerCase(Locale.US).contains(query)) {
-                ordered.add(candidate);
+            } else if (!query.isEmpty()
+                && !itemName(candidate.trade.itemId).toLowerCase(Locale.US).contains(query)) {
+                continue;
             }
+            ordered.add(candidate);
         }
 
         int pages = Math.max(1, (ordered.size() + PAGE_SIZE - 1) / PAGE_SIZE);
@@ -377,7 +384,12 @@ final class RecipeRecorder {
         boolean split = candidate.picked() && candidate.available > 1;
         JPanel row = new JPanel(new BorderLayout(6, 0));
         row.setOpaque(false);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, split ? 40 : 32));
+        // Fixed, and the same whether the row is ticked or not. Ticking a purchase of more than
+        // one swaps its quantity for a box to type in, which is taller than the figure it
+        // replaces - so the row would grow and shove everything under it down the screen. Every
+        // row is already the height of the taller of the two.
+        row.setPreferredSize(new Dimension(0, ROW_HEIGHT));
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, ROW_HEIGHT));
 
         JLabel mark = new JLabel(new PickIcon(PICK_MARK_SIZE, candidate.picked()));
         mark.setVerticalAlignment(SwingConstants.TOP);
@@ -386,7 +398,8 @@ final class RecipeRecorder {
         JPanel middle = column();
         JPanel top = new JPanel(new BorderLayout(6, 0));
         top.setOpaque(false);
-        top.setMaximumSize(new Dimension(Integer.MAX_VALUE, split ? 22 : 16));
+        top.setPreferredSize(new Dimension(0, NAME_HEIGHT));
+        top.setMaximumSize(new Dimension(Integer.MAX_VALUE, NAME_HEIGHT));
         warmName(candidate.trade.itemId);
         EllipsisLabel name = new EllipsisLabel(itemName(candidate.trade.itemId));
         name.setForeground(candidate.picked() ? TEXT : MUTED);
@@ -397,10 +410,13 @@ final class RecipeRecorder {
         middle.add(top);
 
         // Which side a trade is on decides which half of the recipe it lands in. It used to be
-        // said by which of two lists the row was in; with one list, it is said here.
-        JLabel detail = new Line((candidate.trade.isBuy ? "Bought" : "Sold")
-            + " · " + valueFormat.formatGpCompact(candidate.trade.deltaGp)
-            + " · " + age(candidate.trade.closedAtMs()));
+        // said by which of two lists the row was in; with one list it is said here, and in the
+        // two colours the panel already spends on coins leaving and coins arriving.
+        JLabel detail = new Line("<html><font color='"
+            + toHex(candidate.trade.isBuy ? DANGER : SUCCESS) + "'>"
+            + (candidate.trade.isBuy ? "Bought" : "Sold") + "</font> · "
+            + valueFormat.formatGpCompact(candidate.trade.deltaGp)
+            + " · " + age(candidate.trade.closedAtMs()) + "</html>");
         detail.setForeground(MUTED_2);
         detail.setFont(uiStyler.font(9.5f));
         middle.add(detail);
@@ -465,7 +481,7 @@ final class RecipeRecorder {
         used.setFont(uiStyler.fontNumeric(9.5f));
         used.setHorizontalAlignment(SwingConstants.RIGHT);
         used.setBorder(uiStyler.roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(1, 4, 1, 4)));
-        used.setPreferredSize(new Dimension(QUANTITY_FIELD_WIDTH, used.getPreferredSize().height));
+        used.setPreferredSize(new Dimension(QUANTITY_FIELD_WIDTH, NAME_HEIGHT - 2));
         uiStyler.onEdit(used, () -> {
             // Clamped rather than refused: an empty box while the player retypes must not drop
             // the pick out from under them, and more than they bought is a typo, not a claim.
@@ -483,8 +499,7 @@ final class RecipeRecorder {
         holder.add(used, BorderLayout.CENTER);
         holder.add(total, BorderLayout.EAST);
         holder.setPreferredSize(new Dimension(
-            QUANTITY_FIELD_WIDTH + 3 + total.getPreferredSize().width,
-            used.getPreferredSize().height));
+            QUANTITY_FIELD_WIDTH + 3 + total.getPreferredSize().width, NAME_HEIGHT - 2));
         return holder;
     }
 
@@ -521,7 +536,7 @@ final class RecipeRecorder {
         name.setFont(uiStyler.font(9.5f));
         name.setHorizontalAlignment(SwingConstants.LEFT);
         top.add(name, BorderLayout.CENTER);
-        top.add(uiStyler.actionLink("Forget", "Undo this record and give its trades back",
+        top.add(uiStyler.actionLink("Forget", "Undo this record",
             () -> forget(flip)), BorderLayout.EAST);
 
         // The one thing the player could not otherwise find out. A record whose trades have
@@ -596,8 +611,8 @@ final class RecipeRecorder {
         recordButton.setEnabled(ready);
         recordButton.setForeground(ready ? TEXT : MUTED_2);
         recordButton.setToolTipText(ready
-            ? "File this as one activity against " + flip.name
-            : "Pick at least one purchase and one sale");
+            ? "Record as one activity"
+            : "Tick a purchase and a sale");
     }
 
     private RecipeFlip buildFlip() {
@@ -785,7 +800,7 @@ final class RecipeRecorder {
         row.setOpaque(false);
         uiStyler.styleTextField(findField);
         uiStyler.installInlineClear(findField);
-        findField.setToolTipText("Narrow both lists to one item");
+        findField.setToolTipText("Find one item");
         uiStyler.onEdit(findField, this::refresh);
         row.add(findField, BorderLayout.CENTER);
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));

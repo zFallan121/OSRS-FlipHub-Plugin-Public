@@ -199,8 +199,6 @@ final class StatsItemCardBuilder {
         String name = Str.hasText(item.item_name)
             ? item.item_name
             : "Item " + item.item_id;
-        card.setToolTipText(buildStatsCardTooltip(name, item, expanded));
-
         JLabel iconLabel = new JLabel();
         iconLabel.setPreferredSize(new Dimension(32, 32));
         if (itemIconResolver != null) {
@@ -249,7 +247,7 @@ final class StatsItemCardBuilder {
         trailing.setOpaque(false);
         trailing.setLayout(new BoxLayout(trailing, BoxLayout.X_AXIS));
         for (ConversionKind kind : visibleKinds(item.item_id)) {
-            JLabel typeMark = new JLabel(new ActivityIcon(kind, TYPE_ICON_SIZE, ACCENT));
+            JLabel typeMark = new TipLabel(new ActivityIcon(kind, TYPE_ICON_SIZE, ACCENT));
             typeMark.setToolTipText(ActivityIcon.singularLabel(kind));
             trailing.add(typeMark);
             trailing.add(Box.createHorizontalStrut(4));
@@ -286,21 +284,6 @@ final class StatsItemCardBuilder {
      * The collapsed card trades detail for width - the name is clipped to fit, the meta line is
      * clipped before it and the profit is abbreviated - so the full values live here.
      */
-    private String buildStatsCardTooltip(String name, StatsItem item, boolean expanded) {
-        return "<html><b>" + escapeHtml(name) + "</b><br>"
-            + escapeHtml(valueFormatService.formatGp(item.total_profit_gp)) + "<br>"
-            + escapeHtml(formattingService.buildStatsItemMeta(item)) + "<br>"
-            + (expanded ? "Click to collapse" : "Click to expand")
-            + "</html>";
-    }
-
-    private String escapeHtml(String text) {
-        if (text == null) {
-            return "";
-        }
-        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-    }
-
     private JPanel buildStatsItemDetails(StatsItem item) {
         JPanel details = new JPanel();
         details.setOpaque(false);

@@ -207,7 +207,7 @@ final class AccountPanelBuilder {
         keyField.setMaximumSize(new Dimension(Integer.MAX_VALUE, keyField.getPreferredSize().height));
         rows.add(keyField);
 
-        JButton link = new JButton("Link account");
+        JButton link = new TipButton("Link account");
         uiStyler.styleGhostControl(link, 11.5f, new Insets(7, 14, 7, 14), INPUT_ARC);
         link.setForeground(ACCENT);
         link.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -227,7 +227,7 @@ final class AccountPanelBuilder {
 
         rows.add(externalLink("Open my insight page", 14));
 
-        JButton unlink = new JButton("Unlink this device");
+        JButton unlink = new TipButton("Unlink this device");
         uiStyler.styleGhostControl(unlink, 11f, new Insets(6, 12, 6, 12), INPUT_ARC);
         unlink.setForeground(MUTED);
         unlink.setAlignmentX(Component.LEFT_ALIGNMENT);

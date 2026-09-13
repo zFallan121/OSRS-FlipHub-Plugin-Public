@@ -34,20 +34,26 @@ import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Insets;
+import java.awt.Point;
 import java.awt.RadialGradientPaint;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.Window;
+import java.awt.event.MouseEvent;
 import java.awt.geom.Point2D;
 import java.util.function.Supplier;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListCellRenderer;
+import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import javax.swing.JToolTip;
 import javax.swing.Scrollable;
+import javax.swing.SwingUtilities;
 import javax.swing.border.Border;
 import javax.swing.plaf.basic.BasicComboBoxUI;
 import lombok.RequiredArgsConstructor;
@@ -360,7 +366,7 @@ final class ComboBoxUI extends BasicComboBoxUI {
 
     @Override
     protected JButton createArrowButton() {
-        JButton button = new JButton() {
+        JButton button = new TipButton() {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -492,6 +498,11 @@ final class PlaceholderTextField extends JTextField {
     }
 
     @Override
+    public Point getToolTipLocation(MouseEvent event) {
+        return Tip.at(this, event);
+    }
+
+    @Override
     protected void paintComponent(Graphics g) {
         paintWell(g);
         super.paintComponent(g);
@@ -540,12 +551,12 @@ final class PlaceholderTextField extends JTextField {
     }
 }
 
-final class EllipsisLabel extends JLabel {
+final class EllipsisLabel extends TipLabel {
     private static final String ELLIPSIS = "...";
     private String fullText = "";
 
     EllipsisLabel(String text) {
-        super();
+        super(null, LEADING);
         setFullText(text);
     }
 
@@ -613,5 +624,75 @@ final class EllipsisLabel extends JLabel {
             }
         }
         return text.substring(0, low) + ELLIPSIS;
+    }
+}
+
+/**
+ * Where the panel puts a tooltip, which is to the left of the cursor and not to the right.
+ *
+ * <p>RuneLite gives every tooltip a window of its own on purpose, so the game canvas cannot be
+ * drawn over the top of it. Swing then opens that window at the cursor and pulls it back only
+ * far enough to fit on the monitor - and this panel sits against the client's right edge, so a
+ * tooltip opened the ordinary way opens over the desktop behind the client instead of over the
+ * client. Nothing in Swing will keep it in: the manager is a singleton, its idea of "fits" is
+ * the whole screen, and the one thing a component gets to say about it is where to open.
+ *
+ * <p>So it opens leftwards. That needs nothing measured against the client to come out right:
+ * the tooltip's right edge is the cursor, and the cursor is inside the panel, which is inside
+ * the client. Downwards is only pulled up when the client's own bottom edge is in the way. It
+ * is also where the age tooltip has always put itself.
+ */
+final class Tip {
+    private Tip() {
+    }
+
+    static Point at(JComponent on, MouseEvent event) {
+        JToolTip tip = on.createToolTip();
+        tip.setTipText(on.getToolTipText(event));
+        Dimension size = tip.getPreferredSize();
+        int x = event.getX() - size.width - Skin.AGE_TOOLTIP_LEFT_GAP;
+        int y = event.getY() + 18;
+        Window window = SwingUtilities.getWindowAncestor(on);
+        if (window != null) {
+            Point corner = SwingUtilities.convertPoint(on, x, y, window);
+            x -= Math.min(0, corner.x);
+            y -= Math.max(0, corner.y + size.height - window.getHeight());
+        }
+        return new Point(x, y);
+    }
+}
+
+/** A button whose tooltip stays inside the client window. See {@link Tip}. */
+class TipButton extends JButton {
+    TipButton() {
+    }
+
+    TipButton(String text) {
+        super(text);
+    }
+
+    TipButton(Icon icon) {
+        super(icon);
+    }
+
+    @Override
+    public Point getToolTipLocation(MouseEvent event) {
+        return Tip.at(this, event);
+    }
+}
+
+/** A label whose tooltip stays inside the client window. See {@link Tip}. */
+class TipLabel extends JLabel {
+    TipLabel(String text, int alignment) {
+        super(text, alignment);
+    }
+
+    TipLabel(Icon icon) {
+        super(icon);
+    }
+
+    @Override
+    public Point getToolTipLocation(MouseEvent event) {
+        return Tip.at(this, event);
     }
 }

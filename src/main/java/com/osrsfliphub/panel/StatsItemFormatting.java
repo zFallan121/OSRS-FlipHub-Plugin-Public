@@ -29,17 +29,9 @@ import lombok.RequiredArgsConstructor;
 final class StatsItemFormatting {
     private final PanelValueFormat valueFormatService;
 
-    String buildStatsItemMeta(StatsItem item) {
-        String roi = valueFormatService.formatPercent(item.roi_percent);
-        int flips = item.fill_count != null ? item.fill_count : 0;
-        int qty = item.total_qty != null ? item.total_qty : 0;
-        return "ROI " + roi + " | Flips " + flips + " | Qty " + qty;
-    }
-
     /**
-     * The collapsed card shares its second line with the profit, so the meta shown there is cut
-     * down to what fits: quantity is dropped and the flip count is abbreviated. Both are still in
-     * the full meta on the card tooltip and in the expanded rows.
+     * The card shares its second line with the profit, so the meta is cut down to what fits:
+     * quantity is dropped and the flip count abbreviated. Both are in the expanded rows.
      */
     String buildStatsItemMetaShort(StatsItem item) {
         String roi = valueFormatService.formatPercent(item.roi_percent);

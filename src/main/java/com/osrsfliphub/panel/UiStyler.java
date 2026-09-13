@@ -238,7 +238,7 @@ final class UiStyler {
         field.setBorder(roundedBorder(INPUT_ARC, CONTROL_BORDER,
             new Insets(3, 8, 3, INLINE_CLEAR_SLOT + INLINE_CLEAR_GAP)));
 
-        JButton clear = new JButton(new ClearIcon(CLEAR_MARK_SIZE));
+        JButton clear = new TipButton(new ClearIcon(CLEAR_MARK_SIZE));
         clear.setFocusPainted(false);
         clear.setContentAreaFilled(false);
         clear.setBorderPainted(false);
@@ -433,7 +433,7 @@ final class UiStyler {
      * something", white says "this one, the one you are on".
      */
     JLabel actionLink(String text, String tooltip, Runnable action) {
-        JLabel link = new JLabel(text, javax.swing.SwingConstants.RIGHT);
+        JLabel link = new TipLabel(text, javax.swing.SwingConstants.RIGHT);
         link.setForeground(ACCENT);
         link.setFont(font(9.5f));
         link.setToolTipText(tooltip);
