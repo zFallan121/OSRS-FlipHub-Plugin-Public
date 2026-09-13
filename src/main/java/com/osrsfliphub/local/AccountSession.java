@@ -192,7 +192,14 @@ final class AccountSession {
         if (accountHash == lastMergedAccountHash && nameKey == lastMergedNameKey) {
             return;
         }
-        Access.plugin().getProfileWorkflowService().mergeLocalAccountData(accountHash, nameKey);
+        // Folding the two together is housekeeping, not part of the answer. Asked before the
+        // plugin has finished starting there is nothing to fold with, and throwing here would
+        // take down whatever only wanted to know which account it was talking about.
+        GeLifecyclePlugin plugin = Access.pluginOrNull();
+        if (plugin == null) {
+            return;
+        }
+        plugin.getProfileWorkflowService().mergeLocalAccountData(accountHash, nameKey);
         lastMergedAccountHash = accountHash;
         lastMergedNameKey = nameKey;
     }

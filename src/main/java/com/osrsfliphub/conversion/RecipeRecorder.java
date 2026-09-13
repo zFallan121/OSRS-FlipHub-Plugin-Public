@@ -51,6 +51,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.JViewport;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 
 /**
  * The screen where the player tells the plugin that some of their trades were one conversion.
@@ -123,6 +124,7 @@ final class RecipeRecorder {
     private long accountKey = -1L;
     private int appliedBefore;
     private boolean nameEdited;
+    private boolean waiting;
 
     RecipeRecorder(UiStyler uiStyler, PanelValueFormat valueFormat, Runnable onClose) {
         this.uiStyler = uiStyler;
@@ -142,10 +144,43 @@ final class RecipeRecorder {
      * offers and the records it lists change while it is closed.
      */
     void open() {
-        accountKey = resolveAccountKey();
-        trades = snapshotTrades(accountKey);
+        // Which character this is has to be asked of the game, on the game's own thread. The
+        // screen is put up empty first so the click lands straight away, and filled in when the
+        // answer comes back.
+        accountKey = -1L;
+        waiting = true;
+        trades = new ArrayList<>();
+        stored = new ArrayList<>();
+        applied = RecipeFlipLedger.empty();
+        appliedBefore = 0;
+        buys.clear();
+        sells.clear();
+        kindCombo.setSelectedItem(ConversionKind.ASSEMBLE);
+        nameField.setText("");
+        feeField.setText("");
+        findField.setText("");
+        nameEdited = false;
+        scrollPane.getVerticalScrollBar().setValue(0);
+        refresh();
+
+        GeLifecyclePlugin plugin = Access.pluginOrNull();
+        if (plugin == null) {
+            openFor(-1L);
+            return;
+        }
+        plugin.invokeOnClientThread(() -> {
+            long key = resolveAccountKey();
+            SwingUtilities.invokeLater(() -> openFor(key));
+        });
+    }
+
+    /** The screen, once the character it is about is known. */
+    private void openFor(long key) {
+        waiting = false;
+        accountKey = key;
+        trades = snapshotTrades(key);
         RecipeFlipStore store = Bridge.get(RecipeFlipStore.class);
-        stored = store != null && accountKey > 0 ? store.applicable(accountKey) : new ArrayList<>();
+        stored = store != null && key > 0 ? store.applicable(key) : new ArrayList<>();
         applied = RecipeFlipLedger.apply(trades, stored);
         appliedBefore = applied.activities.size();
 
@@ -154,13 +189,6 @@ final class RecipeRecorder {
         for (Delta trade : offerable(trades, applied)) {
             (trade.isBuy ? buys : sells).add(new Candidate(trade));
         }
-
-        kindCombo.setSelectedItem(ConversionKind.ASSEMBLE);
-        nameField.setText("");
-        feeField.setText("");
-        findField.setText("");
-        nameEdited = false;
-        scrollPane.getVerticalScrollBar().setValue(0);
         refresh();
     }
 
@@ -249,9 +277,11 @@ final class RecipeRecorder {
         boolean hasTrades = !buys.isEmpty() || !sells.isEmpty();
         form.setVisible(hasTrades);
         nothingToDo.setVisible(!hasTrades);
-        nothingToDo.setText(accountKey <= 0
-            ? "Log in to record a recipe."
-            : "No trades of yours are left to build one from.");
+        nothingToDo.setText(waiting
+            ? "Reading your trades..."
+            : accountKey <= 0
+                ? "Log in to record a recipe."
+                : "No finished trades of yours are left to build one from.");
 
         fillSide(inputsBody, buys, inputsCount);
         fillSide(outputsBody, sells, outputsCount);
@@ -642,10 +672,19 @@ final class RecipeRecorder {
      * <p>The logged-in character, not whichever profile the tab happens to be showing: a record
      * lives in one account's file and explains that account's trades. The accountwide view reads
      * every account's records, so one made here still counts there.
+     *
+     * <p>The same key {@link TradeDeltaRecorder} files the trades under, and it has to be. That
+     * one is the account hash where there is one and a key made from the display name where
+     * there is not - an account without a Jagex account attached has no hash, and reports -1.
+     * Asking for the hash alone left this screen saying "log in" to a player who plainly was,
+     * because their trades were all sitting under the other key.
+     *
+     * <p>Must be called on the client thread: it reads the game's own state, and on the way it
+     * can merge two profiles that turn out to be one account.
      */
     private static long resolveAccountKey() {
-        TradeSession session = Bridge.get(TradeSession.class);
-        return session != null ? session.resolveAccountHash() : -1L;
+        AccountSession session = Bridge.get(AccountSession.class);
+        return session != null ? session.resolveLocalAccountKey() : -1L;
     }
 
     private static List<Delta> snapshotTrades(long accountKey) {
