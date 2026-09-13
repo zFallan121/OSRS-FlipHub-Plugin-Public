@@ -179,20 +179,6 @@ final class OfferUpdateStampStateHelpers {
         return now - duration;
     }
 
-    static long minPositive(long a, long b, long c) {
-        long min = 0L;
-        if (a > 0) {
-            min = a;
-        }
-        if (b > 0 && (min == 0L || b < min)) {
-            min = b;
-        }
-        if (c > 0 && (min == 0L || c < min)) {
-            min = c;
-        }
-        return min;
-    }
-
     static boolean shouldClearOfferStamp(OfferSnapshot prev, BooleanSupplier isWithinLoginGraceSupplier) {
         if (prev == null) {
             return false;

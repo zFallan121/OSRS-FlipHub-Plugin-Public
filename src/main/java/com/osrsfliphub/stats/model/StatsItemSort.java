@@ -25,16 +25,14 @@
 package com.osrsfliphub;
 
 public enum StatsItemSort {
-    COMPLETION("Completion", "completion"),
-    PROFIT("Profit", "profit"),
-    ROI("ROI", "roi");
+    COMPLETION("Completion"),
+    PROFIT("Profit"),
+    ROI("ROI");
 
     private final String label;
-    private final String apiValue;
 
-    StatsItemSort(String label, String apiValue) {
+    StatsItemSort(String label) {
         this.label = label;
-        this.apiValue = apiValue;
     }
 
     static StatsItemSort fromName(String name) {
@@ -46,10 +44,6 @@ public enum StatsItemSort {
             }
         }
         return COMPLETION;
-    }
-
-    public String getApiValue() {
-        return apiValue;
     }
 
     @Override

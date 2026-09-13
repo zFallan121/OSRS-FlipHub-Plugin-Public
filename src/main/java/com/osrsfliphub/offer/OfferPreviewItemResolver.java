@@ -37,21 +37,19 @@ import net.runelite.api.widgets.Widget;
 final class OfferPreviewItemResolver {
     static final class Resolution {
         private final Integer itemId;
-        private final String itemName;
         private final boolean clear;
 
-        private Resolution(Integer itemId, String itemName, boolean clear) {
+        private Resolution(Integer itemId, boolean clear) {
             this.itemId = itemId;
-            this.itemName = itemName;
             this.clear = clear;
         }
 
-        static Resolution set(int itemId, String itemName) {
-            return new Resolution(itemId, itemName, false);
+        static Resolution set(int itemId) {
+            return new Resolution(itemId, false);
         }
 
         static Resolution clear() {
-            return new Resolution(null, null, true);
+            return new Resolution(null, true);
         }
 
         boolean shouldClear() {
@@ -62,9 +60,6 @@ final class OfferPreviewItemResolver {
             return itemId;
         }
 
-        String getItemName() {
-            return itemName;
-        }
     }
 
     private final Client client;
@@ -195,7 +190,7 @@ final class OfferPreviewItemResolver {
         if (itemId <= 0) {
             return Resolution.clear();
         }
-        return Resolution.set(itemId, null);
+        return Resolution.set(itemId);
     }
 
     private Resolution resolveOfferStatus(Widget geRoot) {
@@ -206,7 +201,7 @@ final class OfferPreviewItemResolver {
         if (itemId <= 0) {
             return null;
         }
-        return Resolution.set(itemId, null);
+        return Resolution.set(itemId);
     }
 
     private Resolution resolveFromVarp(int selectedSlot, boolean setupMode, boolean offerStatusOpen) {
@@ -218,7 +213,7 @@ final class OfferPreviewItemResolver {
         if (itemId <= 0) {
             return null;
         }
-        return Resolution.set(itemId, null);
+        return Resolution.set(itemId);
     }
 
     private Resolution resolveFromSelectedSlot() {
@@ -230,7 +225,7 @@ final class OfferPreviewItemResolver {
         if (itemId <= 0) {
             return null;
         }
-        return Resolution.set(itemId, null);
+        return Resolution.set(itemId);
     }
 
     private Resolution resolveFromText(Widget geRoot) {
@@ -245,6 +240,6 @@ final class OfferPreviewItemResolver {
         if (itemId <= 0) {
             return null;
         }
-        return Resolution.set(itemId, candidate);
+        return Resolution.set(itemId);
     }
 }

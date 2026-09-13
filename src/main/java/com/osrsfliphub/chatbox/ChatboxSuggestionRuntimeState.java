@@ -69,10 +69,6 @@ final class ChatboxSuggestionRuntimeState {
             || nowMs - lastSuggestionUpdateMs >= Const.SUGGESTION_UPDATE_INTERVAL_MS;
     }
 
-    boolean isSuggestionDirty() {
-        return suggestionDirty;
-    }
-
     void setSuggestionDirty(boolean dirty) {
         suggestionDirty = dirty;
     }

@@ -187,18 +187,6 @@ final class ItemLookup {
         }
     }
 
-    Integer lookupGuidePriceSafe(int itemId) {
-        if (itemId <= 0) {
-            return null;
-        }
-        try {
-            Integer guidePrice = lookupGuidePrice(itemId);
-            return guidePrice != null && guidePrice > 0 ? guidePrice : null;
-        } catch (RuntimeException ignored) {
-            return null;
-        }
-    }
-
     void cacheItemName(int itemId) {
         if (itemId <= 0 || !canCacheItemNamesAsync()) {
             return;

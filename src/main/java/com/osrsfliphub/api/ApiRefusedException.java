@@ -44,10 +44,6 @@ final class ApiRefusedException extends IllegalStateException {
         this.statusCode = statusCode;
     }
 
-    int getStatusCode() {
-        return statusCode;
-    }
-
     /** Whether the server is saying the request itself is wrong, rather than asking for patience. */
     boolean isRefusalOfTheRequest() {
         return statusCode >= 400 && statusCode < 500 && statusCode != 408 && statusCode != 429;

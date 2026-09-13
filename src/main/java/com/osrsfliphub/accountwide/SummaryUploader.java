@@ -83,10 +83,6 @@ final class SummaryUploader {
         lastUploadSuccessMs = 0L;
     }
 
-    boolean isDirty() {
-        return dirty.get();
-    }
-
     void syncIfNeeded(ApiClient apiClient, PluginConfig config) {
         if (apiClient == null || config == null || !isClientFullyReady()) {
             return;
