@@ -61,6 +61,24 @@ final class StatsPanelHeaderBuilder {
         });
         rangeRow.add(statsRangeCombo, BorderLayout.WEST);
 
+        // The rank never follows the range or the profile picked: it is always lifetime profit
+        // across every character. The words sit centred in the room between the range and the
+        // picture; their colour, the picture and the tooltip arrive with each stats refresh.
+        JLabel rankText = new TipLabel("FLIP RANK", SwingConstants.CENTER);
+        rankText.setFont(uiStyler.fontMicro(12f));
+        rankText.setForeground(TEXT);
+        rangeRow.add(rankText, BorderLayout.CENTER);
+        // Sized for the row up front. Sized by its picture, it was laid out before the picture
+        // arrived and the picture was cut off.
+        JLabel rankPicture = new TipLabel("", SwingConstants.CENTER);
+        rankPicture.setPreferredSize(new Dimension(28, 28));
+        rangeRow.add(rankPicture, BorderLayout.EAST);
+        RankUp rankUp = Bridge.get(RankUp.class);
+        if (rankUp != null) {
+            rankUp.panelText = rankText;
+            rankUp.panelPicture = rankPicture;
+        }
+
         statsUpdatedLabel.setForeground(MUTED_2);
         statsUpdatedLabel.setFont(uiStyler.font(10.5f));
         statsUpdatedLabel.setAlignmentX(Component.LEFT_ALIGNMENT);

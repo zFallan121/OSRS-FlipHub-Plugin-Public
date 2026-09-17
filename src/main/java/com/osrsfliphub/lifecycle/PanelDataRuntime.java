@@ -96,6 +96,10 @@ final class PanelDataRuntime {
         }
         StatsView.Result statsView = statsService.build();
         panel.setStatsData(statsView.summary, statsView.items, statsView.flipHistory, statsView.asOfMs);
+        RankUp rankUp = Bridge.get(RankUp.class);
+        if (rankUp != null) {
+            rankUp.refreshPanel();
+        }
     }
 
     ApiClient.ItemsResponse buildOfferStatusFallback() {

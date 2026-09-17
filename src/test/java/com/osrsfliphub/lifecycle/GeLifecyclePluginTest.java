@@ -41,7 +41,8 @@ public class GeLifecyclePluginTest
 
 	public static void main(String[] args) throws Exception
 	{
-		ExternalPluginManager.loadBuiltin(GeLifecyclePlugin.class);
+		// The rank-up tester is a development-only sidebar panel; see RankUpTesterPlugin.
+		ExternalPluginManager.loadBuiltin(GeLifecyclePlugin.class, RankUpTesterPlugin.class);
 		RuneLite.main(args);
 	}
 }

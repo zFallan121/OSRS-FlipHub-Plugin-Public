@@ -178,4 +178,18 @@ public interface PluginConfig extends Config {
     default boolean enableDecimalAmounts() {
         return true;
     }
+
+    @ConfigItem(
+        keyName = "celebrateRankUps",
+        name = "Celebrate rank-ups",
+        description = "When a sale on any of your characters takes your combined<br>"
+            + "lifetime flip profit to a new FlipHub rank, shows a<br>"
+            + "level-up style message with the rank's picture, sets off<br>"
+            + "the level-up fireworks, makes your character dance and<br>"
+            + "adds a line to your game chat. Only you see the fireworks<br>"
+            + "and the dance."
+    )
+    default boolean celebrateRankUps() {
+        return true;
+    }
 }

@@ -37,7 +37,7 @@ final class LocalStatsSnapshotService {
         this.pluginState = pluginState;
     }
 
-    private Set<Long> collectAccountwideProfileKeys() {
+    Set<Long> collectAccountwideProfileKeys() {
         ProfileKeyCollector collector = Bridge.get(ProfileKeyCollector.class);
         ProfileStorage storage = Bridge.get(ProfileStorage.class);
         if (collector == null || storage == null) {

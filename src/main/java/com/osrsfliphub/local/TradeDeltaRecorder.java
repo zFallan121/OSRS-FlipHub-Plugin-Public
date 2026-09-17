@@ -102,6 +102,8 @@ final class TradeDeltaRecorder {
         if (itemLookup != null) {
             itemLookup.cacheItemName(event.item_id);
         }
+        // Read before the delta lands, so the rank check below can see what this sale changed.
+        long profitBefore = RankUp.lifetimeProfit(accountKey);
         TradeOfferCollapser.Outcome outcome = tradesRuntime.appendTradeDeltaPair(accountKey, accountwideKey, delta);
         if (outcome == TradeOfferCollapser.Outcome.DROPPED) {
             // Nothing stored, so nothing may reach the aggregate either: a repeat counted
@@ -122,6 +124,12 @@ final class TradeDeltaRecorder {
             if (accountwideKey != accountKey) {
                 applyDeltaToStatsCache(accountwideKey, delta);
             }
+        }
+        // Every live sale passes through here and nothing else does, which is what keeps
+        // imports, recorded recipes and wipes from setting off a rank-up.
+        RankUp rankUp = Bridge.get(RankUp.class);
+        if (rankUp != null) {
+            rankUp.onSale(profitBefore, RankUp.lifetimeProfit(accountKey));
         }
         tradesRuntime.persistLocalTrades(accountKey);
         // The accountwide file is not written here. Its stored deltas are never read: the

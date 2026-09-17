@@ -89,6 +89,8 @@ final class TickServices {
             }
         });
         step("display name stamp", this::maybeStampCurrentProfileDisplayName);
+        // Before the panel checks below, which can return early.
+        step("rank-up", () -> Bridge.get(RankUp.class).tick());
 
         GeLifecyclePlugin plugin = Access.plugin();
         boolean visible = plugin.runtimeUtilityServices.isPanelVisible(plugin.panel);
