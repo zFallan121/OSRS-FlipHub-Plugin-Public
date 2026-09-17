@@ -9,7 +9,39 @@ Track your Grand Exchange flips — margins, buy limits and live Wiki prices, ri
 Works entirely offline. Linking a [FlipHub](https://www.osrsfliphub.com) account is optional and
 **off by default**.
 
+## Contents
+
+- [Features](#features)
+  - [Flip ranks](#flip-ranks)
+  - [Activity panel](#activity-panel)
+  - [You can see how old a price is](#you-can-see-how-old-a-price-is)
+  - [Bookmarks](#bookmarks)
+  - [Grand Exchange suggestions](#grand-exchange-suggestions)
+  - [Decimal prices](#decimal-prices)
+  - [Profile](#profile)
+  - [Recipes](#recipes)
+  - [Sync with FlipHub OSRS](#sync-with-fliphub-osrs)
+  - [Also](#also) — offer preview, and one character or all of them
+- [Getting started](#getting-started)
+- [Privacy](#privacy)
+- [Support](#support)
+- [License](#license)
+
 ## Features
+
+#### Flip ranks
+
+Your lifetime profit across every character earns one of FlipHub's ten ranks, from Lumbridge
+Looter to Gielinor Elite. **FLIP RANK** on the Profile tab shows where you stand, in your rank's
+colour, and hovering it names the next rank.
+
+When a sale takes you into a new rank, the game congratulates you the way it does for a skill
+level: the message in the chatbox, the level-up fireworks and a dance. Only you see them. Turn it
+off with **Celebrate rank-ups** in the plugin's settings.
+
+<img src="docs/rank-up.png" width="520" alt="A character dancing in the Grand Exchange with orange fireworks around them, above the chatbox message: Congratulations, you just advanced a Flipping rank. You are now a Trader. Click here to continue">
+
+<img src="docs/divider.png" width="100%" alt="">
 
 #### Activity panel
 
@@ -20,6 +52,8 @@ Search the whole Grand Exchange, not only the items you have already flipped, an
 completion, profit or ROI.
 
 ![The FlipHub Activity panel in the RuneLite sidebar, showing sell and buy price, last traded prices, margin, margin x limit, ROI and remaining GE buy limit](docs/panel-activity.png)
+
+<img src="docs/divider.png" width="100%" alt="">
 
 #### You can see how old a price is
 
@@ -43,12 +77,16 @@ The same three colours run the **offer timers** in game: each Grand Exchange slo
 since that offer last moved — green under five minutes, yellow under thirty, red beyond. Turn them
 off with **Show GE offer timers**.
 
+<img src="docs/divider.png" width="100%" alt="">
+
 #### Bookmarks
 
 Star the items you flip often and filter the list down to just those. An item you never want to see
 again can be hidden from its icon.
 
 ![The panel filtered to bookmarked items, the star in the search row lit gold and the list headed "Bookmarked items"](docs/panel-bookmarks.png)
+
+<img src="docs/divider.png" width="100%" alt="">
 
 #### Grand Exchange suggestions
 
@@ -62,6 +100,8 @@ On a buy, the quantity prompt adds your remaining limit and how many you can aff
 
 ![The GE quantity prompt showing "Remaining GE limit: 3,000" and "Cash limit: 5,585"](docs/ge-suggestion-buy-limit.png)
 
+<img src="docs/divider.png" width="100%" alt="">
+
 #### Decimal prices
 
 The game reads `9m` in a price box but refuses the decimal point that would let you write `9.4m`.
@@ -74,17 +114,21 @@ trade, coffers.
 
 Turn it off with **Type decimal amounts** in the plugin settings.
 
+<img src="docs/divider.png" width="100%" alt="">
+
 #### Profile
 
 Completed flips totalled per item over **Session**, **Last 1h**, **4h**, **24h**, **7d** or **All
 time**. Sort by completion, profit or ROI.
 
-![The Profile tab, showing total profit, ROI, flips made and tax paid over the selected range, above a sortable list of per-item totals](docs/panel-profile.png)
+![The Profile tab, showing FLIP RANK in gold beside a Trader helm next to the range picker, then total profit, ROI, flips made and tax paid over the selected range, above a sortable list of per-item totals](docs/panel-profile.png)
 
 Open an item for what those totals are made of — average buy and sell, quantity, how long a flip
 took to fill — and every flip behind them, listed one by one.
 
 ![An opened item showing total profit, total cost, average sell and buy, ROI, flips, quantity and average time to complete, over a flip history listing each flip's quantity, buy, sell and profit](docs/panel-profile-item.png)
+
+<img src="docs/divider.png" width="100%" alt="">
 
 #### Recipes
 
@@ -110,6 +154,8 @@ and the Profile tab says which kind each one was.
 
 Nothing is guessed and nothing is recorded for you.
 
+<img src="docs/divider.png" width="100%" alt="">
+
 #### Sync with FlipHub OSRS
 
 Link your plugin with your FlipHub OSRS account to sync flips and get personalised flip insights to
@@ -130,11 +176,15 @@ and ranks as your total climbs.
 
 ![The FlipHub web dashboard: buy and sell price, margin, ROI, volume, buy limit and margin x limit](docs/10-web-dashboard.png)
 
+<img src="docs/divider.png" width="100%" alt="">
+
 #### Also
 
 - **Offer preview** — open an offer in game and the panel jumps to that item.
 - **One character or all of them** — the name above the tabs picks whose trades you are looking at,
   or adds them all together.
+
+<img src="docs/divider.png" width="100%" alt="">
 
 ## Getting started
 
@@ -145,6 +195,8 @@ To sync to the dashboard as well, open the **Link** tab in the FlipHub panel, pa
 key from [osrsfliphub.com/my-statistics](https://www.osrsfliphub.com/my-statistics) and click
 **Link account**. The tab shows whether the device is linked; **Unlink this device** stops it —
 uploads end immediately and the plugin returns to local-only.
+
+<img src="docs/divider.png" width="100%" alt="">
 
 ## Privacy
 
@@ -160,9 +212,13 @@ requested, read, or transmitted.
   state, timestamps) are uploaded over HTTPS to `osrsfliphub.com` to power your dashboard. As with
   any request to a third-party server, this exposes your IP address to it.
 
+<img src="docs/divider.png" width="100%" alt="">
+
 ## Support
 
 [Contact support](https://www.osrsfliphub.com/support).
+
+<img src="docs/divider.png" width="100%" alt="">
 
 ## License
 
