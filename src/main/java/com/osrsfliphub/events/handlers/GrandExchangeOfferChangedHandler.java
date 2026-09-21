@@ -113,6 +113,7 @@ final class GrandExchangeOfferChangedHandler {
         UploadEventDispatch uploadFacade =
             Bridge.get(UploadEventDispatch.class);
         if (uploadFacade != null) {
+            geEvent.character_id = GeEvent.characterId(resolveAccountHash());
             uploadFacade.enqueueEvent(geEvent);
         }
         // Read after tracking: a fill that opens a new offer on a reused slot has only now

@@ -113,6 +113,7 @@ final class RecipeUpload {
             }
             GeEvent event = event(recipeId, String.valueOf(events.size()),
                 events.size() < flip.inputParts().size() ? "RECIPE_IN" : "RECIPE_OUT", delta.tsClientMs);
+            event.character_id = GeEvent.characterId(accountKey);
             event.recipe_kind = flip.kind.name();
             event.recipe_parts = named.size();
             event.recipe_fee_gp = flip.feeGp;

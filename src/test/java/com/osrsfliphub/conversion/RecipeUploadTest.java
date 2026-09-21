@@ -117,6 +117,15 @@ public class RecipeUploadTest {
     }
 
     @Test
+    public void everyPartSaysWhichCharacterRecordedIt() {
+        // Stored recipes of every character go up when their profiles load, whoever is logged in:
+        // the tag has to come from the recipe's own account, not from the character on screen.
+        for (GeEvent event : RecipeUpload.parts(ACCOUNT, recipe(50_000L), stored)) {
+            assertEquals(GeEvent.characterId(ACCOUNT), event.character_id);
+        }
+    }
+
+    @Test
     public void onlyTheQuantityUsedAndItsShareOfTheCoinsIsSent() {
         Delta helms = bought(1_000L, 0, HELM, 4, 4_000_000L);
         RecipeFlip flip = new RecipeFlip(ConversionKind.ASSEMBLE, "x",

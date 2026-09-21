@@ -219,8 +219,10 @@ requested, read, or transmitted.
 - **With sync enabled and linked** — Your Grand Exchange offer events (item, quantity, price, offer
   state, timestamps) are uploaded over HTTPS to `osrsfliphub.com` to power your dashboard, along
   with any recipes you record (which of those trades went into which, and the fee you entered), so
-  the dashboard stops showing the parts as still held. As with any request to a third-party server,
-  this exposes your IP address to it.
+  the dashboard stops showing the parts as still held. Each event carries a fixed code for the
+  character that made the trade, so one character's sale is never matched with another's purchase;
+  the code is not your character's name and cannot be turned back into it. As with any request to
+  a third-party server, this exposes your IP address to it.
 
 <img src="docs/divider.png" width="100%" alt="">
 

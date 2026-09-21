@@ -203,6 +203,14 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
     }
 
     @Test
+    public void aLiveTradeSaysWhichCharacterMadeIt() {
+        fire(GrandExchangeOfferState.EMPTY, 0, 0, 0L);
+        fire(GrandExchangeOfferState.BUYING, 0, 10, 0L);
+
+        assertEquals(GeEvent.characterId(ACCOUNT_HASH), uploads().get(0).character_id);
+    }
+
+    @Test
     public void emptyToNewBuyOfferEmitsOfferPlaced() {
         fire(GrandExchangeOfferState.EMPTY, 0, 0, 0L);
 

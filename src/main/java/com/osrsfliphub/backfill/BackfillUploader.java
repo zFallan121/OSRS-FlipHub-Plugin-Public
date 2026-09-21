@@ -124,6 +124,7 @@ final class BackfillUploader {
         event.prev_state = null;
         event.world = world;
         event.schema_version = 1;
+        event.character_id = GeEvent.characterId(profileKey);
         return event;
     }
 

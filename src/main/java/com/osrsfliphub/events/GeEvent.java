@@ -24,6 +24,7 @@
  */
 package com.osrsfliphub;
 
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 public class GeEvent {
@@ -44,6 +45,13 @@ public class GeEvent {
     public Integer world;
     public int schema_version = 1;
     /**
+     * Which character the trade belongs to ({@link #characterId}). The website pairs purchases with
+     * sales across a whole website account, which is often several characters, and without this it
+     * paired one character's sale with another character's purchase: 182 Dragon nails bought at
+     * 12,306 and sold at 12,544 were booked against a different character's 20,055 as a 1.37m loss.
+     */
+    public String character_id;
+    /**
      * Set only on the parts of a recorded recipe ({@link RecipeUpload}), which ride the trade upload but
      * are not trades. Null on a trade, and Gson leaves a null out, so a trade is sent exactly as before.
      */
@@ -52,6 +60,17 @@ public class GeEvent {
     public Integer recipe_parts;
     public Long recipe_fee_gp;
     public Long recipe_trade_end_ms;
+
+    /**
+     * A fixed code for one character, the same on every computer, that says nothing about it: not
+     * its name, and not the account hash it is derived from, which cannot be read back out of it.
+     * Null when the character is not known.
+     */
+    public static String characterId(long accountKey) {
+        return accountKey > 0
+            ? UUID.nameUUIDFromBytes(("fliphub-character|" + accountKey).getBytes(StandardCharsets.UTF_8)).toString()
+            : null;
+    }
 
     public static GeEvent createBase(OfferSnapshot snap, OfferSnapshot prev, String eventType) {
         GeEvent e = new GeEvent();
