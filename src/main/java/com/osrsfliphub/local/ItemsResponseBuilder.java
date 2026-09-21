@@ -26,21 +26,23 @@ package com.osrsfliphub;
 
 import java.util.*;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 import net.runelite.api.*;
 import static com.osrsfliphub.Const.DEFAULT_ITEMS_PAGE_SIZE;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class ItemsResponseBuilder {
+    private final ProfileSelectionPresentation profileSelectionPresentation;
+    private final AccountSession accountSession;
+    private final TradeSession tradeSession;
+    private final PluginState pluginState;
+    private final GeLimit geLimit;
+    private final PanelDataRuntime panelDataRuntime;
+    private final Client client;
+    private final ItemsAssembler assembler;
+
     private final int defaultItemsPageSize = Math.max(1, DEFAULT_ITEMS_PAGE_SIZE);
-
-    @Inject
-    ItemsResponseBuilder() {
-    }
-
-    private ApiClient.ItemsResponse emptyItemsResponse(long asOfMs, Long priceCacheMs) {
-        PanelDataRuntime service = Bridge.get(PanelDataRuntime.class);
-        return service != null ? service.emptyItemsResponse(asOfMs, priceCacheMs) : null;
-    }
 
     ApiClient.ItemsResponse build(boolean includeEmptyFallback,
                                   String currentQuery,
@@ -49,39 +51,28 @@ final class ItemsResponseBuilder {
                                   StatsItemSort itemSort,
                                   boolean itemSortAscending,
                                   int currentPage) {
-        Client client = Access.plugin().client;
-        if (client == null) {
-            return emptyItemsResponse(System.currentTimeMillis(), null);
-        }
         GrandExchangeOffer[] rawOffers = client.getGrandExchangeOffers();
         GrandExchangeOffer[] offers = rawOffers != null && rawOffers.length > 0
             ? rawOffers : new GrandExchangeOffer[0];
 
-        ProfileSelectionPresentation selection =
-            Bridge.get(ProfileSelectionPresentation.class);
-        long tradeAccountKey = selection != null ? selection.resolveSelectedProfileKey() : 0L;
-        AccountSession session = Bridge.get(AccountSession.class);
-        long limitAccountKey = session != null ? session.resolveLimitAccountKey(tradeAccountKey) : tradeAccountKey;
+        long tradeAccountKey = profileSelectionPresentation.resolveSelectedProfileKey();
+        long limitAccountKey = accountSession.resolveLimitAccountKey(tradeAccountKey);
         long nowMs = System.currentTimeMillis();
 
-        TradeSession tradeSession = Bridge.get(TradeSession.class);
-        Map<Integer, TradeInfo> tradeInfo = tradeAccountKey >= 0 && tradeSession != null
+        Map<Integer, TradeInfo> tradeInfo = tradeAccountKey >= 0
             ? tradeSession.buildLocalTradeInfo(tradeAccountKey)
             : new HashMap<>();
-        Map<Integer, LimitInfo> limitInfo = limitAccountKey >= 0 && tradeSession != null
+        Map<Integer, LimitInfo> limitInfo = limitAccountKey >= 0
             ? tradeSession.buildLocalLimitInfo(limitAccountKey, nowMs)
             : new HashMap<>();
 
-        ItemsAssembler assembler = Bridge.get(ItemsAssembler.class);
-        ItemsAssembler.Result assembled = assembler != null
-            ? assembler.assemble(
+        ItemsAssembler.Result assembled = assembler.assemble(
                 offers,
                 tradeInfo != null ? tradeInfo : new HashMap<>(),
                 limitInfo != null ? limitInfo : new HashMap<>(),
                 currentQuery,
                 bookmarkFilterEnabled,
-                bookmarkedItems)
-            : new ItemsAssembler.Result(new ArrayList<>(), new HashSet<>());
+                bookmarkedItems);
         List<FlipHubItem> items = assembled != null && assembled.items != null ? assembled.items : new ArrayList<>();
         Set<Integer> itemsNeedingLimits = assembled != null && assembled.itemsNeedingLimits != null
             ? assembled.itemsNeedingLimits
@@ -89,14 +80,13 @@ final class ItemsResponseBuilder {
 
         // Filter hidden items before pagination so each page has consistent visible card counts.
         if (!items.isEmpty()) {
-            PluginState state = Bridge.get(PluginState.class);
             List<FlipHubItem> visibleItems = new ArrayList<>(items.size());
             Set<Integer> visibleLimitIds = new HashSet<>();
             for (FlipHubItem item : items) {
                 if (item == null || item.item_id <= 0) {
                     continue;
                 }
-                if (state != null && state.getHiddenItems().contains(item.item_id)) {
+                if (pluginState.getHiddenItems().contains(item.item_id)) {
                     continue;
                 }
                 visibleItems.add(item);
@@ -109,37 +99,31 @@ final class ItemsResponseBuilder {
         }
 
         if (!itemsNeedingLimits.isEmpty()) {
-            GeLimit geLimitService = Bridge.get(GeLimit.class);
-            if (geLimitService != null) {
-                geLimitService.requestGeLimits(itemsNeedingLimits);
-            }
+            geLimit.requestGeLimits(itemsNeedingLimits);
         }
 
-        PanelDataRuntime panelData = Bridge.get(PanelDataRuntime.class);
         // The fallbacks answer "the list is empty because nothing has been traded yet" with the
         // offer on screen. Once a filter is in force an empty list means "nothing you asked for
         // is here", and an item that was not asked for is not an answer to that.
         boolean filtered = bookmarkFilterEnabled
             || Str.hasText(currentQuery);
         if (items.isEmpty() && includeEmptyFallback && !filtered) {
-            ApiClient.ItemsResponse stampFallback = panelData != null ? panelData.buildOfferStampFallback() : null;
+            ApiClient.ItemsResponse stampFallback = panelDataRuntime.buildOfferStampFallback();
             if (stampFallback != null && stampFallback.items != null && !stampFallback.items.isEmpty()) {
                 return stampFallback;
             }
-            return panelData != null ? panelData.buildOfferStatusFallback() : null;
+            return panelDataRuntime.buildOfferStatusFallback();
         }
 
         ItemsPager.sortItems(items, itemSort, itemSortAscending);
         ItemsPager.Page page = ItemsPager.paginate(items, currentPage, defaultItemsPageSize);
-        return panelData != null
-            ? panelData.buildPagedItemsResponse(
+        return panelDataRuntime.buildPagedItemsResponse(
                 page.pageItems,
                 page.page,
                 page.pageSize,
                 page.totalItems,
                 page.totalPages,
                 System.currentTimeMillis(),
-                null)
-            : null;
+                null);
     }
 }

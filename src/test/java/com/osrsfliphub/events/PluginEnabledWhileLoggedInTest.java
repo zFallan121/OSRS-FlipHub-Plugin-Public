@@ -136,10 +136,11 @@ public class PluginEnabledWhileLoggedInTest {
                     .toInstance(new ProfileSelectionPersistence(null));
                 bind(BookmarkState.class)
                     .toInstance(new BookmarkState(null, config, state));
+                // Loading a profile's trades is handed an item lookup in its constructor, so there
+                // has to be one. With no item manager behind it, it looks nothing up.
+                bind(ItemLookup.class).toInstance(new ItemLookup(null, null, state));
                 // The rest of the login work needs services this test does not stand up. Each
                 // of these is already guarded for absence on the path being exercised.
-                bind(ItemLookup.class).toProvider(Providers.of(null));
-                bind(LocalStatsCacheService.class).toProvider(Providers.of(null));
                 bind(LinkStatus.class).toProvider(Providers.of(null));
                 bind(LinkAttempt.class).toProvider(Providers.of(null));
                 bind(WikiPrice.class).toProvider(Providers.of(null));

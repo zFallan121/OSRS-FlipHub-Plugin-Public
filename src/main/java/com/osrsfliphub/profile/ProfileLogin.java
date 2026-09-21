@@ -25,15 +25,13 @@
 package com.osrsfliphub;
 
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class ProfileLogin {
     private final PluginState pluginState;
-
-    @Inject
-    ProfileLogin(PluginState pluginState) {
-        this.pluginState = pluginState;
-    }
+    private final LocalTradesRuntime localTradesRuntime;
 
     void handleLogin(ProfileSelectionState profileSelection, long accountHash, String displayName) {
         if (profileSelection == null || accountHash <= 0) {
@@ -43,7 +41,7 @@ final class ProfileLogin {
             pluginState.getProfileDisplayNames().put(accountHash, displayName.trim());
         }
         Access.plugin().executeAsync(
-            () -> Access.plugin().getLocalTradesRuntimeService().loadLocalTradesAsync(accountHash));
+            () -> localTradesRuntime.loadLocalTradesAsync(accountHash));
         if (profileSelection.updateForLogin(accountHash)) {
             Access.plugin().getProfileWorkflowService().persistProfileSelectionState();
         }

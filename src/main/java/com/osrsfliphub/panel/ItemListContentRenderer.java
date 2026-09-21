@@ -29,10 +29,7 @@ import java.util.*;
 import java.util.List;
 import javax.swing.*;
 import lombok.RequiredArgsConstructor;
-import static com.osrsfliphub.Skin.CARD_ARC;
-import static com.osrsfliphub.Skin.LINE;
-import static com.osrsfliphub.Skin.MUTED;
-import static com.osrsfliphub.Skin.TEXT;
+import static com.osrsfliphub.Skin.*;
 
 /**
  * The list of item rows, kept between refreshes.
@@ -105,10 +102,10 @@ final class ItemListContentRenderer {
         }
         List<FlipHubItem> itemsToShow = new ArrayList<>();
         for (FlipHubItem item : lastItems) {
-            if (item == null || isHidden(item)) {
+            if (item == null || (hiddenItemStore != null && hiddenItemStore.isHidden(item.item_id))) {
                 continue;
             }
-            if (showBookmarkedOnly && !isBookmarked(item)) {
+            if (showBookmarkedOnly && !(bookmarkStore != null && bookmarkStore.isBookmarked(item.item_id))) {
                 continue;
             }
             itemsToShow.add(item);
@@ -176,7 +173,7 @@ final class ItemListContentRenderer {
         renderedCards = new ArrayList<>();
 
         if (plan.emptyTitle != null) {
-            listPanel.add(buildCard(plan.emptyTitle, plan.emptyBody));
+            listPanel.add(uiStyler.emptyCard(plan.emptyTitle, plan.emptyBody));
         } else {
             if (plan.sectionHeader) {
                 listPanel.add(buildSectionHeader("Bookmarked items"));
@@ -201,47 +198,17 @@ final class ItemListContentRenderer {
     }
 
     private JPanel buildSectionHeader(String text) {
-        JPanel header = new JPanel(new BorderLayout());
-        header.setOpaque(false);
+        JPanel header = plain(new BorderLayout());
         // A hairline and a micro-label: the section is not a box, it is a rule with a name on it.
         header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, LINE));
         header.setAlignmentX(Component.LEFT_ALIGNMENT);
-        header.setMaximumSize(new Dimension(Integer.MAX_VALUE, 22));
+        wide(header, 22);
         JLabel label = new JLabel(text != null ? text : "");
         uiStyler.styleMicroLabel(label, 9.5f);
         header.add(label, BorderLayout.WEST);
         return header;
     }
 
-    private JPanel buildCard(String title, String body) {
-        JPanel card = RoundedPanel.glass(CARD_ARC);
-        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-        card.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 100));
-        card.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel titleLabel = new JLabel(title);
-        titleLabel.setForeground(TEXT);
-        titleLabel.setFont(uiStyler.fontSemiBold(12f));
-
-        JLabel bodyLabel = new JLabel(body);
-        bodyLabel.setForeground(MUTED);
-        bodyLabel.setFont(uiStyler.font(10.5f));
-
-        card.add(titleLabel);
-        card.add(Box.createVerticalStrut(4));
-        card.add(bodyLabel);
-        return card;
-    }
-
-
-    private boolean isBookmarked(FlipHubItem item) {
-        return bookmarkStore != null && bookmarkStore.isBookmarked(item.item_id);
-    }
-
-
-    private boolean isHidden(FlipHubItem item) {
-        return hiddenItemStore != null && hiddenItemStore.isHidden(item.item_id);
-    }
 
 }

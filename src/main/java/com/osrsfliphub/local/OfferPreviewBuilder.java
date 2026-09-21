@@ -26,67 +26,58 @@ package com.osrsfliphub;
 
 import java.util.*;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class OfferPreviewBuilder {
-    private static final long GE_LIMIT_WINDOW_MS = 4L * 60L * 60L * 1000L;
+    private final GeLimit geLimits;
+    private final ItemLookup itemLookup;
+    private final ProfileSelectionPresentation profileSelectionPresentation;
+    private final AccountSession accountSession;
+    private final TradeSession tradeSession;
+    private final ProfileWorkflow profileWorkflow;
+    private final ItemEnrichment itemEnrichment;
+    private final LocalTradesRuntime localTradesRuntime;
 
-    @Inject
-    OfferPreviewBuilder() {
-    }
+    private static final long GE_LIMIT_WINDOW_MS = 4L * 60L * 60L * 1000L;
 
     FlipHubItem build(int itemId) {
         if (itemId <= 0) {
             return null;
         }
 
-        Access.plugin().getProfileWorkflowService().ensureSelectedProfileLoaded();
-        GeLimit geLimitService = Bridge.get(GeLimit.class);
-        if (geLimitService != null) {
-            geLimitService.requestGeLimits(Collections.singleton(itemId));
-        }
+        profileWorkflow.ensureSelectedProfileLoaded();
+        geLimits.requestGeLimits(Collections.singleton(itemId));
 
         FlipHubItem item = new FlipHubItem();
         item.item_id = itemId;
-        ItemLookup itemLookup = Bridge.get(ItemLookup.class);
-        String itemName = itemLookup != null ? itemLookup.lookupItemNameSafe(itemId) : null;
+        String itemName = itemLookup.lookupItemNameSafe(itemId);
         if (Str.hasText(itemName)) {
             item.item_name = itemName;
         }
-        ItemEnrichment enrichment = Bridge.get(ItemEnrichment.class);
-        if (enrichment != null) {
-            enrichment.applyGuidePrices(item, itemId, false);
-        }
+        itemEnrichment.applyGuidePrices(item, itemId, false);
 
-        ProfileSelectionPresentation selection =
-            Bridge.get(ProfileSelectionPresentation.class);
-        long tradeAccountKey = selection != null ? selection.resolveSelectedProfileKey() : 0L;
-        AccountSession session = Bridge.get(AccountSession.class);
-        long limitAccountKey = session != null ? session.resolveLimitAccountKey(tradeAccountKey) : tradeAccountKey;
+        long tradeAccountKey = profileSelectionPresentation.resolveSelectedProfileKey();
+        long limitAccountKey = accountSession.resolveLimitAccountKey(tradeAccountKey);
         long nowMs = System.currentTimeMillis();
 
         LimitInfo limitInfoForItem = null;
         if (tradeAccountKey >= 0) {
-            TradeSession tradeSession = Bridge.get(TradeSession.class);
             Map<Integer, TradeInfo> tradeInfo =
-                tradeSession != null ? tradeSession.buildLocalTradeInfo(tradeAccountKey) : null;
-            if (enrichment != null) {
-                enrichment.applyLocalTradeInfo(item, tradeInfo != null ? tradeInfo.get(itemId) : null);
-            }
+                tradeSession.buildLocalTradeInfo(tradeAccountKey);
+            itemEnrichment.applyLocalTradeInfo(item, tradeInfo != null ? tradeInfo.get(itemId) : null);
         }
         if (limitAccountKey >= 0) {
-            Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(limitAccountKey);
-            TradeSession tradeSession = Bridge.get(TradeSession.class);
+            localTradesRuntime.ensureProfileLoaded(limitAccountKey);
             Map<Integer, LimitInfo> limitInfo =
-                tradeSession != null ? tradeSession.buildLocalLimitInfo(limitAccountKey, nowMs) : null;
+                tradeSession.buildLocalLimitInfo(limitAccountKey, nowMs);
             limitInfoForItem = limitInfo != null ? limitInfo.get(itemId) : null;
-            if (enrichment != null) {
-                enrichment.applyLocalLimitInfo(item, itemId, limitInfoForItem);
-            }
+            itemEnrichment.applyLocalLimitInfo(item, itemId, limitInfoForItem);
         }
 
         if (item.ge_limit_total == null || item.ge_limit_total <= 0) {
-            Integer geLimit = itemLookup != null ? itemLookup.lookupGeLimitSafe(itemId) : null;
+            Integer geLimit = itemLookup.lookupGeLimitSafe(itemId);
             if (geLimit != null && geLimit > 0) {
                 item.ge_limit_total = geLimit;
                 if (limitInfoForItem != null && limitInfoForItem.buyQty > 0) {
@@ -106,9 +97,7 @@ final class OfferPreviewBuilder {
             }
         }
 
-        if (enrichment != null) {
-            enrichment.applyMarginInfo(item);
-        }
+        itemEnrichment.applyMarginInfo(item);
         return item;
     }
 }

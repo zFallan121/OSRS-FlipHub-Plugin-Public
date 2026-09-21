@@ -62,8 +62,7 @@ final class ItemCardBuilder {
         card.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         card.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JPanel header = new JPanel(new BorderLayout(7, 0));
-        header.setOpaque(false);
+        JPanel header = plain(new BorderLayout(7, 0));
 
         JLabel iconLabel = new JLabel();
         iconLabel.setPreferredSize(new Dimension(32, 32));
@@ -87,9 +86,7 @@ final class ItemCardBuilder {
         installRemoveHover(iconLayer, removeButton);
 
         String resolvedName = resolveName(item);
-        EllipsisLabel nameLabel = new EllipsisLabel(resolvedName);
-        nameLabel.setForeground(TEXT);
-        nameLabel.setFont(uiStyler.fontBold(13f));
+        EllipsisLabel nameLabel = styled(new EllipsisLabel(resolvedName), TEXT, uiStyler.fontBold(13f));
         if (externalLinkCoordinator != null) {
             externalLinkCoordinator.attachOpenItemPageHandler(nameLabel, item.item_id, resolvedName);
         }
@@ -108,7 +105,7 @@ final class ItemCardBuilder {
         bookmarkButton.setFont(uiStyler.fontSymbol(BOOKMARK_GLYPH_SIZE));
         bookmarkButton.setPreferredSize(new Dimension(TRAILING_CONTROL_WIDTH, 24));
         bookmarkButton.setToolTipText("Bookmark");
-        bookmarkButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        bookmarkButton.setCursor(HAND);
         // Under the pointer the mark takes the shape the click would leave it in: filled for a
         // row about to be bookmarked, hollow for one about to lose it. Only the shape moves - the
         // colour stays with the state the row is actually in, so a grey fill is always an offer
@@ -153,9 +150,7 @@ final class ItemCardBuilder {
         // One section, sunk into the card and set in from its left edge, so the card has a
         // front and a back instead of being a flat list. The heading above, with the picture
         // and the name, deliberately stays at full width.
-        JPanel figures = new JPanel();
-        figures.setOpaque(false);
-        figures.setLayout(new BoxLayout(figures, BoxLayout.Y_AXIS));
+        JPanel figures = stack();
         for (LineComponents line : new LineComponents[]{
             instaSellLine, instaBuyLine, lastSellLine, lastBuyLine,
             marginLine, marginLimitLine, roiLine, limitLine, resetLine}) {
@@ -187,7 +182,7 @@ final class ItemCardBuilder {
         }
         applyValues(built, item, asOfMs);
 
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, card.getPreferredSize().height));
+        wide(card, card.getPreferredSize().height);
         if (wheelScrollCoordinator != null) {
             wheelScrollCoordinator.installWheelForwarder(card);
         }
@@ -325,18 +320,13 @@ final class ItemCardBuilder {
     }
 
     private LineComponents buildLineComponents(String label, String value, Color valueColor, int rightPadding) {
-        JPanel row = new JPanel(new BorderLayout());
-        row.setOpaque(false);
+        JPanel row = plain(new BorderLayout());
 
         // Centre, not west: the value keeps its corner and the label gives way, so a narrow
         // row shortens the wording instead of printing the two halves over each other.
-        EllipsisLabel left = new EllipsisLabel(label);
-        left.setForeground(MUTED);
-        left.setFont(uiStyler.font(10.5f));
+        EllipsisLabel left = styled(new EllipsisLabel(label), MUTED, uiStyler.font(10.5f));
 
-        JLabel right = new JLabel(value, SwingConstants.RIGHT);
-        right.setForeground(valueColor);
-        right.setFont(uiStyler.fontSemiBold(12f));
+        JLabel right = styled(new JLabel(value, SwingConstants.RIGHT), valueColor, uiStyler.fontSemiBold(12f));
         right.setBorder(new EmptyBorder(0, 0, 0, rightPadding));
 
         row.add(left, BorderLayout.CENTER);
@@ -378,8 +368,8 @@ final class ItemCardBuilder {
         removeButton.setContentAreaFilled(false);
         removeButton.setOpaque(false);
         removeButton.setRolloverEnabled(true);
-        removeButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        removeButton.setMargin(new java.awt.Insets(0, 0, 0, 0));
+        removeButton.setCursor(HAND);
+        removeButton.setMargin(new Insets(0, 0, 0, 0));
         removeButton.setToolTipText("Remove item");
         removeButton.setVisible(false);
         removeButton.addActionListener(e -> {
@@ -432,8 +422,8 @@ final class ItemCardBuilder {
             removeButton.setVisible(false);
             return;
         }
-        Point pointer = java.awt.MouseInfo.getPointerInfo() != null
-            ? java.awt.MouseInfo.getPointerInfo().getLocation()
+        Point pointer = MouseInfo.getPointerInfo() != null
+            ? MouseInfo.getPointerInfo().getLocation()
             : null;
         if (pointer == null) {
             removeButton.setVisible(false);

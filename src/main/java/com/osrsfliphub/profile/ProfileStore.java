@@ -130,7 +130,7 @@ final class ProfileStore {
     }
 
     ProfileData readProfileData(Path file) {
-        if (file == null || !Files.exists(file) || gson == null) {
+        if (file == null || !Files.exists(file)) {
             return null;
         }
         try {
@@ -154,7 +154,7 @@ final class ProfileStore {
                           List<Delta> deltas,
                           List<RecipeFlip> recipeFlips) {
         Path file = getProfileFile(accountHash, accountwideKey);
-        if (file == null || gson == null) {
+        if (file == null) {
             return 0L;
         }
         ProfileData data = new ProfileData();

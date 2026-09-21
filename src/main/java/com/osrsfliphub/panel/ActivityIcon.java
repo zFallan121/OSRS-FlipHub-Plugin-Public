@@ -63,9 +63,9 @@ final class ActivityIcon implements Icon {
     /** Null means an ordinary flip - the one activity that is not a conversion. */
     private final ConversionKind kind;
     private final int size;
-    private final java.awt.Color color;
+    private final Color color;
 
-    ActivityIcon(ConversionKind kind, int size, java.awt.Color color) {
+    ActivityIcon(ConversionKind kind, int size, Color color) {
         this.kind = kind;
         this.size = Math.max(8, size);
         this.color = color;

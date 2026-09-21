@@ -42,12 +42,9 @@ final class PanelChromeBuilder {
     private final UiStyler uiStyler;
 
     JPanel buildHeader(JButton profileButton, Runnable onProfileMenuRequested) {
-        JPanel header = new JPanel(new BorderLayout());
-        header.setOpaque(false);
+        JPanel header = plain(new BorderLayout());
 
-        JLabel title = new JLabel(WORDMARK);
-        title.setForeground(TEXT);
-        title.setFont(uiStyler.fontBold(15f));
+        JLabel title = styled(new JLabel(WORDMARK), TEXT, uiStyler.fontBold(15f));
         Icon logo = buildWordmarkLogo(title.getFont());
         if (logo != null) {
             title.setIcon(logo);
@@ -63,11 +60,10 @@ final class PanelChromeBuilder {
         profileButton.setContentAreaFilled(false);
         profileButton.setFocusPainted(false);
         profileButton.setOpaque(false);
-        profileButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        profileButton.setCursor(HAND);
         profileButton.addActionListener(e -> onProfileMenuRequested.run());
 
-        JPanel statusWrap = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
-        statusWrap.setOpaque(false);
+        JPanel statusWrap = plain(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         statusWrap.add(profileButton);
 
         header.add(title, BorderLayout.WEST);
@@ -150,7 +146,7 @@ final class PanelChromeBuilder {
             button.setPreferredSize(slot);
             button.setMinimumSize(slot);
             button.setMaximumSize(slot);
-            button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            button.setCursor(HAND);
         } else {
             // The word is the fallback, so the control never becomes an empty box - and a word
             // does want the border back.
@@ -190,8 +186,7 @@ final class PanelChromeBuilder {
                      Consumer<String> onSwitchRequested) {
         // BorderLayout, not FlowLayout: three tabs plus the mark overflow the sidebar width, and
         // FlowLayout answers that by wrapping the last child onto a row the header never shows.
-        JPanel tabs = new JPanel(new BorderLayout());
-        tabs.setOpaque(false);
+        JPanel tabs = plain(new BorderLayout());
 
         // BoxLayout, not FlowLayout: FlowLayout is what wrapped the mark onto an unseen second
         // row. Spacing comes from each control's own padding, so the mark sits the same distance

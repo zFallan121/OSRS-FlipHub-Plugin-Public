@@ -122,4 +122,14 @@ final class GeTax {
         long estimated = grossTotal / RATE_DIVISOR;
         return quantity > 0L ? Math.min(estimated, MAX_TAX_PER_ITEM * quantity) : estimated;
     }
+
+    /** Tax on a sale: from the price per item when it is known, estimated from the total when not. */
+    static long forSaleOrTotal(int itemId, long grossTotal, long quantity, long unitPrice) {
+        if (grossTotal <= 0L || quantity <= 0L) {
+            return 0L;
+        }
+        return unitPrice > 0L
+            ? forSale(itemId, unitPrice, quantity)
+            : forGrossTotal(itemId, grossTotal, quantity);
+    }
 }

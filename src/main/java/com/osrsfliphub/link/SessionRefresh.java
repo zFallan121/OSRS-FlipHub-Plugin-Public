@@ -26,9 +26,11 @@ package com.osrsfliphub;
 
 import java.io.IOException;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 import net.runelite.client.config.ConfigManager;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class SessionRefresh {
     private static final String DEFAULT_CONFIG_GROUP = FliphubConfigGroups.CONFIG_GROUP;
     private static final String SESSION_TOKEN_KEY = "sessionToken";
@@ -41,13 +43,6 @@ final class SessionRefresh {
     private final ConfigManager configManager;
     /** Serialises refreshes so two tasks on the IO pool cannot race with the same stale token. */
     private final Object refreshLock = new Object();
-
-    @Inject
-    SessionRefresh(ApiClient apiClient, PluginConfig config, ConfigManager configManager) {
-        this.apiClient = apiClient;
-        this.config = config;
-        this.configManager = configManager;
-    }
 
     /**
      * What came of asking the server for a new session.

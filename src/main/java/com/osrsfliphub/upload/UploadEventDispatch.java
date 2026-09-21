@@ -27,6 +27,7 @@ package com.osrsfliphub;
 import java.io.IOException;
 import java.util.*;
 import javax.inject.*;
+import net.runelite.api.Client;
 import org.slf4j.Logger;
 
 @Singleton
@@ -35,19 +36,19 @@ final class UploadEventDispatch {
     private static final long UPLOAD_BACKOFF_INITIAL_MS = 5_000L;
     /** Longest the flush will wait before trying again. */
     private static final long UPLOAD_BACKOFF_MAX_MS = 5L * 60L * 1000L;
+    private final Client client;
     private final UploadDiagnosticsState uploadState;
     private final int maxPendingUploadEvents = Const.MAX_PENDING_UPLOAD_EVENTS;
     private final int maxBatchSize = Const.MAX_BATCH_SIZE;
 
     @Inject
-    UploadEventDispatch(PluginState pluginState) {
+    UploadEventDispatch(PluginState pluginState, Client client) {
+        this.client = client;
         this.uploadState = pluginState.getUploadState();
     }
 
     private void backOff() {
-        if (uploadState != null) {
-            uploadState.backOff(System.currentTimeMillis(), UPLOAD_BACKOFF_INITIAL_MS, UPLOAD_BACKOFF_MAX_MS);
-        }
+        uploadState.backOff(System.currentTimeMillis(), UPLOAD_BACKOFF_INITIAL_MS, UPLOAD_BACKOFF_MAX_MS);
     }
 
     private void requeue(List<GeEvent> batch) {
@@ -66,48 +67,30 @@ final class UploadEventDispatch {
     }
 
     void enqueueEvent(GeEvent event) {
-        if (uploadState == null) {
-            return;
-        }
         uploadState.enqueueEvent(event, maxPendingUploadEvents);
     }
 
     void resetStatus() {
-        if (uploadState == null) {
-            return;
-        }
         uploadState.resetStatus();
         updateUploadDiagnosticsUi();
     }
 
     void markBlocked(String reason) {
-        if (uploadState == null) {
-            return;
-        }
         uploadState.markBlocked(reason);
         updateUploadDiagnosticsUi();
     }
 
     void markAttempt() {
-        if (uploadState == null) {
-            return;
-        }
         uploadState.markAttempt();
         updateUploadDiagnosticsUi();
     }
 
     void markSuccess(int uploadedCount, int statusCode) {
-        if (uploadState == null) {
-            return;
-        }
         uploadState.markSuccess(uploadedCount, statusCode);
         updateUploadDiagnosticsUi();
     }
 
     void markFailure(Integer statusCode, String errorMessage, boolean dropped, int droppedCount) {
-        if (uploadState == null) {
-            return;
-        }
         uploadState.markFailure(statusCode, errorMessage, dropped, droppedCount);
         updateUploadDiagnosticsUi();
     }
@@ -124,7 +107,7 @@ final class UploadEventDispatch {
         PluginConfig config = plugin.config;
         boolean linked = config != null
             && ApiStatusPolicy.hasCredentials(config.sessionToken(), config.signingSecret());
-        panel.setUploadDiagnosticsTooltip(uploadState != null ? uploadState.buildTooltip(linked) : null);
+        panel.setUploadDiagnosticsTooltip(uploadState.buildTooltip(linked));
     }
 
     /**
@@ -134,9 +117,6 @@ final class UploadEventDispatch {
      * resend them. Bounded, and stops the moment a pass makes no progress.
      */
     void flushPendingBeforeShutdown(ApiClient apiClient, PluginConfig config, Logger log, int maxBatches) {
-        if (uploadState == null) {
-            return;
-        }
         // Whatever wait was in force, this is the last chance to use it up.
         uploadState.clearBackOff();
         for (int attempt = 0; attempt < maxBatches && uploadState.getPendingUploadEvents() > 0; attempt++) {
@@ -161,10 +141,10 @@ final class UploadEventDispatch {
      */
     private void flushEvents(ApiClient apiClient, PluginConfig config, Logger log,
                              boolean onlyWhileLoggedIn) {
-        if (uploadState == null || apiClient == null || config == null || log == null) {
+        if (apiClient == null || config == null || log == null) {
             return;
         }
-        if (onlyWhileLoggedIn && !Access.loggedIn(Access.plugin().client)) {
+        if (onlyWhileLoggedIn && !Access.loggedIn(client)) {
             return;
         }
         if (!config.enableFlipHubSync()) {

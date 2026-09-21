@@ -28,6 +28,7 @@ import javax.inject.*;
 import lombok.RequiredArgsConstructor;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class LinkSessionGuard {
     @RequiredArgsConstructor
     static final class Credentials {
@@ -37,41 +38,28 @@ final class LinkSessionGuard {
 
     private final PluginConfig config;
 
-    @Inject
-    LinkSessionGuard(PluginConfig config) {
-        this.config = config;
-    }
-
     boolean isSyncEnabled() {
-        return config != null && config.enableFlipHubSync();
+        return config.enableFlipHubSync();
     }
 
     boolean hasSessionToken() {
-        return isSyncEnabled() && !Str.isBlank(readSessionToken());
+        return isSyncEnabled() && !Str.isBlank(config.sessionToken());
     }
 
     boolean isLinked() {
-        return isSyncEnabled() && !Str.isBlank(readSessionToken()) && !Str.isBlank(readSigningSecret());
+        return isSyncEnabled() && !Str.isBlank(config.sessionToken()) && !Str.isBlank(config.signingSecret());
     }
 
     Credentials resolveLinkedCredentials() {
         if (!isSyncEnabled()) {
             return null;
         }
-        String token = normalize(readSessionToken());
-        String secret = normalize(readSigningSecret());
+        String token = normalize(config.sessionToken());
+        String secret = normalize(config.signingSecret());
         if (Str.isBlank(token) || Str.isBlank(secret)) {
             return null;
         }
         return new Credentials(token, secret);
-    }
-
-    private String readSessionToken() {
-        return config != null ? config.sessionToken() : null;
-    }
-
-    private String readSigningSecret() {
-        return config != null ? config.signingSecret() : null;
     }
 
     private String normalize(String value) {

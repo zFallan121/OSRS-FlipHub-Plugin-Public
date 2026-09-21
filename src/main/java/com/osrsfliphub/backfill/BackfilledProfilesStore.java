@@ -27,24 +27,18 @@ package com.osrsfliphub;
 import java.util.*;
 import java.util.stream.Collectors;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 import net.runelite.client.config.ConfigManager;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class BackfilledProfilesStore {
     private final String configGroup = FliphubConfigGroups.CONFIG_GROUP;
     private final String configKey = Const.BACKFILLED_PROFILES_KEY;
     private final ConfigManager configManager;
 
-    @Inject
-    BackfilledProfilesStore(ConfigManager configManager) {
-        this.configManager = configManager;
-    }
-
     Set<Long> load() {
         Set<Long> keys = new HashSet<>();
-        if (configManager == null) {
-            return keys;
-        }
         String raw = configManager.getConfiguration(configGroup, configKey);
         if (Str.isBlank(raw)) {
             return keys;
@@ -66,9 +60,6 @@ final class BackfilledProfilesStore {
     }
 
     void persist(Set<Long> keys) {
-        if (configManager == null) {
-            return;
-        }
         if (keys == null || keys.isEmpty()) {
             configManager.setConfiguration(configGroup, configKey, "");
             return;

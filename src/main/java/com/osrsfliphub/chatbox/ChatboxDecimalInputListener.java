@@ -27,6 +27,7 @@ package com.osrsfliphub;
 import java.awt.event.KeyEvent;
 import java.util.function.UnaryOperator;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 import net.runelite.api.*;
 import net.runelite.api.gameval.VarClientID;
 import net.runelite.client.callback.ClientThread;
@@ -40,6 +41,7 @@ import net.runelite.client.input.KeyListener;
  * tick - so 9.4m leaves as 9400000 and the game never sees the point.
  */
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class ChatboxDecimalInputListener implements KeyListener {
     // MESLAYERMODE is the chatbox input type, and 7 is the one the game uses for every "enter an
     // amount" prompt: the Grand Exchange price and quantity boxes, bank withdraw-X, trade, coffers.
@@ -48,13 +50,6 @@ final class ChatboxDecimalInputListener implements KeyListener {
     private final Client client;
     private final ClientThread clientThread;
     private final PluginConfig config;
-
-    @Inject
-    ChatboxDecimalInputListener(Client client, ClientThread clientThread, PluginConfig config) {
-        this.client = client;
-        this.clientThread = clientThread;
-        this.config = config;
-    }
 
     @Override
     public void keyPressed(KeyEvent event) {
@@ -83,9 +78,7 @@ final class ChatboxDecimalInputListener implements KeyListener {
      */
     private boolean isDecimalAmountsEnabled() {
         return config != null
-            && config.enableDecimalAmounts()
-            && client != null
-            && clientThread != null;
+            && config.enableDecimalAmounts();
     }
 
     /**

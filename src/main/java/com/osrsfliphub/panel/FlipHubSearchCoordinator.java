@@ -25,6 +25,7 @@
 package com.osrsfliphub;
 
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
 
 final class FlipHubSearchCoordinator {
     private Timer searchTimer;
@@ -39,17 +40,17 @@ final class FlipHubSearchCoordinator {
     private void installDocumentListener(JTextField field, Runnable onChange) {
         field.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             @Override
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+            public void insertUpdate(DocumentEvent e) {
                 onChange.run();
             }
 
             @Override
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+            public void removeUpdate(DocumentEvent e) {
                 onChange.run();
             }
 
             @Override
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+            public void changedUpdate(DocumentEvent e) {
                 onChange.run();
             }
         });

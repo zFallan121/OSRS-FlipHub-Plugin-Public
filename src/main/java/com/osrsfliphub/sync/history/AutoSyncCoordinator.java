@@ -33,6 +33,7 @@ import net.runelite.api.widgets.Widget;
 
 @Singleton
 @Slf4j
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class AutoSyncCoordinator {
 
     @RequiredArgsConstructor
@@ -43,39 +44,20 @@ final class AutoSyncCoordinator {
 
     private final AutoSyncState autoSyncState;
     private final Client client;
-
-    @Inject
-    AutoSyncCoordinator(Client client) {
-        this.autoSyncState = Bridge.get(AutoSyncState.class);
-        this.client = client;
-    }
+    private final GeHistoryCursorService geHistoryCursorService;
+    private final AutoSyncMessage autoSyncMessage;
+    private final WipeStateStore wipeStateStore;
+    private final AccountSession accountSession;
+    private final WipeBaselineDecision wipeBaselineDecision;
+    private final AutoSync sync;
 
     private HistorySnapshot readHistorySnapshot() {
-        Widget historyContainer = client != null
-            ? client.getWidget(Const.GE_HISTORY_GROUP_ID,
-                Const.GE_HISTORY_CONTAINER_CHILD_ID)
-            : null;
+        Widget historyContainer = client.getWidget(Const.GE_HISTORY_GROUP_ID,
+                Const.GE_HISTORY_CONTAINER_CHILD_ID);
         if (historyContainer == null || historyContainer.isHidden()) {
             return new HistorySnapshot(false, null);
         }
         return new HistorySnapshot(true, historyContainer.getDynamicChildren());
-    }
-
-    private List<String> buildCursorSignatures(List<Trade> trades) {
-        GeHistoryCursorService service = Bridge.get(GeHistoryCursorService.class);
-        return service != null ? service.buildCursorSignatures(trades) : new ArrayList<>();
-    }
-
-    private String syncResultMessage(int addedTrades) {
-        AutoSyncMessage service = Bridge.get(AutoSyncMessage.class);
-        return service != null ? service.syncResultMessage(addedTrades) : "";
-    }
-
-    private void persistCursor(long accountKey, List<String> cursor) {
-        WipeStateStore store = Bridge.get(WipeStateStore.class);
-        if (store != null) {
-            store.persistCursor(accountKey, cursor);
-        }
     }
 
     private void pushGameMessage(String message) {
@@ -85,25 +67,17 @@ final class AutoSyncCoordinator {
 
     /** What to say when the current read becomes the cursor: why, if the old one was refused. */
     private String baselineSetMessage(GeHistoryCursorService.StoredCursor stored, List<String> currentCursor) {
-        AutoSyncMessage messages = Bridge.get(AutoSyncMessage.class);
-        if (messages == null) {
-            return "";
-        }
         int size = currentCursor != null ? currentCursor.size() : 0;
         return stored != null && stored.staleFormat
-            ? messages.cursorFormatResetMessage(size)
-            : messages.baselineSetMessage(size);
+            ? autoSyncMessage.cursorFormatResetMessage(size)
+            : autoSyncMessage.baselineSetMessage(size);
     }
 
     void attemptAutoSync() {
-        if (autoSyncState == null) {
+        if (!autoSyncState.isPending() || client.getGameState() != GameState.LOGGED_IN) {
             return;
         }
-        if (!autoSyncState.isPending() || client == null || client.getGameState() != GameState.LOGGED_IN) {
-            return;
-        }
-        AccountSession session = Bridge.get(AccountSession.class);
-        long accountKey = session != null ? session.resolveLocalAccountKey() : -1L;
+        long accountKey = accountSession.resolveLocalAccountKey();
         if (accountKey <= 0) {
             return;
         }
@@ -117,44 +91,32 @@ final class AutoSyncCoordinator {
         long nowMs = System.currentTimeMillis();
         autoSyncState.noteHistoryVisible(nowMs);
         Widget[] historyWidgets = snapshot.widgets;
-        WidgetRead widgetRead = Bridge.get(WidgetRead.class);
-        boolean widgetsComplete = widgetRead != null && widgetRead.hasCompleteWidgetGroups(historyWidgets);
-        List<Trade> historyTrades = widgetsComplete ? widgetRead.parseTrades(historyWidgets) : null;
-        if (historyTrades == null) {
-            historyTrades = new ArrayList<>();
-        }
-        List<String> currentCursor = buildCursorSignatures(historyTrades);
+        boolean widgetsComplete = WidgetParser.hasCompleteWidgetGroups(historyWidgets);
+        List<Trade> historyTrades = widgetsComplete ? WidgetParser.parse(historyWidgets) : new ArrayList<>();
+        List<String> currentCursor = geHistoryCursorService.buildCursorSignatures(historyTrades);
         int widgetCount = historyWidgets != null ? historyWidgets.length : 0;
         AutoSyncState.ReadVerdict verdict =
             autoSyncState.observeRead(widgetsComplete, widgetCount, currentCursor, nowMs);
         if (verdict == AutoSyncState.ReadVerdict.WAIT) {
             return;
         }
-        AutoSyncMessage messages = Bridge.get(AutoSyncMessage.class);
         if (verdict == AutoSyncState.ReadVerdict.GIVE_UP) {
             autoSyncState.disarm();
-            pushGameMessage(messages != null ? messages.readIncompleteMessage() : "");
+            pushGameMessage(autoSyncMessage.readIncompleteMessage());
             log.info("GE history auto-sync gave up on account {}: the history list never settled", accountKey);
             return;
         }
 
-        WipeStateStore wipeStore = Bridge.get(WipeStateStore.class);
-        GeHistoryCursorService.StoredCursor stored = wipeStore != null
-            ? wipeStore.loadCursor(accountKey)
-            : GeHistoryCursorService.StoredCursor.NONE;
+        GeHistoryCursorService.StoredCursor stored = wipeStateStore.loadCursor(accountKey);
         List<String> storedCursor = stored.signatures;
-        GeHistoryCursorService cursorService = Bridge.get(GeHistoryCursorService.class);
-        int overlap = cursorService != null ? cursorService.computeOverlap(currentCursor, storedCursor) : 0;
-        boolean wipeBarrierArmed = wipeStore != null && wipeStore.isWipeBarrierArmed(accountKey);
-        WipeBaselineDecision decisionService =
-            Bridge.get(WipeBaselineDecision.class);
-        WipeBaselineDecision.Decision decision = decisionService != null
-            ? decisionService.decide(wipeBarrierArmed, currentCursor, storedCursor, historyTrades.size(), overlap)
-            : WipeBaselineDecision.Decision.proceed(historyTrades.size());
+        int overlap = geHistoryCursorService.computeOverlap(currentCursor, storedCursor);
+        boolean wipeBarrierArmed = wipeStateStore.isWipeBarrierArmed(accountKey);
+        WipeBaselineDecision.Decision decision = wipeBaselineDecision.decide(
+            wipeBarrierArmed, currentCursor, storedCursor, historyTrades.size(), overlap);
 
         switch (decision.outcome) {
             case SET_BASELINE:
-                persistCursor(accountKey, currentCursor);
+                wipeStateStore.persistCursor(accountKey, currentCursor);
                 autoSyncState.disarm();
                 if (wipeBarrierArmed || stored.staleFormat) {
                     pushGameMessage(baselineSetMessage(stored, currentCursor));
@@ -162,12 +124,11 @@ final class AutoSyncCoordinator {
                 return;
             case SKIP_MISMATCH:
                 autoSyncState.disarm();
-                pushGameMessage(messages != null ? messages.baselineMismatchMessage() : "");
+                pushGameMessage(autoSyncMessage.baselineMismatchMessage());
                 return;
             case SKIP_SHORT_READ:
                 autoSyncState.disarm();
-                pushGameMessage(messages != null
-                    ? messages.shortReadMessage(currentCursor.size(), storedCursor.size()) : "");
+                pushGameMessage(autoSyncMessage.shortReadMessage(currentCursor.size(), storedCursor.size()));
                 log.warn("GE history auto-sync skipped for account {}: read {} trades but the last sync saw {}",
                     accountKey, currentCursor.size(), storedCursor.size());
                 return;
@@ -176,17 +137,14 @@ final class AutoSyncCoordinator {
         }
 
         List<Trade> eligibleTrades = eligibleTrades(historyTrades, decision.eligibleTradeCount);
-        AutoSync syncService = Bridge.get(AutoSync.class);
-        AutoSync.SyncResult result = syncService != null
-            ? syncService.sync(accountKey, eligibleTrades)
-            : new AutoSync.SyncResult(eligibleTrades.size(), 0);
+        AutoSync.SyncResult result = sync.sync(accountKey, eligibleTrades);
         autoSyncState.disarm();
         int addedTrades = result != null ? result.addedTrades : 0;
         int parsedTrades = result != null ? result.parsedTrades : 0;
-        pushGameMessage(syncResultMessage(addedTrades));
-        persistCursor(accountKey, currentCursor);
-        if (decision.releasesWipeBarrier() && wipeStore != null) {
-            wipeStore.setWipeBarrierArmed(accountKey, false);
+        pushGameMessage(autoSyncMessage.syncResultMessage(addedTrades));
+        wipeStateStore.persistCursor(accountKey, currentCursor);
+        if (decision.releasesWipeBarrier()) {
+            wipeStateStore.setWipeBarrierArmed(accountKey, false);
             log.info("GE history wipe barrier released for account {} after a reconciling sync", accountKey);
         }
         if (addedTrades > 0) {

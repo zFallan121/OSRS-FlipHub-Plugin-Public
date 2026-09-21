@@ -26,12 +26,16 @@ package com.osrsfliphub;
 
 import java.util.concurrent.ExecutorService;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
+import net.runelite.api.Client;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class WebsiteStatsWipe {
-    @Inject
-    WebsiteStatsWipe() {
-    }
+    private final ProfileSelectionPresentation profileSelectionPresentation;
+    private final ProfileWorkflow profileWorkflow;
+    private final Client client;
+    private final PanelRefresh panelRefresh;
 
     private void runOnClientThread(Runnable task) {
         if (task != null) {
@@ -39,28 +43,23 @@ final class WebsiteStatsWipe {
         }
     }
 
-    private void showError(String message) {
-        Access.plugin().getProfileWorkflowService().showManageDataError(message);
-    }
-
     private void pushGameMessage(String message) {
-        Access.plugin().runtimeUtilityServices.pushGameMessage(Access.plugin().client, message);
+        Access.plugin().runtimeUtilityServices.pushGameMessage(client, message);
     }
 
     void wipeWebsiteStatsAsync() {
-        ProfileSelectionPresentation facade = Bridge.get(ProfileSelectionPresentation.class);
-        if (facade == null || !facade.isLinked()) {
-            showError("Website wipe is only available when linked.");
+        if (!profileSelectionPresentation.isLinked()) {
+            profileWorkflow.showManageDataError("Website wipe is only available when linked.");
             return;
         }
-        LinkSessionGuard.Credentials credentials = facade.resolveLinkedCredentials();
+        LinkSessionGuard.Credentials credentials = profileSelectionPresentation.resolveLinkedCredentials();
         if (credentials == null) {
-            showError("Website wipe failed: missing link credentials. Try relinking.");
+            profileWorkflow.showManageDataError("Website wipe failed: missing link credentials. Try relinking.");
             return;
         }
         ExecutorService executor = Access.plugin().ioExecutor;
         if (executor == null) {
-            showError("Website wipe failed: IO executor is unavailable.");
+            profileWorkflow.showManageDataError("Website wipe failed: IO executor is unavailable.");
             return;
         }
 
@@ -80,10 +79,7 @@ final class WebsiteStatsWipe {
                             "FlipHub website wipe: deleted " + events + " events, " + lots + " lots, "
                                 + fills + " fills, " + summaries + " summaries."
                         );
-                        PanelRefresh coordinator = Access.plugin().getPanelRefreshCoordinator();
-                        if (coordinator != null) {
-                            coordinator.triggerStatsRefresh(Access.plugin().scheduler);
-                        }
+                        panelRefresh.triggerStatsRefresh(Access.plugin().scheduler);
                     } else {
                         pushGameMessage("FlipHub website wipe failed: unexpected response.");
                     }

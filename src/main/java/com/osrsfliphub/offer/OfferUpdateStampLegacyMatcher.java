@@ -52,7 +52,7 @@ final class OfferUpdateStampLegacyMatcher {
                 continue;
             }
             compared++;
-            boolean isBuy = isBuyOffer(offer);
+            boolean isBuy = OfferUpdateStampStateHelpers.isBuyOffer(offer);
             if (stamp.itemId == offer.getItemId() && stamp.isBuy == isBuy) {
                 matches++;
             }
@@ -63,15 +63,5 @@ final class OfferUpdateStampLegacyMatcher {
         }
         int required = compared >= 2 ? 2 : 1;
         return matches >= required;
-    }
-
-    private boolean isBuyOffer(GrandExchangeOffer offer) {
-        if (offer == null) {
-            return false;
-        }
-        GrandExchangeOfferState state = offer.getState();
-        return state == GrandExchangeOfferState.BUYING
-            || state == GrandExchangeOfferState.BOUGHT
-            || state == GrandExchangeOfferState.CANCELLED_BUY;
     }
 }

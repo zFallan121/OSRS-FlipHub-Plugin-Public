@@ -30,10 +30,7 @@ import java.util.List;
 import java.util.function.*;
 import javax.swing.*;
 import javax.swing.Timer;
-import static com.osrsfliphub.Skin.DANGER;
-import static com.osrsfliphub.Skin.STATS_ITEMS_PER_PAGE;
-import static com.osrsfliphub.Skin.SUCCESS;
-import static com.osrsfliphub.Skin.TEXT;
+import static com.osrsfliphub.Skin.*;
 
 final class StatsRender {
     /**
@@ -81,7 +78,9 @@ final class StatsRender {
         // tint on the one number on the tab that is never a caution.
         setLabel(statsTotalProfitValue, valueFormatService.formatGp(totalProfit), totalProfit >= 0 ? SUCCESS : DANGER);
 
-        Double roi = sliced ? slice.roiPercent() : statsSummary.roi_percent;
+        // Boxed on both sides: a bare double here makes the whole ternary a double, and a summary
+        // with no ROI yet then throws on unboxing instead of reading as N/A.
+        Double roi = sliced ? Double.valueOf(slice.roiPercent()) : statsSummary.roi_percent;
         setLabel(statsRoiValue, valueFormatService.formatPercent(roi), roi != null && roi < 0 ? DANGER : SUCCESS);
 
         int flips = sliced
@@ -250,7 +249,7 @@ final class StatsRender {
             }
         }
         if (effectiveSort != StatsItemSort.COMPLETION || hasSellTimestamp || statsSortAscending) {
-            Comparator<StatsItem> comparator = buildItemsComparator(effectiveSort);
+            Comparator<StatsItem> comparator = StatsItemSort.comparatorFor(effectiveSort);
             if (statsSortAscending) {
                 comparator = comparator.reversed();
             }
@@ -376,37 +375,6 @@ final class StatsRender {
         double roiPercent() {
             return costGp > 0 ? (profitGp * 100.0) / costGp : 0.0;
         }
-    }
-
-    private Comparator<StatsItem> buildItemsComparator(StatsItemSort sort) {
-        if (sort == StatsItemSort.ROI) {
-            return Comparator
-                .comparingDouble(this::safeRoi)
-                .reversed()
-                .thenComparing(Comparator.comparingLong(this::safeProfit).reversed());
-        }
-        if (sort == StatsItemSort.PROFIT) {
-            return Comparator
-                .comparingLong(this::safeProfit)
-                .reversed()
-                .thenComparing(Comparator.comparingLong(this::safeLastSellTs).reversed());
-        }
-        return Comparator
-            .comparingLong(this::safeLastSellTs)
-            .reversed()
-            .thenComparing(Comparator.comparingLong(this::safeProfit).reversed());
-    }
-
-    private long safeProfit(StatsItem item) {
-        return item != null && item.total_profit_gp != null ? item.total_profit_gp : 0L;
-    }
-
-    private long safeLastSellTs(StatsItem item) {
-        return item != null && item.last_sell_ts_ms != null ? item.last_sell_ts_ms : 0L;
-    }
-
-    private double safeRoi(StatsItem item) {
-        return item != null && item.roi_percent != null ? item.roi_percent : 0.0;
     }
 
     private void setLabel(JLabel label, String text, Color color) {

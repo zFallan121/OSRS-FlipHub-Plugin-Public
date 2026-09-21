@@ -26,12 +26,14 @@ package com.osrsfliphub;
 
 import java.awt.image.BufferedImage;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import net.runelite.api.Client;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.ui.*;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 final class PanelBootstrap {
+    @RequiredArgsConstructor
     static final class UiState {
         @Getter
         private final Panel panel;
@@ -40,11 +42,6 @@ final class PanelBootstrap {
         @Getter
         private final GeOfferTimerOverlay offerTimerOverlay;
 
-        UiState(Panel panel, NavigationButton navButton, GeOfferTimerOverlay offerTimerOverlay) {
-            this.panel = panel;
-            this.navButton = navButton;
-            this.offerTimerOverlay = offerTimerOverlay;
-        }
     }
 
     UiState initialize(

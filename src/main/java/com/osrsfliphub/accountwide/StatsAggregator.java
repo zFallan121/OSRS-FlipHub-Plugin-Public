@@ -26,32 +26,21 @@ package com.osrsfliphub;
 
 import java.util.*;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class StatsAggregator {
-    @Inject
-    StatsAggregator() {
-    }
+    private final LocalStatsCacheService localStatsCacheService;
+    private final LocalStatsSnapshotService localStatsSnapshotService;
+    private final LocalTradesRuntime localTradesRuntime;
 
     private StatsSnapshot buildSnapshotForProfile(long accountKey, Long sinceMs) {
-        LocalStatsCacheService cacheService = Bridge.get(LocalStatsCacheService.class);
-        StatsCache cache = cacheService != null ? cacheService.getOrBuild(accountKey) : null;
+        StatsCache cache = localStatsCacheService.getOrBuild(accountKey);
         if (cache == null) {
             return new StatsSnapshot(new StatsSummary(), new ArrayList<>());
         }
         return cache.buildSnapshotSince(sinceMs);
-    }
-
-    private void hydrateItemNames(List<StatsItem> items) {
-        LocalStatsSnapshotService snapshotService = Bridge.get(LocalStatsSnapshotService.class);
-        if (snapshotService != null) {
-            snapshotService.hydrateItemNames(items);
-        }
-    }
-
-    private Comparator<StatsItem> buildComparator(StatsItemSort sort) {
-        LocalStatsSnapshotService snapshotService = Bridge.get(LocalStatsSnapshotService.class);
-        return snapshotService != null ? snapshotService.buildComparator(sort) : null;
     }
 
     StatsSnapshot buildFromProfiles(Set<Long> profileKeys, Long sinceMs, StatsItemSort sort) {
@@ -73,7 +62,7 @@ final class StatsAggregator {
             if (key == null || key <= 0) {
                 continue;
             }
-            Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(key);
+            localTradesRuntime.ensureProfileLoaded(key);
             StatsSnapshot snapshot = buildSnapshotForProfile(key, sinceMs);
             if (snapshot == null) {
                 continue;
@@ -173,11 +162,8 @@ final class StatsAggregator {
                 long profit = item.total_profit_gp != null ? item.total_profit_gp : 0L;
                 item.roi_percent = cost > 0 ? (profit * 100.0) / cost : 0.0;
             }
-            hydrateItemNames(items);
-            Comparator<StatsItem> comparator = buildComparator(sort);
-            if (comparator != null) {
-                items.sort(comparator);
-            }
+            localStatsSnapshotService.hydrateItemNames(items);
+            items.sort(StatsItemSort.comparatorFor(sort));
         }
         StatsSummary summary = new StatsSummary();
         summary.total_profit_gp = totalProfit;

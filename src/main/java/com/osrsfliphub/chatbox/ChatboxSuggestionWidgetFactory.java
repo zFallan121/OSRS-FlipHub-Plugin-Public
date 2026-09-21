@@ -79,10 +79,10 @@ final class ChatboxSuggestionWidgetFactory {
             return currentWidget;
         }
         Widget widget = currentWidget;
-        if (!isSuggestionWidgetAttached(container, widget)) {
+        if (!ChatboxSuggestionWidgets.isAttached(container, widget)) {
             widget = ChatboxSuggestionWidgets.findNamedTextWidget(container, name);
         }
-        if (!isSuggestionWidgetAttached(container, widget)) {
+        if (!ChatboxSuggestionWidgets.isAttached(container, widget)) {
             widget = container.createChild(-1, WidgetType.TEXT);
             widget.setTextColor(suggestionTextColor);
             widget.setTextShadowed(false);
@@ -132,18 +132,5 @@ final class ChatboxSuggestionWidgetFactory {
         widget.setOnMouseRepeatListener((JavaScriptCallback) ev -> widget.setTextColor(suggestionHoverTextColor));
         widget.setOnMouseLeaveListener((JavaScriptCallback) ev -> widget.setTextColor(suggestionTextColor));
         widget.setHasListener(true);
-    }
-
-    private boolean isSuggestionWidgetAttached(Widget container, Widget suggestionWidget) {
-        if (suggestionWidget == null || container == null) {
-            return false;
-        }
-        if (suggestionWidget.getParent() != container) {
-            return false;
-        }
-        if (suggestionWidget.getParentId() != container.getId()) {
-            return false;
-        }
-        return ChatboxSuggestionWidgets.isWidgetInParent(container, suggestionWidget);
     }
 }

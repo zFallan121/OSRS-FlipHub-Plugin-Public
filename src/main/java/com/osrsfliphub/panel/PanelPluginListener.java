@@ -28,10 +28,6 @@ import net.runelite.client.config.ConfigManager;
 
 final class PanelPluginListener implements PanelListener {
 
-    private static ProfileWorkflow workflow() {
-        return Access.plugin().getProfileWorkflowService();
-    }
-
     @Override
     public void onLinkSubmitted(String licenseKey) {
         LinkAttempt linkService = Bridge.get(LinkAttempt.class);
@@ -111,7 +107,7 @@ final class PanelPluginListener implements PanelListener {
         if (state != null) {
             state.getProfileSelection().selectManual(profileKey);
         }
-        workflow().persistProfileSelectionState();
+        Access.plugin().getProfileWorkflowService().persistProfileSelectionState();
 
         ProfileSelectionPresentation profileSelectionService =
             Bridge.get(ProfileSelectionPresentation.class);
@@ -127,8 +123,8 @@ final class PanelPluginListener implements PanelListener {
             bookmarkStateService.loadSelectedBookmarks(selectedProfileKey, state.getBookmarkedItems());
         }
 
-        workflow().updateProfileOptionsUI();
-        workflow().updateProfileHeader();
+        Access.plugin().getProfileWorkflowService().updateProfileOptionsUI();
+        Access.plugin().getProfileWorkflowService().updateProfileHeader();
         plugin.runtimeUtilityServices.triggerPanelRefresh(plugin.getPanelRefreshCoordinator(), plugin.scheduler);
         plugin.runtimeUtilityServices.triggerStatsRefresh(plugin.getPanelRefreshCoordinator(), plugin.scheduler);
     }

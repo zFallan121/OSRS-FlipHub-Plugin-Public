@@ -25,12 +25,14 @@
 package com.osrsfliphub;
 
 import java.awt.*;
+import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelListener;
 import javax.swing.*;
-import javax.swing.border.Border;
+import javax.swing.event.PopupMenuEvent;
 import lombok.RequiredArgsConstructor;
 import static com.osrsfliphub.Skin.*;
 
+@RequiredArgsConstructor
 final class StatsPanelContentBuilder {
     @RequiredArgsConstructor
     static final class ContentResult {
@@ -52,26 +54,6 @@ final class StatsPanelContentBuilder {
     private final WheelScroll wheelScrollCoordinator;
     private final MouseWheelListener wheelForwarder;
     private final Runnable openRecorder;
-
-    StatsPanelContentBuilder(UiStyler uiStyler,
-                                    PanelState panelStateService,
-                                    PanelMutableState panelState,
-                                    PanelListener listener,
-                                    Runnable renderStatsItems,
-                                    Runnable updateStatsSummary,
-                                    WheelScroll wheelScrollCoordinator,
-                                    MouseWheelListener wheelForwarder,
-                                    Runnable openRecorder) {
-        this.openRecorder = openRecorder;
-        this.uiStyler = uiStyler;
-        this.panelStateService = panelStateService;
-        this.panelState = panelState;
-        this.listener = listener;
-        this.renderStatsItems = renderStatsItems;
-        this.updateStatsSummary = updateStatsSummary;
-        this.wheelScrollCoordinator = wheelScrollCoordinator;
-        this.wheelForwarder = wheelForwarder;
-    }
 
     ContentResult buildContent(
         JPanel statsContentPanel,
@@ -131,23 +113,15 @@ final class StatsPanelContentBuilder {
         statsScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
         statsScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         statsScrollPane.setWheelScrollingEnabled(true);
-        if (wheelForwarder != null) {
-            statsScrollPane.addMouseWheelListener(wheelForwarder);
-            statsScrollPane.getViewport().addMouseWheelListener(wheelForwarder);
-        }
+        statsScrollPane.addMouseWheelListener(wheelForwarder);
+        statsScrollPane.getViewport().addMouseWheelListener(wheelForwarder);
         JScrollBar statsBar = statsScrollPane.getVerticalScrollBar();
         statsBar.setUnitIncrement(SCROLL_UNIT_INCREMENT);
         statsBar.setBlockIncrement(SCROLL_BLOCK_INCREMENT);
 
-        if (wheelScrollCoordinator != null) {
-            wheelScrollCoordinator.installWheelForwarder(statsContentPanel);
-        }
-        if (renderStatsItems != null) {
-            renderStatsItems.run();
-        }
-        if (updateStatsSummary != null) {
-            updateStatsSummary.run();
-        }
+        wheelScrollCoordinator.installWheelForwarder(statsContentPanel);
+        renderStatsItems.run();
+        updateStatsSummary.run();
 
         return new ContentResult(
             statsScrollPane,
@@ -169,10 +143,9 @@ final class StatsPanelContentBuilder {
      * the same micro label every other block in the panel gets.
      */
     private JPanel buildItemsHeadingRow() {
-        JPanel row = new JPanel(new BorderLayout(TRAILING_CONTROL_GAP, 0));
-        row.setOpaque(false);
+        JPanel row = plain(new BorderLayout(TRAILING_CONTROL_GAP, 0));
         row.setAlignmentX(JPanel.LEFT_ALIGNMENT);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
+        wide(row, 18);
 
         JLabel heading = new JLabel("Items");
         uiStyler.styleMicroLabel(heading, 9.5f);
@@ -181,9 +154,7 @@ final class StatsPanelContentBuilder {
         row.add(uiStyler.actionLink("Record a recipe",
             "Record trades as one recipe",
             () -> {
-                if (openRecorder != null) {
-                    openRecorder.run();
-                }
+                openRecorder.run();
             }), BorderLayout.EAST);
         return row;
     }
@@ -194,22 +165,19 @@ final class StatsPanelContentBuilder {
      * inside the field does the same work only when there is.
      */
     private JPanel buildSearchRow(JTextField statsSearchField) {
-        JPanel searchRow = new JPanel(new BorderLayout(TRAILING_CONTROL_GAP, 0));
-        searchRow.setOpaque(false);
+        JPanel searchRow = plain(new BorderLayout(TRAILING_CONTROL_GAP, 0));
         searchRow.setAlignmentX(JPanel.LEFT_ALIGNMENT);
 
         uiStyler.styleTextField(statsSearchField);
         statsSearchField.setToolTipText("Filter items");
         uiStyler.onEdit(statsSearchField, () -> {
-            if (panelStateService != null) {
-                panelStateService.onStatsSearchQueryChanged(panelState, statsSearchField.getText(), renderStatsItems);
-            }
+            panelStateService.onStatsSearchQueryChanged(panelState, statsSearchField.getText(), renderStatsItems);
         });
 
         uiStyler.installInlineClear(statsSearchField);
 
         searchRow.add(statsSearchField, BorderLayout.CENTER);
-        searchRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, searchRow.getPreferredSize().height));
+        wide(searchRow, searchRow.getPreferredSize().height);
         return searchRow;
     }
 
@@ -221,39 +189,35 @@ final class StatsPanelContentBuilder {
         // still ends on the panel's edge. The "Sort" micro label is gone: with a
         // second dropdown beside it, a label that names only one of them reads as
         // if it named both - which is the confusion this row is fixing.
-        JPanel row = new JPanel(new BorderLayout(TRAILING_CONTROL_GAP, 0));
-        row.setOpaque(false);
+        JPanel row = plain(new BorderLayout(TRAILING_CONTROL_GAP, 0));
         row.setAlignmentX(JPanel.LEFT_ALIGNMENT);
 
         // The direction button belongs to the sort, not to the row, so it sits
         // against it. The filter then takes whatever is left, which is more than
         // an even split gave it - and it is the control with the longest words.
-        JPanel sortGroup = new JPanel(new BorderLayout(4, 0));
-        sortGroup.setOpaque(false);
+        JPanel sortGroup = plain(new BorderLayout(4, 0));
 
         uiStyler.styleComboBox(statsSortCombo);
-        statsSortCombo.setBorder(roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
+        statsSortCombo.setBorder(uiStyler.roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
         if (statsSortCombo.getSelectedItem() == null) {
             statsSortCombo.setSelectedItem(StatsItemSort.COMPLETION);
         }
         statsSortCombo.addActionListener(e -> {
             StatsItemSort sort = (StatsItemSort) statsSortCombo.getSelectedItem();
-            if (panelStateService != null && sort != null) {
-                if (panelState != null) {
-                    panelState.statsSort = sort;
-                }
+            if (sort != null) {
+                panelState.statsSort = sort;
                 panelStateService.onStatsSortSelectionChanged(listener, panelState, sort, renderStatsItems);
             }
         });
 
         uiStyler.styleComboBox(statsFilterCombo);
-        statsFilterCombo.setBorder(roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
+        statsFilterCombo.setBorder(uiStyler.roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
         if (statsFilterCombo.getSelectedItem() == null) {
             statsFilterCombo.setSelectedItem(StatsRecipeFilter.ALL);
         }
         statsFilterCombo.addActionListener(e -> {
             StatsRecipeFilter filter = (StatsRecipeFilter) statsFilterCombo.getSelectedItem();
-            if (panelStateService != null && filter != null) {
+            if (filter != null) {
                 panelStateService.onStatsRecipeFilterChanged(panelState, filter, renderStatsItems);
             }
         });
@@ -266,19 +230,17 @@ final class StatsPanelContentBuilder {
         uiStyler.matchFieldHeight(statsSortDirectionButton, statsSortCombo);
         uiStyler.sizeTrailingControl(statsSortDirectionButton, statsSortCombo, SORT_DIRECTION_WIDTH);
         statsSortDirectionButton.addActionListener(e -> {
-            if (panelStateService != null) {
-                panelStateService.onStatsSortDirectionToggled(panelState, renderStatsItems);
-                updateStatsSortDirectionButton(statsSortDirectionButton,
-                    panelState != null && panelState.statsSortAscending, markSize);
-            }
+            panelStateService.onStatsSortDirectionToggled(panelState, renderStatsItems);
+            updateStatsSortDirectionButton(statsSortDirectionButton,
+                panelState.statsSortAscending, markSize);
         });
         updateStatsSortDirectionButton(statsSortDirectionButton,
-            panelState != null && panelState.statsSortAscending, markSize);
+            panelState.statsSortAscending, markSize);
         sortGroup.add(statsSortCombo, BorderLayout.CENTER);
         sortGroup.add(statsSortDirectionButton, BorderLayout.EAST);
         row.add(sortGroup, BorderLayout.WEST);
         row.add(statsFilterCombo, BorderLayout.CENTER);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
+        wide(row, row.getPreferredSize().height);
         return row;
     }
 
@@ -309,55 +271,53 @@ final class StatsPanelContentBuilder {
         long[] closedAtMs = {0L};
         trigger.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
-            public void mouseEntered(java.awt.event.MouseEvent event) {
+            public void mouseEntered(MouseEvent event) {
                 trigger.setForeground(TEXT);
             }
 
             @Override
-            public void mouseExited(java.awt.event.MouseEvent event) {
+            public void mouseExited(MouseEvent event) {
                 trigger.setForeground(MUTED_2);
             }
 
             @Override
-            public void mousePressed(java.awt.event.MouseEvent event) {
+            public void mousePressed(MouseEvent event) {
                 if (System.currentTimeMillis() - closedAtMs[0] < 250L) {
                     return;
                 }
-                javax.swing.JPopupMenu menu = new javax.swing.JPopupMenu();
+                JPopupMenu menu = new JPopupMenu();
                 menu.addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
                     @Override
-                    public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
+                    public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
                     }
 
                     @Override
-                    public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent e) {
+                    public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
                         closedAtMs[0] = System.currentTimeMillis();
                     }
 
                     @Override
-                    public void popupMenuCanceled(javax.swing.event.PopupMenuEvent e) {
+                    public void popupMenuCanceled(PopupMenuEvent e) {
                     }
                 });
                 menu.setBackground(OVERLAY_BASE);
-                menu.setBorder(javax.swing.BorderFactory.createCompoundBorder(
-                    javax.swing.BorderFactory.createLineBorder(LINE_STRONG),
-                    javax.swing.BorderFactory.createEmptyBorder(2, 0, 2, 0)));
-                StatsRecipeFilter active = panelState != null && panelState.statsProfitFilter != null
+                menu.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(LINE_STRONG),
+                    BorderFactory.createEmptyBorder(2, 0, 2, 0)));
+                StatsRecipeFilter active = panelState.statsProfitFilter != null
                     ? panelState.statsProfitFilter
                     : StatsRecipeFilter.ALL;
                 for (StatsRecipeFilter filter : StatsRecipeFilter.values()) {
-                    javax.swing.JMenuItem entry = new javax.swing.JMenuItem(filter.toString());
+                    JMenuItem entry = new JMenuItem(filter.toString());
                     entry.setOpaque(true);
                     entry.setBackground(OVERLAY_BASE);
                     entry.setForeground(filter == active ? ACCENT : TEXT);
                     entry.setFont(uiStyler.font(UiStyler.DROPDOWN_TEXT_SIZE));
-                    entry.setBorder(javax.swing.BorderFactory.createEmptyBorder(3, 10, 3, 14));
+                    entry.setBorder(BorderFactory.createEmptyBorder(3, 10, 3, 14));
                     entry.addChangeListener(e -> entry.setBackground(
                         entry.getModel().isArmed() ? SURFACE_TOP : OVERLAY_BASE));
                     entry.addActionListener(e -> {
-                        if (panelStateService != null) {
-                            panelStateService.onStatsProfitFilterChanged(panelState, filter, updateStatsSummary);
-                        }
+                        panelStateService.onStatsProfitFilterChanged(panelState, filter, updateStatsSummary);
                     });
                     menu.add(entry);
                 }
@@ -373,12 +333,11 @@ final class StatsPanelContentBuilder {
         card.setBorder(BorderFactory.createEmptyBorder(12, 14, 8, 14));
         card.setAlignmentX(JPanel.LEFT_ALIGNMENT);
 
-        JPanel answer = new JPanel(new BorderLayout());
-        answer.setOpaque(false);
+        JPanel answer = plain(new BorderLayout());
         answer.setAlignmentX(JPanel.LEFT_ALIGNMENT);
         // Sized to what it holds. The old fixed 46 cut the descenders off the
         // one number the whole tab exists to show.
-        answer.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+        wide(answer, Integer.MAX_VALUE);
 
         // No control of its own: the label is the control. A caret after the
         // words is enough to say there is something to open, and the card still
@@ -390,15 +349,14 @@ final class StatsPanelContentBuilder {
         // is safe here.
         JLabel labelView = new TipLabel("Total Profit \u25bc", SwingConstants.LEADING);
         uiStyler.styleMicroLabel(labelView, 9.5f);
-        labelView.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        labelView.setCursor(HAND);
         labelView.setToolTipText("One kind of activity");
         installProfitFilterMenu(labelView);
 
         totalProfitValue.setForeground(SUCCESS);
         totalProfitValue.setFont(uiStyler.fontBold(20f));
 
-        JPanel labelRow = new JPanel(new BorderLayout());
-        labelRow.setOpaque(false);
+        JPanel labelRow = plain(new BorderLayout());
         labelRow.add(labelView, BorderLayout.WEST);
 
         answer.add(labelRow, BorderLayout.NORTH);
@@ -409,19 +367,16 @@ final class StatsPanelContentBuilder {
         for (Object[] row : rows) {
             card.add(buildStatsRow((String) row[0], (JLabel) row[1], (Color) row[2]));
         }
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, card.getPreferredSize().height));
+        wide(card, card.getPreferredSize().height);
         return card;
     }
 
     private JPanel buildStatsRow(String label, JLabel valueView, Color valueColor) {
-        JPanel row = new JPanel(new BorderLayout());
-        row.setOpaque(false);
+        JPanel row = plain(new BorderLayout());
         row.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, LINE));
         row.setAlignmentX(JPanel.LEFT_ALIGNMENT);
 
-        JLabel labelView = new TipLabel(label, SwingConstants.LEADING);
-        labelView.setForeground(MUTED);
-        labelView.setFont(uiStyler.font(10.5f));
+        JLabel labelView = styled(new TipLabel(label, SwingConstants.LEADING), MUTED, uiStyler.font(10.5f));
 
         valueView.setHorizontalAlignment(SwingConstants.RIGHT);
         valueView.setForeground(valueColor);
@@ -429,12 +384,8 @@ final class StatsPanelContentBuilder {
 
         row.add(labelView, BorderLayout.WEST);
         row.add(valueView, BorderLayout.EAST);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
+        wide(row, 28);
         row.setPreferredSize(new Dimension(0, 28));
         return row;
-    }
-
-    private Border roundedBorder(int arc, Color color, Insets padding) {
-        return uiStyler.roundedBorder(arc, color, padding);
     }
 }

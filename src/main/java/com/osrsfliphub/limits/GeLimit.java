@@ -35,6 +35,7 @@ import net.runelite.client.game.ItemManager;
 @Slf4j
 final class GeLimit {
 
+    private final ItemLookup itemLookup;
     private final int maxLookupsPerRequest;
     private final ItemManager itemManager;
     private final ClientThread clientThread;
@@ -44,30 +45,22 @@ final class GeLimit {
     private final Set<Integer> geLimitPending = new HashSet<>();
 
     @Inject
-    GeLimit(ItemManager itemManager, ClientThread clientThread, Client client) {
+    GeLimit(ItemManager itemManager, ClientThread clientThread, Client client, ItemLookup itemLookup) {
+        this.itemLookup = itemLookup;
         this.maxLookupsPerRequest = Const.MAX_GE_LIMIT_LOOKUPS_PER_REQUEST;
         this.itemManager = itemManager;
         this.clientThread = clientThread;
         this.client = client;
     }
 
-    private boolean isClientFullyReady() {
-        return client != null
-            && client.getGameState() == GameState.LOGGED_IN
-            && client.getLocalPlayer() != null
-            && clientThread != null
-            && itemManager != null;
-    }
-
     private void invokeOnClientThread(Runnable task) {
-        if (task != null && clientThread != null) {
+        if (task != null) {
             clientThread.invokeLater(task);
         }
     }
 
     private Integer lookupGeLimit(int itemId) {
-        ItemLookup service = Bridge.get(ItemLookup.class);
-        Integer geLimit = service != null ? service.lookupGeLimitSafe(itemId) : null;
+        Integer geLimit = itemLookup.lookupGeLimitSafe(itemId);
         return geLimit != null ? geLimit : 0;
     }
 
@@ -92,7 +85,7 @@ final class GeLimit {
     }
 
     void requestGeLimits(Set<Integer> itemIds) {
-        if (!isClientFullyReady()) {
+        if (!(client.getGameState() == GameState.LOGGED_IN && client.getLocalPlayer() != null)) {
             return;
         }
         if (itemIds == null || itemIds.isEmpty()) {

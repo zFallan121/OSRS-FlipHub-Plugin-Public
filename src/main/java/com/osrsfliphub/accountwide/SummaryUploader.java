@@ -28,9 +28,13 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class SummaryUploader {
+    private final PluginRuntime pluginRuntime;
+
     private final long minUploadIntervalMs =
         Math.max(0L, Const.ACCOUNTWIDE_UPLOAD_MIN_INTERVAL_MS);
     private final long resyncIntervalMs =
@@ -40,17 +44,12 @@ final class SummaryUploader {
     private volatile long lastUploadSuccessMs;
     private volatile int lastSnapshotHash = Integer.MIN_VALUE;
 
-    @Inject
-    SummaryUploader() {
-    }
-
     /**
      * Reads the readiness flag the client thread photographs each tick, because this runs on the
      * upload pool and {@code client.getLocalPlayer()} must not be called from there.
      */
     private boolean isClientFullyReady() {
-        PluginRuntime runtime = Bridge.get(PluginRuntime.class);
-        return runtime != null && runtime.isClientFullyReady();
+        return pluginRuntime.isClientFullyReady();
     }
 
     private void clearSession() {
@@ -170,7 +169,7 @@ final class SummaryUploader {
 
         for (StatsItem item : sortedItems) {
             hash = 31 * hash + Integer.hashCode(item.item_id);
-            hash = 31 * hash + hashString(item.item_name);
+            hash = 31 * hash + (item.item_name != null ? item.item_name.hashCode() : 0);
             hash = 31 * hash + Long.hashCode(item.total_profit_gp != null ? item.total_profit_gp : 0L);
             hash = 31 * hash + Long.hashCode(item.total_cost_gp != null ? item.total_cost_gp : 0L);
             hash = 31 * hash + Double.hashCode(item.roi_percent != null ? item.roi_percent : 0.0);
@@ -194,9 +193,5 @@ final class SummaryUploader {
         hash = 31 * hash + Long.hashCode(summary.first_buy_ts_ms != null ? summary.first_buy_ts_ms : 0L);
         hash = 31 * hash + Long.hashCode(summary.last_sell_ts_ms != null ? summary.last_sell_ts_ms : 0L);
         return hash;
-    }
-
-    private int hashString(String value) {
-        return value != null ? value.hashCode() : 0;
     }
 }

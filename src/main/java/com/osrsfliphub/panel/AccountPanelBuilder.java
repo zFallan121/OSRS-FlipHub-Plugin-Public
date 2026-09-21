@@ -38,6 +38,7 @@ import static com.osrsfliphub.Skin.*;
  * view exists to solve. Here the panel owns its own repaint, so pasting a key and being told what
  * happened are the same moment.</p>
  */
+@RequiredArgsConstructor
 final class AccountPanelBuilder {
     private static final String INSIGHTS_PATH = "/my-statistics";
 
@@ -77,21 +78,10 @@ final class AccountPanelBuilder {
     private final ExternalLink linkCoordinator;
     private JPasswordField keyField;
 
-    AccountPanelBuilder(UiStyler uiStyler,
-                               PanelListener listener,
-                               ExternalLink linkCoordinator) {
-        this.uiStyler = uiStyler;
-        this.listener = listener;
-        this.linkCoordinator = linkCoordinator;
-    }
-
     BuildResult build() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setOpaque(false);
+        JPanel panel = plain(new BorderLayout());
 
-        JPanel column = new JPanel();
-        column.setOpaque(false);
-        column.setLayout(new BoxLayout(column, BoxLayout.Y_AXIS));
+        JPanel column = stack();
 
         JLabel heading = new JLabel("FlipHub account");
         uiStyler.styleMicroLabel(heading, 10f);
@@ -110,9 +100,7 @@ final class AccountPanelBuilder {
         stateLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         card.add(stateLabel);
 
-        JLabel keyHintLabel = new JLabel(" ");
-        keyHintLabel.setFont(uiStyler.font(10.5f));
-        keyHintLabel.setForeground(MUTED_2);
+        JLabel keyHintLabel = styled(new JLabel(" "), MUTED_2, uiStyler.font(10.5f));
         keyHintLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         keyHintLabel.setBorder(BorderFactory.createEmptyBorder(2, 0, 0, 0));
         card.add(keyHintLabel);
@@ -132,9 +120,7 @@ final class AccountPanelBuilder {
         linkedRows.setVisible(false);
         card.add(linkedRows);
 
-        JLabel messageLabel = new JLabel(" ");
-        messageLabel.setFont(uiStyler.font(10.5f));
-        messageLabel.setForeground(MUTED);
+        JLabel messageLabel = styled(new JLabel(" "), MUTED, uiStyler.font(10.5f));
         messageLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         messageLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
         card.add(messageLabel);
@@ -147,9 +133,7 @@ final class AccountPanelBuilder {
     }
 
     private JPanel buildPitchRows() {
-        JPanel rows = new JPanel();
-        rows.setOpaque(false);
-        rows.setLayout(new BoxLayout(rows, BoxLayout.Y_AXIS));
+        JPanel rows = stack();
         rows.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
 
         JLabel pitch = new JLabel(wrap(
@@ -177,9 +161,7 @@ final class AccountPanelBuilder {
     }
 
     private JPanel buildUnlinkedRows() {
-        JPanel rows = new JPanel();
-        rows.setOpaque(false);
-        rows.setLayout(new BoxLayout(rows, BoxLayout.Y_AXIS));
+        JPanel rows = stack();
 
         JLabel keyCaption = new JLabel("License key");
         uiStyler.styleMicroLabel(keyCaption, 9.5f);
@@ -190,7 +172,7 @@ final class AccountPanelBuilder {
         keyField = new JPasswordField();
         uiStyler.styleTextField(keyField);
         keyField.setAlignmentX(Component.LEFT_ALIGNMENT);
-        keyField.setMaximumSize(new Dimension(Integer.MAX_VALUE, keyField.getPreferredSize().height));
+        wide(keyField, keyField.getPreferredSize().height);
         rows.add(keyField);
 
         JButton link = new TipButton("Link account");
@@ -207,9 +189,7 @@ final class AccountPanelBuilder {
     }
 
     private JPanel buildLinkedRows() {
-        JPanel rows = new JPanel();
-        rows.setOpaque(false);
-        rows.setLayout(new BoxLayout(rows, BoxLayout.Y_AXIS));
+        JPanel rows = stack();
 
         rows.add(externalLink("Open my insight page", 14));
 
@@ -226,12 +206,10 @@ final class AccountPanelBuilder {
     }
 
     private JLabel externalLink(String text, int topGap) {
-        JLabel label = new JLabel(text);
-        label.setFont(uiStyler.font(10.5f));
-        label.setForeground(ACCENT);
+        JLabel label = styled(new JLabel(text), ACCENT, uiStyler.font(10.5f));
         label.setAlignmentX(Component.LEFT_ALIGNMENT);
         label.setBorder(BorderFactory.createEmptyBorder(topGap, 0, 0, 0));
-        label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        label.setCursor(HAND);
         // The shared handler, so a few pixels of drift between press and release does not
         // silently swallow the click.
         label.addMouseListener(new StatsClickMouseAdapter(
@@ -258,8 +236,7 @@ final class AccountPanelBuilder {
      * Holding the bullet in a fixed west column gives the text a proper hanging indent.</p>
      */
     private JPanel benefit(String text) {
-        JPanel row = new JPanel(new BorderLayout());
-        row.setOpaque(false);
+        JPanel row = plain(new BorderLayout());
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
         row.setBorder(BorderFactory.createEmptyBorder(5, 2, 0, 0));
 
@@ -276,7 +253,7 @@ final class AccountPanelBuilder {
         body.setVerticalAlignment(SwingConstants.TOP);
         row.add(body, BorderLayout.CENTER);
 
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
+        wide(row, row.getPreferredSize().height);
         return row;
     }
 

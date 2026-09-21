@@ -26,35 +26,31 @@ package com.osrsfliphub;
 
 import java.util.*;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class LocalStatsSnapshotService {
     private final long accountwideKey = Const.ACCOUNTWIDE_KEY;
     private final PluginState pluginState;
-
-    @Inject
-    LocalStatsSnapshotService(PluginState pluginState) {
-        this.pluginState = pluginState;
-    }
+    private final ProfileKeyCollector profileKeyCollector;
+    private final ProfileStorage profileStorage;
+    private final ProfileSelectionPresentation profileSelectionPresentation;
+    private final ItemLookup itemLookup;
+    private final LocalStatsCacheService cacheService;
+    private final LocalTradesRuntime tradesRuntime;
 
     Set<Long> collectAccountwideProfileKeys() {
-        ProfileKeyCollector collector = Bridge.get(ProfileKeyCollector.class);
-        ProfileStorage storage = Bridge.get(ProfileStorage.class);
-        if (collector == null || storage == null) {
-            return Collections.emptySet();
-        }
-        return collector.collect(
-            storage.getProfilesDir(),
-            storage.getLegacyProfilesDir(),
+        return profileKeyCollector.collect(
+            profileStorage.getProfilesDir(),
+            profileStorage.getLegacyProfilesDir(),
             pluginState.getLocalTradeDeltasByAccount(),
             pluginState.getLocalStatsLock(),
             this::loadProfilesFromDisk);
     }
 
     private Map<Long, String> loadProfilesFromDisk() {
-        ProfileSelectionPresentation service =
-            Bridge.get(ProfileSelectionPresentation.class);
-        return service != null ? service.loadProfilesFromDisk() : Collections.emptyMap();
+        return profileSelectionPresentation.loadProfilesFromDisk();
     }
 
     StatsSnapshot buildSnapshot(long accountKey, Long sinceMs, StatsItemSort sort) {
@@ -68,43 +64,16 @@ final class LocalStatsSnapshotService {
         if (items == null || items.isEmpty()) {
             return;
         }
-        ItemLookup itemLookup = Bridge.get(ItemLookup.class);
         for (StatsItem item : items) {
             if (item == null || item.item_id <= 0) {
                 continue;
             }
-            String cachedName = itemLookup != null ? itemLookup.getCachedItemName(item.item_id) : null;
+            String cachedName = itemLookup.getCachedItemName(item.item_id);
             item.item_name = cachedName;
-            if (Str.isBlank(cachedName) && itemLookup != null) {
+            if (Str.isBlank(cachedName)) {
                 itemLookup.cacheItemName(item.item_id);
             }
         }
-    }
-
-    Comparator<StatsItem> buildComparator(StatsItemSort sort) {
-        StatsItemSort effective = sort != null ? sort : StatsItemSort.COMPLETION;
-        if (effective == StatsItemSort.ROI) {
-            return Comparator
-                .comparingDouble((StatsItem item) -> item != null && item.roi_percent != null ? item.roi_percent : 0.0)
-                .reversed()
-                .thenComparing(Comparator.comparingLong(
-                    (StatsItem item) -> item != null && item.total_profit_gp != null ? item.total_profit_gp : 0L
-                ).reversed());
-        }
-        if (effective == StatsItemSort.PROFIT) {
-            return Comparator
-                .comparingLong((StatsItem item) -> item != null && item.total_profit_gp != null ? item.total_profit_gp : 0L)
-                .reversed()
-                .thenComparing(Comparator.comparingLong(
-                    (StatsItem item) -> item != null && item.last_sell_ts_ms != null ? item.last_sell_ts_ms : 0L
-                ).reversed());
-        }
-        return Comparator
-            .comparingLong((StatsItem item) -> item != null && item.last_sell_ts_ms != null ? item.last_sell_ts_ms : 0L)
-            .reversed()
-            .thenComparing(Comparator.comparingLong(
-                (StatsItem item) -> item != null && item.total_profit_gp != null ? item.total_profit_gp : 0L
-            ).reversed());
     }
 
     /**
@@ -127,9 +96,8 @@ final class LocalStatsSnapshotService {
     }
 
     private StatsSnapshot buildSnapshotForAccount(long accountKey, Long sinceMs, StatsItemSort sort) {
-        Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
-        LocalStatsCacheService cacheService = Bridge.get(LocalStatsCacheService.class);
-        StatsCache cache = cacheService != null ? cacheService.getOrBuild(accountKey) : null;
+        tradesRuntime.ensureProfileLoaded(accountKey);
+        StatsCache cache = cacheService.getOrBuild(accountKey);
         if (cache == null) {
             return emptySnapshot();
         }
@@ -142,7 +110,7 @@ final class LocalStatsSnapshotService {
         }
         List<StatsItem> items = snapshot.items != null ? snapshot.items : new ArrayList<>();
         hydrateItemNames(items);
-        items.sort(buildComparator(sort));
+        items.sort(StatsItemSort.comparatorFor(sort));
         StatsSummary summary = snapshot.summary != null ? snapshot.summary : new StatsSummary();
         return new StatsSnapshot(summary, items);
     }

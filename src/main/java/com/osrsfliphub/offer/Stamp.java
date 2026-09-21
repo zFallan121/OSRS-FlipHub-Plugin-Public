@@ -24,8 +24,10 @@
  */
 package com.osrsfliphub;
 
+import lombok.AllArgsConstructor;
 import net.runelite.api.GrandExchangeOffer;
 
+@AllArgsConstructor
 final class Stamp {
     int itemId;
     int price;
@@ -39,28 +41,6 @@ final class Stamp {
     long lastEmptyMs;
 
     Stamp() {
-    }
-
-    Stamp(int itemId,
-                     int price,
-                     int totalQty,
-                     int filledQty,
-                     boolean isBuy,
-                     long spentGp,
-                     long lastUpdateMs,
-                     long firstSeenMs,
-                     long completedMs,
-                     long lastEmptyMs) {
-        this.itemId = itemId;
-        this.price = price;
-        this.totalQty = totalQty;
-        this.filledQty = filledQty;
-        this.isBuy = isBuy;
-        this.spentGp = spentGp;
-        this.lastUpdateMs = lastUpdateMs;
-        this.firstSeenMs = firstSeenMs;
-        this.completedMs = completedMs;
-        this.lastEmptyMs = lastEmptyMs;
     }
 
     /**

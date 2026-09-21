@@ -25,22 +25,20 @@
 package com.osrsfliphub;
 
 import javax.inject.*;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import net.runelite.api.*;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.widgets.*;
 
 @Singleton
 final class OfferPreviewItemResolver {
+    @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
     static final class Resolution {
         @Getter
         private final Integer itemId;
         private final boolean clear;
-
-        private Resolution(Integer itemId, boolean clear) {
-            this.itemId = itemId;
-            this.clear = clear;
-        }
 
         static Resolution set(int itemId) {
             return new Resolution(itemId, false);
@@ -55,73 +53,36 @@ final class OfferPreviewItemResolver {
         }
     }
 
+    private final ItemLookup itemLookup;
     private final Client client;
     private final OfferPreviewRuntime facade;
     private final String[] setupBlockers;
 
     @Inject
-    OfferPreviewItemResolver(Client client, OfferPreviewRuntime facade) {
+    OfferPreviewItemResolver(Client client, OfferPreviewRuntime facade, ItemLookup itemLookup) {
+        this.itemLookup = itemLookup;
         this.client = client;
         this.facade = facade;
         this.setupBlockers = Const.OFFER_SETUP_BLOCKERS != null
             ? Const.OFFER_SETUP_BLOCKERS : new String[0];
     }
 
-    private Widget getVisibleGeRoot() {
-        return facade != null
-            ? facade.getVisibleGeRoot(client, ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER)
-            : null;
-    }
-
-    private int getNewOfferTypeVarbit() {
-        return client != null ? client.getVarbitValue(VarbitID.GE_NEWOFFER_TYPE) : 0;
-    }
-
-    private int getSelectedSlotVarbit() {
-        return client != null ? client.getVarbitValue(VarbitID.GE_SELECTEDSLOT) : -1;
-    }
-
-    private Widget getOfferContainer() {
-        return client != null ? client.getWidget(ComponentID.GRAND_EXCHANGE_OFFER_CONTAINER) : null;
-    }
-
-    private int findFirstItemId(Widget widget) {
-        return facade != null ? facade.findFirstItemId(widget) : -1;
-    }
-
-    private int getCurrentGeItemVarp() {
-        return client != null ? client.getVarpValue(VarPlayer.CURRENT_GE_ITEM) : -1;
-    }
-
-    private GrandExchangeOffer getSelectedOffer() {
-        return facade != null ? facade.getSelectedOffer(client, VarbitID.GE_SELECTEDSLOT) : null;
-    }
-
     private String findItemNameCandidate(Widget geRoot) {
-        ItemLookup itemLookupService = Bridge.get(ItemLookup.class);
-        if (facade == null || itemLookupService == null) {
-            return null;
-        }
         return facade.findItemNameCandidate(
             geRoot,
             Const.ITEM_NAME_EXCLUDES,
-            itemLookupService::resolveItemIdFromName);
-    }
-
-    private int resolveItemIdFromName(String name) {
-        ItemLookup itemLookupService = Bridge.get(ItemLookup.class);
-        return itemLookupService != null ? itemLookupService.resolveItemIdFromName(name) : -1;
+            itemLookup::resolveItemIdFromName);
     }
 
     Resolution resolve() {
-        Widget geRoot = getVisibleGeRoot();
-        Widget offerContainer = getOfferContainer();
+        Widget geRoot = facade.getVisibleGeRoot(client, ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
+        Widget offerContainer = client.getWidget(ComponentID.GRAND_EXCHANGE_OFFER_CONTAINER);
         boolean offerVisible = offerContainer != null && !offerContainer.isHidden();
         boolean geOpen = geRoot != null;
-        boolean offerStatusOpen = geOpen && (facade != null && facade.isOfferStatusOpen(geRoot, Const.OFFER_STATUS_MARKERS));
+        boolean offerStatusOpen = geOpen && (facade.isOfferStatusOpen(geRoot, Const.OFFER_STATUS_MARKERS));
         // Some client builds can lag the setup varbit while the setup container is already visible.
-        boolean setupMode = getNewOfferTypeVarbit() > 0 || offerVisible;
-        int selectedSlot = getSelectedSlotVarbit();
+        boolean setupMode = client.getVarbitValue(VarbitID.GE_NEWOFFER_TYPE) > 0 || offerVisible;
+        int selectedSlot = client.getVarbitValue(VarbitID.GE_SELECTEDSLOT);
 
         if (geOpen && !setupMode && !offerStatusOpen && selectedSlot <= 0) {
             return Resolution.clear();
@@ -171,7 +132,7 @@ final class OfferPreviewItemResolver {
             }
         }
 
-        int itemId = findFirstItemId(offerContainer);
+        int itemId = facade.findFirstItemId(offerContainer);
         if (itemId <= 0) {
             return Resolution.clear();
         }
@@ -182,7 +143,7 @@ final class OfferPreviewItemResolver {
         if (geRoot == null) {
             return null;
         }
-        int itemId = findFirstItemId(geRoot);
+        int itemId = facade.findFirstItemId(geRoot);
         if (itemId <= 0) {
             return null;
         }
@@ -194,7 +155,7 @@ final class OfferPreviewItemResolver {
         if (!setupMode && !offerStatusOpen && selectedSlot <= 0) {
             return null;
         }
-        int itemId = getCurrentGeItemVarp();
+        int itemId = client.getVarpValue(VarPlayer.CURRENT_GE_ITEM);
         if (itemId <= 0) {
             return null;
         }
@@ -202,7 +163,7 @@ final class OfferPreviewItemResolver {
     }
 
     private Resolution resolveFromSelectedSlot() {
-        GrandExchangeOffer offer = getSelectedOffer();
+        GrandExchangeOffer offer = facade.getSelectedOffer(client, VarbitID.GE_SELECTEDSLOT);
         if (offer == null) {
             return null;
         }
@@ -221,7 +182,7 @@ final class OfferPreviewItemResolver {
         if (candidate == null) {
             return null;
         }
-        int itemId = resolveItemIdFromName(candidate);
+        int itemId = itemLookup.resolveItemIdFromName(candidate);
         if (itemId <= 0) {
             return null;
         }

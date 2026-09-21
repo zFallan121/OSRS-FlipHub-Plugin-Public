@@ -29,24 +29,37 @@ import javax.inject.*;
 
 @Singleton
 final class ProfileSelectionPresentation {
+    private final TradeSession tradeSession;
+    private final ProfilePresentation presentation;
+    private final ProfileSelectionResolver resolver;
+    private final LinkSessionGuard linkSessionGuard;
+    private final AccountSession accountSession;
+    private final ProfileCatalog catalog;
     private final ProfileSelectionState profileSelection;
     private final Map<Long, String> profileDisplayNames;
 
     @Inject
-    ProfileSelectionPresentation(PluginState pluginState) {
+    ProfileSelectionPresentation(
+        PluginState pluginState,
+        ProfileSelectionResolver resolver,
+        LinkSessionGuard linkSessionGuard,
+        AccountSession accountSession,
+        ProfileCatalog catalog,
+        TradeSession tradeSession,
+        ProfilePresentation presentation
+    ) {
+        this.tradeSession = tradeSession;
+        this.presentation = presentation;
+        this.resolver = resolver;
+        this.linkSessionGuard = linkSessionGuard;
+        this.accountSession = accountSession;
+        this.catalog = catalog;
         this.profileSelection = pluginState.getProfileSelection();
         this.profileDisplayNames = pluginState.getProfileDisplayNames();
     }
 
-    private long resolveAccountHash() {
-        TradeSession facade = Bridge.get(TradeSession.class);
-        return facade != null ? facade.resolveAccountHash() : -1L;
-    }
-
     String resolveSelectedProfileKeyForUi() {
-        return Bridge.get(ProfileSelectionResolver.class) != null
-            ? Bridge.get(ProfileSelectionResolver.class).resolveSelectedProfileKeyForUi(profileSelection)
-            : String.valueOf(Const.ACCOUNTWIDE_KEY);
+        return resolver.resolveSelectedProfileKeyForUi(profileSelection);
     }
 
     String resolveProfileHeaderLabel() {
@@ -54,67 +67,53 @@ final class ProfileSelectionPresentation {
     }
 
     boolean hasSessionToken() {
-        return Bridge.get(LinkSessionGuard.class) != null
-            && Bridge.get(LinkSessionGuard.class).hasSessionToken();
+        return linkSessionGuard != null
+            && linkSessionGuard.hasSessionToken();
     }
 
     LinkSessionGuard.Credentials resolveLinkedCredentials() {
-        return Bridge.get(LinkSessionGuard.class) != null
-            ? Bridge.get(LinkSessionGuard.class).resolveLinkedCredentials()
-            : null;
+        return linkSessionGuard.resolveLinkedCredentials();
     }
 
     boolean isLinked() {
-        return Bridge.get(LinkSessionGuard.class) != null
-            && Bridge.get(LinkSessionGuard.class).isLinked();
+        return linkSessionGuard != null
+            && linkSessionGuard.isLinked();
     }
 
     long resolveSelectedProfileKey() {
-        return Bridge.get(ProfileSelectionResolver.class) != null
-            ? Bridge.get(ProfileSelectionResolver.class).resolveSelectedProfileKey(profileSelection)
-            : Const.ACCOUNTWIDE_KEY;
+        return resolver.resolveSelectedProfileKey(profileSelection);
     }
 
     String resolveSelectedProfileLabel() {
         long key = resolveSelectedProfileKey();
-        return Bridge.get(ProfilePresentation.class) != null
-            ? Bridge.get(ProfilePresentation.class).resolveSelectedProfileLabel(
+        return presentation.resolveSelectedProfileLabel(
                 key,
                 profileDisplayNames
-            )
-            : "Accountwide";
+            );
     }
 
     String buildProfileKey(long accountHash) {
-        return Bridge.get(ProfileSelectionResolver.class) != null
-            ? Bridge.get(ProfileSelectionResolver.class).buildProfileKey(profileSelection, accountHash)
-            : String.valueOf(accountHash);
+        return resolver.buildProfileKey(profileSelection, accountHash);
     }
 
     String resolveDisplayName() {
-        return Bridge.get(AccountSession.class) != null
-            ? Bridge.get(AccountSession.class).resolveDisplayName()
-            : null;
+        return accountSession.resolveDisplayName();
     }
 
     List<ProfileOption> buildProfileOptions() {
         Map<Long, String> diskProfiles = loadProfilesFromDisk();
-        long currentHash = resolveAccountHash();
+        long currentHash = tradeSession.resolveAccountHash();
         String display = resolveDisplayName();
-        return Bridge.get(ProfilePresentation.class) != null
-            ? Bridge.get(ProfilePresentation.class).buildProfileOptions(
+        return presentation.buildProfileOptions(
                 profileDisplayNames,
                 diskProfiles,
                 currentHash,
                 display
-            )
-            : java.util.Collections.emptyList();
+            );
     }
 
     Map<Long, String> loadProfilesFromDisk() {
-        return Bridge.get(ProfileCatalog.class) != null
-            ? Bridge.get(ProfileCatalog.class).loadProfiles(profileDisplayNames)
-            : java.util.Collections.emptyMap();
+        return catalog.loadProfiles(profileDisplayNames);
     }
 }
 

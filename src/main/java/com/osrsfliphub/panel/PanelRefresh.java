@@ -28,10 +28,17 @@ import java.awt.EventQueue;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 import net.runelite.client.callback.ClientThread;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class PanelRefresh {
+    private final PluginRuntime pluginRuntime;
+    private final ProfileWorkflow profileWorkflow;
+    private final ClientThread clientThread;
+    private final PanelDataRuntime dataRuntime;
+
     private static final long REFRESH_DEBOUNCE_MILLIS = 75L;
 
     private final AtomicBoolean refreshInFlight = new AtomicBoolean(false);
@@ -59,17 +66,12 @@ final class PanelRefresh {
     private final AtomicBoolean refreshPending = new AtomicBoolean(false);
     private final AtomicBoolean statsRefreshInFlight = new AtomicBoolean(false);
 
-    @Inject
-    PanelRefresh() {
-    }
-
     /**
      * Reads the readiness flag the client thread photographs each tick, because refreshes run on
      * the scheduler and {@code client.getLocalPlayer()} must not be called from there.
      */
     private boolean isClientFullyReady() {
-        PluginRuntime runtime = Bridge.get(PluginRuntime.class);
-        return runtime != null && runtime.isClientFullyReady();
+        return pluginRuntime.isClientFullyReady();
     }
 
     private boolean isPanelVisible() {
@@ -85,19 +87,10 @@ final class PanelRefresh {
         return panel != null && panel.isStatsTabSelected();
     }
 
-    private void ensureSelectedProfileLoaded() {
-        Access.plugin().getProfileWorkflowService().ensureSelectedProfileLoaded();
-    }
-
-    private void updateProfileHeader() {
-        Access.plugin().getProfileWorkflowService().updateProfileHeader();
-    }
-
     private void invokeOnClientThreadOrRun(Runnable task) {
         if (task == null) {
             return;
         }
-        ClientThread clientThread = Access.plugin().clientThread;
         if (clientThread != null) {
             clientThread.invokeLater(task);
         } else {
@@ -106,11 +99,7 @@ final class PanelRefresh {
     }
 
     private void updateLocalItemsPanel() {
-        Bridge.get(PanelDataRuntime.class).updateLocalItemsPanel();
-    }
-
-    private void renderLocalStats() {
-        Bridge.get(PanelDataRuntime.class).renderLocalStats();
+        dataRuntime.updateLocalItemsPanel();
     }
 
     private void logWarn(String message, Throwable error) {
@@ -226,8 +215,8 @@ final class PanelRefresh {
             if (!hasPanel()) {
                 return;
             }
-            ensureSelectedProfileLoaded();
-            updateProfileHeader();
+            profileWorkflow.ensureSelectedProfileLoaded();
+            profileWorkflow.updateProfileHeader();
             invokeOnClientThreadOrRun(this::updateLocalItemsPanel);
             renderedSincePanelShown = true;
         } catch (RuntimeException ex) {
@@ -256,7 +245,7 @@ final class PanelRefresh {
         }
 
         try {
-            renderLocalStats();
+            dataRuntime.renderLocalStats();
             renderedStatsSinceShown = true;
         } catch (RuntimeException ex) {
             // Without this the exception lands in a future nobody reads: no log line, and the

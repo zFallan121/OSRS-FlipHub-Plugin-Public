@@ -25,19 +25,15 @@
 package com.osrsfliphub;
 
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 import net.runelite.api.*;
 import net.runelite.api.events.GrandExchangeOfferChanged;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class GrandExchangeOfferChangedHandler {
     private final Client client;
     private final PluginState state;
-
-    @Inject
-    GrandExchangeOfferChangedHandler(Client client, PluginState state) {
-        this.client = client;
-        this.state = state;
-    }
 
     private boolean hasSessionToken() {
         ProfileSelectionPresentation service =
@@ -69,7 +65,7 @@ final class GrandExchangeOfferChangedHandler {
             && client != null && client.getGameState() != GameState.LOGGED_IN) {
             return;
         }
-        (Access.plugin().getOfferStampStateServices()).loadOfferUpdateTimesForCurrentAccount();
+        Access.plugin().getOfferStampStateServices().loadOfferUpdateTimesForCurrentAccount();
         int slot = event.getSlot();
 
         OfferSnapshot previous = state.getSnapshots().get(slot);
@@ -78,7 +74,7 @@ final class GrandExchangeOfferChangedHandler {
         // to `next` in place, so the delta has to be derived from a copy taken before that.
         Stamp stampBeforeUpdate = Stamp.copyOf(state.getOfferUpdateStamps().get(slot));
         state.getSnapshots().put(slot, next);
-        (Access.plugin().getOfferStampStateServices()).trackOfferUpdate(slot, previous, next);
+        Access.plugin().getOfferStampStateServices().trackOfferUpdate(slot, previous, next);
 
         boolean hasSessionToken = hasSessionToken();
         if (!hasSessionToken) {
@@ -93,9 +89,8 @@ final class GrandExchangeOfferChangedHandler {
                 previous,
                 next,
                 stampBeforeUpdate,
-                !hasSessionToken,
                 Access.plugin().localTradesLoadedThisLogin,
-                (Access.plugin().getOfferStampStateServices()).getLastLoginMs(),
+                Access.plugin().getOfferStampStateServices().getLastLoginMs(),
                 client != null ? client.getWorld() : 0
             )
         );

@@ -28,12 +28,16 @@ import java.text.NumberFormat;
 import java.util.Locale;
 import javax.inject.*;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import net.runelite.api.*;
 import net.runelite.api.widgets.*;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class ChatboxSuggestionRuntimeState {
     private final Client client;
+    private final ChatboxPromptWidgetResolver promptWidgetResolver;
+    private final ChatboxSuggestionWidgetFactory widgetFactory;
     @Getter
     private Widget priceSuggestionWidget;
     @Getter
@@ -49,11 +53,6 @@ final class ChatboxSuggestionRuntimeState {
     private long chatboxGeneration;
     private long pricePromptMissGeneration = -1L;
     private long quantityPromptMissGeneration = -1L;
-
-    @Inject
-    ChatboxSuggestionRuntimeState(Client client) {
-        this.client = client;
-    }
 
     void markSuggestionDirty() {
         suggestionDirty = true;
@@ -93,10 +92,7 @@ final class ChatboxSuggestionRuntimeState {
             cachedPricePromptWidget = null;
             return null;
         }
-        ChatboxPromptWidgetResolver resolver = Bridge.get(ChatboxPromptWidgetResolver.class);
-        cachedPricePromptWidget = resolver != null
-            ? resolver.resolvePromptWidget(cachedPricePromptWidget, true)
-            : null;
+        cachedPricePromptWidget = promptWidgetResolver.resolvePromptWidget(cachedPricePromptWidget, true);
         if (cachedPricePromptWidget == null) {
             pricePromptMissGeneration = chatboxGeneration;
         }
@@ -111,10 +107,7 @@ final class ChatboxSuggestionRuntimeState {
             cachedQuantityPromptWidget = null;
             return null;
         }
-        ChatboxPromptWidgetResolver resolver = Bridge.get(ChatboxPromptWidgetResolver.class);
-        cachedQuantityPromptWidget = resolver != null
-            ? resolver.resolvePromptWidget(cachedQuantityPromptWidget, false)
-            : null;
+        cachedQuantityPromptWidget = promptWidgetResolver.resolvePromptWidget(cachedQuantityPromptWidget, false);
         if (cachedQuantityPromptWidget == null) {
             quantityPromptMissGeneration = chatboxGeneration;
         }
@@ -128,9 +121,6 @@ final class ChatboxSuggestionRuntimeState {
 
     boolean isGeInputPromptActive() {
         Client client = this.client;
-        if (client == null) {
-            return false;
-        }
         int inputType = client.getVarcIntValue(VarClientInt.INPUT_TYPE);
         if (inputType == INPUT_TYPE_GE_PROMPT) {
             return true;
@@ -160,17 +150,12 @@ final class ChatboxSuggestionRuntimeState {
     }
 
     private boolean isGeItemSearchOpen() {
-        Widget searchResults = client != null
-            ? client.getWidget(ComponentID.CHATBOX_GE_SEARCH_RESULTS)
-            : null;
+        Widget searchResults = client.getWidget(ComponentID.CHATBOX_GE_SEARCH_RESULTS);
         return searchResults != null && !searchResults.isHidden();
     }
 
     boolean isChatboxInputVisible() {
         Client client = this.client;
-        if (client == null) {
-            return false;
-        }
         Widget fullInput = client.getWidget(ComponentID.CHATBOX_FULL_INPUT);
         if (ChatboxSuggestionWidgets.isWidgetVisible(fullInput)) {
             return true;
@@ -193,9 +178,6 @@ final class ChatboxSuggestionRuntimeState {
 
     Widget getChatboxContainer() {
         Client client = this.client;
-        if (client == null) {
-            return null;
-        }
         Widget container = client.getWidget(ComponentID.CHATBOX_CONTAINER);
         if (container != null) {
             return container;
@@ -204,26 +186,18 @@ final class ChatboxSuggestionRuntimeState {
     }
 
     Widget ensurePriceSuggestionWidget(Widget container) {
-        ChatboxSuggestionWidgetFactory factory = Bridge.get(ChatboxSuggestionWidgetFactory.class);
-        priceSuggestionWidget = factory != null
-            ? factory.ensurePriceSuggestionWidget(container, priceSuggestionWidget)
-            : priceSuggestionWidget;
+        priceSuggestionWidget = widgetFactory.ensurePriceSuggestionWidget(container, priceSuggestionWidget);
         return priceSuggestionWidget;
     }
 
     Widget ensureLimitSuggestionWidget(Widget container) {
-        ChatboxSuggestionWidgetFactory factory = Bridge.get(ChatboxSuggestionWidgetFactory.class);
-        limitSuggestionWidget = factory != null
-            ? factory.ensureLimitSuggestionWidget(container, limitSuggestionWidget)
-            : limitSuggestionWidget;
+        limitSuggestionWidget = widgetFactory.ensureLimitSuggestionWidget(container, limitSuggestionWidget);
         return limitSuggestionWidget;
     }
 
     Widget ensureAffordableLimitSuggestionWidget(Widget container) {
-        ChatboxSuggestionWidgetFactory factory = Bridge.get(ChatboxSuggestionWidgetFactory.class);
-        affordableLimitSuggestionWidget = factory != null
-            ? factory.ensureAffordableLimitSuggestionWidget(container, affordableLimitSuggestionWidget)
-            : affordableLimitSuggestionWidget;
+        affordableLimitSuggestionWidget =
+            widgetFactory.ensureAffordableLimitSuggestionWidget(container, affordableLimitSuggestionWidget);
         return affordableLimitSuggestionWidget;
     }
 
@@ -240,31 +214,18 @@ final class ChatboxSuggestionRuntimeState {
     }
 
     boolean isSuggestionWidgetValid(Widget container) {
-        return isSuggestionWidgetAttached(container, priceSuggestionWidget);
+        return ChatboxSuggestionWidgets.isAttached(container, priceSuggestionWidget);
     }
 
     boolean isLimitWidgetValid(Widget container) {
-        return isSuggestionWidgetAttached(container, limitSuggestionWidget);
+        return ChatboxSuggestionWidgets.isAttached(container, limitSuggestionWidget);
     }
 
     boolean isAffordableLimitWidgetValid(Widget container) {
-        return isSuggestionWidgetAttached(container, affordableLimitSuggestionWidget);
+        return ChatboxSuggestionWidgets.isAttached(container, affordableLimitSuggestionWidget);
     }
 
     String formatPrice(int price) {
         return NumberFormat.getIntegerInstance(Locale.US).format(price);
-    }
-
-    private boolean isSuggestionWidgetAttached(Widget container, Widget suggestionWidget) {
-        if (suggestionWidget == null || container == null) {
-            return false;
-        }
-        if (suggestionWidget.getParent() != container) {
-            return false;
-        }
-        if (suggestionWidget.getParentId() != container.getId()) {
-            return false;
-        }
-        return ChatboxSuggestionWidgets.isWidgetInParent(container, suggestionWidget);
     }
 }

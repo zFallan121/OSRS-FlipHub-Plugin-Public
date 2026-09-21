@@ -45,7 +45,7 @@ final class LinkSessionConfigStore {
     /** The panel asks for its own consent, so it turns the sync opt-in on directly. */
     void enableSync(String licenseKey) {
         setString(LICENSE_KEY, safe(licenseKey));
-        setBoolean("enableFlipHubSync", true);
+        configManager.setConfiguration(configGroup, "enableFlipHubSync", true);
     }
 
     /**
@@ -54,20 +54,20 @@ final class LinkSessionConfigStore {
      * isSyncEnabled stays armed after an explicit unlink.
      */
     void disableSync() {
-        setBoolean("enableFlipHubSync", false);
+        configManager.setConfiguration(configGroup, "enableFlipHubSync", false);
     }
 
     void clearLinkState() {
         setString(SESSION_TOKEN_KEY, "");
         setString(SIGNING_SECRET_KEY, "");
-        clearLinkInputs();
-        clearKeyHint();
+        setString(LICENSE_KEY, "");
+        setString(LinkStatus.LICENSE_KEY_HINT_KEY, "");
     }
 
     void persistLinkedSession(String sessionToken, String signingSecret) {
         setString(SESSION_TOKEN_KEY, safe(sessionToken));
         setString(SIGNING_SECRET_KEY, safe(signingSecret));
-        clearLinkInputs();
+        setString(LICENSE_KEY, "");
         flush();
     }
 
@@ -77,9 +77,7 @@ final class LinkSessionConfigStore {
      * explicitly, so they are pushed to disk immediately rather than left in memory.
      */
     void flush() {
-        if (configManager != null) {
-            configManager.sendConfig();
-        }
+        configManager.sendConfig();
     }
 
     /**
@@ -91,24 +89,8 @@ final class LinkSessionConfigStore {
         flush();
     }
 
-    private void clearLinkInputs() {
-        setString(LICENSE_KEY, "");
-    }
-
-    private void clearKeyHint() {
-        setString(LinkStatus.LICENSE_KEY_HINT_KEY, "");
-    }
-
     private void setString(String key, String value) {
-        if (configManager != null) {
-            configManager.setConfiguration(configGroup, key, value);
-        }
-    }
-
-    private void setBoolean(String key, boolean value) {
-        if (configManager != null) {
-            configManager.setConfiguration(configGroup, key, value);
-        }
+        configManager.setConfiguration(configGroup, key, value);
     }
 
     private String safe(String value) {

@@ -26,11 +26,13 @@ package com.osrsfliphub;
 
 import java.util.List;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.ConfigManager;
 
 @Singleton
 @Slf4j
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class WipeStateStore {
 
     private final ConfigManager configManager;
@@ -39,26 +41,15 @@ final class WipeStateStore {
     private final String cursorKeyPrefix = Const.GE_HISTORY_CURSOR_KEY_PREFIX;
     private final int maxCursorTrades = Math.max(1, Const.GE_HISTORY_CURSOR_MAX_TRADES);
 
-    @Inject
-    WipeStateStore(ConfigManager configManager) {
-        this.configManager = configManager;
-    }
-
-    private String readConfiguration(String group, String key) {
-        return configManager != null ? configManager.getConfiguration(group, key) : null;
-    }
-
     private void writeConfiguration(String group, String key, String value) {
-        if (configManager != null) {
-            configManager.setConfiguration(group, key, value);
-        }
+        configManager.setConfiguration(group, key, value);
     }
 
     boolean isWipeBarrierArmed(long accountKey) {
         if (accountKey <= 0) {
             return false;
         }
-        String raw = readConfiguration(configGroup, wipeBarrierKeyPrefix + accountKey);
+        String raw = configManager.getConfiguration(configGroup, wipeBarrierKeyPrefix + accountKey);
         return Str.hasText(raw);
     }
 
@@ -78,7 +69,7 @@ final class WipeStateStore {
         if (accountKey <= 0) {
             return GeHistoryCursorService.StoredCursor.NONE;
         }
-        String raw = readConfiguration(configGroup, cursorKeyPrefix + accountKey);
+        String raw = configManager.getConfiguration(configGroup, cursorKeyPrefix + accountKey);
         GeHistoryCursorService.StoredCursor cursor = GeHistoryCursorService.decode(raw);
         if (cursor.staleFormat) {
             log.info("GE history cursor for account {} was written by another format version; treating as no cursor",

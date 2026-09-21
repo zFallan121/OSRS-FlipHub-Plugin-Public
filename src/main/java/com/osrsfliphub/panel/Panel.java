@@ -32,6 +32,7 @@ import java.util.List;
 import javax.swing.*;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.ui.PluginPanel;
+import net.runelite.client.util.ImageUtil;
 import static com.osrsfliphub.Skin.*;
 
 public class Panel extends PluginPanel {
@@ -46,7 +47,6 @@ public class Panel extends PluginPanel {
     private final JLabel pageLabel = new JLabel("Page 0 of 0");
     private final JButton prevButton = new TipButton("<");
     private final JButton nextButton = new TipButton(">");
-    private JPanel footerPanel;
     private final JButton bookmarkFilterButton = new TipButton(BOOKMARK_GLYPH);
     private final JComboBox<StatsItemSort> itemSortCombo = new JComboBox<>(StatsItemSort.values());
     private final JButton itemSortDirectionButton = new TipButton();
@@ -60,41 +60,34 @@ public class Panel extends PluginPanel {
     private final JLabel statsUpdatedLabel = new JLabel("Updated: --");
     private final JPanel statsContentPanel = new TrackingPanel(SCROLL_UNIT_INCREMENT, SCROLL_BLOCK_INCREMENT);
     private final JPanel statsItemsListPanel = new JPanel();
-    private JScrollPane statsScrollPane;
-    private JLabel statsTotalProfitValue;
-    private JLabel statsRoiValue;
-    private JLabel statsFlipsValue;
-    private JLabel statsTaxValue;
-    private JLabel statsSessionTimeValue;
-    private JLabel statsHourlyValue;
     private Integer expandedStatsItemId;
     private final Set<Integer> expandedStatsHistoryItems = new HashSet<>();
     private final UiStyler uiStyler = new UiStyler();
-    private final PanelChromeBuilder chromeBuilder = new PanelChromeBuilder(uiStyler);
-    private final PanelBodyBuilder bodyBuilder = new PanelBodyBuilder();
-    private final FlipHubSearchCoordinator searchCoordinator = new FlipHubSearchCoordinator();
     private final PanelValueFormat valueFormatService = new PanelValueFormat();
-    private final FlippingPanelBuilder flippingPanelBuilder;
-    private final StatsPanelBuilder statsPanelBuilder;
-    private final StatsItemCardBuilder statsItemCardBuilder;
     private final ItemsRender itemsRenderCoordinator = new ItemsRender();
     private final StatsRender statsRenderCoordinator = new StatsRender();
     private final StatsPagerBuilder statsPagerBuilder = new StatsPagerBuilder(uiStyler);
     private final StatsState statsStateCoordinator = new StatsState();
     private final PanelState panelStateService = new PanelState();
-    private final PanelComponentsFactory componentsFactory = new PanelComponentsFactory();
-    private final PanelLayoutActions layoutActions = new PanelLayoutActions();
-    private final PanelAsyncActions asyncActions = new PanelAsyncActions();
-    private final PanelRenderActions renderActions = new PanelRenderActions();
     private final PanelMutableState panelState = new PanelMutableState();
-    private final AgeTooltip ageTooltipCoordinator;
+    private final ExternalLink externalLinkCoordinator = new ExternalLink(DEFAULT_BASE_URL);
+    private final AgeTooltip ageTooltipCoordinator = new AgeTooltip(valueFormatService);
     private final WheelScroll wheelScrollCoordinator;
     private final ProfileMenu profileMenuCoordinator;
-    private final ExternalLink externalLinkCoordinator = new ExternalLink(DEFAULT_BASE_URL);
-    private final AccountPanelBuilder.BuildResult accountView;
+    private final StatsPanelBuilder statsPanelBuilder;
+    private final StatsItemCardBuilder statsItemCardBuilder;
     private final ItemListContentRenderer itemListContentRenderer;
-    private final ItemIconResolver itemIconResolver;
-    private final MouseWheelListener wheelForwarder;
+    private final AccountPanelBuilder.BuildResult accountView;
+    // Filled in by the two tabs as they are built. The Profile tab asks for its summary while it
+    // is still being built, before these exist, and StatsRender leaves a summary with no labels alone.
+    private final JPanel footerPanel;
+    private final JScrollPane statsScrollPane;
+    private final JLabel statsTotalProfitValue;
+    private final JLabel statsRoiValue;
+    private final JLabel statsFlipsValue;
+    private final JLabel statsTaxValue;
+    private final JLabel statsSessionTimeValue;
+    private final JLabel statsHourlyValue;
 
     Panel(
         ItemManager itemManager,
@@ -104,91 +97,81 @@ public class Panel extends PluginPanel {
         PluginConfig config
     ) {
         super(false);
-        Map<Integer, ImageIcon> iconCache = new HashMap<>();
-        PanelComponentBundle componentBundle = componentsFactory.create(
-            itemManager,
-            listener,
-            bookmarkStore,
-            hiddenItemStore,
-            this,
-            profileButton,
-            uiStyler,
-            valueFormatService,
-            externalLinkCoordinator,
-            panelStateService,
-            panelState,
-            searchCoordinator,
-            searchField,
-            statsTab,
-            scrollPane,
-            this::activeStatsScrollPane,
-            iconCache,
-            expandedStatsHistoryItems,
-            () -> expandedStatsItemId,
-            this::renderItems,
-            this::renderStatsItems,
-            this::updateStatsSummary,
-            this::toggleStatsItemExpanded,
-            this::toggleStatsHistoryExpanded
-        );
-        this.itemIconResolver = componentBundle.getItemIconResolver();
-        this.wheelScrollCoordinator = componentBundle.getWheelScrollCoordinator();
-        this.wheelForwarder = componentBundle.getWheelForwarder();
-        this.profileMenuCoordinator = componentBundle.getProfileMenuCoordinator();
-        this.ageTooltipCoordinator = componentBundle.getAgeTooltipCoordinator();
-        this.itemListContentRenderer = componentBundle.getItemListContentRenderer();
-        this.flippingPanelBuilder = componentBundle.getFlippingPanelBuilder();
-        this.statsPanelBuilder = componentBundle.getStatsPanelBuilder();
-        this.statsItemCardBuilder = componentBundle.getStatsItemCardBuilder();
-        PanelLayoutResult layout = layoutActions.buildAndAttachLayout(
-            this,
-            cardLayout,
-            cardPanel,
-            flippingTab,
-            statsTab,
-            linkTab,
-            profileButton,
-            chromeBuilder,
-            bodyBuilder,
-            flippingPanelBuilder,
-            statsPanelBuilder,
-            searchField,
-            bookmarkFilterButton,
-            itemSortCombo,
-            itemSortDirectionButton,
-            refreshLabel,
-            listPanel,
-            scrollPane,
-            prevButton,
-            nextButton,
-            pageLabel,
-            statsRangeCombo,
-            statsSearchField,
-            statsUpdatedLabel,
-            statsContentPanel,
-            statsItemsListPanel,
-            statsSortCombo,
-            statsFilterCombo,
-            statsSortDirectionButton,
-            panelStateService,
-            ageTooltipCoordinator,
-            uiStyler,
-            listener,
-            profileMenuCoordinator::showProfileMenu,
-            () -> externalLinkCoordinator.openExternalUrl(DISCORD_INVITE_URL)
-        );
-        footerPanel = layout.footerPanel;
-        statsScrollPane = layout.statsScrollPane;
-        statsTotalProfitValue = layout.totalProfitValue;
-        statsRoiValue = layout.roiValue;
-        statsFlipsValue = layout.flipsValue;
-        statsTaxValue = layout.taxValue;
-        statsSessionTimeValue = layout.sessionTimeValue;
-        statsHourlyValue = layout.hourlyValue;
-        // Added straight onto the card stack rather than threaded through the layout builder:
-        // the account view shares none of the flipping/stats plumbing.
-        this.accountView = new AccountPanelBuilder(
-            uiStyler, listener, externalLinkCoordinator).build();
+        ItemIconResolver itemIconResolver = new ItemIconResolver(itemManager, new HashMap<>());
+        wheelScrollCoordinator = new WheelScroll(
+            () -> statsTab.isSelected() ? activeStatsScrollPane() : scrollPane, this);
+        MouseWheelListener wheelForwarder = wheelScrollCoordinator.wheelForwarder();
+        profileMenuCoordinator = new ProfileMenu(profileButton, uiStyler, listener);
+        ItemCardBuilder itemCardBuilder = new ItemCardBuilder(
+            valueFormatService, uiStyler, itemIconResolver, externalLinkCoordinator, bookmarkStore,
+            hiddenItemStore, panelState, this::renderItems, ageTooltipCoordinator, wheelScrollCoordinator);
+        itemListContentRenderer = new ItemListContentRenderer(
+            uiStyler, hiddenItemStore, bookmarkStore, itemCardBuilder, ageTooltipCoordinator);
+        FlippingPanelBuilder flippingPanelBuilder = new FlippingPanelBuilder(
+            uiStyler, panelStateService, panelState, listener, this::renderItems,
+            new FlipHubSearchCoordinator(), wheelForwarder);
+        statsPanelBuilder = new StatsPanelBuilder(
+            uiStyler, valueFormatService, panelStateService, panelState, listener,
+            this::renderStatsItems, this::updateStatsSummary, wheelScrollCoordinator, wheelForwarder);
+        statsItemCardBuilder = new StatsItemCardBuilder(
+            valueFormatService, uiStyler, itemIconResolver, () -> expandedStatsItemId,
+            expandedStatsHistoryItems, panelState, this::toggleStatsItemExpanded,
+            this::toggleStatsHistoryExpanded);
+
+        // The backdrop is sacred: one panel paints the navy and the two washes, and every surface
+        // above it is transparent or translucent so the glow is never covered. The padding moves
+        // onto the backdrop rather than the host so the wash reaches the panel's own edges.
+        setLayout(new BorderLayout());
+        setBackground(BG);
+        setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+
+        JPanel backdrop = new BackdropPanel(BG, GRAD_GREEN, GRAD_BLUE);
+        backdrop.setLayout(new BorderLayout());
+        // Two at the bottom, not twelve: the pager is meant to sit on the panel's edge.
+        backdrop.setBorder(BorderFactory.createEmptyBorder(12, 12, 2, 12));
+        uiStyler.installClickToDefocus(backdrop);
+        add(backdrop, BorderLayout.CENTER);
+
+        PanelChromeBuilder chromeBuilder = new PanelChromeBuilder(uiStyler);
+        JPanel header = chromeBuilder.buildHeader(profileButton, profileMenuCoordinator::showProfileMenu);
+        JButton discordButton = chromeBuilder.buildDiscordButton(
+            () -> externalLinkCoordinator.openExternalUrl(DISCORD_INVITE_URL));
+        JPanel tabs = chromeBuilder.buildTabs(flippingTab, statsTab, linkTab, discordButton,
+            card -> panelStateService.switchTab(card, ageTooltipCoordinator, uiStyler, flippingTab,
+                statsTab, linkTab, cardLayout, cardPanel, listener, statsRangeCombo));
+
+        cardPanel.setOpaque(false);
+        FlippingPanelBuilder.BuildResult flipping = flippingPanelBuilder.build(
+            searchField, bookmarkFilterButton, itemSortCombo, itemSortDirectionButton, refreshLabel,
+            profileButton, listPanel, scrollPane, prevButton, nextButton, pageLabel);
+        StatsPanelBuilder.BuildResult stats = statsPanelBuilder.build(
+            statsRangeCombo, statsSearchField, statsUpdatedLabel, statsContentPanel,
+            statsItemsListPanel, statsSortCombo, statsFilterCombo, statsSortDirectionButton);
+        cardPanel.add(flipping.panel, "flipping");
+        cardPanel.add(stats.panel, "stats");
+
+        JPanel top = stack();
+        top.add(header);
+        top.add(Box.createVerticalStrut(8));
+        top.add(tabs);
+        // The tab row's own 2px rule is the separator between the chrome and the body. A second
+        // divider here would be a box the chrome has not earned.
+        top.add(Box.createVerticalStrut(8));
+
+        backdrop.add(top, BorderLayout.NORTH);
+        backdrop.add(cardPanel, BorderLayout.CENTER);
+
+        footerPanel = flipping.footerPanel;
+        statsScrollPane = stats.scrollPane;
+        statsTotalProfitValue = stats.totalProfitValue;
+        statsRoiValue = stats.roiValue;
+        statsFlipsValue = stats.flipsValue;
+        statsTaxValue = stats.taxValue;
+        statsSessionTimeValue = stats.sessionTimeValue;
+        statsHourlyValue = stats.hourlyValue;
+        // The account view shares none of the flipping/stats plumbing, so it goes straight onto
+        // the card stack.
+        accountView = new AccountPanelBuilder(uiStyler, listener, externalLinkCoordinator).build();
         cardPanel.add(accountView.panel, "account");
         addMouseWheelListener(wheelForwarder);
         cardPanel.addMouseWheelListener(wheelForwarder);
@@ -203,7 +186,7 @@ public class Panel extends PluginPanel {
      * of them is showing, and pointing at the wrong one leaves the form on screen frozen.
      */
     private JScrollPane activeStatsScrollPane() {
-        JScrollPane recorder = statsPanelBuilder != null ? statsPanelBuilder.openRecorderPane() : null;
+        JScrollPane recorder = statsPanelBuilder.openRecorderPane();
         return recorder != null ? recorder : statsScrollPane;
     }
 
@@ -235,48 +218,48 @@ public class Panel extends PluginPanel {
     }
 
     BufferedImage buildNavIcon() {
-        return layoutActions.buildNavIcon(uiStyler);
+        BufferedImage icon = null;
+        try {
+            // getResourceAsStream via ImageUtil: on the hub the plugin runs from inside a jar,
+            // where a resource URL does not behave like the file URL seen in the IDE.
+            icon = ImageUtil.loadImageResource(getClass(), "/com/osrsfliphub/fliphub-icon.png");
+        } catch (Exception ignored) {
+            // no-op; fallback icon below
+        }
+        if (icon == null) {
+            BufferedImage fallback = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = fallback.createGraphics();
+            Skin.smooth(g);
+            g.setColor(ACCENT);
+            g.fillRoundRect(0, 0, 16, 16, 4, 4);
+            g.setColor(Color.WHITE);
+            g.setFont(uiStyler.fontBold(10f));
+            g.drawString("F", 4, 12);
+            g.dispose();
+            return fallback;
+        }
+        return ImageUtil.resizeImage(icon, 16, 16);
     }
 
+    // Everything below that sets something is called off the Swing thread, so each hops onto it.
+
     void setItems(List<FlipHubItem> items, int page, int totalPages, long asOfMs, Long priceCacheMs) {
-        asyncActions.setItemsAsync(
-            panelStateService,
-            panelState,
-            items,
-            page,
-            totalPages,
-            asOfMs,
-            priceCacheMs,
-            pageLabel,
-            prevButton,
-            nextButton,
-            this::renderItems
-        );
+        SwingUtilities.invokeLater(() -> panelStateService.setItems(panelState, items, page, totalPages,
+            asOfMs, priceCacheMs, pageLabel, prevButton, nextButton, this::renderItems));
     }
 
     void setStatsData(StatsSummary summary,
                       List<StatsItem> items,
                       Map<Integer, List<StatsFlipInstance>> historyByItem,
                       long asOfMs) {
-        asyncActions.setStatsDataAsync(
-            panelStateService,
-            panelState,
-            summary,
-            items,
-            historyByItem,
-            () -> expandedStatsItemId,
-            value -> expandedStatsItemId = value,
-            expandedStatsHistoryItems,
-            statsStateCoordinator,
-            this::updateStatsUpdatedLabel,
-            this::updateStatsSummary,
-            this::renderStatsItems,
-            asOfMs
-        );
+        SwingUtilities.invokeLater(() -> expandedStatsItemId = panelStateService.setStatsData(
+            panelState, summary, items, historyByItem, expandedStatsItemId, expandedStatsHistoryItems,
+            statsStateCoordinator, this::updateStatsUpdatedLabel, this::updateStatsSummary,
+            this::renderStatsItems, asOfMs));
     }
 
     void refreshBookmarks() {
-        asyncActions.refreshBookmarksAsync(this::renderItems);
+        SwingUtilities.invokeLater(this::renderItems);
     }
 
     boolean isStatsTabSelected() {
@@ -284,83 +267,60 @@ public class Panel extends PluginPanel {
     }
 
     void setOfferPreview(FlipHubItem item, long asOfMs, Long priceCacheMs) {
-        asyncActions.setOfferPreviewAsync(
-            panelStateService,
-            panelState,
-            item,
-            asOfMs,
-            priceCacheMs,
-            this::renderItems
-        );
+        SwingUtilities.invokeLater(() -> panelStateService.setOfferPreview(
+            panelState, item, asOfMs, priceCacheMs, this::renderItems));
     }
 
-    void setAccountState(boolean linked, String keyHint, String message, java.awt.Color messageColor) {
+    void setAccountState(boolean linked, String keyHint, String message, Color messageColor) {
         SwingUtilities.invokeLater(
             () -> AccountPanelBuilder.applyState(accountView, linked, keyHint, message, messageColor));
     }
 
     void setStatusMessage(String message) {
-        asyncActions.setStatusMessageAsync(profileMenuCoordinator, message);
+        SwingUtilities.invokeLater(() -> profileMenuCoordinator.setStatusMessage(message));
     }
 
     void setProfileHeader(String label, boolean linked) {
-        asyncActions.setProfileHeaderAsync(profileMenuCoordinator, label, linked);
+        SwingUtilities.invokeLater(() -> profileMenuCoordinator.setProfileHeader(label, linked));
     }
 
     void setUploadDiagnosticsTooltip(String tooltip) {
-        asyncActions.setUploadDiagnosticsTooltipAsync(profileMenuCoordinator, tooltip);
+        SwingUtilities.invokeLater(() -> profileMenuCoordinator.setUploadDiagnosticsTooltip(tooltip));
     }
 
     void setProfileOptions(List<ProfileOption> options, String selectedKey) {
-        asyncActions.setProfileOptionsAsync(profileMenuCoordinator, options, selectedKey);
+        SwingUtilities.invokeLater(() -> profileMenuCoordinator.setProfileOptions(options, selectedKey));
     }
 
     private void updateStatsUpdatedLabel(long asOfMs) {
-        renderActions.updateStatsUpdatedLabel(panelStateService, statsUpdatedLabel, asOfMs);
-    }
-
-    private JPanel buildCard(String title, String body) {
-        return layoutActions.buildCard(title, body, uiStyler);
+        panelStateService.updateStatsUpdatedLabel(statsUpdatedLabel, asOfMs);
     }
 
     private void renderItems() {
-        renderActions.renderItems(
-            itemsRenderCoordinator,
-            listPanel,
-            ageTooltipCoordinator,
-            itemListContentRenderer,
-            panelState,
-            refreshLabel,
-            panelStateService,
-            footerPanel,
-            scrollPane
-        );
+        itemsRenderCoordinator.renderItems(listPanel, ageTooltipCoordinator, itemListContentRenderer,
+            panelState.offerPreviewItem, panelState.offerAsOfMs, panelState.lastItems, panelState.lastAsOfMs,
+            panelState.showBookmarkedOnly, panelState.searchQuery, refreshLabel, panelState.lastPriceCacheMs,
+            panelState.offerPriceCacheMs, panelStateService::buildRefreshText, footerPanel, scrollPane);
     }
 
     private void updateStatsSummary() {
-        renderActions.updateStatsSummary(
-            statsRenderCoordinator,
-            panelState,
-            valueFormatService,
-            statsTotalProfitValue,
-            statsRoiValue,
-            statsFlipsValue,
-            statsTaxValue,
-            statsSessionTimeValue,
-            statsHourlyValue
-        );
+        // ALL is the default and means the card reports the range as a whole,
+        // exactly as it always has - no slice is computed at all.
+        StatsRender.StatsProfitSlice slice =
+            panelState.statsProfitFilter == null || panelState.statsProfitFilter == StatsRecipeFilter.ALL
+                ? null
+                : StatsRender.sliceActivities(
+                    panelState.statsFlipHistoryByItem, panelState.statsProfitFilter);
+        statsRenderCoordinator.updateSummary(panelState.statsSummary, slice, valueFormatService,
+            statsTotalProfitValue, statsRoiValue, statsFlipsValue, statsTaxValue,
+            statsSessionTimeValue, statsHourlyValue);
     }
 
     private void renderStatsItems() {
-        renderActions.renderStatsItems(
-            statsRenderCoordinator,
-            statsItemsListPanel,
-            panelState,
-            statsItemCardBuilder,
-            this::buildCard,
-            statsPagerBuilder,
-            this::goToStatsPage
-        );
+        panelState.statsPage = statsRenderCoordinator.renderItems(statsItemsListPanel, panelState.statsItems,
+            panelState.statsSearchQuery, panelState.statsSort, panelState.statsRecipeFilter,
+            panelState.statsSortAscending, panelState.statsPage, statsItemCardBuilder::buildStatsItemCard,
+            statsItemCardBuilder::visibleItem, uiStyler::emptyCard, statsPagerBuilder, this::goToStatsPage);
     }
 
     /**
@@ -373,18 +333,13 @@ public class Panel extends PluginPanel {
     }
 
     private void toggleStatsItemExpanded(int itemId) {
-        expandedStatsItemId = renderActions.toggleStatsItemExpanded(
-            statsRenderCoordinator,
-            expandedStatsItemId,
-            expandedStatsHistoryItems,
-            itemId
-        );
+        expandedStatsItemId = statsRenderCoordinator.toggleItemExpanded(
+            expandedStatsItemId, expandedStatsHistoryItems, itemId);
         renderStatsItems();
     }
 
     private void toggleStatsHistoryExpanded(int itemId) {
-        renderActions.toggleStatsHistoryExpanded(statsRenderCoordinator, expandedStatsHistoryItems, itemId);
+        statsRenderCoordinator.toggleHistoryExpanded(expandedStatsHistoryItems, itemId);
         renderStatsItems();
     }
 }
-

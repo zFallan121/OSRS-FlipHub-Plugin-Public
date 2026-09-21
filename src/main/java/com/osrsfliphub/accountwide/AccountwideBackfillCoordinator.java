@@ -32,6 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Singleton
 @Slf4j
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class AccountwideBackfillCoordinator {
 
     @RequiredArgsConstructor
@@ -44,38 +45,24 @@ final class AccountwideBackfillCoordinator {
     private final ApiClient apiClient;
     private final PluginConfig config;
     private final PluginState state;
-
-    @Inject
-    AccountwideBackfillCoordinator(ApiClient apiClient, PluginConfig config, PluginState state) {
-        this.apiClient = apiClient;
-        this.config = config;
-        this.state = state;
-    }
+    private final ProfileKeyCollector profileKeyCollector;
+    private final ProfileStorage profileStorage;
+    private final ProfileSelectionPresentation profileSelectionPresentation;
+    private final BackfilledProfilesStore backfilledProfilesStore;
+    private final LocalStatsSnapshotService localStatsSnapshotService;
+    private final BackfillSyncMatcher backfillSyncMatcher;
+    private final ProfileBackfill profileBackfill;
+    private final BackfillUploader backfillUploader;
+    private final UploadBackfillDispatch uploadBackfillDispatch;
+    private final LocalTradesRuntime localTradesRuntime;
 
     private Set<Long> collectAccountwideProfileKeys() {
-        ProfileKeyCollector collector = Bridge.get(ProfileKeyCollector.class);
-        ProfileStorage storage = Bridge.get(ProfileStorage.class);
-        ProfileSelectionPresentation profileSelection =
-            Bridge.get(ProfileSelectionPresentation.class);
-        if (collector == null || storage == null || profileSelection == null) {
-            return null;
-        }
-        return collector.collect(
-            storage.getProfilesDir(),
-            storage.getLegacyProfilesDir(),
+        return profileKeyCollector.collect(
+            profileStorage.getProfilesDir(),
+            profileStorage.getLegacyProfilesDir(),
             state.getLocalTradeDeltasByAccount(),
             state.getLocalStatsLock(),
-            profileSelection::loadProfilesFromDisk);
-    }
-
-    private Set<Long> loadBackfilledProfileKeys() {
-        BackfilledProfilesStore store = Bridge.get(BackfilledProfilesStore.class);
-        return store != null ? store.load() : null;
-    }
-
-    private StatsSnapshot buildLocalStatsSnapshot(long key) {
-        LocalStatsSnapshotService service = Bridge.get(LocalStatsSnapshotService.class);
-        return service != null ? service.buildSnapshot(key, null, StatsItemSort.COMPLETION) : null;
+            profileSelectionPresentation::loadProfilesFromDisk);
     }
 
     private ApiClient.StatsSummaryResponse fetchRemoteStatsSummary(String token) {
@@ -88,25 +75,11 @@ final class AccountwideBackfillCoordinator {
     private Set<Long> inferLikelySyncedProfiles(Set<Long> profileKeys,
                                                 Map<Long, StatsSummary> localSummaries,
                                                 StatsSummary remoteSummary) {
-        BackfillSyncMatcher matcher = Bridge.get(BackfillSyncMatcher.class);
-        return matcher != null
-            ? matcher.inferLikelySyncedProfiles(profileKeys, localSummaries, remoteSummary) : null;
+        return backfillSyncMatcher.inferLikelySyncedProfiles(profileKeys, localSummaries, remoteSummary);
     }
 
     private BackfillUploader.Outcome backfillProfileTrades(long profileKey) {
-        ProfileBackfill runner = Bridge.get(ProfileBackfill.class);
-        BackfillUploader uploader = Bridge.get(BackfillUploader.class);
-        if (runner == null || apiClient == null || config == null || uploader == null) {
-            return BackfillUploader.Outcome.RETRY;
-        }
-        return runner.backfillProfileTrades(profileKey, apiClient, config, uploader);
-    }
-
-    private void persistBackfilledProfileKeys(Set<Long> keys) {
-        BackfilledProfilesStore store = Bridge.get(BackfilledProfilesStore.class);
-        if (store != null) {
-            store.persist(keys);
-        }
+        return profileBackfill.backfillProfileTrades(profileKey, apiClient, config, backfillUploader);
     }
 
     private void triggerRefreshes() {
@@ -115,13 +88,6 @@ final class AccountwideBackfillCoordinator {
         if (coordinator != null) {
             coordinator.triggerStatsRefresh(plugin.scheduler);
             coordinator.triggerPanelRefresh(plugin.scheduler);
-        }
-    }
-
-    private void resetBackfillRetryState() {
-        UploadBackfillDispatch service = Bridge.get(UploadBackfillDispatch.class);
-        if (service != null) {
-            service.resetBackfillRetryState();
         }
     }
 
@@ -145,19 +111,19 @@ final class AccountwideBackfillCoordinator {
     Result runCycle() {
         boolean shouldRetry = false;
         try {
-            if (config == null || !config.enableFlipHubSync()) {
-                resetBackfillRetryState();
+            if (!config.enableFlipHubSync()) {
+                uploadBackfillDispatch.resetBackfillRetryState();
                 return new Result(false);
             }
             Set<Long> collectedProfileKeys = collectAccountwideProfileKeys();
             if (collectedProfileKeys == null) {
-                resetBackfillRetryState();
+                uploadBackfillDispatch.resetBackfillRetryState();
                 return new Result(false);
             }
             Set<Long> profileKeys = new HashSet<>(collectedProfileKeys);
             profileKeys.removeIf(key -> key == null || key <= 0);
             if (profileKeys.isEmpty()) {
-                resetBackfillRetryState();
+                uploadBackfillDispatch.resetBackfillRetryState();
                 return new Result(false);
             }
             if (profileKeys.size() > maxBackfillProfileCount) {
@@ -165,13 +131,13 @@ final class AccountwideBackfillCoordinator {
                     "FlipHub backfill skipped: " + profileKeys.size() + " profiles exceeds safe cap "
                         + maxBackfillProfileCount
                 );
-                resetBackfillRetryState();
+                uploadBackfillDispatch.resetBackfillRetryState();
                 return new Result(false);
             }
 
-            Set<Long> loadedBackfilled = loadBackfilledProfileKeys();
+            Set<Long> loadedBackfilled = backfilledProfilesStore.load();
             if (loadedBackfilled != null && loadedBackfilled.containsAll(profileKeys)) {
-                resetBackfillRetryState();
+                uploadBackfillDispatch.resetBackfillRetryState();
                 return new Result(false);
             }
             Set<Long> alreadyBackfilled = loadedBackfilled != null
@@ -183,12 +149,12 @@ final class AccountwideBackfillCoordinator {
                 if (key == null || key <= 0) {
                     continue;
                 }
-                Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(key);
-                StatsSnapshot snapshot = buildLocalStatsSnapshot(key);
+                localTradesRuntime.ensureProfileLoaded(key);
+                StatsSnapshot snapshot = localStatsSnapshotService.buildSnapshot(key, null, StatsItemSort.COMPLETION);
                 localSummaries.put(key, snapshot != null && snapshot.summary != null ? snapshot.summary : new StatsSummary());
             }
 
-            String token = config != null ? config.sessionToken() : null;
+            String token = config.sessionToken();
             ApiClient.StatsSummaryResponse remoteResponse = fetchRemoteStatsSummary(token);
             if (remoteResponse == null || remoteResponse.summary == null) {
                 return new Result(true);
@@ -209,7 +175,7 @@ final class AccountwideBackfillCoordinator {
                 .sorted()
                 .collect(Collectors.toList());
             if (missingProfiles.isEmpty()) {
-                resetBackfillRetryState();
+                uploadBackfillDispatch.resetBackfillRetryState();
                 return new Result(false);
             }
 
@@ -243,11 +209,11 @@ final class AccountwideBackfillCoordinator {
                 changed = true;
             }
             if (changed) {
-                persistBackfilledProfileKeys(alreadyBackfilled);
+                backfilledProfilesStore.persist(alreadyBackfilled);
                 triggerRefreshes();
             }
             if (fullySynced) {
-                resetBackfillRetryState();
+                uploadBackfillDispatch.resetBackfillRetryState();
             } else {
                 shouldRetry = true;
             }

@@ -41,21 +41,16 @@ final class StatsPanelHeaderBuilder {
         JComboBox<StatsRange> statsRangeCombo,
         JLabel statsUpdatedLabel
     ) {
-        JPanel header = new JPanel();
-        header.setOpaque(false);
-        header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
+        JPanel header = stack();
 
-        JPanel rangeRow = new JPanel(new BorderLayout(8, 0));
-        rangeRow.setOpaque(false);
+        JPanel rangeRow = plain(new BorderLayout(8, 0));
         rangeRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-        rangeRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
-        if (uiStyler != null) {
-            uiStyler.styleComboBox(statsRangeCombo);
-        }
+        wide(rangeRow, 28);
+        uiStyler.styleComboBox(statsRangeCombo);
         statsRangeCombo.setSelectedItem(StatsRange.SESSION);
         statsRangeCombo.addActionListener(e -> {
             StatsRange range = (StatsRange) statsRangeCombo.getSelectedItem();
-            if (panelStateService != null && range != null) {
+            if (range != null) {
                 panelStateService.onStatsRangeSelectionChanged(listener, panelState, range);
             }
         });
@@ -88,9 +83,5 @@ final class StatsPanelHeaderBuilder {
         header.add(rangeRow);
         header.add(Box.createVerticalStrut(8));
         return header;
-    }
-
-    private Font fontSemiBold(float size) {
-        return uiStyler.fontSemiBold(size);
     }
 }

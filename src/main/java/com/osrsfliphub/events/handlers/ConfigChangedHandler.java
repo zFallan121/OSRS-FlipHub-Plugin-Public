@@ -25,30 +25,25 @@
 package com.osrsfliphub;
 
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 import net.runelite.client.events.ConfigChanged;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class ConfigChangedHandler {
     private final PluginConfig config;
     private final PluginState state;
-
-    @Inject
-    ConfigChangedHandler(PluginConfig config, PluginState state) {
-        this.config = config;
-        this.state = state;
-    }
+    private final LinkStatus linkStatus;
+    private final LinkAttempt linkAttempt;
+    private final UploadEventDispatch uploadEventDispatch;
+    private final BookmarkState bookmarkState;
+    private final ProfileSelectionPresentation profileSelectionPresentation;
+    private final ProfileWorkflow profileWorkflow;
 
     private void refreshBookmarksUi() {
         Panel panel = Access.plugin().panel;
         if (panel != null) {
             panel.refreshBookmarks();
-        }
-    }
-
-    private void refreshLinkStatus() {
-        LinkStatus linkStatusService = Bridge.get(LinkStatus.class);
-        if (linkStatusService != null) {
-            linkStatusService.refresh();
         }
     }
 
@@ -62,26 +57,15 @@ final class ConfigChangedHandler {
         String key = event.getKey();
 
         if ("enableFlipHubSync".equals(key)) {
-            if (config != null && config.enableFlipHubSync()) {
-                LinkAttempt linkAttemptService = Bridge.get(LinkAttempt.class);
-                if (linkAttemptService != null) {
-                    linkAttemptService.attemptLink(config.licenseKey());
-                }
-                UploadEventDispatch uploadFacade =
-                    Bridge.get(UploadEventDispatch.class);
-                if (uploadFacade != null) {
-                    uploadFacade.resetStatus();
-                }
+            if (config.enableFlipHubSync()) {
+                linkAttempt.attemptLink(config.licenseKey());
+                uploadEventDispatch.resetStatus();
             } else {
-                UploadEventDispatch uploadFacade =
-                    Bridge.get(UploadEventDispatch.class);
-                if (uploadFacade != null) {
-                    uploadFacade.markBlocked("FlipHub sync is disabled in the plugin settings.");
-                }
+                uploadEventDispatch.markBlocked("FlipHub sync is disabled in the plugin settings.");
             }
-            refreshLinkStatus();
+            linkStatus.refresh();
             if (Access.plugin().panel != null) {
-                Access.plugin().getProfileWorkflowService().updateProfileHeader();
+                profileWorkflow.updateProfileHeader();
             }
             GeLifecyclePlugin plugin = Access.plugin();
             plugin.refreshPanelData();
@@ -92,32 +76,22 @@ final class ConfigChangedHandler {
         }
 
         if ("licenseKey".equals(key)) {
-            LinkAttempt linkAttemptService = Bridge.get(LinkAttempt.class);
-            if (linkAttemptService != null && config != null) {
-                linkAttemptService.attemptLink(config.licenseKey());
-            }
+            linkAttempt.attemptLink(config.licenseKey());
         }
 
-        BookmarkState bookmarkStateService = Bridge.get(BookmarkState.class);
-        if (bookmarkStateService != null && bookmarkStateService.isBookmarksConfigKey(key)) {
-            bookmarkStateService.reloadFromConfigKey(key);
-            ProfileSelectionPresentation profileSelectionService =
-                Bridge.get(ProfileSelectionPresentation.class);
-            if (profileSelectionService != null) {
-                bookmarkStateService.loadSelectedBookmarks(
-                    profileSelectionService.resolveSelectedProfileKey(), state.getBookmarkedItems());
-            }
+        if (bookmarkState.isBookmarksConfigKey(key)) {
+            bookmarkState.reloadFromConfigKey(key);
+            bookmarkState.loadSelectedBookmarks(
+                profileSelectionPresentation.resolveSelectedProfileKey(), state.getBookmarkedItems());
             if (Access.plugin().panel != null) {
                 refreshBookmarksUi();
             }
         }
 
         if (state.getHiddenItemConfigStore().isHiddenItemsConfigKey(key)) {
-            if (config != null) {
-                state.getHiddenItems().clear();
-                state.getHiddenItems().addAll(
-                    state.getHiddenItemConfigStore().parseItemIds(config.hiddenItems()));
-            }
+            state.getHiddenItems().clear();
+            state.getHiddenItems().addAll(
+                state.getHiddenItemConfigStore().parseItemIds(config.hiddenItems()));
             if (Access.plugin().panel != null) {
                 refreshBookmarksUi();
             }

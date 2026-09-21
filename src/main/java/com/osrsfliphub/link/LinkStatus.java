@@ -25,6 +25,7 @@
 package com.osrsfliphub;
 
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 import net.runelite.client.config.ConfigManager;
 
 /**
@@ -36,6 +37,7 @@ import net.runelite.client.config.ConfigManager;
  * lives in memory rather than in config - only the key hint outlives a restart.</p>
  */
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class LinkStatus {
     static final String LICENSE_KEY_HINT_KEY = "licenseKeyHint";
 
@@ -55,13 +57,6 @@ final class LinkStatus {
     private final LinkSessionGuard linkGuard;
     private volatile String status = SYNC_OFF;
 
-    @Inject
-    LinkStatus(ConfigManager configManager, PluginConfig config, LinkSessionGuard linkGuard) {
-        this.configManager = configManager;
-        this.config = config;
-        this.linkGuard = linkGuard;
-    }
-
     /** Recomputes the status from link state. Transient messages are replaced. */
     void refresh() {
         write(resolveSettledStatus());
@@ -77,8 +72,8 @@ final class LinkStatus {
         if (plugin == null || plugin.panel == null) {
             return;
         }
-        boolean linked = linkGuard != null && linkGuard.isLinked();
-        String hint = config != null ? config.licenseKeyHint() : null;
+        boolean linked = linkGuard.isLinked();
+        String hint = config.licenseKeyHint();
         plugin.panel.setAccountState(linked, hint, panelMessageFor(status), panelColourFor(status));
     }
 
@@ -88,8 +83,8 @@ final class LinkStatus {
         if (plugin == null || plugin.panel == null) {
             return;
         }
-        boolean linked = linkGuard != null && linkGuard.isLinked();
-        String hint = config != null ? config.licenseKeyHint() : null;
+        boolean linked = linkGuard.isLinked();
+        String hint = config.licenseKeyHint();
         plugin.panel.setAccountState(linked, hint, message, Skin.WARNING);
     }
 
@@ -123,7 +118,7 @@ final class LinkStatus {
     }
 
     void markLinking() {
-        if (linkGuard != null && linkGuard.isSyncEnabled()) {
+        if (linkGuard.isSyncEnabled()) {
             write(LINKING);
             pushToPanel();
         }
@@ -143,7 +138,7 @@ final class LinkStatus {
      * the device is already linked must not leave a stale warning behind.
      */
     void markFailed(String status) {
-        if (linkGuard != null && linkGuard.isLinked()) {
+        if (linkGuard.isLinked()) {
             refresh();
             return;
         }
@@ -155,13 +150,13 @@ final class LinkStatus {
     }
 
     private String resolveSettledStatus() {
-        if (linkGuard == null || !linkGuard.isSyncEnabled()) {
+        if (!linkGuard.isSyncEnabled()) {
             return SYNC_OFF;
         }
         if (!linkGuard.isLinked()) {
             return NOT_LINKED;
         }
-        String hint = config != null ? config.licenseKeyHint() : null;
+        String hint = config.licenseKeyHint();
         return Str.isBlank(hint) ? LINKED : LINKED + " (key ending " + hint + ")";
     }
 
@@ -213,17 +208,11 @@ final class LinkStatus {
     }
 
     private void writeHint(String hint) {
-        String current = config != null ? config.licenseKeyHint() : null;
+        String current = config.licenseKeyHint();
         if (hint == null || hint.equals(current)) {
             return;
         }
-        setString(LICENSE_KEY_HINT_KEY, hint);
-    }
-
-    private void setString(String key, String value) {
-        if (configManager != null) {
-            configManager.setConfiguration(FliphubConfigGroups.CONFIG_GROUP, key, value);
-        }
+        configManager.setConfiguration(FliphubConfigGroups.CONFIG_GROUP, LICENSE_KEY_HINT_KEY, hint);
     }
 
 }

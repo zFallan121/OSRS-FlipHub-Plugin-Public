@@ -65,7 +65,7 @@ final class StatsItemCardBuilder {
     }
 
     private boolean isStatsItemExpanded(int itemId) {
-        Integer expandedId = expandedStatsItemIdSupplier != null ? expandedStatsItemIdSupplier.get() : null;
+        Integer expandedId = expandedStatsItemIdSupplier.get();
         return expandedId != null && expandedId == itemId;
     }
 
@@ -78,11 +78,11 @@ final class StatsItemCardBuilder {
      * up all three.
      */
     private boolean isStatsHistoryExpanded(int itemId) {
-        return expandedStatsHistoryItems != null && expandedStatsHistoryItems.contains(itemId);
+        return expandedStatsHistoryItems.contains(itemId);
     }
 
     private List<StatsFlipInstance> getStatsFlipHistory(int itemId) {
-        if (panelState == null || panelState.statsFlipHistoryByItem == null) {
+        if (panelState.statsFlipHistoryByItem == null) {
             return new ArrayList<>();
         }
         List<StatsFlipInstance> history = panelState.statsFlipHistoryByItem.get(itemId);
@@ -113,7 +113,7 @@ final class StatsItemCardBuilder {
      * third mark is worth. The tooltip on each names it in full.
      */
     private List<ConversionKind> visibleKinds(int itemId) {
-        java.util.Map<ConversionKind, Long> profitByKind = new java.util.HashMap<>();
+        Map<ConversionKind, Long> profitByKind = new HashMap<>();
         for (StatsFlipInstance instance : getStatsFlipHistory(itemId)) {
             if (instance == null) {
                 continue;
@@ -127,7 +127,7 @@ final class StatsItemCardBuilder {
     }
 
     private StatsRecipeFilter activeFilter() {
-        return panelState != null && panelState.statsRecipeFilter != null
+        return panelState.statsRecipeFilter != null
             ? panelState.statsRecipeFilter
             : StatsRecipeFilter.ALL;
     }
@@ -181,29 +181,23 @@ final class StatsItemCardBuilder {
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
         card.setAlignmentX(Component.LEFT_ALIGNMENT);
-        card.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        card.setCursor(HAND);
 
         String name = Str.hasText(item.item_name)
             ? item.item_name
             : "Item " + item.item_id;
         JLabel iconLabel = new JLabel();
         iconLabel.setPreferredSize(new Dimension(32, 32));
-        if (itemIconResolver != null) {
-            itemIconResolver.setItemIcon(iconLabel, item.item_id);
-        }
+        itemIconResolver.setItemIcon(iconLabel, item.item_id);
 
-        JPanel header = new JPanel(new BorderLayout(6, 0));
-        header.setOpaque(false);
+        JPanel header = plain(new BorderLayout(6, 0));
         // BorderLayout, not BoxLayout: a label in a Y-axis BoxLayout is capped at its preferred
         // width, so the name would be squeezed again instead of taking the row.
-        JPanel center = new JPanel(new BorderLayout(0, 0));
-        center.setOpaque(false);
+        JPanel center = plain(new BorderLayout(0, 0));
 
         // The name gets a row to itself: sharing one line with the profit left it barely half
         // the panel width, which is not enough for most item names to survive.
-        EllipsisLabel nameLabel = new EllipsisLabel(name);
-        nameLabel.setForeground(TEXT);
-        nameLabel.setFont(uiStyler.fontBold(12.5f));
+        EllipsisLabel nameLabel = styled(new EllipsisLabel(name), TEXT, uiStyler.fontBold(12.5f));
 
         long profit = item.total_profit_gp != null ? item.total_profit_gp : 0;
         JLabel profitLabel = new JLabel(valueFormatService.formatGpCompact(profit), SwingConstants.RIGHT);
@@ -213,14 +207,12 @@ final class StatsItemCardBuilder {
         // the item's own name above it, which leads.
         profitLabel.setFont(uiStyler.fontNumeric(11.5f));
 
-        EllipsisLabel metaLabel = new EllipsisLabel(formattingService.buildStatsItemMetaShort(item));
-        metaLabel.setForeground(MUTED_2);
-        metaLabel.setFont(font(10f));
+        EllipsisLabel metaLabel = styled(new EllipsisLabel(formattingService.buildStatsItemMetaShort(item)),
+            MUTED_2, font(10f));
 
         // Profit sits in EAST so it is always drawn in full; the meta takes whatever is left and
         // clips itself, since every value in it is repeated in the expanded detail rows.
-        JPanel metaRow = new JPanel(new BorderLayout(6, 0));
-        metaRow.setOpaque(false);
+        JPanel metaRow = plain(new BorderLayout(6, 0));
         metaRow.add(metaLabel, BorderLayout.CENTER);
         metaRow.add(profitLabel, BorderLayout.EAST);
 
@@ -241,8 +233,7 @@ final class StatsItemCardBuilder {
         }
         trailing.add(expandLabel);
 
-        JPanel nameRow = new JPanel(new BorderLayout(6, 0));
-        nameRow.setOpaque(false);
+        JPanel nameRow = plain(new BorderLayout(6, 0));
         nameRow.add(nameLabel, BorderLayout.CENTER);
         nameRow.add(trailing, BorderLayout.EAST);
 
@@ -258,10 +249,10 @@ final class StatsItemCardBuilder {
         }
         if (expanded) {
             Dimension preferred = card.getPreferredSize();
-            card.setMaximumSize(new Dimension(Integer.MAX_VALUE, preferred.height));
+            wide(card, preferred.height);
         } else {
             card.setPreferredSize(new Dimension(0, 56));
-            card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 56));
+            wide(card, 56);
         }
         interactionInstaller.installStatsCardToggle(card, item.item_id);
         return card;
@@ -272,12 +263,8 @@ final class StatsItemCardBuilder {
      * clipped before it and the profit is abbreviated - so the full values live here.
      */
     private JPanel buildStatsItemDetails(StatsItem item) {
-        JPanel details = new JPanel();
-        details.setOpaque(false);
-        details.setLayout(new BoxLayout(details, BoxLayout.Y_AXIS));
-        JPanel figures = new JPanel();
-        figures.setOpaque(false);
-        figures.setLayout(new BoxLayout(figures, BoxLayout.Y_AXIS));
+        JPanel details = stack();
+        JPanel figures = stack();
         long profit = item.total_profit_gp != null ? item.total_profit_gp : 0L;
         Color profitColor = profit >= 0 ? SUCCESS : DANGER;
         figures.add(buildStatsItemDetailLine("Total profit", valueFormatService.formatGp(item.total_profit_gp), profitColor));
@@ -328,9 +315,7 @@ final class StatsItemCardBuilder {
     }
 
     private JPanel buildStatsFlipHistorySection(int itemId) {
-        JPanel section = new JPanel();
-        section.setOpaque(false);
-        section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
+        JPanel section = stack();
 
         List<StatsFlipInstance> history = getStatsFlipHistory(itemId);
         if (history == null) {
@@ -338,12 +323,9 @@ final class StatsItemCardBuilder {
         }
         boolean expanded = isStatsHistoryExpanded(itemId);
 
-        JPanel header = new JPanel(new BorderLayout(6, 0));
-        header.setOpaque(false);
-        header.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
-        JLabel title = new JLabel(historySectionTitle(history));
-        title.setForeground(MUTED);
-        title.setFont(uiStyler.fontSemiBold(10f));
+        JPanel header = plain(new BorderLayout(6, 0));
+        wide(header, 18);
+        JLabel title = styled(new JLabel(historySectionTitle(history)), MUTED, uiStyler.fontSemiBold(10f));
         JLabel chevron = new JLabel(expanded ? "\u25B2" : "\u25BC", SwingConstants.RIGHT);
         chevron.setForeground(MUTED_2);
         chevron.setFont(font(10f));
@@ -354,9 +336,9 @@ final class StatsItemCardBuilder {
         if (!history.isEmpty()) {
             interactionInstaller.installStatsHistoryToggle(header, itemId);
             interactionInstaller.installStatsHistoryHoverFeedback(header, title, chevron);
-            header.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            title.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            chevron.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            header.setCursor(HAND);
+            title.setCursor(HAND);
+            chevron.setCursor(HAND);
         }
 
         if (!expanded || history.isEmpty()) {
@@ -367,9 +349,7 @@ final class StatsItemCardBuilder {
         // The heading is a control and stays at the card's full width, like the item's own name
         // above it. Only what it opens is set in, which is what makes the indent mean "this
         // belongs to the thing above" rather than decorating every row alike.
-        JPanel entries = new JPanel();
-        entries.setOpaque(false);
-        entries.setLayout(new BoxLayout(entries, BoxLayout.Y_AXIS));
+        JPanel entries = stack();
         int numbered = 0;
         boolean anyAdded = false;
         for (StatsFlipInstance instance : history) {
@@ -415,9 +395,7 @@ final class StatsItemCardBuilder {
      */
     private JPanel buildStatsFlipHistoryEntry(StatsFlipInstance instance, String label,
                                               boolean separated) {
-        JPanel entry = new JPanel();
-        entry.setOpaque(false);
-        entry.setLayout(new BoxLayout(entry, BoxLayout.Y_AXIS));
+        JPanel entry = stack();
         entry.setBorder(separated
             ? BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(1, 0, 0, 0, LINE),
@@ -426,11 +404,8 @@ final class StatsItemCardBuilder {
         // The entry reads top to bottom as what was traded, then at what prices, then what came
         // of it. So the quantity sits on the heading row beside the number of the flip, and the
         // profit goes last, where the eye lands after the two prices it comes from.
-        JPanel topRow = new JPanel(new BorderLayout(6, 0));
-        topRow.setOpaque(false);
-        JLabel flipLabel = new JLabel(label);
-        flipLabel.setForeground(MUTED_2);
-        flipLabel.setFont(font(9.5f));
+        JPanel topRow = plain(new BorderLayout(6, 0));
+        JLabel flipLabel = styled(new JLabel(label), MUTED_2, font(9.5f));
         JLabel qtyLabel = new JLabel("Qty: " + valueFormatService.formatNumber(instance.quantity),
             SwingConstants.RIGHT);
         qtyLabel.setForeground(MUTED_2);
@@ -438,9 +413,8 @@ final class StatsItemCardBuilder {
         topRow.add(flipLabel, BorderLayout.WEST);
         topRow.add(qtyLabel, BorderLayout.EAST);
 
-        JPanel pricesRow = new JPanel(new BorderLayout(6, 0));
-        pricesRow.setOpaque(false);
-        pricesRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 14));
+        JPanel pricesRow = plain(new BorderLayout(6, 0));
+        wide(pricesRow, 14);
         JLabel buyLabel = new JLabel("Buy: " + valueFormatService.formatGp(instance.buyPriceGp));
         buyLabel.setForeground(TEXT);
         buyLabel.setFont(font(9.5f));
@@ -450,9 +424,8 @@ final class StatsItemCardBuilder {
         pricesRow.add(buyLabel, BorderLayout.WEST);
         pricesRow.add(sellLabel, BorderLayout.EAST);
 
-        JPanel profitRow = new JPanel(new BorderLayout(6, 0));
-        profitRow.setOpaque(false);
-        profitRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 16));
+        JPanel profitRow = plain(new BorderLayout(6, 0));
+        wide(profitRow, 16);
         Color profitColor = instance.profitGp >= 0 ? SUCCESS : DANGER;
         JLabel profitLabel = new JLabel("Profit: " + valueFormatService.formatGp(instance.profitGp),
             SwingConstants.RIGHT);
@@ -490,9 +463,7 @@ final class StatsItemCardBuilder {
      * feature has to explain itself.
      */
     private JPanel buildConversionBreakdown(StatsFlipInstance instance) {
-        JPanel breakdown = new JPanel();
-        breakdown.setOpaque(false);
-        breakdown.setLayout(new BoxLayout(breakdown, BoxLayout.Y_AXIS));
+        JPanel breakdown = stack();
         // No alignmentX of its own. A Y_AXIS BoxLayout aligns children against
         // each other, so a LEFT_ALIGNMENT panel among the entry's default
         // centred rows gets indented and narrowed - which is what was clipping
@@ -503,24 +474,20 @@ final class StatsItemCardBuilder {
         // not an action.
         JLabel heading = new JLabel(conversionHeading(instance.conversionKind));
         uiStyler.styleMicroLabel(heading, 9.5f);
-        JPanel headingRow = new JPanel(new BorderLayout());
-        headingRow.setOpaque(false);
-        headingRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 14));
+        JPanel headingRow = plain(new BorderLayout());
+        wide(headingRow, 14);
         headingRow.add(heading, BorderLayout.WEST);
         breakdown.add(headingRow);
         if (Str.hasText(instance.conversionName)) {
-            JPanel row = new JPanel(new BorderLayout(6, 0));
-            row.setOpaque(false);
-            row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 14));
-            EllipsisLabel name = new EllipsisLabel(instance.conversionName.trim());
-            name.setForeground(MUTED);
-            name.setFont(font(9.5f));
+            JPanel row = plain(new BorderLayout(6, 0));
+            wide(row, 14);
+            EllipsisLabel name = styled(new EllipsisLabel(instance.conversionName.trim()), MUTED, font(9.5f));
             name.setHorizontalAlignment(SwingConstants.LEFT);
             row.add(name, BorderLayout.CENTER);
             breakdown.add(row);
         }
         // A Y_AXIS child with no ceiling absorbs slack from the box above it.
-        breakdown.setMaximumSize(new Dimension(Integer.MAX_VALUE, breakdown.getPreferredSize().height));
+        wide(breakdown, breakdown.getPreferredSize().height);
         return breakdown;
     }
 
@@ -549,15 +516,12 @@ final class StatsItemCardBuilder {
     }
 
     private JPanel buildStatsItemDetailLine(String label, String value, Color valueColor) {
-        JPanel row = new JPanel(new BorderLayout());
-        row.setOpaque(false);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
+        JPanel row = plain(new BorderLayout());
+        wide(row, 18);
         // The value is pinned to the right and always drawn whole; the label takes whatever is
         // left and clips itself. Both used to be pinned to opposite edges, and a row too narrow
         // for the pair of them printed one on top of the other rather than shortening either.
-        EllipsisLabel left = new EllipsisLabel(label);
-        left.setForeground(MUTED);
-        left.setFont(font(10f));
+        EllipsisLabel left = styled(new EllipsisLabel(label), MUTED, font(10f));
         JLabel right = new JLabel(value != null ? value : "N/A", SwingConstants.RIGHT);
         right.setForeground(valueColor != null ? valueColor : TEXT);
         right.setFont(uiStyler.fontNumeric(10.5f));

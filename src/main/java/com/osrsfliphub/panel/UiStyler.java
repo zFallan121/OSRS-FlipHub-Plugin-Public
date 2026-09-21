@@ -25,30 +25,15 @@
 package com.osrsfliphub;
 
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.font.*;
 import java.util.*;
 import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.event.*;
 import net.runelite.client.ui.FontManager;
-import static com.osrsfliphub.Skin.ACCENT;
-import static com.osrsfliphub.Skin.BOOKMARK_GLYPH;
-import static com.osrsfliphub.Skin.BOOKMARK_GLYPH_SIZE;
-import static com.osrsfliphub.Skin.CHIP_ARC;
-import static com.osrsfliphub.Skin.CLEAR_MARK_SIZE;
-import static com.osrsfliphub.Skin.CONTROL_BORDER;
-import static com.osrsfliphub.Skin.CONTROL_BORDER_HOVER;
-import static com.osrsfliphub.Skin.CONTROL_FILL;
-import static com.osrsfliphub.Skin.INLINE_CLEAR_GAP;
-import static com.osrsfliphub.Skin.INLINE_CLEAR_SLOT;
-import static com.osrsfliphub.Skin.INPUT_ARC;
-import static com.osrsfliphub.Skin.LINE;
-import static com.osrsfliphub.Skin.MUTED;
-import static com.osrsfliphub.Skin.MUTED_2;
-import static com.osrsfliphub.Skin.OVERLAY_BASE;
-import static com.osrsfliphub.Skin.SORT_ICON_SIZE;
-import static com.osrsfliphub.Skin.TEXT;
-import static com.osrsfliphub.Skin.TRAILING_CONTROL_WIDTH;
+import static com.osrsfliphub.Skin.*;
 
 /**
  * Type and controls for the panel, following STYLEGUIDE.md §4 and §9.
@@ -138,7 +123,7 @@ final class UiStyler {
         button.setForeground(active ? TEXT : MUTED);
         button.setContentAreaFilled(false);
         button.setOpaque(false);
-        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        button.setCursor(HAND);
         button.setBorder(BorderFactory.createCompoundBorder(
             // A marker, not a container: the inactive tab gets a transparent rule of the same
             // height so the two never shift by a pixel as the selection moves.
@@ -178,7 +163,7 @@ final class UiStyler {
         button.setFont(fontSemiBold(size));
         button.setForeground(TEXT);
         button.setBorder(roundedBorder(arc, CONTROL_BORDER, padding));
-        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        button.setCursor(HAND);
         installGhostHover(button, arc, padding);
     }
 
@@ -199,7 +184,7 @@ final class UiStyler {
         button.setBorder(BorderFactory.createEmptyBorder());
         button.setMargin(new Insets(0, 0, 0, 0));
         button.setForeground(TEXT);
-        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        button.setCursor(HAND);
     }
 
     /**
@@ -224,7 +209,7 @@ final class UiStyler {
         clear.setBorder(BorderFactory.createEmptyBorder());
         clear.setMargin(new Insets(0, 0, 0, 0));
         clear.setForeground(MUTED_2);
-        clear.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        clear.setCursor(HAND);
         clear.setToolTipText("Clear");
         // Focus stays with the caret: the mark is an edit to the field, not somewhere to be.
         clear.setFocusable(false);
@@ -322,14 +307,14 @@ final class UiStyler {
      * itself has to be that something: without this the search box stays active - and keeps
      * swallowing the keyboard - however far away the user clicks.
      */
-    void installClickToDefocus(javax.swing.JComponent surface) {
+    void installClickToDefocus(JComponent surface) {
         if (surface == null) {
             return;
         }
         surface.setFocusable(true);
-        surface.addMouseListener(new java.awt.event.MouseAdapter() {
+        surface.addMouseListener(new MouseAdapter() {
             @Override
-            public void mousePressed(java.awt.event.MouseEvent e) {
+            public void mousePressed(MouseEvent e) {
                 surface.requestFocusInWindow();
             }
         });
@@ -353,7 +338,7 @@ final class UiStyler {
     }
 
     /** Pins a control to the height of the field it sits next to, so the row reads as one bar. */
-    void matchFieldHeight(javax.swing.JComponent control, javax.swing.JComponent field) {
+    void matchFieldHeight(JComponent control, JComponent field) {
         int height = field.getPreferredSize().height;
         Dimension preferred = control.getPreferredSize();
         control.setPreferredSize(new Dimension(preferred.width, height));
@@ -381,7 +366,7 @@ final class UiStyler {
         combo.setBorder(roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(4, 8, 4, 8)));
         combo.setFocusable(false);
         combo.setOpaque(false);
-        combo.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        combo.setCursor(HAND);
 
         // An overlay is a surface over the room: the popup takes the same opaque ground and the
         // same hairline as the profile menu, rather than the look-and-feel's own list.
@@ -411,20 +396,18 @@ final class UiStyler {
      * something", white says "this one, the one you are on".
      */
     JLabel actionLink(String text, String tooltip, Runnable action) {
-        JLabel link = new TipLabel(text, javax.swing.SwingConstants.RIGHT);
-        link.setForeground(ACCENT);
-        link.setFont(font(9.5f));
+        JLabel link = styled(new TipLabel(text, SwingConstants.RIGHT), ACCENT, font(9.5f));
         link.setToolTipText(tooltip);
-        link.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        link.setCursor(HAND);
         link.addMouseListener(new StatsClickMouseAdapter(action));
-        link.addMouseListener(new java.awt.event.MouseAdapter() {
+        link.addMouseListener(new MouseAdapter() {
             @Override
-            public void mouseEntered(java.awt.event.MouseEvent event) {
+            public void mouseEntered(MouseEvent event) {
                 link.setForeground(TEXT);
             }
 
             @Override
-            public void mouseExited(java.awt.event.MouseEvent event) {
+            public void mouseExited(MouseEvent event) {
                 link.setForeground(ACCENT);
             }
         });
@@ -474,5 +457,23 @@ final class UiStyler {
             }
         }
         return FontManager.getDefaultFont().deriveFont(style, size);
+    }
+
+    /** The card a list shows in place of rows: a title and one line saying why it is empty. */
+    JPanel emptyCard(String title, String body) {
+        JPanel card = RoundedPanel.glass(CARD_ARC);
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        wide(card, 100);
+        card.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel titleLabel = styled(new JLabel(title), TEXT, fontSemiBold(12f));
+
+        JLabel bodyLabel = styled(new JLabel(body), MUTED, font(10.5f));
+
+        card.add(titleLabel);
+        card.add(Box.createVerticalStrut(4));
+        card.add(bodyLabel);
+        return card;
     }
 }

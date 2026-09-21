@@ -36,28 +36,22 @@ import static org.junit.Assert.assertTrue;
 public class GeHistoryWidgetReadServiceTest {
     @Test
     public void hasCompleteWidgetGroupsRequiresPositiveMultipleOfSix() {
-        WidgetRead service = new WidgetRead();
-
-        assertFalse(service.hasCompleteWidgetGroups(null));
-        assertFalse(service.hasCompleteWidgetGroups(new Widget[0]));
-        assertFalse(service.hasCompleteWidgetGroups(new Widget[5]));
-        assertTrue(service.hasCompleteWidgetGroups(new Widget[6]));
-        assertTrue(service.hasCompleteWidgetGroups(new Widget[12]));
+        assertFalse(WidgetParser.hasCompleteWidgetGroups(null));
+        assertFalse(WidgetParser.hasCompleteWidgetGroups(new Widget[0]));
+        assertFalse(WidgetParser.hasCompleteWidgetGroups(new Widget[5]));
+        assertTrue(WidgetParser.hasCompleteWidgetGroups(new Widget[6]));
+        assertTrue(WidgetParser.hasCompleteWidgetGroups(new Widget[12]));
     }
 
     @Test
     public void tryParseReadyTradesReturnsNullWhenWidgetsAreIncomplete() {
-        WidgetRead service = new WidgetRead();
-
-        assertNull(service.tryParseReadyTrades(null));
-        assertNull(service.tryParseReadyTrades(new Widget[5]));
+        assertNull(WidgetParser.tryParseReadyTrades(null));
+        assertNull(WidgetParser.tryParseReadyTrades(new Widget[5]));
     }
 
     @Test
     public void tryParseReadyTradesReturnsParsedListWhenWidgetsAreComplete() {
-        WidgetRead service = new WidgetRead();
-
-        List<Trade> trades = service.tryParseReadyTrades(new Widget[6]);
+        List<Trade> trades = WidgetParser.tryParseReadyTrades(new Widget[6]);
         assertNotNull(trades);
     }
 }

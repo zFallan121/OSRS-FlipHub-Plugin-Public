@@ -27,34 +27,20 @@ package com.osrsfliphub;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class UploadBackfillDispatch {
     private final BackfillRetryScheduler backfillRetryScheduler;
+    private final UploadEventDispatch eventDispatch;
+    private final PluginConfig pluginConfig;
+    private final SummaryUploader summaryUploader;
     private final AtomicBoolean flushInFlight = new AtomicBoolean(false);
     private final AtomicBoolean accountwideSyncInFlight = new AtomicBoolean(false);
 
-    @Inject
-    UploadBackfillDispatch(BackfillRetryScheduler backfillRetryScheduler) {
-        this.backfillRetryScheduler = backfillRetryScheduler;
-    }
-
     private boolean executeIo(Runnable task) {
         return Access.plugin().executeIo(task);
-    }
-
-    private void flushEvents() {
-        Bridge.get(UploadEventDispatch.class).flushEvents(
-            Access.plugin().apiClient,
-            Access.plugin().config,
-            GeLifecyclePlugin.log);
-    }
-
-    private void syncAccountwideSummaryIfNeeded() {
-        SummaryUploader uploader = Bridge.get(SummaryUploader.class);
-        if (uploader != null) {
-            uploader.syncIfNeeded(Access.plugin().apiClient, Access.plugin().config);
-        }
     }
 
     private void attemptAccountwideBackfillIfNeeded() {
@@ -71,7 +57,7 @@ final class UploadBackfillDispatch {
         // so the two-second flush can arrive just after they close.
         if (!executeIo(() -> {
             try {
-                flushEvents();
+                eventDispatch.flushEvents( Access.plugin().apiClient, pluginConfig, GeLifecyclePlugin.log);
             } finally {
                 flushInFlight.set(false);
             }
@@ -86,7 +72,7 @@ final class UploadBackfillDispatch {
         }
         if (!executeIo(() -> {
             try {
-                syncAccountwideSummaryIfNeeded();
+                summaryUploader.syncIfNeeded(Access.plugin().apiClient, pluginConfig);
             } finally {
                 accountwideSyncInFlight.set(false);
             }
@@ -96,9 +82,6 @@ final class UploadBackfillDispatch {
     }
 
     void requestBackfillAttempt(ScheduledExecutorService scheduler, long delaySeconds, boolean resetBackoff) {
-        if (backfillRetryScheduler == null) {
-            return;
-        }
         backfillRetryScheduler.requestAttempt(
             scheduler,
             delaySeconds,
@@ -108,9 +91,6 @@ final class UploadBackfillDispatch {
     }
 
     void scheduleBackfillRetry(ScheduledExecutorService scheduler) {
-        if (backfillRetryScheduler == null) {
-            return;
-        }
         backfillRetryScheduler.scheduleRetry(
             scheduler,
             () -> executeIo(this::attemptAccountwideBackfillIfNeeded)
@@ -118,9 +98,6 @@ final class UploadBackfillDispatch {
     }
 
     void resetBackfillRetryState() {
-        if (backfillRetryScheduler == null) {
-            return;
-        }
         backfillRetryScheduler.reset();
     }
 }

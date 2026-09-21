@@ -28,6 +28,7 @@ import com.google.gson.Gson;
 import java.util.*;
 import java.util.concurrent.*;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import net.runelite.client.callback.ClientThread;
 import okhttp3.OkHttpClient;
 import org.slf4j.*;
@@ -60,6 +61,7 @@ final class RuntimeSchedulerServices {
         };
     }
 
+    @RequiredArgsConstructor
     static final class RuntimeState {
         @Getter
         private final ApiClient apiClient;
@@ -68,11 +70,6 @@ final class RuntimeSchedulerServices {
         @Getter
         private final ExecutorService ioExecutor;
 
-        RuntimeState(ApiClient apiClient, ScheduledExecutorService scheduler, ExecutorService ioExecutor) {
-            this.apiClient = apiClient;
-            this.scheduler = scheduler;
-            this.ioExecutor = ioExecutor;
-        }
     }
 
     RuntimeState start(

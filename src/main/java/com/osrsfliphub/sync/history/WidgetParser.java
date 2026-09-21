@@ -27,7 +27,6 @@ package com.osrsfliphub;
 import java.util.*;
 import java.util.regex.*;
 import net.runelite.api.widgets.Widget;
-import net.runelite.client.util.Text;
 
 final class WidgetParser {
     private static final int WIDGET_GROUP_SIZE = 6;
@@ -37,6 +36,16 @@ final class WidgetParser {
     private static final Pattern STATE_QUANTITY_PATTERN = Pattern.compile("\\bx\\s*([\\d,]+)\\b", Pattern.CASE_INSENSITIVE);
 
     private WidgetParser() {
+    }
+
+    /** A history list can be read once it holds whole rows: six widgets to a trade, at least one. */
+    static boolean hasCompleteWidgetGroups(Widget[] widgets) {
+        return widgets != null && widgets.length > 0 && widgets.length % WIDGET_GROUP_SIZE == 0;
+    }
+
+    /** The trades on screen, or null while the list is still part-drawn. */
+    static List<Trade> tryParseReadyTrades(Widget[] widgets) {
+        return hasCompleteWidgetGroups(widgets) ? parse(widgets) : null;
     }
 
     static List<Trade> parse(Widget[] widgets) {
@@ -78,7 +87,7 @@ final class WidgetParser {
         if (itemId <= 0) {
             return null;
         }
-        String state = normalizeText(stateText);
+        String state = OfferPreviewWidgetParser.normalizeText(stateText);
         if (Str.isBlank(state)) {
             return null;
         }
@@ -92,7 +101,7 @@ final class WidgetParser {
             return null;
         }
 
-        String details = normalizeText(detailsText);
+        String details = OfferPreviewWidgetParser.normalizeText(detailsText);
         long totalCoins = parseCoins(details);
         int eachPrice = parseEachPrice(details);
         int resolvedQuantity = resolveQuantity(quantity, state, totalCoins, eachPrice);
@@ -132,17 +141,6 @@ final class WidgetParser {
             grossUnitPrice = Math.max(1, netUnit);
         }
         return new Trade(itemId, false, resolvedQuantity, grossUnitPrice, netTotal);
-    }
-
-    static String normalizeText(String text) {
-        if (text == null) {
-            return null;
-        }
-        String normalized = text
-            .replace("<br>", "\n")
-            .replace("<br/>", "\n")
-            .replace("<br />", "\n");
-        return Text.removeTags(normalized);
     }
 
     static long parseCoins(String text) {

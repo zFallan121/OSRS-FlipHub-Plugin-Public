@@ -26,6 +26,7 @@ package com.osrsfliphub;
 
 import java.util.*;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 import net.runelite.api.*;
 import net.runelite.api.widgets.Widget;
 import static com.osrsfliphub.Const.ACCOUNTWIDE_KEY;
@@ -33,55 +34,38 @@ import static com.osrsfliphub.Const.GE_HISTORY_CONTAINER_CHILD_ID;
 import static com.osrsfliphub.Const.GE_HISTORY_GROUP_ID;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class ProfileWipe {
     private final long accountwideKey = ACCOUNTWIDE_KEY;
     private final PluginState pluginState;
-
-    @Inject
-    ProfileWipe(PluginState pluginState) {
-        this.pluginState = pluginState;
-    }
-
-    private long resolveLocalAccountKey() {
-        AccountSession service = Bridge.get(AccountSession.class);
-        return service != null ? service.resolveLocalAccountKey() : -1L;
-    }
+    private final AccountSession accountSession;
+    private final GeHistoryCursorService geHistoryCursorService;
+    private final ProfileSelectionPresentation selectionPresentation;
+    private final WipeStateStore wipeStateStore;
+    private final ProfileWipeDataService dataService;
+    private final LocalTradesRuntime localTradesRuntime;
+    private final ProfileWorkflow workflow;
+    private final PanelRefresh panelRefresh;
+    private final Client client;
 
     private List<Trade> tryParseCurrentGeHistoryTrades() {
-        Client client = Access.plugin().client;
-        if (client == null || client.getGameState() != GameState.LOGGED_IN) {
+        if (client.getGameState() != GameState.LOGGED_IN) {
             return null;
         }
         Widget historyContainer = client.getWidget(GE_HISTORY_GROUP_ID, GE_HISTORY_CONTAINER_CHILD_ID);
         if (historyContainer == null || historyContainer.isHidden()) {
             return null;
         }
-        WidgetRead service = Bridge.get(WidgetRead.class);
-        return service != null ? service.tryParseReadyTrades(historyContainer.getDynamicChildren()) : null;
-    }
-
-    private List<String> buildGeHistoryCursorSignatures(List<Trade> trades) {
-        GeHistoryCursorService service = Bridge.get(GeHistoryCursorService.class);
-        return service != null ? service.buildCursorSignatures(trades) : null;
-    }
-
-    private Map<Long, String> loadProfilesFromDisk() {
-        ProfileSelectionPresentation service =
-            Bridge.get(ProfileSelectionPresentation.class);
-        return service != null ? service.loadProfilesFromDisk() : null;
+        return WidgetParser.tryParseReadyTrades(historyContainer.getDynamicChildren());
     }
 
     private String resolveProfileDisplayName(long accountKey) {
-        Map<Long, String> names = profileDisplayNames();
+        Map<Long, String> names = pluginState.getProfileDisplayNames();
         return names != null ? names.get(accountKey) : null;
     }
 
-    private Map<Long, String> profileDisplayNames() {
-        return pluginState != null ? pluginState.getProfileDisplayNames() : null;
-    }
-
     private void setProfileDisplayName(long accountKey, String displayName) {
-        Map<Long, String> names = profileDisplayNames();
+        Map<Long, String> names = pluginState.getProfileDisplayNames();
         if (names == null || accountKey <= 0 || displayName == null) {
             return;
         }
@@ -91,30 +75,14 @@ final class ProfileWipe {
         }
     }
 
-    private void setWipeBarrierArmed(long accountKey, boolean armed) {
-        WipeStateStore store = Bridge.get(WipeStateStore.class);
-        if (store != null) {
-            store.setWipeBarrierArmed(accountKey, armed);
-        }
-    }
-
-    private void persistGeHistoryCursor(long accountKey, List<String> cursor) {
-        WipeStateStore store = Bridge.get(WipeStateStore.class);
-        if (store != null) {
-            store.persistCursor(accountKey, cursor);
-        }
-    }
-
     /** @return whether the profile is actually gone from disk, not merely from memory. */
     private boolean clearProfileData(long accountKey, String displayName) {
-        ProfileWipeDataService service = Bridge.get(ProfileWipeDataService.class);
-        return service != null && service.clearProfileDataForWipe(accountKey, displayName);
+        return dataService.clearProfileDataForWipe(accountKey, displayName);
     }
 
     /** @return whether the accountwide file is actually gone from disk. */
     private boolean clearAccountwideData() {
-        ProfileWipeDataService service = Bridge.get(ProfileWipeDataService.class);
-        return service != null && service.clearAccountwideDataForWipe();
+        return dataService.clearAccountwideDataForWipe();
     }
 
     /**
@@ -123,34 +91,17 @@ final class ProfileWipe {
      * agrees, and it all returns at the next restart.
      */
     private void reportWipeWriteFailure() {
-        showError("Your history was cleared on screen but could not be deleted from disk. "
+        workflow.showManageDataError("Your history was cleared on screen but could not be deleted from disk. "
             + "Check that the FlipHub folder is writable, then wipe again.");
         pushGameMessage("FlipHub wipe failed: the history could not be deleted from disk.");
     }
 
-    private void loadLocalTradesForAccount(long accountKey, boolean forceReload) {
-        LocalTradesRuntime localTradesRuntime =
-            Bridge.get(LocalTradesRuntime.class);
-        if (localTradesRuntime != null) {
-            localTradesRuntime.loadLocalTradesForAccount(accountKey, forceReload);
-        }
-    }
-
     private void refreshUiAfterWipe() {
-        ProfileWorkflow profileWorkflow =
-            Bridge.get(ProfileWorkflow.class);
-        if (profileWorkflow != null) {
-            profileWorkflow.updateProfileOptionsUI();
-            profileWorkflow.updateProfileHeader();
-        }
+        workflow.updateProfileOptionsUI();
+        workflow.updateProfileHeader();
         GeLifecyclePlugin plugin = Access.plugin();
-        PanelRefresh coordinator = Bridge.get(PanelRefresh.class);
-        plugin.runtimeUtilityServices.triggerPanelRefresh(coordinator, plugin.scheduler);
-        plugin.runtimeUtilityServices.triggerStatsRefresh(coordinator, plugin.scheduler);
-    }
-
-    private void markAccountwideUploadDirty() {
-        Access.plugin().markAccountwideUploadDirty();
+        plugin.runtimeUtilityServices.triggerPanelRefresh(panelRefresh, plugin.scheduler);
+        plugin.runtimeUtilityServices.triggerStatsRefresh(panelRefresh, plugin.scheduler);
     }
 
     private void pushGameMessage(String message) {
@@ -158,32 +109,24 @@ final class ProfileWipe {
         plugin.runtimeUtilityServices.pushGameMessage(plugin.client, message);
     }
 
-    private void showError(String message) {
-        ProfileWorkflow profileWorkflow =
-            Bridge.get(ProfileWorkflow.class);
-        if (profileWorkflow != null) {
-            profileWorkflow.showManageDataError(message);
-        }
-    }
-
     void wipeSingleLocalProfile(long accountKey, String displayName) {
         if (accountKey <= 0) {
             return;
         }
 
-        long currentAccountKey = resolveLocalAccountKey();
+        long currentAccountKey = accountSession.resolveLocalAccountKey();
         List<Trade> history = tryParseCurrentGeHistoryTrades();
         if (history == null) {
-            showError("Open the GE History tab and wait for it to load, then try again.");
+            workflow.showManageDataError("Open the GE History tab and wait for it to load, then try again.");
             pushGameMessage("FlipHub wipe failed: GE History tab not ready.");
             return;
         }
 
-        setWipeBarrierArmed(accountKey, true);
+        wipeStateStore.setWipeBarrierArmed(accountKey, true);
         if (accountKey == currentAccountKey) {
-            persistGeHistoryCursor(accountKey, buildGeHistoryCursorSignatures(history));
+            wipeStateStore.persistCursor(accountKey, geHistoryCursorService.buildCursorSignatures(history));
         } else {
-            persistGeHistoryCursor(accountKey, new ArrayList<>());
+            wipeStateStore.persistCursor(accountKey, new ArrayList<>());
         }
 
         String trimmedDisplayName = displayName != null ? displayName.trim() : "";
@@ -194,10 +137,10 @@ final class ProfileWipe {
         boolean cleared = clearProfileData(accountKey, displayName);
 
         // Ensure accountwide view reflects the wipe immediately.
-        loadLocalTradesForAccount(accountKey, false);
-        loadLocalTradesForAccount(accountwideKey, true);
+        localTradesRuntime.loadLocalTradesForAccount(accountKey, false);
+        localTradesRuntime.loadLocalTradesForAccount(accountwideKey, true);
         refreshUiAfterWipe();
-        markAccountwideUploadDirty();
+        Access.plugin().markAccountwideUploadDirty();
 
         if (!cleared) {
             reportWipeWriteFailure();
@@ -210,16 +153,16 @@ final class ProfileWipe {
     }
 
     void wipeAllLocalProfiles() {
-        long currentAccountKey = resolveLocalAccountKey();
+        long currentAccountKey = accountSession.resolveLocalAccountKey();
         List<Trade> history = tryParseCurrentGeHistoryTrades();
         if (history == null) {
-            showError("Open the GE History tab and wait for it to load, then try again.");
+            workflow.showManageDataError("Open the GE History tab and wait for it to load, then try again.");
             pushGameMessage("FlipHub wipe failed: GE History tab not ready.");
             return;
         }
-        List<String> baselineCursor = buildGeHistoryCursorSignatures(history);
+        List<String> baselineCursor = geHistoryCursorService.buildCursorSignatures(history);
 
-        Map<Long, String> profiles = loadProfilesFromDisk();
+        Map<Long, String> profiles = selectionPresentation.loadProfilesFromDisk();
         Set<Long> keys = new HashSet<>();
         if (profiles != null) {
             for (Long key : profiles.keySet()) {
@@ -237,11 +180,11 @@ final class ProfileWipe {
             if (key == null || key <= 0) {
                 continue;
             }
-            setWipeBarrierArmed(key, true);
+            wipeStateStore.setWipeBarrierArmed(key, true);
             if (key == currentAccountKey) {
-                persistGeHistoryCursor(key, baselineCursor);
+                wipeStateStore.persistCursor(key, baselineCursor);
             } else {
-                persistGeHistoryCursor(key, new ArrayList<>());
+                wipeStateStore.persistCursor(key, new ArrayList<>());
             }
 
             allCleared &= clearProfileData(key, resolveProfileDisplayName(key));
@@ -250,9 +193,9 @@ final class ProfileWipe {
         allCleared &= clearAccountwideData();
 
         // Reload accountwide after the wipe so the UI updates immediately.
-        loadLocalTradesForAccount(accountwideKey, true);
+        localTradesRuntime.loadLocalTradesForAccount(accountwideKey, true);
         refreshUiAfterWipe();
-        markAccountwideUploadDirty();
+        Access.plugin().markAccountwideUploadDirty();
         if (!allCleared) {
             reportWipeWriteFailure();
             return;

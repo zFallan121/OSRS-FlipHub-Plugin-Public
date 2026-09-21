@@ -24,6 +24,9 @@
  */
 package com.osrsfliphub;
 
+import java.util.Comparator;
+import java.util.function.ToLongFunction;
+
 public enum StatsItemSort {
     COMPLETION("Completion"),
     PROFIT("Profit"),
@@ -44,6 +47,26 @@ public enum StatsItemSort {
             }
         }
         return COMPLETION;
+    }
+
+    /**
+     * Best first for a sort, the other figure breaking ties. A missing sort is COMPLETION and a
+     * missing figure counts as zero.
+     */
+    static Comparator<StatsItem> comparatorFor(StatsItemSort sort) {
+        ToLongFunction<StatsItem> profit =
+            item -> item != null && item.total_profit_gp != null ? item.total_profit_gp : 0L;
+        ToLongFunction<StatsItem> lastSell =
+            item -> item != null && item.last_sell_ts_ms != null ? item.last_sell_ts_ms : 0L;
+        Comparator<StatsItem> byProfit = Comparator.comparingLong(profit).reversed();
+        Comparator<StatsItem> byLastSell = Comparator.comparingLong(lastSell).reversed();
+        if (sort == ROI) {
+            return Comparator
+                .comparingDouble((StatsItem item) -> item != null && item.roi_percent != null ? item.roi_percent : 0.0)
+                .reversed()
+                .thenComparing(byProfit);
+        }
+        return sort == PROFIT ? byProfit.thenComparing(byLastSell) : byLastSell.thenComparing(byProfit);
     }
 
     @Override

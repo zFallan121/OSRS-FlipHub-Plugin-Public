@@ -103,7 +103,7 @@ final class OfferEventBuildMath {
         if (deltaQty > 0 && deltaGp <= 0) {
             long total = (long) next.price * (long) deltaQty;
             if (!next.isBuy) {
-                long tax = computeSellTax(next.itemId, total, deltaQty, next.price);
+                long tax = GeTax.forSaleOrTotal(next.itemId, total, deltaQty, next.price);
                 deltaGp = Math.max(0L, total - tax);
             } else {
                 deltaGp = Math.max(0L, total);
@@ -122,7 +122,7 @@ final class OfferEventBuildMath {
             return observedGrossNet;
         }
         long listedGross = (long) listedPrice * (long) deltaQty;
-        long listedNet = Math.max(0L, listedGross - computeSellTax(itemId, listedGross, deltaQty, listedPrice));
+        long listedNet = Math.max(0L, listedGross - GeTax.forSaleOrTotal(itemId, listedGross, deltaQty, listedPrice));
         if (observedTotal == listedNet) {
             return listedNet;
         }
@@ -145,14 +145,5 @@ final class OfferEventBuildMath {
             return observedTotal;
         }
         return Math.max(0L, observedTotal - GeTax.forSale(itemId, observedUnit, deltaQty));
-    }
-
-    long computeSellTax(int itemId, long grossTotal, long qty, int listedPrice) {
-        if (grossTotal <= 0L || qty <= 0L) {
-            return 0L;
-        }
-        return listedPrice > 0
-            ? GeTax.forSale(itemId, listedPrice, qty)
-            : GeTax.forGrossTotal(itemId, grossTotal, qty);
     }
 }

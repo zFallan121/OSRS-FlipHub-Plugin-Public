@@ -26,22 +26,23 @@ package com.osrsfliphub;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
 import net.runelite.api.*;
 
 final class RuntimeUtilityServices {
-    void scheduleRefreshSoon(PanelRefresh coordinator, java.util.concurrent.ScheduledExecutorService scheduler) {
+    void scheduleRefreshSoon(PanelRefresh coordinator, ScheduledExecutorService scheduler) {
         if (coordinator != null) {
             coordinator.scheduleRefreshSoon(scheduler);
         }
     }
 
-    void triggerPanelRefresh(PanelRefresh coordinator, java.util.concurrent.ScheduledExecutorService scheduler) {
+    void triggerPanelRefresh(PanelRefresh coordinator, ScheduledExecutorService scheduler) {
         if (coordinator != null) {
             coordinator.triggerPanelRefresh(scheduler);
         }
     }
 
-    void triggerStatsRefresh(PanelRefresh coordinator, java.util.concurrent.ScheduledExecutorService scheduler) {
+    void triggerStatsRefresh(PanelRefresh coordinator, ScheduledExecutorService scheduler) {
         if (coordinator != null) {
             coordinator.triggerStatsRefresh(scheduler);
         }

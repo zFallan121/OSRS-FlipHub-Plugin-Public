@@ -28,8 +28,7 @@ import java.awt.*;
 import java.util.function.IntConsumer;
 import javax.swing.*;
 import lombok.RequiredArgsConstructor;
-import static com.osrsfliphub.Skin.MUTED_2;
-import static com.osrsfliphub.Skin.TEXT;
+import static com.osrsfliphub.Skin.*;
 
 /**
  * The completed-flip list scrolls with the rest of the Flip Profile tab rather than sitting in a
@@ -40,11 +39,10 @@ final class StatsPagerBuilder {
     private final UiStyler uiStyler;
 
     JPanel buildPager(int page, int totalPages, IntConsumer onPageSelected) {
-        JPanel pager = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
-        pager.setOpaque(false);
+        JPanel pager = plain(new FlowLayout(FlowLayout.CENTER, 8, 0));
         pager.setAlignmentX(JPanel.LEFT_ALIGNMENT);
         pager.setBorder(BorderFactory.createEmptyBorder(4, 0, 2, 0));
-        pager.setMaximumSize(new Dimension(Integer.MAX_VALUE, 34));
+        wide(pager, 34);
 
         JButton prevButton = buildPagerButton("<", page > 1, () -> onPageSelected.accept(page - 1));
         prevButton.setToolTipText("Newer items");

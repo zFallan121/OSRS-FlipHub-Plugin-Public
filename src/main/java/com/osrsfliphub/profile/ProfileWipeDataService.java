@@ -36,6 +36,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 final class ProfileWipeDataService {
 
+    private final ProfileStorage storage;
+    private final RecipeFlipStore recipeFlipStore;
     private final long accountwideKey = Const.ACCOUNTWIDE_KEY;
     private final Object localStatsLock;
     private final Map<Long, List<Delta>> localTradeDeltasByAccount;
@@ -46,7 +48,14 @@ final class ProfileWipeDataService {
     private final Gson gson;
 
     @Inject
-    ProfileWipeDataService(PluginState pluginState, Gson gson) {
+    ProfileWipeDataService(
+        PluginState pluginState,
+        Gson gson,
+        ProfileStorage storage,
+        RecipeFlipStore recipeFlipStore
+    ) {
+        this.storage = storage;
+        this.recipeFlipStore = recipeFlipStore;
         this.localStatsLock = pluginState.getLocalStatsLock();
         this.localTradeDeltasByAccount = pluginState.getLocalTradeDeltasByAccount();
         this.localSessionStartByAccount = pluginState.getLocalSessionStartByAccount();
@@ -54,11 +63,6 @@ final class ProfileWipeDataService {
         this.loadedProfiles = pluginState.getLoadedProfiles();
         this.loadedProfileFileMs = pluginState.getLoadedProfileFileMs();
         this.gson = gson;
-    }
-
-    private boolean writeProfileData(long accountKey, List<Delta> deltas) {
-        ProfileStorage storage = Bridge.get(ProfileStorage.class);
-        return storage != null && storage.writeProfileData(accountKey, deltas);
     }
 
     /**
@@ -71,7 +75,7 @@ final class ProfileWipeDataService {
     boolean clearProfileDataForWipe(long accountKey, String displayName) {
         resetInMemoryProfileData(accountKey);
         List<Delta> emptyDeltas = new ArrayList<>();
-        boolean written = writeProfileData(accountKey, emptyDeltas);
+        boolean written = storage.writeProfileData(accountKey, emptyDeltas);
         boolean legacyWritten = writeLegacyProfileDataIfPresent(accountKey, displayName, emptyDeltas);
         return written && legacyWritten;
     }
@@ -80,18 +84,14 @@ final class ProfileWipeDataService {
     boolean clearAccountwideDataForWipe() {
         resetInMemoryProfileData(accountwideKey);
         List<Delta> emptyDeltas = new ArrayList<>();
-        boolean written = writeProfileData(accountwideKey, emptyDeltas);
+        boolean written = storage.writeProfileData(accountwideKey, emptyDeltas);
         boolean legacyWritten = writeLegacyProfileDataIfPresent(accountwideKey, "Accountwide", emptyDeltas);
         return written && legacyWritten;
     }
 
     /** @return whether the legacy copy was cleared, or true when there is no legacy copy. */
     boolean writeLegacyProfileDataIfPresent(long accountKey, String displayName, List<Delta> deltas) {
-        if (gson == null) {
-            return true;
-        }
-        ProfileStorage storage = Bridge.get(ProfileStorage.class);
-        Path legacyDir = storage != null ? storage.getLegacyProfilesDir() : null;
+        Path legacyDir = storage.getLegacyProfilesDir();
         if (legacyDir == null || !Files.exists(legacyDir)) {
             return true;
         }
@@ -125,9 +125,6 @@ final class ProfileWipeDataService {
         statsCacheByAccount.remove(accountKey);
         loadedProfiles.remove(accountKey);
         loadedProfileFileMs.remove(accountKey);
-        RecipeFlipStore recorded = Bridge.get(RecipeFlipStore.class);
-        if (recorded != null) {
-            recorded.clear(accountKey);
-        }
+        recipeFlipStore.clear(accountKey);
     }
 }

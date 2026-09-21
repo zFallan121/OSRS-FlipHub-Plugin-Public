@@ -25,20 +25,17 @@
 package com.osrsfliphub;
 
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 import net.runelite.client.config.ConfigManager;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class ProfileSelectionPersistence {
     private final ConfigManager configManager;
     private final String configGroup = FliphubConfigGroups.CONFIG_GROUP;
     private final String legacyGroup = FliphubConfigGroups.LEGACY_DEV_CONFIG_GROUP;
     private final String selectedKeyName = Const.PROFILE_SELECTED_KEY;
     private final String modeKeyName = Const.PROFILE_SELECTION_MODE_KEY;
-
-    @Inject
-    ProfileSelectionPersistence(ConfigManager configManager) {
-        this.configManager = configManager;
-    }
 
     private String readConfiguration(String group, String key) {
         return configManager != null ? configManager.getConfiguration(group, key) : null;

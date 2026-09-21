@@ -24,9 +24,10 @@
  */
 package com.osrsfliphub;
 
-import java.awt.Color;
+import java.awt.*;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import javax.swing.*;
 
 /**
  * The panel's half of the FlipHub design system (STYLEGUIDE.md, "Quiet Glass on Deep Navy").
@@ -151,8 +152,8 @@ final class Skin {
      * rather than spelled out at each of the dozen places that paint something.
      */
     static void smooth(java.awt.Graphics2D g2) {
-        g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
-            java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+            RenderingHints.VALUE_ANTIALIAS_ON);
     }
 
     /** The same colour as a web page would write it, for the tooltips built out of HTML. */
@@ -224,6 +225,35 @@ final class Skin {
     static final int AGE_TOOLTIP_LEFT_GAP = 8;
     static final String STATS_CARD_TOGGLE_SKIP_KEY = "fliphub.skipStatsCardToggle";
     static final int STATS_ITEMS_PER_PAGE = 10;
+
+    static final Cursor HAND = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR);
+
+    /** A see-through panel. Nothing in the side panel paints its own background: the backdrop shows through. */
+    static JPanel plain(LayoutManager layout) {
+        JPanel panel = new JPanel(layout);
+        panel.setOpaque(false);
+        return panel;
+    }
+
+    /** A see-through panel that stacks its children downwards. */
+    static JPanel stack() {
+        JPanel panel = new JPanel();
+        panel.setOpaque(false);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        return panel;
+    }
+
+    /** A label in its colour and face, handed back so it can be declared and styled in one line. */
+    static <T extends JLabel> T styled(T label, Color color, Font font) {
+        label.setForeground(color);
+        label.setFont(font);
+        return label;
+    }
+
+    /** As wide as it is given, and no taller than this. */
+    static void wide(Component component, int height) {
+        component.setMaximumSize(new Dimension(Integer.MAX_VALUE, height));
+    }
 
     private Skin() {
     }

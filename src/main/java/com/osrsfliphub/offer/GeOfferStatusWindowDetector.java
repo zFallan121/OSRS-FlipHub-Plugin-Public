@@ -27,7 +27,6 @@ package com.osrsfliphub;
 import lombok.RequiredArgsConstructor;
 import net.runelite.api.Client;
 import net.runelite.api.widgets.Widget;
-import net.runelite.client.util.Text;
 
 @RequiredArgsConstructor
 final class GeOfferStatusWindowDetector {
@@ -46,48 +45,7 @@ final class GeOfferStatusWindowDetector {
             if (root == null || root.isHidden()) {
                 continue;
             }
-            if (widgetTreeContainsAnyText(root)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private String normalize(String text) {
-        if (text == null) {
-            return null;
-        }
-        String normalized = text
-            .replace("<br>", "\n")
-            .replace("<br/>", "\n")
-            .replace("<br />", "\n");
-        return Text.removeTags(normalized).trim();
-    }
-
-    private boolean widgetTreeContainsAnyText(Widget widget) {
-        if (widget == null || markers == null || markers.length == 0) {
-            return false;
-        }
-        String text = normalize(widget.getText());
-        if (text != null && !text.isEmpty()) {
-            String lower = text.toLowerCase();
-            for (String marker : markers) {
-                if (marker != null && !marker.isEmpty() && lower.contains(marker)) {
-                    return true;
-                }
-            }
-        }
-        return widgetTreeContainsAnyText(widget.getChildren())
-            || widgetTreeContainsAnyText(widget.getDynamicChildren())
-            || widgetTreeContainsAnyText(widget.getNestedChildren());
-    }
-
-    private boolean widgetTreeContainsAnyText(Widget[] children) {
-        if (children == null) {
-            return false;
-        }
-        for (Widget child : children) {
-            if (widgetTreeContainsAnyText(child)) {
+            if (OfferPreviewWidgetParser.widgetTreeContainsAnyText(root, markers)) {
                 return true;
             }
         }

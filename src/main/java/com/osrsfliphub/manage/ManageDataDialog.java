@@ -26,21 +26,21 @@ package com.osrsfliphub;
 
 import javax.inject.*;
 import javax.swing.*;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class ManageDataDialog {
-    private final long accountwideKey = Const.ACCOUNTWIDE_KEY;
+    private final ProfileSelectionPresentation profileSelectionPresentation;
+    private final ManageDataCommand command;
+    private final ProfileWipe profileWipe;
+    private final WebsiteStatsWipe websiteStatsWipe;
+    private final ProfileWorkflow profileWorkflow;
 
-    @Inject
-    ManageDataDialog() {
-    }
+    private final long accountwideKey = Const.ACCOUNTWIDE_KEY;
 
     private String showInputDialog(String body, String title) {
         return JOptionPane.showInputDialog(Access.plugin().panel, body, title, JOptionPane.WARNING_MESSAGE);
-    }
-
-    private void showError(String message) {
-        Access.plugin().getProfileWorkflowService().showManageDataError(message);
     }
 
     void showManageDataDialog() {
@@ -48,17 +48,15 @@ final class ManageDataDialog {
             return;
         }
         SwingUtilities.invokeLater(() -> {
-            ProfileSelectionPresentation facade = Bridge.get(ProfileSelectionPresentation.class);
-            long selectedKey = facade != null ? facade.resolveSelectedProfileKey() : -1L;
-            String selectedLabel = facade != null ? facade.resolveSelectedProfileLabel() : "";
-            boolean linked = facade != null && facade.isLinked();
-            ManageDataCommand commandService = Bridge.get(ManageDataCommand.class);
-            if (commandService == null) {
-                showError("Manage Data is unavailable right now.");
+            long selectedKey = profileSelectionPresentation.resolveSelectedProfileKey();
+            String selectedLabel = profileSelectionPresentation.resolveSelectedProfileLabel();
+            boolean linked = profileSelectionPresentation.isLinked();
+            if (command == null) {
+                profileWorkflow.showManageDataError("Manage Data is unavailable right now.");
                 return;
             }
 
-            ManageDataCommand.DialogModel dialogModel = commandService.buildDialog(selectedLabel, linked);
+            ManageDataCommand.DialogModel dialogModel = command.buildDialog(selectedLabel, linked);
             Object[] options = dialogModel.options.toArray();
             int choice = JOptionPane.showOptionDialog(
             Access.plugin().panel,
@@ -73,13 +71,13 @@ final class ManageDataDialog {
                 return;
             }
 
-            ManageDataCommand.Action action = commandService.resolveAction(options[choice]);
+            ManageDataCommand.Action action = command.resolveAction(options[choice]);
             if (action == ManageDataCommand.Action.WIPE_SELECTED_PROFILE) {
-                handleWipeSelectedProfile(commandService, selectedKey, selectedLabel);
+                handleWipeSelectedProfile(command, selectedKey, selectedLabel);
             } else if (action == ManageDataCommand.Action.WIPE_ALL_LOCAL_PROFILES) {
-                handleWipeAllProfiles(commandService);
+                handleWipeAllProfiles(command);
             } else if (action == ManageDataCommand.Action.WIPE_WEBSITE) {
-                handleWipeWebsiteStats(commandService);
+                handleWipeWebsiteStats(command);
             }
         });
     }
@@ -87,7 +85,7 @@ final class ManageDataDialog {
     private void handleWipeSelectedProfile(ManageDataCommand commandService, long selectedKey, String selectedLabel) {
         String validationError = commandService.validateSelectedProfileSelection(selectedKey, accountwideKey);
         if (validationError != null) {
-            showError(validationError);
+            profileWorkflow.showManageDataError(validationError);
             return;
         }
         String label = commandService.resolveProfileLabel(selectedKey, selectedLabel);
@@ -98,14 +96,11 @@ final class ManageDataDialog {
             return;
         }
         if (!commandService.confirmationMatches(input, confirmation.expectedPhrase)) {
-            showError("Confirmation did not match. No data was wiped.");
+            profileWorkflow.showManageDataError("Confirmation did not match. No data was wiped.");
             return;
         }
         Access.plugin().invokeOnClientThread(() -> {
-            ProfileWipe service = Bridge.get(ProfileWipe.class);
-            if (service != null) {
-                service.wipeSingleLocalProfile(selectedKey, label);
-            }
+            profileWipe.wipeSingleLocalProfile(selectedKey, label);
         });
     }
 
@@ -116,14 +111,11 @@ final class ManageDataDialog {
             return;
         }
         if (!commandService.confirmationMatches(input, confirmation.expectedPhrase)) {
-            showError("Confirmation did not match. No data was wiped.");
+            profileWorkflow.showManageDataError("Confirmation did not match. No data was wiped.");
             return;
         }
         Access.plugin().invokeOnClientThread(() -> {
-            ProfileWipe service = Bridge.get(ProfileWipe.class);
-            if (service != null) {
-                service.wipeAllLocalProfiles();
-            }
+            profileWipe.wipeAllLocalProfiles();
         });
     }
 
@@ -134,12 +126,9 @@ final class ManageDataDialog {
             return;
         }
         if (!commandService.confirmationMatches(input, confirmation.expectedPhrase)) {
-            showError("Confirmation did not match. No data was wiped.");
+            profileWorkflow.showManageDataError("Confirmation did not match. No data was wiped.");
             return;
         }
-        WebsiteStatsWipe service = Bridge.get(WebsiteStatsWipe.class);
-        if (service != null) {
-            service.wipeWebsiteStatsAsync();
-        }
+        websiteStatsWipe.wipeWebsiteStatsAsync();
     }
 }

@@ -29,7 +29,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.function.Consumer;
 import javax.swing.*;
-import static com.osrsfliphub.Skin.REFRESH_TIME_FORMATTER;
+import static com.osrsfliphub.Skin.*;
 
 final class PanelState {
     void switchTab(

@@ -117,7 +117,7 @@ final class TradeDeltaUtils {
         if (qty > 0 && delta.price > 0) {
             long total = (long) delta.price * (long) qty;
             if (!delta.isBuy) {
-                long tax = computeSellTax(delta.itemId, total, qty, delta.price);
+                long tax = GeTax.forSaleOrTotal(delta.itemId, total, qty, delta.price);
                 return Math.max(0L, total - tax);
             }
             return Math.max(0L, total);
@@ -279,7 +279,7 @@ final class TradeDeltaUtils {
         if (deltaGp != grossFromPrice) {
             return delta;
         }
-        long tax = computeSellTax(delta.itemId, grossFromPrice, delta.deltaQty, delta.price);
+        long tax = GeTax.forSaleOrTotal(delta.itemId, grossFromPrice, delta.deltaQty, delta.price);
         long netFromPrice = Math.max(0L, grossFromPrice - tax);
         return new Delta(
             delta.tsClientMs,
@@ -311,7 +311,7 @@ final class TradeDeltaUtils {
         }
         long qty = current.deltaQty;
         long gross = (long) current.price * qty;
-        long tax = computeSellTax(current.itemId, gross, qty, current.price);
+        long tax = GeTax.forSaleOrTotal(current.itemId, gross, qty, current.price);
         long net = Math.max(0L, gross - tax);
         if (gross <= net) {
             return false;
@@ -336,15 +336,6 @@ final class TradeDeltaUtils {
         long previousGp = Math.max(0L, previous.deltaGp);
         long currentGp = Math.max(0L, current.deltaGp);
         return previousGp == currentGp || isLikelySellGrossNetDuplicate(previous, current);
-    }
-
-    private static long computeSellTax(int itemId, long grossTotal, long qty, long unitPrice) {
-        if (grossTotal <= 0L || qty <= 0L) {
-            return 0L;
-        }
-        return unitPrice > 0L
-            ? GeTax.forSale(itemId, unitPrice, qty)
-            : GeTax.forGrossTotal(itemId, grossTotal, qty);
     }
 
     private static String buildCompletionDedupSignature(Delta delta, long localEventBucketMs) {

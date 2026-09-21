@@ -43,22 +43,20 @@ final class PanelHiddenItemStoreImpl implements PanelHiddenItemStore {
 
     @Override
     public boolean isHidden(int itemId) {
-        return hiddenItems != null && hiddenItems.contains(itemId);
+        return hiddenItems.contains(itemId);
     }
 
     @Override
     public void hideItem(int itemId) {
-        if (itemId <= 0 || hiddenItems == null || hiddenItemConfigStore == null) {
+        if (itemId <= 0) {
             return;
         }
         if (!hiddenItems.add(itemId)) {
             return;
         }
-        if (configManager != null) {
-            String value = hiddenItemConfigStore.serializeItemIds(hiddenItems);
-            configManager.setConfiguration(
-                FliphubConfigGroups.CONFIG_GROUP, hiddenItemConfigStore.configKey(), value);
-        }
+        String value = hiddenItemConfigStore.serializeItemIds(hiddenItems);
+        configManager.setConfiguration(
+            FliphubConfigGroups.CONFIG_GROUP, hiddenItemConfigStore.configKey(), value);
         Panel panel = Access.plugin().panel;
         if (panel != null) {
             panel.refreshBookmarks();

@@ -27,23 +27,20 @@ package com.osrsfliphub;
 import java.nio.file.Path;
 import java.util.*;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class ProfileCatalog {
     private final ProfileStore profileStore;
-
-    @Inject
-    ProfileCatalog(ProfileStore profileStore) {
-        this.profileStore = profileStore;
-    }
 
     Map<Long, String> loadProfiles(Map<Long, String> profileDisplayNames) {
         Map<Long, String> profiles = new HashMap<>();
         if (profileDisplayNames != null) {
             profiles.putAll(profileDisplayNames);
         }
-        mergeProfilesFromDir(profiles, profileStore != null ? profileStore.getProfilesDir() : null);
-        mergeProfilesFromDir(profiles, profileStore != null ? profileStore.getLegacyProfilesDir() : null);
+        mergeProfilesFromDir(profiles, profileStore.getProfilesDir());
+        mergeProfilesFromDir(profiles, profileStore.getLegacyProfilesDir());
         if (profileDisplayNames != null) {
             profileDisplayNames.putAll(profiles);
         }
@@ -51,7 +48,7 @@ final class ProfileCatalog {
     }
 
     private void mergeProfilesFromDir(Map<Long, String> profiles, Path dir) {
-        if (profiles == null || profileStore == null) {
+        if (profiles == null) {
             return;
         }
         ProfileHashFileWalker.walk(dir, (hash, path) -> {

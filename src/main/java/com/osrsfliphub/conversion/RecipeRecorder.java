@@ -82,8 +82,8 @@ final class RecipeRecorder {
     private final JComboBox<ConversionKind> kindCombo = new JComboBox<>(ConversionKind.values());
     private final JTextField feeField = new PlaceholderTextField("0");
     private final JTextField findField = new PlaceholderTextField("Find a trade");
-    private final JPanel tradesBody = column();
-    private final JPanel storedBody = column();
+    private final JPanel tradesBody = new Column();
+    private final JPanel storedBody = new Column();
     private final JLabel inCount = new JLabel();
     private final JLabel outCount = new JLabel();
     private final JLabel costValue = new JLabel();
@@ -91,8 +91,8 @@ final class RecipeRecorder {
     private final JLabel taxValue = new JLabel();
     private final JLabel profitValue = new JLabel();
     private final JButton recordButton = new TipButton("Record");
-    private final JPanel form = column();
-    private final JPanel storedSection = column();
+    private final JPanel form = new Column();
+    private final JPanel storedSection = new Column();
     private final JLabel nothingToDo = new Line();
     private final StatsPagerBuilder pager;
 
@@ -212,7 +212,7 @@ final class RecipeRecorder {
         form.add(Box.createVerticalStrut(18));
         uiStyler.styleComboBox(kindCombo);
         kindCombo.setBorder(uiStyler.roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
-        stretch(kindCombo);
+        wide(kindCombo, kindCombo.getPreferredSize().height);
         kindCombo.addActionListener(event -> updateRecordButton());
         form.add(kindCombo);
 
@@ -233,7 +233,7 @@ final class RecipeRecorder {
         form.add(feeField);
 
         form.add(Box.createVerticalStrut(8));
-        JPanel tally = column();
+        JPanel tally = new Column();
         tally.add(detailLine("Cost", costValue));
         tally.add(detailLine("Received", receivedValue));
         tally.add(detailLine("Tax", taxValue));
@@ -246,7 +246,7 @@ final class RecipeRecorder {
         // one - but a second kind of button would be a new sort of object in a panel that has
         // exactly one, and the tally above it is what says the action is ready.
         uiStyler.styleGhostControl(recordButton, 11.5f, new Insets(6, 12, 6, 12));
-        stretch(recordButton);
+        wide(recordButton, recordButton.getPreferredSize().height);
         recordButton.addActionListener(event -> record());
         form.add(recordButton);
 
@@ -380,28 +380,25 @@ final class RecipeRecorder {
      */
     private JPanel tradeRow(Candidate candidate) {
         boolean split = candidate.picked() && candidate.available > 1;
-        JPanel row = new JPanel(new BorderLayout(6, 0));
-        row.setOpaque(false);
+        JPanel row = plain(new BorderLayout(6, 0));
         // Fixed, and the same whether the row is ticked or not. Ticking a purchase of more than
         // one swaps its quantity for a box to type in, which is taller than the figure it
         // replaces - so the row would grow and shove everything under it down the screen. Every
         // row is already the height of the taller of the two.
         row.setPreferredSize(new Dimension(0, ROW_HEIGHT));
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, ROW_HEIGHT));
+        wide(row, ROW_HEIGHT);
 
         JLabel mark = new JLabel(new PickIcon(PICK_MARK_SIZE, candidate.picked()));
         mark.setVerticalAlignment(SwingConstants.TOP);
         mark.setBorder(BorderFactory.createEmptyBorder(3, 0, 0, 0));
 
-        JPanel middle = column();
-        JPanel top = new JPanel(new BorderLayout(6, 0));
-        top.setOpaque(false);
+        JPanel middle = new Column();
+        JPanel top = plain(new BorderLayout(6, 0));
         top.setPreferredSize(new Dimension(0, NAME_HEIGHT));
-        top.setMaximumSize(new Dimension(Integer.MAX_VALUE, NAME_HEIGHT));
+        wide(top, NAME_HEIGHT);
         warmName(candidate.trade.itemId);
-        EllipsisLabel name = new EllipsisLabel(itemName(candidate.trade.itemId));
-        name.setForeground(candidate.picked() ? TEXT : MUTED);
-        name.setFont(uiStyler.font(9.5f));
+        EllipsisLabel name = styled(new EllipsisLabel(itemName(candidate.trade.itemId)),
+            candidate.picked() ? TEXT : MUTED, uiStyler.font(9.5f));
         name.setHorizontalAlignment(SwingConstants.LEFT);
         top.add(name, BorderLayout.CENTER);
         top.add(split ? quantityField(candidate) : quantityLabel(candidate), BorderLayout.EAST);
@@ -421,7 +418,7 @@ final class RecipeRecorder {
 
         row.add(mark, BorderLayout.WEST);
         row.add(middle, BorderLayout.CENTER);
-        row.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        row.setCursor(HAND);
         row.addMouseListener(new StatsClickMouseAdapter(() -> {
             candidate.used = candidate.picked() ? 0 : candidate.available;
             refresh();
@@ -467,9 +464,8 @@ final class RecipeRecorder {
     }
 
     private JComponent quantityLabel(Candidate candidate) {
-        JLabel quantity = new JLabel(String.valueOf(candidate.available), SwingConstants.RIGHT);
-        quantity.setForeground(MUTED_2);
-        quantity.setFont(uiStyler.fontNumeric(9.5f));
+        JLabel quantity = styled(new JLabel(String.valueOf(candidate.available), SwingConstants.RIGHT),
+            MUTED_2, uiStyler.fontNumeric(9.5f));
         return quantity;
     }
 
@@ -502,8 +498,7 @@ final class RecipeRecorder {
         total.setForeground(MUTED_2);
         total.setFont(uiStyler.fontNumeric(9.5f));
 
-        JPanel holder = new JPanel(new BorderLayout(3, 0));
-        holder.setOpaque(false);
+        JPanel holder = plain(new BorderLayout(3, 0));
         holder.add(used, BorderLayout.CENTER);
         holder.add(total, BorderLayout.EAST);
         holder.setPreferredSize(new Dimension(
@@ -529,13 +524,11 @@ final class RecipeRecorder {
     }
 
     private JPanel storedRow(RecipeFlip flip, boolean applies) {
-        JPanel row = new JPanel(new BorderLayout(6, 0));
-        row.setOpaque(false);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
+        JPanel row = plain(new BorderLayout(6, 0));
+        wide(row, 32);
 
-        JPanel top = new JPanel(new BorderLayout(6, 0));
-        top.setOpaque(false);
-        top.setMaximumSize(new Dimension(Integer.MAX_VALUE, 16));
+        JPanel top = plain(new BorderLayout(6, 0));
+        wide(top, 16);
         EllipsisLabel name = new EllipsisLabel(Str.hasText(flip.name)
             ? flip.name.trim()
             : itemName(flip.subjectItemId()));
@@ -556,7 +549,7 @@ final class RecipeRecorder {
         state.setForeground(applies ? MUTED_2 : WARNING);
         state.setFont(uiStyler.font(9.5f));
 
-        JPanel middle = column();
+        JPanel middle = new Column();
         middle.add(top);
         middle.add(state);
         row.add(middle, BorderLayout.CENTER);
@@ -798,18 +791,13 @@ final class RecipeRecorder {
     private void field(JTextField input, Runnable onChange) {
         uiStyler.styleTextField(input);
         input.setFont(uiStyler.font(10.5f));
-        stretch(input);
+        wide(input, input.getPreferredSize().height);
         uiStyler.onEdit(input, onChange);
-    }
-
-    private static void stretch(JComponent control) {
-        control.setMaximumSize(new Dimension(Integer.MAX_VALUE, control.getPreferredSize().height));
     }
 
     /** The panel's search field, exactly as the Profile tab draws it: alone, and full width. */
     private JPanel searchRow() {
-        JPanel row = new JPanel(new BorderLayout(TRAILING_CONTROL_GAP, 0));
-        row.setOpaque(false);
+        JPanel row = plain(new BorderLayout(TRAILING_CONTROL_GAP, 0));
         uiStyler.styleTextField(findField);
         uiStyler.installInlineClear(findField);
         findField.setToolTipText("Find one item");
@@ -820,7 +808,7 @@ final class RecipeRecorder {
             refresh();
         });
         row.add(findField, BorderLayout.CENTER);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
+        wide(row, row.getPreferredSize().height);
         return row;
     }
 
@@ -835,8 +823,7 @@ final class RecipeRecorder {
     private JPanel picked() {
         inCount.setFont(uiStyler.fontNumeric(9.5f));
         outCount.setFont(uiStyler.fontNumeric(9.5f));
-        JPanel row = new JPanel(new FlowLayout(FlowLayout.RIGHT, 3, 0));
-        row.setOpaque(false);
+        JPanel row = plain(new FlowLayout(FlowLayout.RIGHT, 3, 0));
         row.add(inCount);
         row.add(micro("in"));
         row.add(micro("·"));
@@ -852,9 +839,8 @@ final class RecipeRecorder {
     }
 
     private JPanel headingRow(String text, JComponent trailing) {
-        JPanel row = new JPanel(new BorderLayout(6, 0));
-        row.setOpaque(false);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
+        JPanel row = plain(new BorderLayout(6, 0));
+        wide(row, 18);
         row.add(micro(text), BorderLayout.WEST);
         if (trailing != null) {
             row.add(trailing, BorderLayout.EAST);
@@ -863,12 +849,9 @@ final class RecipeRecorder {
     }
 
     private JPanel detailLine(String label, JLabel value) {
-        JPanel row = new JPanel(new BorderLayout());
-        row.setOpaque(false);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
-        EllipsisLabel left = new EllipsisLabel(label);
-        left.setForeground(MUTED);
-        left.setFont(uiStyler.font(10f));
+        JPanel row = plain(new BorderLayout());
+        wide(row, 18);
+        EllipsisLabel left = styled(new EllipsisLabel(label), MUTED, uiStyler.font(10f));
         value.setHorizontalAlignment(SwingConstants.RIGHT);
         value.setForeground(TEXT);
         value.setFont(uiStyler.fontNumeric(10.5f));
@@ -878,12 +861,9 @@ final class RecipeRecorder {
     }
 
     private JPanel wordRow(String text) {
-        JLabel word = new JLabel(text);
-        word.setForeground(MUTED_2);
-        word.setFont(uiStyler.font(9.5f));
-        JPanel row = new JPanel(new BorderLayout());
-        row.setOpaque(false);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 14));
+        JLabel word = styled(new JLabel(text), MUTED_2, uiStyler.font(9.5f));
+        JPanel row = plain(new BorderLayout());
+        wide(row, 14);
         row.add(word, BorderLayout.WEST);
         return row;
     }
@@ -893,13 +873,9 @@ final class RecipeRecorder {
         JPanel line = new JPanel();
         line.setOpaque(false);
         line.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, LINE));
-        line.setMaximumSize(new Dimension(Integer.MAX_VALUE, 5));
+        wide(line, 5);
         line.setPreferredSize(new Dimension(0, 5));
         return line;
-    }
-
-    private static JPanel column() {
-        return new Column();
     }
 
     /**

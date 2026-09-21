@@ -27,9 +27,14 @@ package com.osrsfliphub;
 import java.nio.file.Path;
 import java.util.*;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class ProfileTradesLoader {
+    private final ProfileStorage storage;
+    private final TradesMerge tradesMerge;
+
     static final class Result {
         final List<Delta> deltas;
         final String resolvedDisplayName;
@@ -70,24 +75,19 @@ final class ProfileTradesLoader {
 
     private final long accountwideKey = Const.ACCOUNTWIDE_KEY;
 
-    @Inject
-    ProfileTradesLoader() {
-    }
-
     Result load(long accountHash,
                 long localEventBucketMs,
                 long duplicateTradeWindowMs) {
         if (accountHash < 0) {
             return null;
         }
-        ProfileStorage storage = Bridge.get(ProfileStorage.class);
         long fileMs = 0L;
-        Path file = storage != null ? storage.getProfileFile(accountHash) : null;
+        Path file = storage.getProfileFile(accountHash);
         if (file != null) {
             fileMs = Access.plugin().getProfileFileModifiedMs(file);
         }
 
-        ProfileData profile = storage != null ? storage.readProfileData(accountHash) : null;
+        ProfileData profile = storage.readProfileData(accountHash);
         // A non-zero modification time means the file is there. Getting nothing back from a
         // file that exists means it is corrupt or truncated, which is not the same as an
         // account with no trades. Accountwide is exempt: its list is rebuilt from the
@@ -103,9 +103,7 @@ final class ProfileTradesLoader {
         String profileName = profile != null ? profile.displayName : null;
         boolean placeholderName = ProfileDisplayNames.isPlaceholder(profileName);
         if (accountHash == accountwideKey) {
-            TradesMerge mergeService =
-                Bridge.get(TradesMerge.class);
-            merged = mergeService != null ? mergeService.buildAccountwideFromDisk() : null;
+            merged = tradesMerge.buildAccountwideFromDisk();
         }
         merged = TradeDeltaUtils.dedupeLocalTrades(
             merged,

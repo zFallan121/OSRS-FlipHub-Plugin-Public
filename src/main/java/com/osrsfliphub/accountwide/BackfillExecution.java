@@ -32,6 +32,9 @@ import net.runelite.client.config.ConfigManager;
 
 @Singleton
 final class BackfillExecution {
+    private final UploadBackfillDispatch uploadBackfillDispatch;
+    private final AccountwideBackfillCoordinator accountwideBackfillCoordinator;
+    private final ProfileSelectionPresentation profileSelectionPresentation;
     private final long backfillMinIntervalMs;
     private final Client client;
     private final ApiClient apiClient;
@@ -40,41 +43,26 @@ final class BackfillExecution {
     private volatile long lastBackfillAttemptMs;
 
     @Inject
-    BackfillExecution(Client client, ApiClient apiClient, ConfigManager configManager) {
+    BackfillExecution(
+        Client client,
+        ApiClient apiClient,
+        ConfigManager configManager,
+        ProfileSelectionPresentation profileSelectionPresentation,
+        UploadBackfillDispatch uploadBackfillDispatch,
+        AccountwideBackfillCoordinator accountwideBackfillCoordinator
+    ) {
+        this.uploadBackfillDispatch = uploadBackfillDispatch;
+        this.accountwideBackfillCoordinator = accountwideBackfillCoordinator;
+        this.profileSelectionPresentation = profileSelectionPresentation;
         this.backfillMinIntervalMs = Math.max(0L, Const.BACKFILL_MIN_INTERVAL_MS);
         this.client = client;
         this.apiClient = apiClient;
         this.configManager = configManager;
     }
 
-    private boolean isLinked() {
-        ProfileSelectionPresentation service =
-            Bridge.get(ProfileSelectionPresentation.class);
-        return service != null && service.isLinked();
-    }
-
-    private void requestBackfillAttempt(long delaySeconds, boolean resetBackoff) {
-        UploadBackfillDispatch service = Bridge.get(UploadBackfillDispatch.class);
-        if (service != null) {
-            service.requestBackfillAttempt(Access.plugin().scheduler, delaySeconds, resetBackoff);
-        }
-    }
-
-    private AccountwideBackfillCoordinator.Result runBackfillCycle() {
-        AccountwideBackfillCoordinator coordinator = Bridge.get(AccountwideBackfillCoordinator.class);
-        return coordinator != null ? coordinator.runCycle() : null;
-    }
-
-    private void scheduleBackfillRetry() {
-        UploadBackfillDispatch service = Bridge.get(UploadBackfillDispatch.class);
-        if (service != null) {
-            service.scheduleBackfillRetry(Access.plugin().scheduler);
-        }
-    }
-
     void attemptIfNeeded() {
         boolean shouldRetry = false;
-        if (!Access.loggedIn(client) || !isLinked() || !hasApiAccess()) {
+        if (!Access.loggedIn(client) || !profileSelectionPresentation.isLinked() || !hasApiAccess()) {
             return;
         }
         long nowMs = System.currentTimeMillis();
@@ -82,7 +70,7 @@ final class BackfillExecution {
         if (elapsedMs >= 0 && elapsedMs < backfillMinIntervalMs) {
             long remainingMs = backfillMinIntervalMs - elapsedMs;
             long delaySeconds = Math.max(1L, TimeUnit.MILLISECONDS.toSeconds(remainingMs));
-            requestBackfillAttempt(delaySeconds, false);
+            uploadBackfillDispatch.requestBackfillAttempt(Access.plugin().scheduler, delaySeconds, false);
             return;
         }
         if (!backfillInFlight.compareAndSet(false, true)) {
@@ -90,19 +78,19 @@ final class BackfillExecution {
         }
         lastBackfillAttemptMs = nowMs;
         try {
-            AccountwideBackfillCoordinator.Result result = runBackfillCycle();
+            AccountwideBackfillCoordinator.Result result = accountwideBackfillCoordinator.runCycle();
             shouldRetry = result != null && result.shouldRetry;
         } finally {
             backfillInFlight.set(false);
-            if (shouldRetry && isLinked()) {
-                scheduleBackfillRetry();
+            if (shouldRetry && profileSelectionPresentation.isLinked()) {
+                uploadBackfillDispatch.scheduleBackfillRetry(Access.plugin().scheduler);
             }
         }
     }
 
     /** Whether there is anything to upload with: a client for the calls, and config to sign them. */
     private boolean hasApiAccess() {
-        return apiClient != null && configManager != null;
+        return configManager != null;
     }
 
 }

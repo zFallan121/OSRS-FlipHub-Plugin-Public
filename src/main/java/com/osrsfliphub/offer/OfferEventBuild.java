@@ -29,13 +29,13 @@ import lombok.*;
 import net.runelite.api.GrandExchangeOfferState;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class OfferEventBuild {
     @RequiredArgsConstructor
     static final class Input {
         final OfferSnapshot prev;
         final OfferSnapshot next;
         final Stamp stamp;
-        final boolean unlinked;
         final boolean localTradesLoadedThisLogin;
         final long lastLoginMs;
         final int world;
@@ -78,11 +78,6 @@ final class OfferEventBuild {
     private final OfferUpdateStamp stampService;
     private final OfferEventBuildMath mathService = new OfferEventBuildMath();
 
-    @Inject
-    OfferEventBuild(OfferUpdateStamp stampService) {
-        this.stampService = stampService;
-    }
-
     Result derive(Input input) {
         if (input == null || input.next == null) {
             return Result.ignore(false);
@@ -107,7 +102,7 @@ final class OfferEventBuild {
         boolean usedBaseline = false;
         int deltaQty;
         long deltaGp;
-        if (prevIsBaseline && input.stamp != null && (stampService != null && stampService.stampMatchesSnapshot(input.stamp, next))) {
+        if (prevIsBaseline && input.stamp != null && (stampService.stampMatchesSnapshot(input.stamp, next))) {
             usedBaseline = true;
             deltaQty = Math.max(0, next.filledQty - input.stamp.filledQty);
             deltaGp = mathService.computeDeltaGpFromBaseline(next, input.stamp.spentGp, deltaQty);
@@ -159,7 +154,7 @@ final class OfferEventBuild {
                     long total = eventSnapshot.spentGp > 0 ? eventSnapshot.spentGp
                         : (long) eventSnapshot.price * (long) deltaQty;
                     if (!eventSnapshot.isBuy) {
-                        long tax = mathService.computeSellTax(eventSnapshot.itemId, total, deltaQty, eventSnapshot.price);
+                        long tax = GeTax.forSaleOrTotal(eventSnapshot.itemId, total, deltaQty, eventSnapshot.price);
                         deltaGp = Math.max(0L, total - tax);
                     } else {
                         deltaGp = Math.max(0L, total);
@@ -207,9 +202,5 @@ final class OfferEventBuild {
             return true;
         }
         return prev.totalQty > 0 && next.totalQty > 0 && prev.totalQty != next.totalQty;
-    }
-
-    private boolean isWithinLoginGrace() {
-        return Access.plugin().getOfferStampStateServices().isWithinLoginGrace();
     }
 }

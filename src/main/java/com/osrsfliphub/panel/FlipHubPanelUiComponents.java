@@ -30,7 +30,9 @@ import java.awt.geom.Point2D;
 import java.util.function.Supplier;
 import javax.swing.*;
 import javax.swing.border.Border;
+import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicComboBoxUI;
+import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -56,16 +58,12 @@ final class CountdownEntry {
 }
 
 /** The two prices a row shows an age for, and when each of them last traded. */
+@AllArgsConstructor
 final class AgePairEntry {
-    final javax.swing.JComponent[] components;
+    final JComponent[] components;
     long buyTimestampMs;
     long sellTimestampMs;
 
-    AgePairEntry(javax.swing.JComponent[] components, long buyTimestampMs, long sellTimestampMs) {
-        this.components = components;
-        this.buyTimestampMs = buyTimestampMs;
-        this.sellTimestampMs = sellTimestampMs;
-    }
 }
 
 @RequiredArgsConstructor
@@ -385,8 +383,8 @@ final class ComboRenderer extends DefaultListCellRenderer {
         setBackground(inPopup ? Skin.OVERLAY_BASE : TRANSPARENT);
         setForeground(inPopup && isSelected ? Skin.ACCENT : Skin.TEXT);
         setBorder(inPopup
-            ? new javax.swing.border.EmptyBorder(3, 8, 3, 8)
-            : new javax.swing.border.EmptyBorder(0, 0, 0, 0));
+            ? new EmptyBorder(3, 8, 3, 8)
+            : new EmptyBorder(0, 0, 0, 0));
         if (font != null) {
             setFont(font);
         }
@@ -396,21 +394,21 @@ final class ComboRenderer extends DefaultListCellRenderer {
 
 /** Lifts an unselected tab out of the muted ramp while the pointer is on it. */
 final class TabHoverAdapter extends java.awt.event.MouseAdapter {
-    private final javax.swing.AbstractButton button;
+    private final AbstractButton button;
     private final Color resting;
 
-    TabHoverAdapter(javax.swing.AbstractButton button, boolean active) {
+    TabHoverAdapter(AbstractButton button, boolean active) {
         this.button = button;
         this.resting = active ? Skin.TEXT : Skin.MUTED;
     }
 
     @Override
-    public void mouseEntered(java.awt.event.MouseEvent event) {
+    public void mouseEntered(MouseEvent event) {
         button.setForeground(Skin.TEXT);
     }
 
     @Override
-    public void mouseExited(java.awt.event.MouseEvent event) {
+    public void mouseExited(MouseEvent event) {
         button.setForeground(resting);
     }
 }

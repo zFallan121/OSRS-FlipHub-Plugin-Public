@@ -42,6 +42,8 @@ final class OfferUpdateStampPersistence {
     private static final int MIN_SLOT = 0;
     private static final int MAX_SLOT = 7;
 
+    private final TradeSession tradeSession;
+    private final AccountSession accountSession;
     private final String configGroup = FliphubConfigGroups.CONFIG_GROUP;
     private final String legacyDevConfigGroup = FliphubConfigGroups.LEGACY_DEV_CONFIG_GROUP;
     private final OfferUpdateStampConfigStore configStore;
@@ -51,7 +53,16 @@ final class OfferUpdateStampPersistence {
     private final Client client;
 
     @Inject
-    OfferUpdateStampPersistence(Gson gson, ConfigManager configManager, Client client, PluginState state) {
+    OfferUpdateStampPersistence(
+        Gson gson,
+        ConfigManager configManager,
+        Client client,
+        PluginState state,
+        TradeSession tradeSession,
+        AccountSession accountSession
+    ) {
+        this.tradeSession = tradeSession;
+        this.accountSession = accountSession;
         this.configStore = state.getOfferUpdateStampConfigStore();
         this.legacyMatcher = state.getOfferUpdateStampLegacyMatcher();
         this.gson = gson;
@@ -77,9 +88,6 @@ final class OfferUpdateStampPersistence {
         }
 
         destination.clear();
-        if (gson == null || configStore == null || configManager == null) {
-            return new LoadState(accountKey, false);
-        }
 
         String perAccountKey = configStore.perAccountKey(accountKey);
         String raw = readConfiguration(configGroup, perAccountKey);
@@ -105,9 +113,6 @@ final class OfferUpdateStampPersistence {
     }
 
     long persistForCurrentAccount(Map<Integer, Stamp> stamps, long knownAccountKey) {
-        if (gson == null || configStore == null || configManager == null) {
-            return knownAccountKey;
-        }
         long accountKey = knownAccountKey;
         if (accountKey <= 0 && Access.loggedIn(client)) {
             accountKey = resolveCurrentAccountKey();
@@ -121,10 +126,10 @@ final class OfferUpdateStampPersistence {
 
     private boolean tryLoadMatchedLegacy(Map<Integer, Stamp> destination, String raw, Gson gson) {
         Map<Integer, Stamp> legacy = OfferUpdateStampStore.parse(raw, gson, MIN_SLOT, MAX_SLOT);
-        if (legacy.isEmpty() || legacyMatcher == null) {
+        if (legacy.isEmpty()) {
             return false;
         }
-        GrandExchangeOffer[] offers = client != null ? client.getGrandExchangeOffers() : null;
+        GrandExchangeOffer[] offers = client.getGrandExchangeOffers();
         if (!legacyMatcher.matchesCurrentOffers(legacy, offers)) {
             return false;
         }
@@ -133,35 +138,23 @@ final class OfferUpdateStampPersistence {
     }
 
     private void persistForAccount(Map<Integer, Stamp> stamps, long accountKey, Gson gson) {
-        if (accountKey <= 0 || configStore == null || configManager == null) {
+        if (accountKey <= 0) {
             return;
         }
         String json = OfferUpdateStampStore.serialize(stamps, gson);
-        writeConfiguration(configGroup, configStore.perAccountKey(accountKey), json);
+        configManager.setConfiguration(configGroup, configStore.perAccountKey(accountKey), json);
     }
 
     private long resolveCurrentAccountKey() {
-        TradeSession localTradeSessionFacadeService =
-            Bridge.get(TradeSession.class);
-        if (localTradeSessionFacadeService != null) {
-            long accountHash = localTradeSessionFacadeService.resolveAccountHash();
-            if (accountHash > 0) {
-                return accountHash;
-            }
+        long accountHash = tradeSession.resolveAccountHash();
+        if (accountHash > 0) {
+            return accountHash;
         }
-        AccountSession localAccountSessionService =
-            Bridge.get(AccountSession.class);
-        return localAccountSessionService != null ? localAccountSessionService.resolveLocalAccountKey() : -1L;
+        return accountSession.resolveLocalAccountKey();
     }
 
     private String readConfiguration(String configGroup, String key) {
-        return configManager != null ? configManager.getConfiguration(configGroup, key) : null;
-    }
-
-    private void writeConfiguration(String configGroup, String key, String value) {
-        if (configManager != null) {
-            configManager.setConfiguration(configGroup, key, value);
-        }
+        return configManager.getConfiguration(configGroup, key);
     }
 
 }

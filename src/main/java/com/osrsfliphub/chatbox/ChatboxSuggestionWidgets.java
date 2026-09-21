@@ -164,4 +164,12 @@ final class ChatboxSuggestionWidgets {
         }
         return false;
     }
+
+    /** Whether a suggestion widget of ours is still a live child of this container. */
+    static boolean isAttached(Widget container, Widget widget) {
+        return widget != null && container != null
+            && widget.getParent() == container
+            && widget.getParentId() == container.getId()
+            && isWidgetInParent(container, widget);
+    }
 }

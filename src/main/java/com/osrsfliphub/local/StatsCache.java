@@ -79,7 +79,7 @@ final class StatsCache {
 
     private List<RecipeFlip> recordedFlips() {
         RecipeFlipStore store = recipeFlips != null ? recipeFlips : Bridge.get(RecipeFlipStore.class);
-        return store != null ? store.applicable(accountKey) : java.util.Collections.emptyList();
+        return store != null ? store.applicable(accountKey) : Collections.emptyList();
     }
 
     private void addRecordedConversions(Long sinceMs) {

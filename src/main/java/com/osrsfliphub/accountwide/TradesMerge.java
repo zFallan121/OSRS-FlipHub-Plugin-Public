@@ -27,20 +27,18 @@ package com.osrsfliphub;
 import java.nio.file.Path;
 import java.util.*;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class TradesMerge {
-
-    @Inject
-    TradesMerge() {
-    }
+    private final ProfileStorage profileStorage;
 
     List<Delta> buildAccountwideFromDisk() {
         List<Delta> merged = new ArrayList<>();
         Set<String> seen = new HashSet<>();
-        ProfileStorage storage = Bridge.get(ProfileStorage.class);
-        mergeAccountwideFromDir(merged, seen, storage != null ? storage.getProfilesDir() : null);
-        mergeAccountwideFromDir(merged, seen, storage != null ? storage.getLegacyProfilesDir() : null);
+        mergeAccountwideFromDir(merged, seen, profileStorage.getProfilesDir());
+        mergeAccountwideFromDir(merged, seen, profileStorage.getLegacyProfilesDir());
         if (merged.isEmpty()) {
             return null;
         }
@@ -49,12 +47,8 @@ final class TradesMerge {
     }
 
     private void mergeAccountwideFromDir(List<Delta> merged, Set<String> seen, Path dir) {
-        ProfileStorage storage = Bridge.get(ProfileStorage.class);
-        if (storage == null) {
-            return;
-        }
         ProfileHashFileWalker.walk(dir, (profileHash, path) -> {
-            ProfileData data = storage.readProfileData(path);
+            ProfileData data = profileStorage.readProfileData(path);
             if (data == null || data.deltas == null || data.deltas.isEmpty()) {
                 return;
             }

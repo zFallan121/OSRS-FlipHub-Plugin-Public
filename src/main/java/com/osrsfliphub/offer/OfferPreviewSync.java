@@ -26,25 +26,18 @@ package com.osrsfliphub;
 
 import java.util.Objects;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class OfferPreviewSync {
-    @Inject
-    OfferPreviewSync() {
-    }
+    private final ChatboxSuggestionRuntimeState chatboxSuggestionRuntimeState;
+    private final PanelDataRuntime panelDataRuntime;
 
     private void setPanelOfferPreview(FlipHubItem item, long asOfMs, Long priceCacheMs) {
         Panel panel = Access.plugin().panel;
         if (panel != null) {
             panel.setOfferPreview(item, asOfMs, priceCacheMs);
-        }
-    }
-
-    private void markSuggestionDirty() {
-        ChatboxSuggestionRuntimeState service =
-            Bridge.get(ChatboxSuggestionRuntimeState.class);
-        if (service != null) {
-            service.markSuggestionDirty();
         }
     }
 
@@ -84,13 +77,13 @@ final class OfferPreviewSync {
 
     private void updateLocalPreview(int itemId) {
         FlipHubItem previous = Access.plugin().offerPreviewItem;
-        FlipHubItem next = Bridge.get(PanelDataRuntime.class).buildLocalOfferPreview(itemId);
+        FlipHubItem next = panelDataRuntime.buildLocalOfferPreview(itemId);
         boolean changed = !isOfferPreviewEquivalent(previous, next);
         boolean pricesChanged = !isOfferPreviewPricesEquivalent(previous, next);
 
         Access.plugin().offerPreviewItem = next;
         if (changed) {
-            markSuggestionDirty();
+            chatboxSuggestionRuntimeState.markSuggestionDirty();
             setPanelOfferPreview(next, System.currentTimeMillis(), null);
         }
         // Keep Activity cards in sync with offer-setup prices when they change.

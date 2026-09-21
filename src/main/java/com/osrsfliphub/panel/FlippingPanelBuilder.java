@@ -27,10 +27,10 @@ package com.osrsfliphub;
 import java.awt.*;
 import java.awt.event.MouseWheelListener;
 import javax.swing.*;
-import javax.swing.border.Border;
 import lombok.RequiredArgsConstructor;
 import static com.osrsfliphub.Skin.*;
 
+@RequiredArgsConstructor
 final class FlippingPanelBuilder {
 
     @RequiredArgsConstructor
@@ -46,22 +46,6 @@ final class FlippingPanelBuilder {
     private final Runnable renderItems;
     private final FlipHubSearchCoordinator searchCoordinator;
     private final MouseWheelListener wheelForwarder;
-
-    FlippingPanelBuilder(UiStyler uiStyler,
-                                PanelState panelStateService,
-                                PanelMutableState panelState,
-                                PanelListener listener,
-                                Runnable renderItems,
-                                FlipHubSearchCoordinator searchCoordinator,
-                                MouseWheelListener wheelForwarder) {
-        this.uiStyler = uiStyler;
-        this.panelStateService = panelStateService;
-        this.panelState = panelState;
-        this.listener = listener;
-        this.renderItems = renderItems;
-        this.searchCoordinator = searchCoordinator;
-        this.wheelForwarder = wheelForwarder;
-    }
 
     BuildResult build(
         JTextField searchField,
@@ -80,13 +64,10 @@ final class FlippingPanelBuilder {
         panel.setOpaque(false);
         panel.setLayout(new BorderLayout());
 
-        JPanel searchRow = new JPanel(new BorderLayout(TRAILING_CONTROL_GAP, 0));
-        searchRow.setOpaque(false);
+        JPanel searchRow = plain(new BorderLayout(TRAILING_CONTROL_GAP, 0));
 
-        if (uiStyler != null) {
-            uiStyler.styleTextField(searchField);
-            uiStyler.installInlineClear(searchField);
-        }
+        uiStyler.styleTextField(searchField);
+        uiStyler.installInlineClear(searchField);
 
         uiStyler.styleGhostControl(
             bookmarkFilterButton, BOOKMARK_GLYPH_SIZE, new Insets(3, 6, 3, 6), INPUT_ARC);
@@ -98,14 +79,12 @@ final class FlippingPanelBuilder {
         // width and the two rows share a right edge instead of ending a few pixels apart.
         uiStyler.sizeTrailingControl(bookmarkFilterButton, searchField);
         bookmarkFilterButton.addActionListener(e -> {
-            boolean enabled = panelState == null || !panelState.showBookmarkedOnly;
+            boolean enabled = !panelState.showBookmarkedOnly;
             // On, the star takes the same gold as the stars on the cards the filter is showing,
             // so the control and the rows it selected read as one statement. Off, it drops back
             // to the action colour: an offer to filter rather than a filter in force.
             bookmarkFilterButton.setForeground(enabled ? WARNING : ACCENT);
-            if (panelStateService != null) {
-                panelStateService.onBookmarkFilterChanged(panelState, enabled, listener, renderItems);
-            }
+            panelStateService.onBookmarkFilterChanged(panelState, enabled, listener, renderItems);
         });
 
         searchRow.add(searchField, BorderLayout.CENTER);
@@ -114,9 +93,7 @@ final class FlippingPanelBuilder {
         refreshLabel.setForeground(MUTED_2);
         refreshLabel.setFont(uiStyler.font(10.5f));
 
-        JPanel top = new JPanel();
-        top.setOpaque(false);
-        top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
+        JPanel top = stack();
         top.add(searchRow);
         top.add(Box.createVerticalStrut(6));
         top.add(buildSortRow(itemSortCombo, itemSortDirectionButton));
@@ -135,11 +112,9 @@ final class FlippingPanelBuilder {
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.setWheelScrollingEnabled(true);
-        if (wheelForwarder != null) {
-            scrollPane.addMouseWheelListener(wheelForwarder);
-            scrollPane.getViewport().addMouseWheelListener(wheelForwarder);
-            listPanel.addMouseWheelListener(wheelForwarder);
-        }
+        scrollPane.addMouseWheelListener(wheelForwarder);
+        scrollPane.getViewport().addMouseWheelListener(wheelForwarder);
+        listPanel.addMouseWheelListener(wheelForwarder);
         // The backdrop is almost entirely covered by the list, so the click that releases the
         // search box has to be catchable on the list's own surfaces too.
         uiStyler.installClickToDefocus(listPanel);
@@ -149,11 +124,9 @@ final class FlippingPanelBuilder {
         vBar.setUnitIncrement(SCROLL_UNIT_INCREMENT);
         vBar.setBlockIncrement(SCROLL_BLOCK_INCREMENT);
 
-        JPanel footerPanel = new JPanel(new BorderLayout());
-        footerPanel.setOpaque(false);
+        JPanel footerPanel = plain(new BorderLayout());
 
-        JPanel pager = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
-        pager.setOpaque(false);
+        JPanel pager = plain(new FlowLayout(FlowLayout.CENTER, 8, 0));
         // The pager is a footnote under the list, not a toolbar: two pixels clear of the last
         // card, and the backdrop leaves two more below it before the panel edge.
         pager.setBorder(BorderFactory.createEmptyBorder(2, 0, 0, 0));
@@ -163,14 +136,10 @@ final class FlippingPanelBuilder {
         stylePagerButton(nextButton);
 
         prevButton.addActionListener(e -> {
-            if (panelStateService != null) {
-                panelStateService.onPrevPageRequested(panelState, listener);
-            }
+            panelStateService.onPrevPageRequested(panelState, listener);
         });
         nextButton.addActionListener(e -> {
-            if (panelStateService != null) {
-                panelStateService.onNextPageRequested(panelState, listener);
-            }
+            panelStateService.onNextPageRequested(panelState, listener);
         });
 
         pageLabel.setForeground(MUTED);
@@ -185,9 +154,7 @@ final class FlippingPanelBuilder {
         panel.add(scrollPane, BorderLayout.CENTER);
         panel.add(footerPanel, BorderLayout.SOUTH);
 
-        if (panelStateService != null) {
-            panelStateService.hookSearchListener(searchCoordinator, searchField, panelState, listener);
-        }
+        panelStateService.hookSearchListener(searchCoordinator, searchField, panelState, listener);
         return new BuildResult(panel, footerPanel);
     }
 
@@ -200,27 +167,24 @@ final class FlippingPanelBuilder {
         // pinned east - so the two rows span one width and share both edges. No label on the
         // front of it: a word there set the dropdown in from the search box above and named what
         // the dropdown already says, which cost the row its symmetry to repeat itself.
-        JPanel row = new JPanel(new BorderLayout(TRAILING_CONTROL_GAP, 0));
-        row.setOpaque(false);
+        JPanel row = plain(new BorderLayout(TRAILING_CONTROL_GAP, 0));
         // The search row takes the JPanel default alignment. A BoxLayout lines its children up
         // on their alignment points, so a single child at LEFT_ALIGNMENT among centred siblings
         // is pushed sideways by half the panel.
         row.setAlignmentX(JPanel.CENTER_ALIGNMENT);
 
-        if (panelStateService != null) {
-            panelStateService.restoreItemSort(panelState);
-        }
+        panelStateService.restoreItemSort(panelState);
 
         uiStyler.styleComboBox(itemSortCombo);
-        itemSortCombo.setBorder(roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
-        itemSortCombo.setSelectedItem(panelState != null && panelState.itemSort != null
+        itemSortCombo.setBorder(uiStyler.roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
+        itemSortCombo.setSelectedItem(panelState.itemSort != null
             ? panelState.itemSort
             : StatsItemSort.COMPLETION);
         itemSortCombo.addActionListener(e -> {
             StatsItemSort sort = (StatsItemSort) itemSortCombo.getSelectedItem();
-            if (panelStateService != null && sort != null) {
+            if (sort != null) {
                 panelStateService.onItemSortChanged(
-                    panelState, sort, panelState != null && panelState.itemSortAscending, listener);
+                    panelState, sort, panelState.itemSortAscending, listener);
             }
         });
 
@@ -232,22 +196,20 @@ final class FlippingPanelBuilder {
         uiStyler.matchFieldHeight(itemSortDirectionButton, itemSortCombo);
         uiStyler.sizeTrailingControl(itemSortDirectionButton, itemSortCombo);
         itemSortDirectionButton.addActionListener(e -> {
-            boolean ascending = panelState == null || !panelState.itemSortAscending;
-            if (panelStateService != null) {
-                panelStateService.onItemSortChanged(
-                    panelState,
-                    panelState != null ? panelState.itemSort : StatsItemSort.COMPLETION,
-                    ascending,
-                    listener);
-            }
+            boolean ascending = !panelState.itemSortAscending;
+            panelStateService.onItemSortChanged(
+                panelState,
+                panelState.itemSort,
+                ascending,
+                listener);
             updateSortDirectionButton(itemSortDirectionButton, ascending, markSize);
         });
         updateSortDirectionButton(itemSortDirectionButton,
-            panelState != null && panelState.itemSortAscending, markSize);
+            panelState.itemSortAscending, markSize);
 
         row.add(itemSortCombo, BorderLayout.CENTER);
         row.add(itemSortDirectionButton, BorderLayout.EAST);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
+        wide(row, row.getPreferredSize().height);
         return row;
     }
 
@@ -263,13 +225,5 @@ final class FlippingPanelBuilder {
         Dimension size = new Dimension(button.getPreferredSize().width, 15);
         button.setPreferredSize(size);
         button.setMaximumSize(size);
-    }
-
-    private Font fontSemiBold(float size) {
-        return uiStyler.fontSemiBold(size);
-    }
-
-    private Border roundedBorder(int arc, Color color, Insets padding) {
-        return uiStyler.roundedBorder(arc, color, padding);
     }
 }

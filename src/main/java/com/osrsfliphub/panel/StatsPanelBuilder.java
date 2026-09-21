@@ -105,8 +105,7 @@ final class StatsPanelBuilder {
         JComboBox<StatsRecipeFilter> statsFilterCombo,
         JButton statsSortDirectionButton
     ) {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setOpaque(false);
+        JPanel panel = plain(new BorderLayout());
 
         JPanel header = headerBuilder.buildHeader(statsRangeCombo, statsUpdatedLabel);
         StatsPanelContentBuilder.ContentResult content = contentBuilder.buildContent(
@@ -118,8 +117,7 @@ final class StatsPanelBuilder {
             statsSortDirectionButton
         );
 
-        JPanel tabCard = new JPanel(new BorderLayout());
-        tabCard.setOpaque(false);
+        JPanel tabCard = plain(new BorderLayout());
         tabCard.add(header, BorderLayout.NORTH);
         tabCard.add(content.scrollPane, BorderLayout.CENTER);
 

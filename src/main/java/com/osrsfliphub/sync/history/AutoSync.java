@@ -40,56 +40,52 @@ final class AutoSync {
     private static final int SYNTHETIC_SLOT_START = Const.GE_HISTORY_SYNTHETIC_SLOT_START;
     private static final long SYNTHETIC_EVENT_SPACING_MS = 4L;
 
+    private final LocalTradesRuntime localTradesRuntime;
+    private final PanelRefresh panelRefresh;
+    private final TradeSession tradeSession;
+    private final LocalStatsCacheService localStatsCacheService;
+    private final BackfillUploader backfillUploader;
+    private final UploadEventDispatch uploadEventDispatch;
+    private final ItemLookup itemLookup;
+    private final UploadBackfillDispatch uploadBackfillDispatch;
     private final long accountwideKey = Const.ACCOUNTWIDE_KEY;
     private final Client client;
 
     @Inject
-    AutoSync(Client client) {
+    AutoSync(
+        Client client,
+        TradeSession tradeSession,
+        LocalStatsCacheService localStatsCacheService,
+        BackfillUploader backfillUploader,
+        UploadEventDispatch uploadEventDispatch,
+        ItemLookup itemLookup,
+        UploadBackfillDispatch uploadBackfillDispatch,
+        LocalTradesRuntime localTradesRuntime,
+        PanelRefresh panelRefresh
+    ) {
+        this.localTradesRuntime = localTradesRuntime;
+        this.panelRefresh = panelRefresh;
+        this.tradeSession = tradeSession;
+        this.localStatsCacheService = localStatsCacheService;
+        this.backfillUploader = backfillUploader;
+        this.uploadEventDispatch = uploadEventDispatch;
+        this.itemLookup = itemLookup;
+        this.uploadBackfillDispatch = uploadBackfillDispatch;
         this.client = client;
     }
 
-    private void ensureLocalSessionStart(long accountKey, long tsClientMs) {
-        TradeSession service = Bridge.get(TradeSession.class);
-        if (service != null) {
-            service.ensureLocalSessionStart(accountKey, tsClientMs);
-        }
-    }
-
-    private void applyDeltaToStatsCache(long accountKey, Delta delta) {
-        LocalStatsCacheService cacheService = Bridge.get(LocalStatsCacheService.class);
-        if (cacheService != null) {
-            cacheService.applyDelta(accountKey, delta);
-        }
-    }
-
     private GeEvent buildUploadEvent(long profileKey, Delta delta) {
-        BackfillUploader uploader = Bridge.get(BackfillUploader.class);
-        if (uploader == null || delta == null) {
+        if (delta == null) {
             return null;
         }
-        return uploader.buildBackfillEvent(profileKey, delta, client != null ? client.getWorld() : null);
+        return backfillUploader.buildBackfillEvent(profileKey, delta, client.getWorld());
     }
 
     private void enqueueUploadEvent(GeEvent event) {
         if (event == null) {
             return;
         }
-        UploadEventDispatch service = Bridge.get(UploadEventDispatch.class);
-        if (service != null) {
-            service.enqueueEvent(event);
-        }
-    }
-
-    private void cacheItemName(int itemId) {
-        ItemLookup lookup = Bridge.get(ItemLookup.class);
-        if (lookup != null) {
-            lookup.cacheItemName(itemId);
-        }
-    }
-
-    private List<Delta> snapshotLocalTradeDeltas(long accountKey) {
-        TradeSession service = Bridge.get(TradeSession.class);
-        return service != null ? service.snapshotLocalTradeDeltas(accountKey) : null;
+        uploadEventDispatch.enqueueEvent(event);
     }
 
     SyncResult sync(long accountKey, List<Trade> historyTrades) {
@@ -107,10 +103,10 @@ final class AutoSync {
             return new SyncResult(historyTrades.size(), 0);
         }
 
-        Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
-        Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountwideKey);
+        localTradesRuntime.ensureProfileLoaded(accountKey);
+        localTradesRuntime.ensureProfileLoaded(accountwideKey);
 
-        List<Delta> existingDeltas = snapshotLocalTradeDeltas(accountKey);
+        List<Delta> existingDeltas = tradeSession.snapshotLocalTradeDeltas(accountKey);
         AutoSyncTradeMatcher.SelectionPlan selectionPlan =
             AutoSyncTradeMatcher.planMissingTrades(validTrades, existingDeltas);
         List<Trade> missingTrades = selectionPlan.missingTrades;
@@ -126,8 +122,8 @@ final class AutoSync {
             nowMs
         );
         long firstSyntheticTs = findFirstSyntheticTs(validTrades, selectionPlan, plannedUpdateTs, nowMs);
-        ensureLocalSessionStart(accountKey, firstSyntheticTs);
-        ensureLocalSessionStart(accountwideKey, firstSyntheticTs);
+        tradeSession.ensureLocalSessionStart(accountKey, firstSyntheticTs);
+        tradeSession.ensureLocalSessionStart(accountwideKey, firstSyntheticTs);
 
         int addedTrades = 0;
         for (int i = validTrades.size() - 1; i >= 0; i--) {
@@ -180,12 +176,12 @@ final class AutoSync {
                 updateTsMs,
                 completionTsMs
             );
-            cacheItemName(trade.itemId);
-            if ((Access.plugin().getLocalTradesRuntimeService().appendTradeDeltaPair(accountKey, accountwideKey, storedDelta))
+            itemLookup.cacheItemName(trade.itemId);
+            if ((localTradesRuntime.appendTradeDeltaPair(accountKey, accountwideKey, storedDelta))
                 != TradeOfferCollapser.Outcome.DROPPED) {
-                applyDeltaToStatsCache(accountKey, storedDelta);
+                localStatsCacheService.applyDelta(accountKey, storedDelta);
                 if (accountwideKey != accountKey) {
-                    applyDeltaToStatsCache(accountwideKey, storedDelta);
+                    localStatsCacheService.applyDelta(accountwideKey, storedDelta);
                 }
             }
 
@@ -201,17 +197,11 @@ final class AutoSync {
             addedTrades++;
         }
 
-        Access.plugin().getLocalTradesRuntimeService().persistLocalTrades(accountKey);
-        Access.plugin().getLocalTradesRuntimeService().persistLocalTrades(accountwideKey);
-        UploadBackfillDispatch dispatch = Bridge.get(UploadBackfillDispatch.class);
-        if (dispatch != null) {
-            dispatch.requestEventFlush();
-        }
-        PanelRefresh coordinator = Access.plugin().getPanelRefreshCoordinator();
-        if (coordinator != null) {
-            coordinator.triggerStatsRefresh(Access.plugin().scheduler);
-            coordinator.triggerPanelRefresh(Access.plugin().scheduler);
-        }
+        localTradesRuntime.persistLocalTrades(accountKey);
+        localTradesRuntime.persistLocalTrades(accountwideKey);
+        uploadBackfillDispatch.requestEventFlush();
+        panelRefresh.triggerStatsRefresh(Access.plugin().scheduler);
+        panelRefresh.triggerPanelRefresh(Access.plugin().scheduler);
         return new SyncResult(validTrades.size(), addedTrades);
     }
 

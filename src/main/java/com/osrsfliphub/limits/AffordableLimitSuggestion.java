@@ -25,19 +25,15 @@
 package com.osrsfliphub;
 
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 import net.runelite.api.*;
 import net.runelite.api.gameval.VarbitID;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class AffordableLimitSuggestion {
     private final Client client;
     private final OfferPreviewRuntime facade;
-
-    @Inject
-    AffordableLimitSuggestion(Client client, OfferPreviewRuntime facade) {
-        this.client = client;
-        this.facade = facade;
-    }
 
     Integer computeAffordableLimit() {
         return computeAffordableLimit(enteredOfferPrice(), selectedOfferPrice(), inventoryCoins());

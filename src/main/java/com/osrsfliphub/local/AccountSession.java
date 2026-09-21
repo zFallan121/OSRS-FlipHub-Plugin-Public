@@ -39,12 +39,8 @@ final class AccountSession {
         this.client = client;
     }
 
-    private boolean isLoggedIn() {
-        return Access.loggedIn(client);
-    }
-
     long resolveLocalAccountKey() {
-        if (!isLoggedIn()) {
+        if (!Access.loggedIn(client)) {
             return -1L;
         }
         long accountHash = resolveAccountHash();
@@ -71,7 +67,7 @@ final class AccountSession {
     }
 
     long resolveAccountHash() {
-        if (!isLoggedIn()) {
+        if (!Access.loggedIn(client)) {
             return -1L;
         }
         try {

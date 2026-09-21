@@ -29,77 +29,64 @@ import javax.inject.*;
 
 @Singleton
 final class TradeSession {
+    private final LocalTradesRuntime localTradesRuntime;
+    private final AccountSession accountSession;
+    private final TradeAnalytics analytics;
+    private final LocalFlipHistoryService localFlipHistoryService;
     private final long accountwideKey = Const.ACCOUNTWIDE_KEY;
     private final Map<Long, List<Delta>> localTradeDeltasByAccount;
     private final Map<Long, Long> localSessionStartByAccount;
     private final Object localStatsLock;
 
     @Inject
-    TradeSession(PluginState state) {
+    TradeSession(
+        PluginState state,
+        AccountSession accountSession,
+        TradeAnalytics analytics,
+        LocalFlipHistoryService localFlipHistoryService,
+        LocalTradesRuntime localTradesRuntime
+    ) {
+        this.localTradesRuntime = localTradesRuntime;
+        this.accountSession = accountSession;
+        this.analytics = analytics;
+        this.localFlipHistoryService = localFlipHistoryService;
         this.localTradeDeltasByAccount = state.getLocalTradeDeltasByAccount();
         this.localSessionStartByAccount = state.getLocalSessionStartByAccount();
         this.localStatsLock = state.getLocalStatsLock();
     }
 
     long resolveAccountHash() {
-        AccountSession sessionService = Bridge.get(AccountSession.class);
-        return sessionService != null ? sessionService.resolveAccountHash() : -1L;
+        return accountSession.resolveAccountHash();
     }
 
     void updateLocalAccountSessionStart() {
-        AccountSession sessionService = Bridge.get(AccountSession.class);
-        if (sessionService == null) {
-            return;
-        }
-        sessionService.updateLocalAccountSessionStart(localSessionStartByAccount, localStatsLock, accountwideKey);
+        accountSession.updateLocalAccountSessionStart(localSessionStartByAccount, localStatsLock, accountwideKey);
     }
 
     void clearLocalAccountSessionStarts() {
-        AccountSession sessionService = Bridge.get(AccountSession.class);
-        if (sessionService == null) {
-            return;
-        }
-        sessionService.clearLocalAccountSessionStarts(localSessionStartByAccount, localStatsLock);
+        accountSession.clearLocalAccountSessionStarts(localSessionStartByAccount, localStatsLock);
     }
 
     void ensureLocalSessionStart(long accountKey, long nowMs) {
-        AccountSession sessionService = Bridge.get(AccountSession.class);
-        if (sessionService == null) {
-            return;
-        }
-        sessionService.ensureLocalSessionStart(localSessionStartByAccount, localStatsLock, accountKey, nowMs);
+        accountSession.ensureLocalSessionStart(localSessionStartByAccount, localStatsLock, accountKey, nowMs);
     }
 
     long resolveStatsSessionStartMs(long accountKey, long nowMs) {
-        AccountSession sessionService = Bridge.get(AccountSession.class);
-        if (sessionService == null) {
-            return nowMs;
-        }
-        return sessionService.resolveStatsSessionStartMs(localSessionStartByAccount, localStatsLock, accountKey, nowMs);
+        return accountSession.resolveStatsSessionStartMs(localSessionStartByAccount, localStatsLock, accountKey, nowMs);
     }
 
     Map<Integer, TradeInfo> buildLocalTradeInfo(long accountKey) {
-        TradeAnalytics analyticsService = Bridge.get(TradeAnalytics.class);
-        return analyticsService != null
-            ? analyticsService.buildLocalTradeInfo(snapshotLocalTradeDeltas(accountKey))
-            : java.util.Collections.emptyMap();
+        return analytics.buildLocalTradeInfo(snapshotLocalTradeDeltas(accountKey));
     }
 
     Map<Integer, LimitInfo> buildLocalLimitInfo(long accountKey, long nowMs) {
-        TradeAnalytics analyticsService = Bridge.get(TradeAnalytics.class);
-        return analyticsService != null
-            ? analyticsService.buildLocalLimitInfo(snapshotLocalTradeDeltas(accountKey), nowMs)
-            : java.util.Collections.emptyMap();
+        return analytics.buildLocalLimitInfo(snapshotLocalTradeDeltas(accountKey), nowMs);
     }
 
     List<Delta> snapshotLocalTradeDeltas(long accountKey) {
-        TradeAnalytics analyticsService = Bridge.get(TradeAnalytics.class);
-        if (analyticsService == null) {
-            return new ArrayList<>();
-        }
         synchronized (localStatsLock) {
-            List<Delta> deltas = localTradeDeltasByAccount != null ? localTradeDeltasByAccount.get(accountKey) : null;
-            return analyticsService.copySnapshot(deltas);
+            List<Delta> deltas = localTradeDeltasByAccount.get(accountKey);
+            return analytics.copySnapshot(deltas);
         }
     }
 
@@ -108,12 +95,9 @@ final class TradeSession {
             FlipHistory accountwideService = Bridge.get(FlipHistory.class);
             return accountwideService != null
                 ? accountwideService.buildAccountwideHistory(sinceMs)
-                : java.util.Collections.emptyMap();
+                : Collections.emptyMap();
         }
-        Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
-        LocalFlipHistoryService localHistoryService = Bridge.get(LocalFlipHistoryService.class);
-        return localHistoryService != null
-            ? localHistoryService.buildHistory(snapshotLocalTradeDeltas(accountKey), sinceMs, accountKey)
-            : java.util.Collections.emptyMap();
+        localTradesRuntime.ensureProfileLoaded(accountKey);
+        return localFlipHistoryService.buildHistory(snapshotLocalTradeDeltas(accountKey), sinceMs, accountKey);
     }
 }

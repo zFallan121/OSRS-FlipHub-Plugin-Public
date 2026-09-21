@@ -29,7 +29,7 @@ import java.awt.event.*;
 import java.util.function.Supplier;
 import javax.swing.*;
 import lombok.RequiredArgsConstructor;
-import static com.osrsfliphub.Skin.SCROLL_UNIT_INCREMENT;
+import static com.osrsfliphub.Skin.*;
 
 @RequiredArgsConstructor
 final class WheelScroll {
@@ -47,8 +47,8 @@ final class WheelScroll {
             return;
         }
         component.addMouseWheelListener(wheelForwarder);
-        if (component instanceof java.awt.Container) {
-            for (Component child : ((java.awt.Container) component).getComponents()) {
+        if (component instanceof Container) {
+            for (Component child : ((Container) component).getComponents()) {
                 installWheelForwarder(child);
             }
         }
@@ -63,10 +63,10 @@ final class WheelScroll {
                 return;
             }
             MouseWheelEvent wheelEvent = (MouseWheelEvent) event;
-            if (hostComponent == null || !hostComponent.isShowing()) {
+            if (!hostComponent.isShowing()) {
                 return;
             }
-            JScrollPane targetScroll = getActiveScrollPane();
+            JScrollPane targetScroll = activeScrollSupplier.get();
             if (!isPointerOver(targetScroll) && !isPointerOver(hostComponent)) {
                 return;
             }
@@ -89,7 +89,7 @@ final class WheelScroll {
             // scrolled twice as far as it should.
             return;
         }
-        JScrollPane targetScroll = getActiveScrollPane();
+        JScrollPane targetScroll = activeScrollSupplier.get();
         if (targetScroll == null) {
             return;
         }
@@ -129,10 +129,6 @@ final class WheelScroll {
             viewport.setViewPosition(new Point(viewPos.x, newY));
         }
         e.consume();
-    }
-
-    private JScrollPane getActiveScrollPane() {
-        return activeScrollSupplier != null ? activeScrollSupplier.get() : null;
     }
 
     private boolean isPointerOver(Component component) {

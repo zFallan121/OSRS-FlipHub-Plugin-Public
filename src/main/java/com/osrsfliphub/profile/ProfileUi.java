@@ -26,12 +26,13 @@ package com.osrsfliphub;
 
 import java.util.*;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class ProfileUi {
-    @Inject
-    ProfileUi() {
-    }
+    private final ProfileSelectionPresentation selectionPresentation;
+    private final UploadEventDispatch uploadEventDispatch;
 
     private Panel panel() {
         GeLifecyclePlugin plugin = Access.pluginOrNull();
@@ -40,30 +41,24 @@ final class ProfileUi {
 
     void updateProfileOptionsUi() {
         Panel panel = panel();
-        ProfileSelectionPresentation service = Bridge.get(ProfileSelectionPresentation.class);
         if (panel == null) {
             return;
         }
         List<ProfileOption> options =
-            service != null ? service.buildProfileOptions() : Collections.emptyList();
-        String selected = service != null ? service.resolveSelectedProfileKeyForUi() : null;
+            selectionPresentation.buildProfileOptions();
+        String selected = selectionPresentation.resolveSelectedProfileKeyForUi();
         panel.setProfileOptions(options, selected);
     }
 
     void updateProfileHeader() {
         Panel panel = panel();
-        ProfileSelectionPresentation service = Bridge.get(ProfileSelectionPresentation.class);
         if (panel == null) {
             return;
         }
         panel.setProfileHeader(
-            service != null ? service.resolveProfileHeaderLabel() : null,
-            service != null && service.isLinked());
-        UploadEventDispatch uploadService =
-            Bridge.get(UploadEventDispatch.class);
-        if (uploadService != null) {
-            uploadService.updateUploadDiagnosticsUi();
-        }
+            selectionPresentation.resolveProfileHeaderLabel(),
+            selectionPresentation.isLinked());
+        uploadEventDispatch.updateUploadDiagnosticsUi();
     }
 }
 

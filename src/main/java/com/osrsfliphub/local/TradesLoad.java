@@ -27,9 +27,14 @@ package com.osrsfliphub;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.inject.*;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class TradesLoad {
+    private final TradeSession tradeSession;
+    private final LocalTradesRuntime localTradesRuntime;
+
     static final class State {
         @Getter
         private long lastAttemptMs;
@@ -41,21 +46,12 @@ final class TradesLoad {
 
     private final long retryMs = Math.max(0L, Const.LOCAL_TRADES_LOAD_RETRY_MS);
 
-    @Inject
-    TradesLoad() {
-    }
-
-    private long resolveAccountHash() {
-        TradeSession service = Bridge.get(TradeSession.class);
-        return service != null ? service.resolveAccountHash() : -1L;
-    }
-
     void ensureLocalTradesLoaded(long accountKey) {
         if (accountKey <= 0) {
             return;
         }
-        Access.plugin().getLocalTradesRuntimeService().ensureProfileLoadedBoxed(accountKey);
-        Access.plugin().getLocalTradesRuntimeService().markLocalTradesLoadedForLogin();
+        localTradesRuntime.ensureProfileLoadedBoxed(accountKey);
+        localTradesRuntime.markLocalTradesLoadedForLogin();
     }
 
     void scheduleLocalTradesLoad(State state, ScheduledExecutorService scheduler, boolean hasClientThread) {
@@ -74,7 +70,7 @@ final class TradesLoad {
         }
 
         Access.plugin().invokeOnClientThread(() -> {
-            long accountHash = resolveAccountHash();
+            long accountHash = tradeSession.resolveAccountHash();
             if (accountHash <= 0) {
                 return;
             }
@@ -83,7 +79,7 @@ final class TradesLoad {
     }
 
     void attemptLocalTradesLoad() {
-        long accountHash = resolveAccountHash();
+        long accountHash = tradeSession.resolveAccountHash();
         if (accountHash <= 0) {
             return;
         }

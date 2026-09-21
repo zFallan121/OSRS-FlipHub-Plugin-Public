@@ -26,10 +26,11 @@ package com.osrsfliphub;
 
 import java.awt.*;
 import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.function.IntConsumer;
 import javax.swing.*;
 import lombok.RequiredArgsConstructor;
-import static com.osrsfliphub.Skin.STATS_CARD_TOGGLE_SKIP_KEY;
+import static com.osrsfliphub.Skin.*;
 
 @RequiredArgsConstructor
 final class StatsCardInteractionInstaller {
@@ -38,9 +39,7 @@ final class StatsCardInteractionInstaller {
 
     void installStatsCardToggle(JComponent root, int itemId) {
         MouseAdapter clickHandler = new StatsClickMouseAdapter(() -> {
-            if (toggleStatsItemExpanded != null) {
-                toggleStatsItemExpanded.accept(itemId);
-            }
+            toggleStatsItemExpanded.accept(itemId);
         });
         installStatsCardToggleRecursive(root, clickHandler);
         installCardHover(root);
@@ -62,13 +61,13 @@ final class StatsCardInteractionInstaller {
         card.setHoverBorderColor(Skin.SURFACE_BORDER_HOVER);
         MouseAdapter hoverHandler = new MouseAdapter() {
             @Override
-            public void mouseEntered(java.awt.event.MouseEvent event) {
+            public void mouseEntered(MouseEvent event) {
                 card.setHovered(true);
             }
 
             @Override
-            public void mouseExited(java.awt.event.MouseEvent event) {
-                java.awt.Point point = javax.swing.SwingUtilities.convertPoint(
+            public void mouseExited(MouseEvent event) {
+                java.awt.Point point = SwingUtilities.convertPoint(
                     event.getComponent(), event.getPoint(), card);
                 card.setHovered(card.contains(point));
             }
@@ -97,7 +96,7 @@ final class StatsCardInteractionInstaller {
             return;
         }
         component.addMouseListener(clickHandler);
-        component.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        component.setCursor(HAND);
         if (component instanceof Container) {
             for (Component child : ((Container) component).getComponents()) {
                 installStatsCardToggleRecursive(child, clickHandler);
@@ -110,9 +109,7 @@ final class StatsCardInteractionInstaller {
             return;
         }
         MouseAdapter clickHandler = new StatsClickMouseAdapter(() -> {
-            if (toggleStatsHistoryExpanded != null) {
-                toggleStatsHistoryExpanded.accept(itemId);
-            }
+            toggleStatsHistoryExpanded.accept(itemId);
         });
         installStatsHistoryToggleRecursive(component, clickHandler);
     }

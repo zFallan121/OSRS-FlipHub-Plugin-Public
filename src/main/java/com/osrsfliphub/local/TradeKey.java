@@ -24,6 +24,8 @@
  */
 package com.osrsfliphub;
 
+import lombok.AllArgsConstructor;
+
 /**
  * What identifies one stored trade across restarts and replays.
  *
@@ -43,18 +45,13 @@ package com.osrsfliphub;
  * keyed on the old stamp would silently stop applying.
  */
 @lombok.EqualsAndHashCode
+@AllArgsConstructor
 final class TradeKey {
     long tsMs;
     int slot;
     int itemId;
 
     TradeKey() {
-    }
-
-    TradeKey(long tsMs, int slot, int itemId) {
-        this.tsMs = tsMs;
-        this.slot = slot;
-        this.itemId = itemId;
     }
 
     static TradeKey of(Delta delta) {

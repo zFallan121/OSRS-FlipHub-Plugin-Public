@@ -26,16 +26,13 @@ package com.osrsfliphub;
 
 import java.nio.file.Path;
 import java.util.*;
+import lombok.RequiredArgsConstructor;
 
 @javax.inject.Singleton
+@RequiredArgsConstructor(onConstructor_ = @javax.inject.Inject)
 final class ProfileStorage {
     private final long accountwideKey = Const.ACCOUNTWIDE_KEY;
     private final PluginState pluginState;
-
-    @javax.inject.Inject
-    ProfileStorage(PluginState pluginState) {
-        this.pluginState = pluginState;
-    }
 
     private ProfileStore profileStore() {
         return Bridge.get(ProfileStore.class);

@@ -234,7 +234,7 @@ public class GeOfferTimerOverlay extends Overlay {
         long seconds = totalSeconds % 60;
         // Locale.US or the clock renders in the viewer's own numerals on locales that use
         // them, so the overlay and the panel beside it would disagree on the same client.
-        return String.format(java.util.Locale.US, "%02d:%02d:%02d", hours, minutes, seconds);
+        return String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds);
     }
 }
 

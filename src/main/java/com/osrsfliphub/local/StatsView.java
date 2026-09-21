@@ -26,9 +26,16 @@ package com.osrsfliphub;
 
 import java.util.*;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class StatsView {
+    private final ProfileSelectionPresentation profileSelectionPresentation;
+    private final TradeSession tradeSession;
+    private final LocalStatsSnapshotService localStatsSnapshotService;
+    private final LocalTradesRuntime localTradesRuntime;
+
     static final class Result {
         final StatsSummary summary;
         final List<StatsItem> items;
@@ -46,128 +53,29 @@ final class StatsView {
         }
     }
 
-    @Inject
-    StatsView() {
-    }
-
-    private void ensureSelectedProfileLoaded() {
-        ProfileSelectionPresentation facade = Bridge.get(ProfileSelectionPresentation.class);
-        if (facade != null) {
-            Access.plugin().getLocalTradesRuntimeService()
-                .ensureProfileLoaded(facade.resolveSelectedProfileKey());
-        }
-    }
-
-    private long resolveSelectedProfileKey() {
-        ProfileSelectionPresentation facade = Bridge.get(ProfileSelectionPresentation.class);
-        return facade != null ? facade.resolveSelectedProfileKey() : -1L;
-    }
-
-    private long resolveSessionStartMs(long accountKey, long nowMs) {
-        TradeSession service = Bridge.get(TradeSession.class);
-        return service != null ? service.resolveStatsSessionStartMs(accountKey, nowMs) : 0L;
-    }
-
-    private StatsSnapshot buildLocalStatsSnapshot(long accountKey, Long sinceMs, StatsItemSort sort) {
-        LocalStatsSnapshotService service = Bridge.get(LocalStatsSnapshotService.class);
-        return service != null ? service.buildSnapshot(accountKey, sinceMs, sort) : null;
-    }
-
-    private Map<Integer, List<StatsFlipInstance>> buildStatsFlipHistory(long accountKey, Long sinceMs) {
-        TradeSession service = Bridge.get(TradeSession.class);
-        return service != null ? service.buildStatsFlipHistory(accountKey, sinceMs) : null;
-    }
-
     Result build() {
-        ensureSelectedProfileLoaded();
+        localTradesRuntime.ensureProfileLoaded(profileSelectionPresentation.resolveSelectedProfileKey());
 
         long nowMs = System.currentTimeMillis();
         StatsRange range = Access.plugin().currentStatsRange;
         StatsRange effectiveRange = range != null ? range : StatsRange.SESSION;
         StatsItemSort sort = Access.plugin().currentStatsSort;
         StatsItemSort effectiveSort = sort != null ? sort : StatsItemSort.COMPLETION;
-        long accountKey = resolveSelectedProfileKey();
+        long accountKey = profileSelectionPresentation.resolveSelectedProfileKey();
         if (accountKey < 0) {
             return new Result(new StatsSummary(), new ArrayList<>(), new HashMap<>(), nowMs);
         }
 
-        long sessionStartMs = resolveSessionStartMs(accountKey, nowMs);
+        long sessionStartMs = tradeSession.resolveStatsSessionStartMs(accountKey, nowMs);
         Long sinceMs = effectiveRange.getSinceMs(sessionStartMs, nowMs);
-        StatsSnapshot snapshot = buildLocalStatsSnapshot(accountKey, sinceMs, effectiveSort);
-        Map<Integer, List<StatsFlipInstance>> history = buildStatsFlipHistory(accountKey, sinceMs);
+        StatsSnapshot snapshot = localStatsSnapshotService.buildSnapshot(accountKey, sinceMs, effectiveSort);
+        Map<Integer, List<StatsFlipInstance>> history = tradeSession.buildStatsFlipHistory(accountKey, sinceMs);
 
         StatsSummary summary = snapshot != null && snapshot.summary != null ? snapshot.summary : new StatsSummary();
         List<StatsItem> items = snapshot != null && snapshot.items != null ? snapshot.items : new ArrayList<>();
         Map<Integer, List<StatsFlipInstance>> flipHistory = history != null ? history : new HashMap<>();
         reconcileWithFlipHistory(summary, items, flipHistory);
-        addRowsForUncountedEntries(items, flipHistory, effectiveSort);
         return new Result(summary, items, flipHistory, nowMs);
-    }
-
-    /**
-     * An entry that counts for nothing still has to be reachable - a dismissed
-     * guess to be undone, an unfinished break to be refused - and the cache
-     * keeps no row for an item whose only history is such entries. Such an
-     * item gets a row of nothing - no profit, no cost, no flips - so the card
-     * exists and the entry can be acted on from it. Only the panel sees these:
-     * the uploaded summary is reconciled elsewhere and carries no row that
-     * adds up to nothing.
-     */
-    static void addRowsForUncountedEntries(List<StatsItem> items,
-                                           Map<Integer, List<StatsFlipInstance>> flipHistory,
-                                           StatsItemSort sort) {
-        if (items == null || flipHistory == null || flipHistory.isEmpty()) {
-            return;
-        }
-        Set<Integer> present = new HashSet<>();
-        for (StatsItem item : items) {
-            if (item != null) {
-                present.add(item.item_id);
-            }
-        }
-        boolean added = false;
-        for (Map.Entry<Integer, List<StatsFlipInstance>> entry : flipHistory.entrySet()) {
-            Integer itemId = entry.getKey();
-            List<StatsFlipInstance> entries = entry.getValue();
-            if (itemId == null || itemId <= 0 || present.contains(itemId) || entries == null || entries.isEmpty()) {
-                continue;
-            }
-            long lastTs = 0L;
-            boolean onlyUncounted = true;
-            for (StatsFlipInstance instance : entries) {
-                if (instance == null) {
-                    continue;
-                }
-                if (instance != null) {
-                    onlyUncounted = false;
-                    break;
-                }
-                lastTs = Math.max(lastTs, instance.completionTsMs);
-            }
-            if (!onlyUncounted) {
-                continue;
-            }
-            StatsItem row = new StatsItem();
-            row.item_id = itemId;
-            row.total_profit_gp = 0L;
-            row.total_cost_gp = 0L;
-            row.roi_percent = 0.0;
-            row.total_qty = 0;
-            row.fill_count = 0;
-            row.last_sell_ts_ms = lastTs > 0L ? lastTs : null;
-            row.conversionKinds = EnumSet.noneOf(ConversionKind.class);
-            row.hasPlainFlip = false;
-            items.add(row);
-            added = true;
-        }
-        if (!added) {
-            return;
-        }
-        LocalStatsSnapshotService service = Bridge.get(LocalStatsSnapshotService.class);
-        if (service != null) {
-            service.hydrateItemNames(items);
-            items.sort(service.buildComparator(sort));
-        }
     }
 
     static void reconcileWithFlipHistory(StatsSummary summary,
@@ -223,7 +131,7 @@ final class StatsView {
             long itemLastSellTs = 0L;
             long itemProfit = 0L;
             long itemCost = 0L;
-            item.conversionKinds = java.util.EnumSet.noneOf(ConversionKind.class);
+            item.conversionKinds = EnumSet.noneOf(ConversionKind.class);
             item.hasPlainFlip = false;
             for (StatsFlipInstance instance : entries) {
                 if (instance == null) {

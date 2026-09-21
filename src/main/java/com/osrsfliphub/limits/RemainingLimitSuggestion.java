@@ -26,9 +26,18 @@ package com.osrsfliphub;
 
 import java.util.*;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class RemainingLimitSuggestion {
+    private final AccountSession accountSession;
+    private final ProfileSelectionPresentation profileSelectionPresentation;
+    private final GeLimit geLimits;
+    private final ItemLookup itemLookup;
+    private final TradeSession tradeSession;
+    private final LocalTradesRuntime localTradesRuntime;
+
     private static final long LIMIT_SUGGESTION_REFRESH_MS = 1000L;
     private static final long GE_LIMIT_WINDOW_MS = 4L * 60L * 60L * 1000L;
 
@@ -36,43 +45,6 @@ final class RemainingLimitSuggestion {
     private Integer cachedRemainingLimitItemId;
     private long cachedRemainingLimitAccountKey = Long.MIN_VALUE;
     private long cachedRemainingLimitAtMs;
-
-    @Inject
-    RemainingLimitSuggestion() {
-    }
-
-    private long resolveLocalAccountKey() {
-        AccountSession service = Bridge.get(AccountSession.class);
-        return service != null ? service.resolveLocalAccountKey() : 0L;
-    }
-
-    private long resolveSelectedProfileKey() {
-        ProfileSelectionPresentation service =
-            Bridge.get(ProfileSelectionPresentation.class);
-        return service != null ? service.resolveSelectedProfileKey() : 0L;
-    }
-
-    private void requestGeLimits(Set<Integer> itemIds) {
-        GeLimit service = Bridge.get(GeLimit.class);
-        if (service != null) {
-            service.requestGeLimits(itemIds);
-        }
-    }
-
-    private Integer getCachedGeLimit(int itemId) {
-        GeLimit service = Bridge.get(GeLimit.class);
-        return service != null ? service.getCachedGeLimit(itemId) : null;
-    }
-
-    private Integer lookupGeLimitSafe(int itemId) {
-        ItemLookup service = Bridge.get(ItemLookup.class);
-        return service != null ? service.lookupGeLimitSafe(itemId) : null;
-    }
-
-    private Map<Integer, LimitInfo> buildLocalLimitInfo(long accountKey, long nowMs) {
-        TradeSession service = Bridge.get(TradeSession.class);
-        return service != null ? service.buildLocalLimitInfo(accountKey, nowMs) : null;
-    }
 
     Integer getThrottledSuggestion(int itemId) {
         if (itemId <= 0) {
@@ -122,16 +94,16 @@ final class RemainingLimitSuggestion {
         if (itemId <= 0 || accountKey < 0) {
             return null;
         }
-        Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(accountKey);
-        requestGeLimits(Collections.singleton(itemId));
-        Integer geLimit = getCachedGeLimit(itemId);
+        localTradesRuntime.ensureProfileLoaded(accountKey);
+        geLimits.requestGeLimits(Collections.singleton(itemId));
+        Integer geLimit = geLimits.getCachedGeLimit(itemId);
         if (geLimit == null || geLimit <= 0) {
-            geLimit = lookupGeLimitSafe(itemId);
+            geLimit = itemLookup.lookupGeLimitSafe(itemId);
         }
         if (geLimit == null || geLimit <= 0) {
             return null;
         }
-        Map<Integer, LimitInfo> limitInfo = buildLocalLimitInfo(accountKey, System.currentTimeMillis());
+        Map<Integer, LimitInfo> limitInfo = tradeSession.buildLocalLimitInfo(accountKey, System.currentTimeMillis());
         LimitInfo info = limitInfo != null ? limitInfo.get(itemId) : null;
         int remaining = geLimit;
         if (info != null && info.buyQty > 0) {
@@ -157,9 +129,9 @@ final class RemainingLimitSuggestion {
     }
 
     private long resolveAccountKey() {
-        long accountKey = resolveLocalAccountKey();
+        long accountKey = accountSession.resolveLocalAccountKey();
         if (accountKey <= 0) {
-            accountKey = resolveSelectedProfileKey();
+            accountKey = profileSelectionPresentation.resolveSelectedProfileKey();
         }
         return accountKey;
     }

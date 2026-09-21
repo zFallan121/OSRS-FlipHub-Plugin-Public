@@ -26,14 +26,20 @@ package com.osrsfliphub;
 
 import java.util.*;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 import net.runelite.api.Client;
 import net.runelite.api.widgets.*;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class PanelDataRuntime {
-    @Inject
-    PanelDataRuntime() {
-    }
+    private final PluginState pluginState;
+    private final StatsView statsViews;
+    private final RankUp rankUp;
+    private final OfferPreviewRuntime offerPreviewRuntime;
+    private final OfferPreviewBuilder offerPreviewBuilder;
+    private final Client client;
+    private final OfferStampFallbackBuilder offerStampFallbackBuilder;
 
     /**
      * The stamps, or null when there is no state to hold them yet.
@@ -42,16 +48,11 @@ final class PanelDataRuntime {
      * state itself can be absent - during start-up, and after a wipe.
      */
     private Map<Integer, Stamp> offerUpdateStamps() {
-        PluginState state = Bridge.get(PluginState.class);
-        return state != null ? state.getOfferUpdateStamps() : null;
+        return pluginState.getOfferUpdateStamps();
     }
 
     FlipHubItem buildLocalOfferPreview(int itemId) {
-        OfferPreviewBuilder builder = Bridge.get(OfferPreviewBuilder.class);
-        if (builder == null) {
-            return null;
-        }
-        return builder.build(itemId);
+        return offerPreviewBuilder.build(itemId);
     }
 
     ApiClient.ItemsResponse buildLocalItemsResponse(boolean includeEmptyFallback) {
@@ -63,7 +64,7 @@ final class PanelDataRuntime {
             includeEmptyFallback,
             Access.plugin().currentQuery,
             Access.plugin().bookmarkFilterEnabled,
-            Bridge.get(PluginState.class).getBookmarkedItems(),
+            pluginState.getBookmarkedItems(),
             Access.plugin().currentItemSort,
             Access.plugin().currentItemSortAscending,
             Access.plugin().currentPage
@@ -90,30 +91,18 @@ final class PanelDataRuntime {
         if (panel == null) {
             return;
         }
-        StatsView statsService = Bridge.get(StatsView.class);
-        if (statsService == null) {
-            return;
-        }
-        StatsView.Result statsView = statsService.build();
+        StatsView.Result statsView = statsViews.build();
         panel.setStatsData(statsView.summary, statsView.items, statsView.flipHistory, statsView.asOfMs);
-        RankUp rankUp = Bridge.get(RankUp.class);
-        if (rankUp != null) {
-            rankUp.refreshPanel();
-        }
+        rankUp.refreshPanel();
     }
 
     ApiClient.ItemsResponse buildOfferStatusFallback() {
-        OfferPreviewRuntime offerPreviewRuntimeFacadeService = Bridge.get(OfferPreviewRuntime.class);
-        Client client = Access.plugin().client;
-        if (offerPreviewRuntimeFacadeService == null || client == null) {
-            return emptyItemsResponse(System.currentTimeMillis(), null);
-        }
-        Widget geRoot = offerPreviewRuntimeFacadeService
+        Widget geRoot = offerPreviewRuntime
             .getVisibleGeRoot(client, ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
         if (geRoot == null) {
             return emptyItemsResponse(System.currentTimeMillis(), null);
         }
-        int itemId = offerPreviewRuntimeFacadeService.findFirstItemId(geRoot);
+        int itemId = offerPreviewRuntime.findFirstItemId(geRoot);
         if (itemId <= 0) {
             return emptyItemsResponse(System.currentTimeMillis(), null);
         }
@@ -140,10 +129,6 @@ final class PanelDataRuntime {
             return emptyItemsResponse(System.currentTimeMillis(), null);
         }
 
-        OfferStampFallbackBuilder offerStampFallbackBuilder = Bridge.get(OfferStampFallbackBuilder.class);
-        if (offerStampFallbackBuilder == null) {
-            return emptyItemsResponse(System.currentTimeMillis(), null);
-        }
         List<FlipHubItem> items = offerStampFallbackBuilder.buildItems(offerUpdateStamps.values());
         if (items.isEmpty()) {
             return emptyItemsResponse(System.currentTimeMillis(), null);

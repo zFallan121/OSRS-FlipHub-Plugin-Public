@@ -25,6 +25,7 @@
 package com.osrsfliphub;
 
 import java.util.*;
+import lombok.AllArgsConstructor;
 
 /**
  * One conversion the player recorded themselves: the trades they bought the parts with, the
@@ -40,18 +41,15 @@ import java.util.*;
  * quantity, because one purchase can feed more than one conversion. A stored record is only
  * applied when every trade it names is still present and still has the quantity it claims.</p>
  */
+@AllArgsConstructor
 final class RecipeFlip {
     /** A quantity taken out of one stored trade. */
+    @AllArgsConstructor
     static final class Part {
         TradeKey trade;
         int quantity;
 
         Part() {
-        }
-
-        Part(TradeKey trade, int quantity) {
-            this.trade = trade;
-            this.quantity = quantity;
         }
 
         boolean isUsable() {
@@ -72,16 +70,6 @@ final class RecipeFlip {
     long recordedMs;
 
     RecipeFlip() {
-    }
-
-    RecipeFlip(ConversionKind kind, String name, List<Part> inputs, List<Part> outputs,
-               long feeGp, long recordedMs) {
-        this.kind = kind;
-        this.name = name;
-        this.inputs = inputs;
-        this.outputs = outputs;
-        this.feeGp = feeGp;
-        this.recordedMs = recordedMs;
     }
 
     List<Part> inputParts() {

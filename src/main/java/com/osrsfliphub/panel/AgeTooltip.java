@@ -31,11 +31,7 @@ import java.util.List;
 import javax.swing.*;
 import javax.swing.Timer;
 import lombok.RequiredArgsConstructor;
-import static com.osrsfliphub.Skin.AGE_TOOLTIP_LEFT_GAP;
-import static com.osrsfliphub.Skin.LINE_STRONG;
-import static com.osrsfliphub.Skin.MUTED_2;
-import static com.osrsfliphub.Skin.OVERLAY_BASE;
-import static com.osrsfliphub.Skin.TEXT;
+import static com.osrsfliphub.Skin.*;
 
 @RequiredArgsConstructor
 final class AgeTooltip {
@@ -430,7 +426,7 @@ final class AgeTooltip {
     }
 
     private Rectangle getUsableScreenBounds(Component component) {
-        java.awt.GraphicsConfiguration gc = component != null ? component.getGraphicsConfiguration() : null;
+        GraphicsConfiguration gc = component != null ? component.getGraphicsConfiguration() : null;
         if (gc == null) {
             Dimension size = Toolkit.getDefaultToolkit().getScreenSize();
             return new Rectangle(0, 0, size.width, size.height);

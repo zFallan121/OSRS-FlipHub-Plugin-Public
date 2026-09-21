@@ -29,11 +29,13 @@ import java.net.SocketTimeoutException;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 
 @Singleton
 @Slf4j
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class LinkAttempt {
     private static final String PLUGIN_VERSION = "1.0.0";
 
@@ -44,74 +46,31 @@ final class LinkAttempt {
     private final Client client;
     private final PluginConfig config;
     private final ApiClient apiClient;
+    private final SummaryUploader summaryUploader;
+    private final UploadEventDispatch uploadEventDispatch;
+    private final UploadBackfillDispatch uploadBackfillDispatch;
+    private final LinkStatus linkStatus;
+    private final LinkSessionConfigStore sessionConfigStore;
+    private final ProfileWorkflow profileWorkflow;
     /** Config writes fan out into several link triggers; only the first should reach the network. */
     private final AtomicBoolean linkInFlight = new AtomicBoolean();
 
-    @Inject
-    LinkAttempt(Client client, PluginConfig config, ApiClient apiClient) {
-        this.client = client;
-        this.config = config;
-        this.apiClient = apiClient;
-    }
-
-    private String currentDeviceId() {
-        return config != null ? config.deviceId() : null;
-    }
-
     private ApiClient.LinkResponse linkDevice(String licenseKey, String deviceId) throws IOException {
-        return apiClient != null ? apiClient.linkDevice(licenseKey, deviceId, PLUGIN_VERSION) : null;
-    }
-
-    private void resetAccountwideUploadSnapshot() {
-        SummaryUploader uploader = Bridge.get(SummaryUploader.class);
-        if (uploader != null) {
-            uploader.resetUploadSnapshot();
-        }
-    }
-
-    private void resetUploadDiagnosticsState() {
-        UploadEventDispatch service = Bridge.get(UploadEventDispatch.class);
-        if (service != null) {
-            service.resetStatus();
-        }
-    }
-
-    private void updateUploadDiagnosticsUi() {
-        UploadEventDispatch service = Bridge.get(UploadEventDispatch.class);
-        if (service != null) {
-            service.updateUploadDiagnosticsUi();
-        }
+        return apiClient.linkDevice(licenseKey, deviceId, PLUGIN_VERSION);
     }
 
     private void requestBackfillAttempt(long delaySeconds, boolean resetBackoff) {
         ScheduledExecutorService scheduler = Access.plugin().scheduler;
-        UploadBackfillDispatch dispatch = Bridge.get(UploadBackfillDispatch.class);
-        if (scheduler != null && dispatch != null) {
-            dispatch.requestBackfillAttempt(scheduler, delaySeconds, resetBackoff);
+        if (scheduler != null) {
+            uploadBackfillDispatch.requestBackfillAttempt(scheduler, delaySeconds, resetBackoff);
         }
     }
 
     private void scheduleAccountwideSync(long delaySeconds) {
         ScheduledExecutorService scheduler = Access.plugin().scheduler;
-        UploadBackfillDispatch dispatch = Bridge.get(UploadBackfillDispatch.class);
-        if (scheduler != null && dispatch != null) {
-            scheduler.schedule(dispatch::requestAccountwideSync, delaySeconds, TimeUnit.SECONDS);
+        if (scheduler != null) {
+            scheduler.schedule(uploadBackfillDispatch::requestAccountwideSync, delaySeconds, TimeUnit.SECONDS);
         }
-    }
-
-    private void refreshPanelData() {
-        Access.plugin().refreshPanelData();
-    }
-
-    private void reportStatus(String status) {
-        LinkStatus service = Bridge.get(LinkStatus.class);
-        if (service != null) {
-            service.markFailed(status);
-        }
-    }
-
-    private void updateProfileHeader() {
-        Access.plugin().getProfileWorkflowService().updateProfileHeader();
     }
 
     private boolean isTimeoutException(Throwable ex) {
@@ -136,10 +95,6 @@ final class LinkAttempt {
         }
     }
 
-    private boolean executeIo(Runnable task) {
-        return Access.plugin().executeIo(task);
-    }
-
     private void scheduleRetry(Runnable task, long delaySeconds) {
         ScheduledExecutorService scheduler = Access.plugin().scheduler;
         if (scheduler != null && task != null) {
@@ -153,35 +108,27 @@ final class LinkAttempt {
      */
     void linkFromPanel(String licenseKey) {
         String normalized = normalize(licenseKey);
-        LinkStatus status = Bridge.get(LinkStatus.class);
         if (Str.isBlank(normalized)) {
-            if (status != null) {
-                status.markPanelMessage("Paste your license key first.");
-            }
+            linkStatus.markPanelMessage("Paste your license key first.");
             return;
         }
-        LinkSessionConfigStore store = Bridge.get(LinkSessionConfigStore.class);
-        if (store != null) {
-            store.enableSync(normalized);
-        }
+        sessionConfigStore.enableSync(normalized);
         if (!Access.loggedIn(client)) {
-            reportStatus(LinkStatus.NEEDS_LOGIN);
+            linkStatus.markFailed(LinkStatus.NEEDS_LOGIN);
             return;
         }
-        if (status != null) {
-            status.markLinking();
-        }
+        linkStatus.markLinking();
         if (!linkInFlight.compareAndSet(false, true)) {
             return;
         }
-        if (!executeIo(() -> runLinkAttempt(normalized))) {
+        if (!Access.plugin().executeIo(() -> runLinkAttempt(normalized))) {
             // Nothing took the work, so runLinkAttempt - the only thing that lowers this flag -
             // will never run. Left raised, every later attempt dies at the check above and the
             // account panel sits on "Linking..." for the rest of the session. This happens for
             // real when the plugin is enabled while already logged in, because the pools are
             // assigned after the link is first triggered.
             linkInFlight.set(false);
-            reportStatus(LinkStatus.NEEDS_LOGIN);
+            linkStatus.markFailed(LinkStatus.NEEDS_LOGIN);
         }
     }
 
@@ -190,25 +137,13 @@ final class LinkAttempt {
      * to come back round: an action the user just clicked should not depend on event delivery.
      */
     void performUnlink() {
-        LinkSessionConfigStore store = Bridge.get(LinkSessionConfigStore.class);
-        if (store != null) {
-            store.clearLinkState();
-            store.disableSync();
-            store.flush();
-        }
-        SummaryUploader uploader = Bridge.get(SummaryUploader.class);
-        if (uploader != null) {
-            uploader.resetUploadSnapshot();
-        }
-        UploadEventDispatch uploadFacade = Bridge.get(UploadEventDispatch.class);
-        if (uploadFacade != null) {
-            uploadFacade.markBlocked("Unlinked. Event uploads paused until relinked.");
-        }
-        LinkStatus status = Bridge.get(LinkStatus.class);
-        if (status != null) {
-            status.refresh();
-        }
-        updateProfileHeader();
+        sessionConfigStore.clearLinkState();
+        sessionConfigStore.disableSync();
+        sessionConfigStore.flush();
+        summaryUploader.resetUploadSnapshot();
+        uploadEventDispatch.markBlocked("Unlinked. Event uploads paused until relinked.");
+        linkStatus.refresh();
+        profileWorkflow.updateProfileHeader();
     }
 
     void unlinkFromPanel() {
@@ -220,7 +155,7 @@ final class LinkAttempt {
             if (log.isDebugEnabled()) {
                 log.debug("FlipHub link skipped: FlipHub sync is disabled in the plugin settings");
             }
-            updateProfileHeader();
+            profileWorkflow.updateProfileHeader();
             return;
         }
         String normalized = normalize(licenseKey);
@@ -229,57 +164,51 @@ final class LinkAttempt {
         }
         if (!Access.loggedIn(client)) {
             // The login handler retries the stored key, so this is a wait rather than a failure.
-            reportStatus(LinkStatus.NEEDS_LOGIN);
-            updateProfileHeader();
+            linkStatus.markFailed(LinkStatus.NEEDS_LOGIN);
+            profileWorkflow.updateProfileHeader();
             return;
         }
 
-        LinkStatus status = Bridge.get(LinkStatus.class);
-        if (status != null) {
-            status.markLinking();
-        }
+        linkStatus.markLinking();
         if (!linkInFlight.compareAndSet(false, true)) {
             return;
         }
-        if (!executeIo(() -> runLinkAttempt(normalized))) {
+        if (!Access.plugin().executeIo(() -> runLinkAttempt(normalized))) {
             // Nothing took the work, so runLinkAttempt - the only thing that lowers this flag -
             // will never run. Left raised, every later attempt dies at the check above and the
             // account panel sits on "Linking..." for the rest of the session. This happens for
             // real when the plugin is enabled while already logged in, because the pools are
             // assigned after the link is first triggered.
             linkInFlight.set(false);
-            reportStatus(LinkStatus.NEEDS_LOGIN);
+            linkStatus.markFailed(LinkStatus.NEEDS_LOGIN);
         }
     }
 
     private void runLinkAttempt(String licenseKey) {
         try {
-            String deviceId = currentDeviceId();
+            String deviceId = config.deviceId();
             ApiClient.LinkResponse response = linkDevice(licenseKey, deviceId);
             if (response != null && (!Str.isBlank(response.session_token)) && (!Str.isBlank(response.signing_secret))) {
-                Bridge.get(LinkSessionConfigStore.class).persistLinkedSession(response.session_token, response.signing_secret);
-                resetAccountwideUploadSnapshot();
-                resetUploadDiagnosticsState();
-                updateUploadDiagnosticsUi();
+                sessionConfigStore.persistLinkedSession(response.session_token, response.signing_secret);
+                summaryUploader.resetUploadSnapshot();
+                uploadEventDispatch.resetStatus();
+                uploadEventDispatch.updateUploadDiagnosticsUi();
                 requestBackfillAttempt(POST_LINK_BACKFILL_DELAY_SECONDS, true);
                 scheduleAccountwideSync(POST_LINK_SYNC_DELAY_SECONDS);
-                refreshPanelData();
-                LinkStatus status = Bridge.get(LinkStatus.class);
-                if (status != null) {
-                    status.markLinked(licenseKey);
-                }
+                Access.plugin().refreshPanelData();
+                linkStatus.markLinked(licenseKey);
             } else {
                 // The call went through and FlipHub declined it, so the key itself is the problem.
                 // Keeping it would re-send the same rejected key on every start and every login.
-                discardRejectedKey();
-                reportStatus(LinkStatus.REJECTED);
+                sessionConfigStore.clearRejectedLicenseKey();
+                linkStatus.markFailed(LinkStatus.REJECTED);
             }
-            updateProfileHeader();
+            profileWorkflow.updateProfileHeader();
         } catch (IOException | RuntimeException ex) {
             if (isTimeoutException(ex)) {
                 logTimeout();
-                reportStatus(LinkStatus.UNREACHABLE);
-                updateProfileHeader();
+                linkStatus.markFailed(LinkStatus.UNREACHABLE);
+                profileWorkflow.updateProfileHeader();
                 linkInFlight.set(false);
                 scheduleRetry(licenseKey);
                 return;
@@ -289,8 +218,8 @@ final class LinkAttempt {
                 // resolve, the handshake failed, the server had a bad minute, or sync is
                 // switched off. Erasing the key here made the player go and find it again for
                 // a problem that had nothing to do with it.
-                reportStatus(syncIsOff() ? LinkStatus.SYNC_OFF : LinkStatus.UNREACHABLE);
-                updateProfileHeader();
+                linkStatus.markFailed(syncIsOff() ? LinkStatus.SYNC_OFF : LinkStatus.UNREACHABLE);
+                profileWorkflow.updateProfileHeader();
                 log.warn("FlipHub link failed", ex);
                 linkInFlight.set(false);
                 scheduleRetry(licenseKey);
@@ -298,19 +227,12 @@ final class LinkAttempt {
             }
             // FlipHub answered and refused the key itself. Keeping it would re-send the same
             // rejected key on every start and every login.
-            discardRejectedKey();
-            reportStatus(LinkStatus.FAILED);
-            updateProfileHeader();
+            sessionConfigStore.clearRejectedLicenseKey();
+            linkStatus.markFailed(LinkStatus.FAILED);
+            profileWorkflow.updateProfileHeader();
             log.warn("FlipHub link failed", ex);
         } finally {
             linkInFlight.set(false);
-        }
-    }
-
-    private void discardRejectedKey() {
-        LinkSessionConfigStore store = Bridge.get(LinkSessionConfigStore.class);
-        if (store != null) {
-            store.clearRejectedLicenseKey();
         }
     }
 
@@ -328,7 +250,7 @@ final class LinkAttempt {
 
     /** The player has turned sync off, so there is nothing to link and nothing to send. */
     private boolean syncIsOff() {
-        return config == null || !config.enableFlipHubSync();
+        return !config.enableFlipHubSync();
     }
 
 }

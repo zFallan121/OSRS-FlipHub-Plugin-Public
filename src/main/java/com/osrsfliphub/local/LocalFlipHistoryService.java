@@ -41,7 +41,7 @@ final class LocalFlipHistoryService {
 
     private List<RecipeFlip> recordedFlips(long accountKey) {
         RecipeFlipStore store = recipeFlips != null ? recipeFlips : Bridge.get(RecipeFlipStore.class);
-        return store != null ? store.applicable(accountKey) : java.util.Collections.emptyList();
+        return store != null ? store.applicable(accountKey) : Collections.emptyList();
     }
 
     /** One entry per conversion the player recorded, filed against what it produced. */

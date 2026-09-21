@@ -29,29 +29,31 @@ import javax.inject.*;
 
 @Singleton
 final class PanelBookmarkStoreImpl implements PanelBookmarkStore {
+    private final BookmarkState bookmarkState;
+    private final ProfileSelectionPresentation profileSelectionPresentation;
     private final Set<Integer> bookmarkedItems;
 
     @Inject
-    PanelBookmarkStoreImpl(PluginState pluginState) {
+    PanelBookmarkStoreImpl(
+        PluginState pluginState,
+        BookmarkState bookmarkState,
+        ProfileSelectionPresentation profileSelectionPresentation
+    ) {
+        this.bookmarkState = bookmarkState;
+        this.profileSelectionPresentation = profileSelectionPresentation;
         this.bookmarkedItems = pluginState.getBookmarkedItems();
     }
 
     @Override
     public boolean isBookmarked(int itemId) {
-        return bookmarkedItems != null && bookmarkedItems.contains(itemId);
+        return bookmarkedItems.contains(itemId);
     }
 
     @Override
     public void toggleBookmark(int itemId) {
-        BookmarkState bookmarkStateService = Bridge.get(BookmarkState.class);
-        ProfileSelectionPresentation profileSelectionService =
-            Bridge.get(ProfileSelectionPresentation.class);
-        if (bookmarkStateService == null || profileSelectionService == null || bookmarkedItems == null) {
-            return;
-        }
-        long selectedProfileKey = profileSelectionService.resolveSelectedProfileKey();
-        bookmarkStateService.toggleForSelected(selectedProfileKey, itemId);
-        bookmarkStateService.loadSelectedBookmarks(selectedProfileKey, bookmarkedItems);
+        long selectedProfileKey = profileSelectionPresentation.resolveSelectedProfileKey();
+        bookmarkState.toggleForSelected(selectedProfileKey, itemId);
+        bookmarkState.loadSelectedBookmarks(selectedProfileKey, bookmarkedItems);
         Panel panel = Access.plugin().panel;
         if (panel != null) {
             panel.refreshBookmarks();

@@ -30,6 +30,19 @@ import net.runelite.api.*;
 
 @javax.inject.Singleton
 final class ProfileWorkflow {
+    private final Client client;
+    private final LocalTradesRuntime localTradesRuntime;
+    private final SummaryUploader summaryUploader;
+    private final ProfileSelectionPresentation selectionPresentation;
+    private final UploadBackfillDispatch uploadBackfillDispatch;
+    private final LocalStatsSnapshotService localStatsSnapshotService;
+    private final TradeSession tradeSession;
+    private final ProfileSelectionPersistence selectionPersistence;
+    private final ProfileLogin login;
+    private final BookmarkState bookmarkState;
+    private final ProfileUi ui;
+    private final AccountMerge accountMerge;
+    private final LocalStatsCacheService localStatsCacheService;
     private final long accountwideKey = Const.ACCOUNTWIDE_KEY;
     private final Object localStatsLock;
     private final Set<Long> loadedProfiles;
@@ -41,7 +54,35 @@ final class ProfileWorkflow {
     private final ProfileSelectionState profileSelection;
 
     @javax.inject.Inject
-    ProfileWorkflow(PluginState pluginState) {
+    ProfileWorkflow(
+        PluginState pluginState,
+        LocalTradesRuntime localTradesRuntime,
+        SummaryUploader summaryUploader,
+        ProfileSelectionPresentation selectionPresentation,
+        UploadBackfillDispatch uploadBackfillDispatch,
+        LocalStatsSnapshotService localStatsSnapshotService,
+        TradeSession tradeSession,
+        ProfileSelectionPersistence selectionPersistence,
+        ProfileLogin login,
+        BookmarkState bookmarkState,
+        ProfileUi ui,
+        AccountMerge accountMerge,
+        LocalStatsCacheService localStatsCacheService,
+        Client client
+    ) {
+        this.client = client;
+        this.localTradesRuntime = localTradesRuntime;
+        this.summaryUploader = summaryUploader;
+        this.selectionPresentation = selectionPresentation;
+        this.uploadBackfillDispatch = uploadBackfillDispatch;
+        this.localStatsSnapshotService = localStatsSnapshotService;
+        this.tradeSession = tradeSession;
+        this.selectionPersistence = selectionPersistence;
+        this.login = login;
+        this.bookmarkState = bookmarkState;
+        this.ui = ui;
+        this.accountMerge = accountMerge;
+        this.localStatsCacheService = localStatsCacheService;
         this.localStatsLock = pluginState.getLocalStatsLock();
         this.loadedProfiles = pluginState.getLoadedProfiles();
         this.localTradeDeltasByAccount = pluginState.getLocalTradeDeltasByAccount();
@@ -56,10 +97,6 @@ final class ProfileWorkflow {
         if (accountKey < 0) {
             return;
         }
-        LocalTradesRuntime localTradesRuntime = Bridge.get(LocalTradesRuntime.class);
-        if (localTradesRuntime == null) {
-            return;
-        }
         localTradesRuntime.loadLocalTradesForAccount(accountKey, false);
         loadedProfiles.add(accountKey);
         if (accountKey != accountwideKey) {
@@ -68,58 +105,58 @@ final class ProfileWorkflow {
         }
         updateProfileOptionsUI();
         updateProfileHeader();
-        Bridge.get(SummaryUploader.class).markDirty();
-        if (Bridge.get(ProfileSelectionPresentation.class).isLinked()) {
-            Bridge.get(UploadBackfillDispatch.class).requestAccountwideSync();
-            Bridge.get(UploadBackfillDispatch.class).requestBackfillAttempt(Access.plugin().scheduler, 10, true);
+        summaryUploader.markDirty();
+        if (selectionPresentation.isLinked()) {
+            uploadBackfillDispatch.requestAccountwideSync();
+            uploadBackfillDispatch.requestBackfillAttempt(Access.plugin().scheduler, 10, true);
         }
     }
 
     StatsSnapshot buildReconciledAccountwideSnapshot() {
-        StatsSnapshot snapshot = Bridge.get(LocalStatsSnapshotService.class)
+        StatsSnapshot snapshot = localStatsSnapshotService
             .buildSnapshot(accountwideKey, null, StatsItemSort.COMPLETION);
         StatsSummary summary = snapshot != null && snapshot.summary != null ? snapshot.summary : new StatsSummary();
         List<StatsItem> items = snapshot != null && snapshot.items != null ? snapshot.items : new ArrayList<>();
-        Map<Integer, List<StatsFlipInstance>> flipHistory = Bridge.get(TradeSession.class)
+        Map<Integer, List<StatsFlipInstance>> flipHistory = tradeSession
             .buildStatsFlipHistory(accountwideKey, null);
         StatsView.reconcileWithFlipHistory(summary, items, flipHistory);
         return new StatsSnapshot(summary, items);
     }
 
     void loadProfileSelectionState() {
-        boolean migratedFromLegacy = Bridge.get(ProfileSelectionPersistence.class).load(profileSelection);
+        boolean migratedFromLegacy = selectionPersistence.load(profileSelection);
         if (migratedFromLegacy) {
             persistProfileSelectionState();
         }
     }
 
     void persistProfileSelectionState() {
-        Bridge.get(ProfileSelectionPersistence.class).persist(profileSelection);
+        selectionPersistence.persist(profileSelection);
     }
 
     void updateProfileForLogin() {
-        Bridge.get(ProfileLogin.class).handleLogin(
+        login.handleLogin(
             profileSelection,
-            Bridge.get(TradeSession.class).resolveAccountHash(),
-            Bridge.get(ProfileSelectionPresentation.class).resolveDisplayName()
+            tradeSession.resolveAccountHash(),
+            selectionPresentation.resolveDisplayName()
         );
-        Bridge.get(BookmarkState.class).loadSelectedBookmarks(
-            Bridge.get(ProfileSelectionPresentation.class).resolveSelectedProfileKey(),
+        bookmarkState.loadSelectedBookmarks(
+            selectionPresentation.resolveSelectedProfileKey(),
             bookmarkedItems
         );
     }
 
     void updateProfileOptionsUI() {
-        Bridge.get(ProfileUi.class).updateProfileOptionsUi();
+        ui.updateProfileOptionsUi();
     }
 
     void updateProfileHeader() {
-        Bridge.get(ProfileUi.class).updateProfileHeader();
+        ui.updateProfileHeader();
     }
 
     void ensureSelectedProfileLoaded() {
-        Bridge.get(LocalTradesRuntime.class).ensureProfileLoaded(
-            Bridge.get(ProfileSelectionPresentation.class).resolveSelectedProfileKey()
+        localTradesRuntime.ensureProfileLoaded(
+            selectionPresentation.resolveSelectedProfileKey()
         );
     }
 
@@ -139,7 +176,7 @@ final class ProfileWorkflow {
     void mergeLocalAccountData(long targetKey, long sourceKey) {
         AccountMerge.Result mergeResult;
         synchronized (localStatsLock) {
-            mergeResult = Bridge.get(AccountMerge.class).merge(
+            mergeResult = accountMerge.merge(
                 localTradeDeltasByAccount,
                 localSessionStartByAccount,
                 targetKey,
@@ -147,22 +184,18 @@ final class ProfileWorkflow {
             );
         }
         if (mergeResult != null && mergeResult.mergedSnapshot != null) {
-            Bridge.get(LocalStatsCacheService.class).rebuild(targetKey, mergeResult.mergedSnapshot);
+            localStatsCacheService.rebuild(targetKey, mergeResult.mergedSnapshot);
         }
         statsCacheByAccount.remove(sourceKey);
         if (mergeResult != null && mergeResult.changed && targetKey > 0) {
-            Bridge.get(SummaryUploader.class).markDirty();
-            if (Bridge.get(ProfileSelectionPresentation.class).isLinked()) {
-                Bridge.get(UploadBackfillDispatch.class).requestAccountwideSync();
+            summaryUploader.markDirty();
+            if (selectionPresentation.isLinked()) {
+                uploadBackfillDispatch.requestAccountwideSync();
             }
         }
     }
 
     void primeOfferSnapshots() {
-        Client client = Access.plugin().client;
-        if (client == null) {
-            return;
-        }
         snapshots.clear();
         GrandExchangeOffer[] offers = client.getGrandExchangeOffers();
         if (offers == null || offers.length == 0) {

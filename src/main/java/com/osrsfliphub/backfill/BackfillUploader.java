@@ -59,10 +59,6 @@ final class BackfillUploader {
     BackfillUploader() {
     }
 
-    private void clearSession() {
-        Bridge.get(SessionRefresh.class).clearSession();
-    }
-
     private void setUploadBlocked(String reason) {
         UploadEventDispatch service = Bridge.get(UploadEventDispatch.class);
         if (service != null) {
@@ -152,7 +148,7 @@ final class BackfillUploader {
             ApiClient.EventUploadResponse upload = apiClient.sendEventsDetailed(sessionToken, signingSecret, batch);
             int status = upload != null ? upload.status_code : 500;
             if (status < 400) {
-                if (!isBackfillUploadUsable(upload, batch.size())) {
+                if (!ApiStatusPolicy.keptSomething(upload, batch.size())) {
                     // The server took the request and threw the contents away. Sending the same
                     // events again would get the same answer.
                     recordUploadFailure(
@@ -176,7 +172,7 @@ final class BackfillUploader {
                             apiClient.sendEventsDetailed(refreshedToken, refreshedSecret, batch);
                         int retryStatus = retryUpload != null ? retryUpload.status_code : 500;
                         if (retryStatus < 400) {
-                            if (!isBackfillUploadUsable(retryUpload, batch.size())) {
+                            if (!ApiStatusPolicy.keptSomething(retryUpload, batch.size())) {
                                 recordUploadFailure(
                                     retryStatus,
                                     "Backfill upload rejected every event in the batch. Not retrying.",
@@ -218,10 +214,6 @@ final class BackfillUploader {
      */
     private static Outcome classify(int status) {
         return ApiStatusPolicy.isRetryableUploadStatus(status) ? Outcome.RETRY : Outcome.TERMINAL;
-    }
-
-    private boolean isBackfillUploadUsable(ApiClient.EventUploadResponse upload, int batchSize) {
-        return ApiStatusPolicy.keptSomething(upload, batchSize);
     }
 
     private int resolveBackfillUploadedCount(ApiClient.EventUploadResponse upload, int batchSize) {

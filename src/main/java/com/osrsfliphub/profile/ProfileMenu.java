@@ -27,12 +27,7 @@ package com.osrsfliphub;
 import java.util.List;
 import javax.swing.*;
 import lombok.RequiredArgsConstructor;
-import static com.osrsfliphub.Skin.ACCENT;
-import static com.osrsfliphub.Skin.LINE;
-import static com.osrsfliphub.Skin.MUTED;
-import static com.osrsfliphub.Skin.OVERLAY_BASE;
-import static com.osrsfliphub.Skin.SUCCESS;
-import static com.osrsfliphub.Skin.TEXT;
+import static com.osrsfliphub.Skin.*;
 
 @RequiredArgsConstructor
 final class ProfileMenu {
@@ -43,30 +38,23 @@ final class ProfileMenu {
     private String selectedProfileKey;
 
     void showProfileMenu() {
-        if (profileButton == null || profileMenu == null || profileMenu.getComponentCount() == 0) {
+        if (profileMenu == null || profileMenu.getComponentCount() == 0) {
             return;
         }
         profileMenu.show(profileButton, 0, profileButton.getHeight() + 2);
     }
 
     void setStatusMessage(String message) {
-        if (profileButton != null) {
-            profileButton.setText(message);
-        }
+        profileButton.setText(message);
     }
 
     void setProfileHeader(String label, boolean linked) {
-        if (profileButton == null) {
-            return;
-        }
         profileButton.setText(label != null ? label : "");
         profileButton.setForeground(linked ? SUCCESS : MUTED);
     }
 
     void setUploadDiagnosticsTooltip(String tooltip) {
-        if (profileButton != null) {
-            profileButton.setToolTipText(tooltip);
-        }
+        profileButton.setToolTipText(tooltip);
     }
 
     void setProfileOptions(List<ProfileOption> options, String selectedKey) {
@@ -83,7 +71,7 @@ final class ProfileMenu {
         // hairline, and the same type as the panel it opens out of.
         profileMenu = new JPopupMenu();
         profileMenu.setBackground(OVERLAY_BASE);
-        profileMenu.setBorder(javax.swing.BorderFactory.createLineBorder(LINE));
+        profileMenu.setBorder(BorderFactory.createLineBorder(LINE));
         for (ProfileOption option : options) {
             String label = option != null ? option.label : null;
             String key = option != null ? option.key : null;
@@ -101,9 +89,7 @@ final class ProfileMenu {
             }
             item.addActionListener(e -> {
                 selectedProfileKey = key;
-                if (listener != null) {
-                    listener.onProfileSelected(key);
-                }
+                listener.onProfileSelected(key);
             });
             profileMenu.add(item);
         }
@@ -114,9 +100,7 @@ final class ProfileMenu {
         manageData.setBackground(OVERLAY_BASE);
         manageData.setOpaque(true);
         manageData.addActionListener(e -> {
-            if (listener != null) {
-                listener.onManageData();
-            }
+            listener.onManageData();
         });
         profileMenu.add(manageData);
     }

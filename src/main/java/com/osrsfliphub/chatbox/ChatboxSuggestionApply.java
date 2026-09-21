@@ -25,28 +25,19 @@
 package com.osrsfliphub;
 
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 import net.runelite.api.*;
 import net.runelite.api.gameval.VarClientID;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class ChatboxSuggestionApply {
     private final Client client;
-
-    @Inject
-    ChatboxSuggestionApply(Client client) {
-        this.client = client;
-    }
-
-    private Boolean resolveOfferType() {
-        OfferTypeResolver resolver = Bridge.get(OfferTypeResolver.class);
-        return resolver != null ? resolver.resolveOfferType() : null;
-    }
+    private final OfferTypeResolver offerTypeResolver;
+    private final AffordableLimitSuggestion affordableLimitSuggestion;
 
     void applySuggestedPriceToChat() {
-        if (client == null) {
-            return;
-        }
-        Boolean isBuy = resolveOfferType();
+        Boolean isBuy = offerTypeResolver.resolveOfferType();
         FlipHubItem previewItem = Access.plugin().offerPreviewItem;
         if (isBuy == null || previewItem == null) {
             return;
@@ -59,10 +50,7 @@ final class ChatboxSuggestionApply {
     }
 
     void applySuggestedLimitToChat() {
-        if (client == null) {
-            return;
-        }
-        Boolean isBuy = resolveOfferType();
+        Boolean isBuy = offerTypeResolver.resolveOfferType();
         FlipHubItem previewItem = Access.plugin().offerPreviewItem;
         if (isBuy == null || !isBuy || previewItem == null) {
             return;
@@ -75,17 +63,12 @@ final class ChatboxSuggestionApply {
     }
 
     void applySuggestedAffordableLimitToChat() {
-        if (client == null) {
-            return;
-        }
-        Boolean isBuy = resolveOfferType();
+        Boolean isBuy = offerTypeResolver.resolveOfferType();
         FlipHubItem previewItem = Access.plugin().offerPreviewItem;
         if (isBuy == null || !isBuy || previewItem == null) {
             return;
         }
-        AffordableLimitSuggestion affordableService =
-            Bridge.get(AffordableLimitSuggestion.class);
-        Integer affordable = affordableService != null ? affordableService.computeAffordableLimit() : null;
+        Integer affordable = affordableLimitSuggestion.computeAffordableLimit();
         if (affordable == null || affordable <= 0) {
             return;
         }
@@ -93,7 +76,7 @@ final class ChatboxSuggestionApply {
     }
 
     private void applySuggestedQuantityToChat(int quantity) {
-        if (quantity <= 0 || client == null) {
+        if (quantity <= 0) {
             return;
         }
         client.setVarcStrValue(VarClientID.MESLAYERINPUT, String.valueOf(quantity));

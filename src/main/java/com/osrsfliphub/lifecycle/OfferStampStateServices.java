@@ -81,7 +81,7 @@ final class OfferStampStateServices {
     }
 
     void ensureDeviceId() {
-        PluginConfig config = resolveConfig();
+        PluginConfig config = configSupplier != null ? configSupplier.get() : null;
         ConfigManager configManager = resolveConfigManager();
         if (config == null || configManager == null) {
             return;
@@ -173,10 +173,6 @@ final class OfferStampStateServices {
 
     private ConfigManager resolveConfigManager() {
         return configManagerSupplier != null ? configManagerSupplier.get() : null;
-    }
-
-    private PluginConfig resolveConfig() {
-        return configSupplier != null ? configSupplier.get() : null;
     }
 
     private OfferUpdateStampPersistence resolveOfferUpdateStampPersistenceService() {

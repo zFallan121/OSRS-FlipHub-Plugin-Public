@@ -26,11 +26,13 @@ package com.osrsfliphub;
 
 import java.util.*;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 import net.runelite.api.*;
 import net.runelite.client.game.ItemManager;
 import net.runelite.http.api.item.ItemPrice;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class ItemsAssembler {
     static final class Result {
         final List<FlipHubItem> items;
@@ -43,36 +45,14 @@ final class ItemsAssembler {
     }
 
     private final ItemManager itemManager;
-
-    @Inject
-    ItemsAssembler(ItemManager itemManager) {
-        this.itemManager = itemManager;
-    }
-
-    private String getCachedItemName(int itemId) {
-        if (itemManager == null) {
-            return null;
-        }
-        ItemLookup service = Bridge.get(ItemLookup.class);
-        return service != null ? service.getCachedItemName(itemId) : null;
-    }
-
-    private void cacheItemName(int itemId) {
-        ItemLookup service = Bridge.get(ItemLookup.class);
-        if (service != null) {
-            service.cacheItemName(itemId);
-        }
-    }
+    private final ItemLookup itemLookup;
+    private final ItemEnrichment itemEnrichment;
 
     private void applyItemInfo(FlipHubItem item, int itemId, TradeInfo tradeInfo, LimitInfo limitInfo) {
-        ItemEnrichment service = Bridge.get(ItemEnrichment.class);
-        if (service == null) {
-            return;
-        }
-        service.applyGuidePrices(item, itemId, true);
-        service.applyLocalTradeInfo(item, tradeInfo);
-        service.applyLocalLimitInfo(item, itemId, limitInfo);
-        service.applyMarginInfo(item);
+        itemEnrichment.applyGuidePrices(item, itemId, true);
+        itemEnrichment.applyLocalTradeInfo(item, tradeInfo);
+        itemEnrichment.applyLocalLimitInfo(item, itemId, limitInfo);
+        itemEnrichment.applyMarginInfo(item);
     }
 
     Result assemble(GrandExchangeOffer[] offers,
@@ -165,9 +145,6 @@ final class ItemsAssembler {
                                         Map<Integer, LimitInfo> limitInfo,
                                         boolean bookmarkFilterEnabled,
                                         Set<Integer> bookmarkedItems) {
-        if (itemManager == null) {
-            return;
-        }
         List<ItemPrice> matches;
         try {
             matches = itemManager.search(needle);
@@ -224,10 +201,10 @@ final class ItemsAssembler {
     }
 
     private String resolveName(int itemId) {
-        String name = getCachedItemName(itemId);
+        String name = itemLookup.getCachedItemName(itemId);
         if (Str.isBlank(name)) {
-            cacheItemName(itemId);
-            name = getCachedItemName(itemId);
+            itemLookup.cacheItemName(itemId);
+            name = itemLookup.getCachedItemName(itemId);
         }
         return name;
     }

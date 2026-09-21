@@ -27,24 +27,21 @@ package com.osrsfliphub;
 import com.google.gson.Gson;
 import java.util.*;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class ProfileTradesLoad {
     private final long accountwideKey = Const.ACCOUNTWIDE_KEY;
     private final PluginState pluginState;
     private final Gson gson;
-
-    @Inject
-    ProfileTradesLoad(PluginState pluginState, Gson gson) {
-        this.pluginState = pluginState;
-        this.gson = gson;
-    }
+    private final ProfileTradesLoader loader;
+    private final RecipeFlipStore recipeFlipStore;
+    private final LocalStatsCacheService localStatsCacheService;
+    private final ItemLookup itemLookup;
+    private final LocalTradesRuntime localTradesRuntime;
 
     private ProfileTradesLoader.Result loadProfileTrades(long accountHash) {
-        ProfileTradesLoader loader = Bridge.get(ProfileTradesLoader.class);
-        if (gson == null || loader == null) {
-            return null;
-        }
         return loader.load(
             accountHash,
             Const.LOCAL_EVENT_BUCKET_MS,
@@ -74,26 +71,19 @@ final class ProfileTradesLoad {
             pluginState.getLocalTradeDeltasByAccount().put(accountHash, new ArrayList<>(merged));
         }
         // Before the rebuild below, which has to honour them.
-        RecipeFlipStore recorded = Bridge.get(RecipeFlipStore.class);
-        if (recorded != null) {
-            recorded.replace(accountHash, loaded.recipeFlips);
-        }
-        LocalStatsCacheService statsCache = Bridge.get(LocalStatsCacheService.class);
-        if (statsCache != null) {
-            statsCache.rebuild(accountHash, merged);
-        }
+        recipeFlipStore.replace(accountHash, loaded.recipeFlips);
+        localStatsCacheService.rebuild(accountHash, merged);
         String resolvedName = loaded.resolvedDisplayName;
         if (Str.hasText(resolvedName)) {
             pluginState.getProfileDisplayNames().put(accountHash, resolvedName.trim());
         }
-        ItemLookup itemLookup = Bridge.get(ItemLookup.class);
         for (Delta delta : merged) {
-            if (delta != null && delta.itemId > 0 && itemLookup != null) {
+            if (delta != null && delta.itemId > 0) {
                 itemLookup.cacheItemName(delta.itemId);
             }
         }
         if (persistAfterLoad) {
-            Access.plugin().getLocalTradesRuntimeService().persistLocalTrades(accountHash);
+            localTradesRuntime.persistLocalTrades(accountHash);
         } else if (accountHash != accountwideKey) {
             Access.plugin().markAccountwideUploadDirty();
         }

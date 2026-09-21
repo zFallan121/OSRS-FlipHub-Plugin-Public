@@ -26,41 +26,19 @@ package com.osrsfliphub;
 
 import java.util.List;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 import net.runelite.api.*;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.widgets.*;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class OfferTypeResolver {
     private final Client client;
     private final OfferPreviewRuntime facade;
     private Integer newOfferTypeBuyValue;
     private Integer newOfferTypeSellValue;
     private Boolean lastResolvedOfferType;
-
-    @Inject
-    OfferTypeResolver(Client client, OfferPreviewRuntime facade) {
-        this.client = client;
-        this.facade = facade;
-    }
-
-    private Widget getOfferContainer() {
-        return client != null ? client.getWidget(ComponentID.GRAND_EXCHANGE_OFFER_CONTAINER) : null;
-    }
-
-    private GrandExchangeOffer getSelectedOffer() {
-        return facade != null ? facade.getSelectedOffer(client, VarbitID.GE_SELECTEDSLOT) : null;
-    }
-
-    private int getNewOfferTypeVarbit() {
-        return client != null ? client.getVarbitValue(VarbitID.GE_NEWOFFER_TYPE) : 0;
-    }
-
-    private Widget getVisibleGeRoot() {
-        return facade != null
-            ? facade.getVisibleGeRoot(client, ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER)
-            : null;
-    }
 
     Boolean resolveOfferType() {
         Boolean fromSetupText = findOfferTypeFromSetupWidgets();
@@ -72,7 +50,7 @@ final class OfferTypeResolver {
         if (fromSelectedSlot != null) {
             return remember(fromSelectedSlot);
         }
-        Boolean fromVarbit = mapNewOfferType(getNewOfferTypeVarbit());
+        Boolean fromVarbit = mapNewOfferType(client.getVarbitValue(VarbitID.GE_NEWOFFER_TYPE));
         if (fromVarbit != null) {
             return remember(fromVarbit);
         }
@@ -84,7 +62,7 @@ final class OfferTypeResolver {
     }
 
     private Boolean findOfferTypeFromSetupWidgets() {
-        Widget offerContainer = getOfferContainer();
+        Widget offerContainer = client.getWidget(ComponentID.GRAND_EXCHANGE_OFFER_CONTAINER);
         return findOfferTypeInWidget(offerContainer);
     }
 
@@ -127,7 +105,7 @@ final class OfferTypeResolver {
     }
 
     private Boolean findOfferTypeFromSelectedSlot() {
-        GrandExchangeOffer offer = getSelectedOffer();
+        GrandExchangeOffer offer = facade.getSelectedOffer(client, VarbitID.GE_SELECTEDSLOT);
         if (offer == null) {
             return null;
         }
@@ -149,7 +127,7 @@ final class OfferTypeResolver {
     }
 
     private void cacheOfferTypeMapping(boolean isBuy) {
-        int offerType = getNewOfferTypeVarbit();
+        int offerType = client.getVarbitValue(VarbitID.GE_NEWOFFER_TYPE);
         if (offerType <= 0) {
             return;
         }
@@ -180,7 +158,7 @@ final class OfferTypeResolver {
     }
 
     private Boolean findOfferTypeFromGeRoot() {
-        Widget geRoot = getVisibleGeRoot();
+        Widget geRoot = facade.getVisibleGeRoot(client, ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
         if (geRoot == null || geRoot.isHidden()) {
             return null;
         }

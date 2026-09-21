@@ -28,9 +28,7 @@ import java.awt.Component;
 import java.awt.event.*;
 import javax.swing.JLabel;
 import lombok.RequiredArgsConstructor;
-import static com.osrsfliphub.Skin.MUTED;
-import static com.osrsfliphub.Skin.MUTED_2;
-import static com.osrsfliphub.Skin.TEXT;
+import static com.osrsfliphub.Skin.*;
 
 @RequiredArgsConstructor
 final class StatsHistoryHoverMouseAdapter extends MouseAdapter {

@@ -316,5 +316,23 @@ public class FlipHubStatsRenderCoordinatorTest {
         assertEquals(Integer.valueOf(4151), nextExpanded);
         assertTrue(expandedHistoryItems.contains(4151));
     }
+
+    /**
+     * A summary with nothing in it yet has no ROI. That used to throw on the Swing thread, which
+     * left the Profile tab showing whatever it showed before.
+     */
+    @Test
+    public void aSummaryWithNoRoiYetReadsAsNotAvailable() {
+        StatsRender coordinator = new StatsRender();
+        javax.swing.JLabel profit = new javax.swing.JLabel();
+        javax.swing.JLabel roi = new javax.swing.JLabel();
+
+        coordinator.updateSummary(new StatsSummary(), null, new PanelValueFormat(), profit, roi,
+            new javax.swing.JLabel(), new javax.swing.JLabel(), new javax.swing.JLabel(), new javax.swing.JLabel());
+
+        assertEquals("N/A", roi.getText());
+        assertEquals("0 gp", profit.getText());
+        coordinator.shutDown();
+    }
 }
 

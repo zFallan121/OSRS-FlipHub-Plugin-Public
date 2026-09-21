@@ -24,6 +24,8 @@
  */
 package com.osrsfliphub;
 
+import lombok.AllArgsConstructor;
+
 /**
  * One stored trade record.
  *
@@ -32,6 +34,7 @@ package com.osrsfliphub;
  * them with one record holding the offer's totals, so a finished offer is always
  * exactly one record however many chunks it filled in.
  */
+@AllArgsConstructor
 final class Delta {
     /**
      * When the quantity here changed hands. For a collapsed offer this is its first
@@ -68,21 +71,6 @@ final class Delta {
     Delta(long tsClientMs, int slot, int itemId, boolean isBuy, int deltaQty, long deltaGp,
                     String eventType, int price, boolean baselineSynthetic) {
         this(tsClientMs, slot, itemId, isBuy, deltaQty, deltaGp, eventType, price, baselineSynthetic, 0L, 0L);
-    }
-
-    Delta(long tsClientMs, int slot, int itemId, boolean isBuy, int deltaQty, long deltaGp,
-                    String eventType, int price, boolean baselineSynthetic, long offerStartMs, long endMs) {
-        this.tsClientMs = tsClientMs;
-        this.slot = slot;
-        this.itemId = itemId;
-        this.isBuy = isBuy;
-        this.deltaQty = deltaQty;
-        this.deltaGp = deltaGp;
-        this.eventType = eventType;
-        this.price = price;
-        this.baselineSynthetic = baselineSynthetic;
-        this.offerStartMs = offerStartMs;
-        this.endMs = endMs;
     }
 
     /**

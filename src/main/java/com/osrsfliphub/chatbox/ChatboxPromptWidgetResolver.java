@@ -25,10 +25,12 @@
 package com.osrsfliphub;
 
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 import net.runelite.api.Client;
 import net.runelite.api.widgets.*;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class ChatboxPromptWidgetResolver {
     private final int fullInputComponentId = ComponentID.CHATBOX_FULL_INPUT;
     private final int titleComponentId = ComponentID.CHATBOX_TITLE;
@@ -36,11 +38,6 @@ final class ChatboxPromptWidgetResolver {
     private final int messageLinesComponentId = ComponentID.CHATBOX_MESSAGE_LINES;
     private final int containerComponentId = ComponentID.CHATBOX_CONTAINER;
     private final Client client;
-
-    @Inject
-    ChatboxPromptWidgetResolver(Client client) {
-        this.client = client;
-    }
 
     Widget resolvePromptWidget(Widget cachedPromptWidget, boolean pricePrompt) {
         if (ChatboxSuggestionWidgets.isPromptWidgetValid(cachedPromptWidget, pricePrompt)) {
@@ -58,19 +55,15 @@ final class ChatboxPromptWidgetResolver {
         if (found != null) {
             return found;
         }
-        found = ChatboxSuggestionWidgets.findPromptWidget(getWidget(messageLinesComponentId), pricePrompt);
+        found = ChatboxSuggestionWidgets.findPromptWidget(client.getWidget(messageLinesComponentId), pricePrompt);
         if (found != null) {
             return found;
         }
-        return ChatboxSuggestionWidgets.findPromptWidget(getWidget(containerComponentId), pricePrompt);
-    }
-
-    private Widget getWidget(int componentId) {
-        return client != null ? client.getWidget(componentId) : null;
+        return ChatboxSuggestionWidgets.findPromptWidget(client.getWidget(containerComponentId), pricePrompt);
     }
 
     private Widget findDirectPromptWidget(int componentId, boolean pricePrompt) {
-        Widget widget = getWidget(componentId);
+        Widget widget = client.getWidget(componentId);
         return isPromptWidget(widget, pricePrompt) ? widget : null;
     }
 

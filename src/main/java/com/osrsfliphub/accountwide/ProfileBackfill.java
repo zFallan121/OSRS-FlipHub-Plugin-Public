@@ -31,6 +31,7 @@ import net.runelite.api.Client;
 
 @Singleton
 final class ProfileBackfill {
+    private final TradeSession tradeSession;
     private final int maxBatchSize = Const.MAX_BATCH_SIZE;
     private final long localEventBucketMs = Const.LOCAL_EVENT_BUCKET_MS;
     private final long duplicateTradeWindowMs = Const.DUPLICATE_TRADE_WINDOW_MS;
@@ -50,13 +51,9 @@ final class ProfileBackfill {
     private final Map<Long, String> sentEventsByProfile = new ConcurrentHashMap<>();
 
     @Inject
-    ProfileBackfill(Client client) {
+    ProfileBackfill(Client client, TradeSession tradeSession) {
+        this.tradeSession = tradeSession;
         this.client = client;
-    }
-
-    private List<Delta> snapshotLocalTrades(long profileKey) {
-        TradeSession service = Bridge.get(TradeSession.class);
-        return service != null ? service.snapshotLocalTradeDeltas(profileKey) : null;
     }
 
     /**
@@ -73,7 +70,7 @@ final class ProfileBackfill {
         if (profileKey <= 0 || apiClient == null || config == null || uploader == null) {
             return BackfillUploader.Outcome.RETRY;
         }
-        List<Delta> source = snapshotLocalTrades(profileKey);
+        List<Delta> source = tradeSession.snapshotLocalTradeDeltas(profileKey);
         List<Delta> snapshot = source != null ? new ArrayList<>(source) : new ArrayList<>();
         snapshot = TradeDeltaUtils.dedupeLocalTrades(
             snapshot,
@@ -85,7 +82,7 @@ final class ProfileBackfill {
             return BackfillUploader.Outcome.SENT;
         }
 
-        Integer world = client != null ? (Integer) client.getWorld() : null;
+        Integer world = (Integer) client.getWorld();
         List<GeEvent> events = new ArrayList<>(snapshot.size());
         for (Delta delta : snapshot) {
             GeEvent event = uploader.buildBackfillEvent(profileKey, delta, world);

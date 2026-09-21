@@ -25,133 +25,76 @@
 package com.osrsfliphub;
 
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 import net.runelite.api.Client;
 import net.runelite.api.widgets.*;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class ChatboxSuggestionCycle {
     private final Client client;
+    private final ChatboxSuggestionRuntimeState runtimeState;
+    private final ChatboxSuggestionPresentation presentation;
+    private final RemainingLimitSuggestion remainingLimitSuggestion;
+    private final OfferTypeResolver offerTypeResolver;
     private Widget preparedPricePrompt;
     private Widget preparedQuantityPrompt;
 
-    @Inject
-    ChatboxSuggestionCycle(Client client) {
-        this.client = client;
-    }
-
-    private static ChatboxSuggestionRuntimeState runtimeState() {
-        return Bridge.get(ChatboxSuggestionRuntimeState.class);
-    }
-
-    private boolean isGeInputPromptActive() {
-        ChatboxSuggestionRuntimeState service = runtimeState();
-        return service != null && service.isGeInputPromptActive();
-    }
-
-    private boolean isChatboxInputVisible() {
-        ChatboxSuggestionRuntimeState service = runtimeState();
-        return service != null && service.isChatboxInputVisible();
-    }
-
-    private void setSuggestionDirty(boolean dirty) {
-        ChatboxSuggestionRuntimeState service = runtimeState();
-        if (service != null) {
-            service.setSuggestionDirty(dirty);
-        }
-    }
-
-    private void setLastSuggestionUpdateMs(long timestampMs) {
-        ChatboxSuggestionRuntimeState service = runtimeState();
-        if (service != null) {
-            service.setLastSuggestionUpdateMs(timestampMs);
-        }
-    }
-
-    private boolean shouldUpdate(long nowMs) {
-        ChatboxSuggestionRuntimeState service = runtimeState();
-        return service == null || service.shouldUpdate(nowMs);
-    }
-
     private void clearSuggestions() {
-        ChatboxSuggestionPresentation presentation = Bridge.get(ChatboxSuggestionPresentation.class);
-        if (presentation != null) {
-            presentation.clearPriceSuggestion();
-            presentation.clearLimitSuggestion();
-            presentation.clearAffordableLimitSuggestion();
-        }
-        RemainingLimitSuggestion remaining = Bridge.get(RemainingLimitSuggestion.class);
-        if (remaining != null) {
-            remaining.clearCache();
-        }
-    }
-
-    private void clearPromptWidgetCache() {
-        ChatboxSuggestionRuntimeState service = runtimeState();
-        if (service != null) {
-            service.clearPromptWidgetCache();
-        }
+        presentation.clearPriceSuggestion();
+        presentation.clearLimitSuggestion();
+        presentation.clearAffordableLimitSuggestion();
+        remainingLimitSuggestion.clearCache();
     }
 
     private boolean preparePromptWidgets() {
-        ChatboxSuggestionRuntimeState service = runtimeState();
-        preparedPricePrompt = service != null ? service.getPricePromptWidget() : null;
-        preparedQuantityPrompt = service != null ? service.getQuantityPromptWidget() : null;
+        preparedPricePrompt = runtimeState.getPricePromptWidget();
+        preparedQuantityPrompt = runtimeState.getQuantityPromptWidget();
         return preparedPricePrompt != null || preparedQuantityPrompt != null;
     }
 
     private boolean isGeRootVisible() {
-        if (client == null) {
-            return false;
-        }
         Widget geRoot = client.getWidget(ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
         return geRoot != null && !geRoot.isHidden();
     }
 
-    private Boolean resolveOfferType() {
-        OfferTypeResolver resolver = Bridge.get(OfferTypeResolver.class);
-        return resolver != null ? resolver.resolveOfferType() : null;
-    }
-
     private void updatePreparedSuggestions(Boolean isBuy) {
-        ChatboxSuggestionPresentation service = Bridge.get(ChatboxSuggestionPresentation.class);
-        if (service != null) {
-            service.updatePriceSuggestion(preparedPricePrompt, isBuy);
-            service.updateLimitSuggestion(preparedQuantityPrompt, isBuy);
-        }
+        presentation.updatePriceSuggestion(preparedPricePrompt, isBuy);
+        presentation.updateLimitSuggestion(preparedQuantityPrompt, isBuy);
     }
 
     void update() {
         long nowMs = System.currentTimeMillis();
-        if (!shouldUpdate(nowMs)) {
+        if (!runtimeState.shouldUpdate(nowMs)) {
             return;
         }
-        setLastSuggestionUpdateMs(nowMs);
+        runtimeState.setLastSuggestionUpdateMs(nowMs);
 
         if (!Access.loggedIn(client)) {
             clearSuggestions();
-            setSuggestionDirty(false);
+            runtimeState.setSuggestionDirty(false);
             return;
         }
 
-        if (!isGeInputPromptActive()) {
+        if (!runtimeState.isGeInputPromptActive()) {
             clearSuggestions();
-            clearPromptWidgetCache();
-            setSuggestionDirty(false);
+            runtimeState.clearPromptWidgetCache();
+            runtimeState.setSuggestionDirty(false);
             return;
         }
 
-        if (!isChatboxInputVisible()) {
+        if (!runtimeState.isChatboxInputVisible()) {
             clearSuggestions();
-            clearPromptWidgetCache();
-            setSuggestionDirty(false);
+            runtimeState.clearPromptWidgetCache();
+            runtimeState.setSuggestionDirty(false);
             return;
         }
 
-        setSuggestionDirty(false);
+        runtimeState.setSuggestionDirty(false);
 
         boolean promptsPrepared = preparePromptWidgets();
 
-        Boolean offerType = resolveOfferType();
+        Boolean offerType = offerTypeResolver.resolveOfferType();
         if (!promptsPrepared && !isGeRootVisible() && offerType == null) {
             clearSuggestions();
             return;

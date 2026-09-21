@@ -24,16 +24,14 @@
  */
 package com.osrsfliphub;
 
+import lombok.RequiredArgsConstructor;
+
 @javax.inject.Singleton
+@RequiredArgsConstructor(onConstructor_ = @javax.inject.Inject)
 final class ProfileSelectionResolver {
     private final long accountwideKey = Const.ACCOUNTWIDE_KEY;
     private final String accountwideKeyString = Const.ACCOUNTWIDE_KEY_STRING;
     private final net.runelite.api.Client client;
-
-    @javax.inject.Inject
-    ProfileSelectionResolver(net.runelite.api.Client client) {
-        this.client = client;
-    }
 
     String resolveSelectedProfileKeyForUi(ProfileSelectionState state) {
         if (state == null) {
