@@ -98,6 +98,10 @@ final class Const {
     static final int GE_HISTORY_SYNTHETIC_SLOT_START = 10_000;
     static final String WIPE_BARRIER_KEY_PREFIX = "wipeBarrierV1_";
     static final String GE_HISTORY_CURSOR_KEY_PREFIX = "geHistoryCursorV1_";
+    /** Under this key: where the last sync left off, as {@link AutoSyncTradeMatcher.LastSync} stores it. */
+    static final String GE_HISTORY_SYNCED_SINCE_KEY_PREFIX = "geHistorySyncedSinceV1_";
+    /** Taken off every moment in it when it is read back: a fill reaches the plugin a tick after the game. */
+    static final long GE_HISTORY_SYNCED_SINCE_SLACK_MS = 60_000L;
     static final String[] OFFER_STATUS_MARKERS = new String[] {
         "offer status",
         "you have bought",

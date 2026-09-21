@@ -77,7 +77,8 @@ public class GeHistoryAutoSyncTradeMatcherTest {
     }
 
     private static List<Trade> missing(List<Trade> historyTrades, List<Delta> deltas) {
-        return AutoSyncTradeMatcher.planMissingTrades(historyTrades, deltas).missingTrades;
+        return AutoSyncTradeMatcher.planMissingTrades(historyTrades, deltas, AutoSyncTradeMatcher.LastSync.NONE)
+            .missingTrades;
     }
 
     @Test
@@ -300,5 +301,149 @@ public class GeHistoryAutoSyncTradeMatcherTest {
         List<Trade> rows = Collections.singletonList(history(561, true, 100, 20_000L, 200));
 
         assertTrue(missing(rows, stored).isEmpty());
+    }
+
+    // ---- rows known to be newer than the last sync ----
+
+    private static final int YEW_LONGBOW = 855;
+    private static final long LAST_SYNC_MS = 50_000L;
+
+    private static List<Trade> missingSince(List<Trade> historyTrades, List<Delta> deltas, long sinceMs) {
+        return missingSince(historyTrades, deltas,
+            new AutoSyncTradeMatcher.LastSync(sinceMs, Collections.<Integer, Long>emptyMap()));
+    }
+
+    private static List<Trade> missingSince(List<Trade> historyTrades, List<Delta> deltas,
+                                            AutoSyncTradeMatcher.LastSync lastSync) {
+        return AutoSyncTradeMatcher.planMissingTrades(historyTrades, deltas, lastSync).missingTrades;
+    }
+
+    @Test
+    public void anOldSaleOfTheSameSizeAndCoinsDoesNotExplainTodaysSale() {
+        // The report: 100 longbows sold a month ago with the plugin watching, 100 more sold
+        // today on a phone for the same coins. The row is today's; the record is last month's.
+        List<Delta> stored = Collections.singletonList(
+            completed(1_000L, 3, 900L, YEW_LONGBOW, false, 100, 58_800L, 600));
+        List<Trade> rows = Collections.singletonList(history(YEW_LONGBOW, false, 100, 58_800L, 600));
+
+        assertEquals(1, missingSince(rows, stored, LAST_SYNC_MS).size());
+    }
+
+    @Test
+    public void withNothingKnownAboutWhenTheRowsWereMadeEveryStoredTradeIsCompared() {
+        // After a wipe, or on the first sync of an install that never stored the moment, a
+        // row may be as old as anything stored, and the twin has to be allowed to be it.
+        List<Delta> stored = Collections.singletonList(
+            completed(1_000L, 3, 900L, YEW_LONGBOW, false, 100, 58_800L, 600));
+        List<Trade> rows = Collections.singletonList(history(YEW_LONGBOW, false, 100, 58_800L, 600));
+
+        assertTrue(missingSince(rows, stored, 0L).isEmpty());
+        assertTrue(missing(rows, stored).isEmpty());
+    }
+
+    @Test
+    public void aSaleRecordedSinceTheLastSyncStillExplainsItsRow() {
+        List<Delta> stored = Collections.singletonList(
+            completed(60_000L, 3, 59_000L, YEW_LONGBOW, false, 100, 58_800L, 600));
+        List<Trade> rows = Collections.singletonList(history(YEW_LONGBOW, false, 100, 58_800L, 600));
+
+        assertTrue(missingSince(rows, stored, LAST_SYNC_MS).isEmpty());
+    }
+
+    @Test
+    public void ofTwoIdenticalRowsOnlyTheOneWatchedSinceTheLastSyncIsExplained() {
+        // Sold 100 on the desktop today and 100 on a phone today, and once last month. Two rows,
+        // one record since the sync: one row is that record, the other is the phone's.
+        List<Delta> stored = Arrays.asList(
+            completed(1_000L, 3, 900L, YEW_LONGBOW, false, 100, 58_800L, 600),
+            completed(60_000L, 3, 59_000L, YEW_LONGBOW, false, 100, 58_800L, 600));
+        List<Trade> rows = Arrays.asList(
+            history(YEW_LONGBOW, false, 100, 58_800L, 600),
+            history(YEW_LONGBOW, false, 100, 58_800L, 600));
+
+        assertEquals(1, missingSince(rows, stored, LAST_SYNC_MS).size());
+        assertTrue(missing(rows, stored).isEmpty());
+    }
+
+    @Test
+    public void anOfferThatBeganBeforeTheLastSyncAndEndedAfterItIsStillOneOffer() {
+        // 40 filled before the sync and 60 after. The row is all 100; dropping the early fill
+        // would leave 60 to explain it and import the other 40 a second time.
+        List<Delta> stored = Arrays.asList(
+            fill(40_000L, 2, 39_000L, NATURE_RUNE, true, 40, 4_000L, 100),
+            completed(60_000L, 2, 39_000L, NATURE_RUNE, true, 60, 6_000L, 100));
+        List<Trade> rows = Collections.singletonList(history(NATURE_RUNE, true, 100, 10_000L, 100));
+
+        assertTrue(missingSince(rows, stored, LAST_SYNC_MS).isEmpty());
+    }
+
+    @Test
+    public void aSaleTheLastSyncImportedDoesNotExplainTheNextOneMadeElsewhere() {
+        // Sold 100 on a phone yesterday, imported by last night's sync and stamped a few
+        // milliseconds before it - well inside the slack. Sold 100 more on the phone today.
+        // The imported record was a row of that sync; it cannot also be a row above it.
+        List<Delta> stored = Collections.singletonList(completed(
+            LAST_SYNC_MS + 5_000L, Const.GE_HISTORY_SYNTHETIC_SLOT_START, 0L, YEW_LONGBOW, false, 100, 58_800L, 600));
+        List<Trade> rows = Collections.singletonList(history(YEW_LONGBOW, false, 100, 58_800L, 600));
+
+        assertEquals(1, missingSince(rows, stored, LAST_SYNC_MS).size());
+    }
+
+    @Test
+    public void afterAWipeAnImportedTradeStillStopsItsRowBeingImportedAgain() {
+        // Nothing is known about the rows then, and the imported record is the only thing
+        // standing between its row and a second import.
+        List<Delta> stored = Collections.singletonList(completed(
+            1_000L, Const.GE_HISTORY_SYNTHETIC_SLOT_START, 0L, YEW_LONGBOW, false, 100, 58_800L, 600));
+        List<Trade> rows = Collections.singletonList(history(YEW_LONGBOW, false, 100, 58_800L, 600));
+
+        assertTrue(missingSince(rows, stored, 0L).isEmpty());
+    }
+
+    @Test
+    public void aSellOfferLeftUpForMonthsDoesNotHoldEveryOtherTradeComparable() {
+        // Seen in the real client: six sell offers sitting in their slots since June to August
+        // pulled the cutoff back to June, so last month's sale still explained today's.
+        List<Delta> stored = Collections.singletonList(
+            completed(1_000L, 3, 900L, YEW_LONGBOW, false, 100, 58_800L, 600));
+        List<Trade> rows = Collections.singletonList(history(YEW_LONGBOW, false, 100, 58_800L, 600));
+        AutoSyncTradeMatcher.LastSync sellOfferUpSinceJune =
+            new AutoSyncTradeMatcher.LastSync(LAST_SYNC_MS, Collections.singletonMap(0, 100L));
+
+        assertEquals(1, missingSince(rows, stored, sellOfferUpSinceJune).size());
+    }
+
+    @Test
+    public void anOfferStillInItsSlotAtTheLastSyncKeepsItsEarlierFillsComparable() {
+        // 100 bought before the sync while the offer sat in slot 2; it finished while nothing was
+        // watching, so the fill is all that was recorded. Its row arrives now and must find it.
+        List<Delta> stored = Collections.singletonList(
+            fill(40_000L, 2, 39_000L, NATURE_RUNE, true, 100, 10_000L, 100));
+        List<Trade> rows = Collections.singletonList(history(NATURE_RUNE, true, 100, 10_000L, 100));
+
+        assertTrue(missingSince(rows, stored,
+            new AutoSyncTradeMatcher.LastSync(LAST_SYNC_MS, Collections.singletonMap(2, 39_000L))).isEmpty());
+        // Not remembered as open, the fill would be left out and the 100 imported a second time.
+        assertEquals(1, missingSince(rows, stored, LAST_SYNC_MS).size());
+    }
+
+    @Test
+    public void anEarlierOfferOnThatSameSlotIsStillLeftOut() {
+        // Slot 2 held last month's sale before today's offer went up in it. Only the open offer is kept.
+        List<Delta> stored = Collections.singletonList(
+            completed(1_000L, 2, 900L, YEW_LONGBOW, false, 100, 58_800L, 600));
+        List<Trade> rows = Collections.singletonList(history(YEW_LONGBOW, false, 100, 58_800L, 600));
+
+        assertEquals(1, missingSince(rows, stored,
+            new AutoSyncTradeMatcher.LastSync(LAST_SYNC_MS, Collections.singletonMap(2, 39_000L))).size());
+    }
+
+    @Test
+    public void aBuyIsHeldToTheSameRuleAsASale() {
+        List<Delta> stored = Collections.singletonList(
+            completed(1_000L, 3, 900L, NATURE_RUNE, true, 100, 10_000L, 100));
+        List<Trade> rows = Collections.singletonList(history(NATURE_RUNE, true, 100, 10_000L, 100));
+
+        assertEquals(1, missingSince(rows, stored, LAST_SYNC_MS).size());
     }
 }

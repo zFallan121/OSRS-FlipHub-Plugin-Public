@@ -102,4 +102,15 @@ public class GeHistoryAutoSyncMessageServiceTest {
             service.syncResultMessage(-5)
         );
     }
+
+    @Test
+    public void aSyncThatLostItsPlaceDoesNotClaimThereWasNothingNew() {
+        AutoSyncMessage service = new AutoSyncMessage();
+
+        assertEquals(
+            "FlipHub GE history sync: too many trades since the last sync, so none were imported."
+                + " Open History more often.",
+            service.lostPlaceMessage()
+        );
+    }
 }

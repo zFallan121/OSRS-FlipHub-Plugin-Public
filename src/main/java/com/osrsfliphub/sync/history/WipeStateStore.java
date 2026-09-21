@@ -78,6 +78,16 @@ final class WipeStateStore {
         return cursor;
     }
 
+    /** Where the last sync left off; NONE when nothing is stored, which compares everything as before. */
+    AutoSyncTradeMatcher.LastSync loadLastSync(long accountKey, long nowMs) {
+        return AutoSyncTradeMatcher.LastSync.decode(
+            configManager.getConfiguration(configGroup, Const.GE_HISTORY_SYNCED_SINCE_KEY_PREFIX + accountKey), nowMs);
+    }
+
+    void persistLastSync(long accountKey, AutoSyncTradeMatcher.LastSync lastSync) {
+        writeConfiguration(configGroup, Const.GE_HISTORY_SYNCED_SINCE_KEY_PREFIX + accountKey, lastSync.encode());
+    }
+
     void persistCursor(long accountKey, List<String> cursor) {
         if (accountKey <= 0) {
             return;

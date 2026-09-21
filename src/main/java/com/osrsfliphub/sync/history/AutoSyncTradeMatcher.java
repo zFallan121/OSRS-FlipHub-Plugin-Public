@@ -56,6 +56,14 @@ import lombok.*;
  *   <li>Whatever the lots at that unit price do cover is taken, and only the
  *       shortfall is imported.</li>
  * </ol>
+ *
+ * <p>A history row carries no date, so nothing above can tell today's sale from one of
+ * the same item, size and coins made a month ago - and a flipper makes that same trade
+ * again and again. The rows the sync hands over are the ones above its cursor, which
+ * makes them newer than the last sync; an offer that ended before that sync is
+ * therefore not one of them, however alike, and is left out ({@link LastSync}). Without
+ * that, a sale made on another client was judged already recorded and never imported,
+ * and the item went on showing as held.
  */
 final class AutoSyncTradeMatcher {
     /**
@@ -78,12 +86,20 @@ final class AutoSyncTradeMatcher {
     private AutoSyncTradeMatcher() {
     }
 
-    static SelectionPlan planMissingTrades(List<Trade> historyTrades, List<Delta> existingDeltas) {
+    /**
+     * @param lastSync every row is known to be newer than it, so the offers it rules out are
+     *                 not compared. An offer is kept or left out whole: one that began before
+     *                 it and ended after it is one row. {@link LastSync#NONE} when nothing is
+     *                 known about the rows, and every stored offer is compared.
+     */
+    static SelectionPlan planMissingTrades(List<Trade> historyTrades, List<Delta> existingDeltas, LastSync lastSync) {
         if (historyTrades == null || historyTrades.isEmpty()) {
             return SelectionPlan.empty();
         }
 
-        Map<ItemSide, List<OfferLot>> lotsByItemSide = indexByItemSide(groupOffers(existingDeltas));
+        List<OfferLot> offers = groupOffers(existingDeltas);
+        offers.removeIf(lot -> lastSync.predates(lot.lastMs, lot.slot, lot.firstMs));
+        Map<ItemSide, List<OfferLot>> lotsByItemSide = indexByItemSide(offers);
         int size = historyTrades.size();
         Trade[] missingByIndex = new Trade[size];
         boolean[] unexplained = new boolean[size];
@@ -121,6 +137,86 @@ final class AutoSyncTradeMatcher {
             missing.add(residualTrade);
         }
         return new SelectionPlan(missingByIndex, missing);
+    }
+
+    /**
+     * Where the last sync left off: when it ran, and the offers still in a slot then.
+     *
+     * <p>A trade that ended before it cannot be one of the rows newer than it. The exception is
+     * an offer still in its slot: its row may not be in the history yet, and when it arrives it
+     * has to find the fills recorded before. Those are remembered by slot and placing time, so
+     * they alone stay comparable. The cutoff used to be pulled back to the oldest such offer
+     * instead, and one sell offer left up since June held every trade since June comparable -
+     * which undid the rule on exactly the accounts it is for.
+     */
+    @RequiredArgsConstructor
+    static final class LastSync {
+        /** Nothing known: every stored trade is compared. */
+        static final LastSync NONE = new LastSync(0L, Collections.emptyMap());
+
+        final long ms;
+        /** Slot to when its offer was placed; zero when that is not known, which keeps the whole slot. */
+        final Map<Integer, Long> openOffers;
+
+        /** Now, with the offers still in their slots. */
+        static LastSync at(long nowMs, Map<Integer, Stamp> stamps) {
+            Map<Integer, Long> open = new TreeMap<>();
+            stamps.forEach((slot, stamp) -> {
+                if (stamp.lastEmptyMs <= 0) {
+                    open.put(slot, Math.max(0L, stamp.firstSeenMs));
+                }
+            });
+            return new LastSync(nowMs, open);
+        }
+
+        /**
+         * Whether a stored trade is too old to be one of the rows newer than this sync.
+         *
+         * <p>So is any trade an earlier sync imported, whatever its time says: it was a row of
+         * that sync, which puts it below the cursor now, and its time was made up just before
+         * that sync - close enough to pass for recent. Left in, each imported sale went on
+         * explaining the next identical one made on another client.
+         */
+        boolean predates(long closedAtMs, int slot, long firstMs) {
+            if (ms <= 0) {
+                return false;
+            }
+            Long placedMs = openOffers.get(slot);
+            return slot >= Const.GE_HISTORY_SYNTHETIC_SLOT_START
+                || closedAtMs < ms && (placedMs == null || firstMs < placedMs);
+        }
+
+        String encode() {
+            StringBuilder out = new StringBuilder(Long.toString(ms));
+            openOffers.forEach((slot, placedMs) -> out.append(',').append(slot).append(':').append(placedMs));
+            return out.toString();
+        }
+
+        /**
+         * One stored by {@link #encode}, every moment in it read back a little earlier. Nothing stored,
+         * anything unreadable, or a moment later than now (the clock was moved) is {@link #NONE}.
+         */
+        static LastSync decode(String raw, long nowMs) {
+            if (Str.isBlank(raw)) {
+                return NONE;
+            }
+            try {
+                String[] parts = raw.split(",");
+                long ms = Long.parseLong(parts[0]);
+                Map<Integer, Long> open = new TreeMap<>();
+                for (int i = 1; i < parts.length; i++) {
+                    String[] slotAndPlaced = parts[i].split(":");
+                    open.put(Integer.parseInt(slotAndPlaced[0]), earlier(Long.parseLong(slotAndPlaced[1])));
+                }
+                return ms > 0 && ms <= nowMs ? new LastSync(earlier(ms), open) : NONE;
+            } catch (NumberFormatException | ArrayIndexOutOfBoundsException ex) {
+                return NONE;
+            }
+        }
+
+        private static long earlier(long ms) {
+            return ms > 0 ? Math.max(1L, ms - Const.GE_HISTORY_SYNCED_SINCE_SLACK_MS) : 0L;
+        }
     }
 
     static long toleranceCoins(int quantity) {
@@ -410,6 +506,8 @@ final class AutoSyncTradeMatcher {
         /** The Grand Exchange slot the offer ran in. Only lots from one slot can be one offer. */
         final int slot;
         final long firstMs;
+        /** When the offer ended, as far as the records say: the latest of their closing times. */
+        long lastMs;
         private final Delta first;
         private long offerStartMs;
         int qty;
@@ -422,6 +520,7 @@ final class AutoSyncTradeMatcher {
             this.isBuy = first.isBuy;
             this.slot = first.slot;
             this.firstMs = first.tsClientMs;
+            this.lastMs = first.closedAtMs();
             this.offerStartMs = first.offerStartMs;
             this.qty = Math.max(0, first.deltaQty);
             this.gp = Math.max(0L, first.deltaGp);
@@ -438,6 +537,7 @@ final class AutoSyncTradeMatcher {
         void absorb(Delta delta) {
             qty += Math.max(0, delta.deltaQty);
             gp += Math.max(0L, delta.deltaGp);
+            lastMs = Math.max(lastMs, delta.closedAtMs());
             if (offerStartMs <= 0) {
                 offerStartMs = delta.offerStartMs;
             }

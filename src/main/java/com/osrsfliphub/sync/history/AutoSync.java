@@ -88,7 +88,8 @@ final class AutoSync {
         uploadEventDispatch.enqueueEvent(event);
     }
 
-    SyncResult sync(long accountKey, List<Trade> historyTrades) {
+    /** @param lastSync the rows are all newer than this; see {@link AutoSyncTradeMatcher#planMissingTrades}. */
+    SyncResult sync(long accountKey, List<Trade> historyTrades, AutoSyncTradeMatcher.LastSync lastSync) {
         if (accountKey <= 0 || historyTrades == null || historyTrades.isEmpty()) {
             return new SyncResult(historyTrades != null ? historyTrades.size() : 0, 0);
         }
@@ -108,7 +109,7 @@ final class AutoSync {
 
         List<Delta> existingDeltas = tradeSession.snapshotLocalTradeDeltas(accountKey);
         AutoSyncTradeMatcher.SelectionPlan selectionPlan =
-            AutoSyncTradeMatcher.planMissingTrades(validTrades, existingDeltas);
+            AutoSyncTradeMatcher.planMissingTrades(validTrades, existingDeltas, lastSync);
         List<Trade> missingTrades = selectionPlan.missingTrades;
         if (missingTrades.isEmpty()) {
             return new SyncResult(validTrades.size(), 0);
@@ -119,7 +120,8 @@ final class AutoSync {
             validTrades,
             selectionPlan,
             existingDeltas,
-            nowMs
+            nowMs,
+            lastSync
         );
         long firstSyntheticTs = findFirstSyntheticTs(validTrades, selectionPlan, plannedUpdateTs, nowMs);
         tradeSession.ensureLocalSessionStart(accountKey, firstSyntheticTs);
@@ -228,7 +230,8 @@ final class AutoSync {
         List<Trade> validTrades,
         AutoSyncTradeMatcher.SelectionPlan plan,
         List<Delta> existingDeltas,
-        long nowMs
+        long nowMs,
+        AutoSyncTradeMatcher.LastSync lastSync
     ) {
         int size = validTrades != null ? validTrades.size() : 0;
         long[] planned = new long[Math.max(0, size)];
@@ -237,7 +240,7 @@ final class AutoSync {
         }
 
         Map<AutoSyncTradeMatcher.TradeSignature, Deque<Long>> existingTsBySignature =
-            buildObservedTimestampQueues(existingDeltas);
+            buildObservedTimestampQueues(existingDeltas, lastSync);
         long anchorMinTs = Long.MAX_VALUE;
         for (int i = size - 1; i >= 0; i--) {
             if (plan.isMissing(i)) {
@@ -290,15 +293,17 @@ final class AutoSync {
         return planned;
     }
 
+    /** The times of the stored trades a row could be, by what they look like: the same trades the matcher compares. */
     private Map<AutoSyncTradeMatcher.TradeSignature, Deque<Long>> buildObservedTimestampQueues(
-        List<Delta> deltas
+        List<Delta> deltas,
+        AutoSyncTradeMatcher.LastSync lastSync
     ) {
         Map<AutoSyncTradeMatcher.TradeSignature, List<Long>> grouped = new HashMap<>();
         if (deltas != null) {
             for (Delta delta : deltas) {
                 AutoSyncTradeMatcher.TradeSignature signature =
                     AutoSyncTradeMatcher.signatureForDelta(delta);
-                if (signature == null) {
+                if (signature == null || lastSync.predates(delta.closedAtMs(), delta.slot, delta.tsClientMs)) {
                     continue;
                 }
                 grouped.computeIfAbsent(signature, key -> new ArrayList<>()).add(delta.tsClientMs);

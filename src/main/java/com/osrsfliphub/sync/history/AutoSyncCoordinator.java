@@ -50,6 +50,7 @@ final class AutoSyncCoordinator {
     private final AccountSession accountSession;
     private final WipeBaselineDecision wipeBaselineDecision;
     private final AutoSync sync;
+    private final PluginState pluginState;
 
     private HistorySnapshot readHistorySnapshot() {
         Widget historyContainer = client.getWidget(Const.GE_HISTORY_GROUP_ID,
@@ -63,6 +64,31 @@ final class AutoSyncCoordinator {
     private void pushGameMessage(String message) {
         GeLifecyclePlugin plugin = Access.plugin();
         plugin.runtimeUtilityServices.pushGameMessage(plugin.client, message);
+    }
+
+    /**
+     * The last sync the rows handed over are all known to be newer than, or NONE when that is
+     * not known of every one of them: after a wipe the whole list may be handed over, and a
+     * list longer than the cursor covers has rows the overlap says nothing about.
+     */
+    static AutoSyncTradeMatcher.LastSync sinceFor(boolean wipeBarrierArmed, int rows, int cursorRows,
+                                                 AutoSyncTradeMatcher.LastSync stored) {
+        return wipeBarrierArmed || rows > cursorRows ? AutoSyncTradeMatcher.LastSync.NONE : stored;
+    }
+
+    /**
+     * No row in common with the last sync, so none could be told from one already recorded and
+     * none was eligible. That is not "nothing new", and the player is not told that it is.
+     */
+    static boolean lostPlace(int overlap, int eligibleTradeCount) {
+        return overlap == 0 && eligibleTradeCount == 0;
+    }
+
+    /** The read becomes where the next sync starts from: its rows, when it was made, and what was still in a slot. */
+    private void persistPlace(long accountKey, List<String> currentCursor, long nowMs) {
+        wipeStateStore.persistCursor(accountKey, currentCursor);
+        wipeStateStore.persistLastSync(accountKey,
+            AutoSyncTradeMatcher.LastSync.at(nowMs, pluginState.getOfferUpdateStamps()));
     }
 
     /** What to say when the current read becomes the cursor: why, if the old one was refused. */
@@ -116,7 +142,7 @@ final class AutoSyncCoordinator {
 
         switch (decision.outcome) {
             case SET_BASELINE:
-                wipeStateStore.persistCursor(accountKey, currentCursor);
+                persistPlace(accountKey, currentCursor, nowMs);
                 autoSyncState.disarm();
                 if (wipeBarrierArmed || stored.staleFormat) {
                     pushGameMessage(baselineSetMessage(stored, currentCursor));
@@ -137,12 +163,21 @@ final class AutoSyncCoordinator {
         }
 
         List<Trade> eligibleTrades = eligibleTrades(historyTrades, decision.eligibleTradeCount);
-        AutoSync.SyncResult result = sync.sync(accountKey, eligibleTrades);
+        AutoSyncTradeMatcher.LastSync lastSync = sinceFor(wipeBarrierArmed, historyTrades.size(),
+            currentCursor.size(), wipeStateStore.loadLastSync(accountKey, nowMs));
+        AutoSync.SyncResult result = sync.sync(accountKey, eligibleTrades, lastSync);
         autoSyncState.disarm();
         int addedTrades = result != null ? result.addedTrades : 0;
         int parsedTrades = result != null ? result.parsedTrades : 0;
-        pushGameMessage(autoSyncMessage.syncResultMessage(addedTrades));
-        wipeStateStore.persistCursor(accountKey, currentCursor);
+        boolean lostPlace = lostPlace(overlap, decision.eligibleTradeCount);
+        pushGameMessage(lostPlace
+            ? autoSyncMessage.lostPlaceMessage()
+            : autoSyncMessage.syncResultMessage(addedTrades));
+        if (lostPlace) {
+            log.info("GE history auto-sync lost its place for account {}: none of the last sync's rows are listed",
+                accountKey);
+        }
+        persistPlace(accountKey, currentCursor, nowMs);
         if (decision.releasesWipeBarrier()) {
             wipeStateStore.setWipeBarrierArmed(accountKey, false);
             log.info("GE history wipe barrier released for account {} after a reconciling sync", accountKey);

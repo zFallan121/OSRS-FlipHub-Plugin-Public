@@ -39,6 +39,11 @@ final class AutoSyncMessage {
         return "FlipHub GE history sync: skipped (wipe baseline mismatch).";
     }
 
+    String lostPlaceMessage() {
+        return "FlipHub GE history sync: too many trades since the last sync, so none were imported."
+            + " Open History more often.";
+    }
+
     String readIncompleteMessage() {
         return "FlipHub GE history sync: skipped (History tab never finished loading).";
     }
