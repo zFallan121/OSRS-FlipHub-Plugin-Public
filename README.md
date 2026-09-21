@@ -12,7 +12,7 @@ Works entirely offline. Linking a [FlipHub](https://www.osrsfliphub.com) account
 ## Contents
 
 - [Features](#features)
-  - [Flip ranks](#flip-ranks)
+  - [Merchant levels](#merchant-levels)
   - [Activity panel](#activity-panel)
   - [You can see how old a price is](#you-can-see-how-old-a-price-is)
   - [Bookmarks](#bookmarks)
@@ -29,15 +29,23 @@ Works entirely offline. Linking a [FlipHub](https://www.osrsfliphub.com) account
 
 ## Features
 
-#### Flip ranks
+#### Merchant levels
 
-Your lifetime profit across every character earns one of FlipHub's ten ranks, from Lumbridge
-Looter to Gielinor Elite. **FLIP RANK** on the Profile tab shows where you stand, in your rank's
-colour, and hovering it names the next rank.
+Your lifetime profit across every character is a Merchant level, read on the game's own experience
+curve: level 99 is 10B profit, and level 92 is 5B because 92 is halfway to 99 in experience.
 
-When a sale takes you into a new rank, the game congratulates you the way it does for a skill
-level: the message in the chatbox, the level-up fireworks and a dance. Only you see them. Turn it
-off with **Celebrate rank-ups** in the plugin's settings.
+FlipHub's ten ranks, from Lumbridge Looter to Gielinor Elite, are bands of those levels. **FLIP
+RANK** on the Profile tab shows where you stand, in your rank's colour, and hovering it names the
+next rank and the level it starts at.
+
+Merchant also sits in the game's own skills tab as a twenty-fifth skill, on a row of its own with
+the Total level beside it. Hovering reads like any other skill and clicking opens a guide listing
+the ten ranks and the profit each one takes. Turn it off with **Show Merchant in the skills tab**
+in the plugin's settings and the tab goes straight back to the game's own twenty-four.
+
+When a sale earns a level, the game congratulates you the way it does for a skill: the message in
+the chatbox, the level-up fireworks and a dance. Only you see them. Turn it off with **Celebrate
+level-ups** in the plugin's settings.
 
 <img src="docs/rank-up.png" width="520" alt="A character dancing in the Grand Exchange with orange fireworks around them, above the chatbox message: Congratulations, you just advanced a Flipping rank. You are now a Trader. Click here to continue">
 

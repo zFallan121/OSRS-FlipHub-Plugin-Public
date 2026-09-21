@@ -48,6 +48,7 @@ final class PluginLifecycle {
         plugin.getOfferStampStateServices().resetForStartup();
         // Before the panel is built: the Profile tab draws the rank pictures loaded here.
         Bridge.get(RankUp.class).start();
+        Bridge.get(SkillTab.class).start();
         Bridge.get(ProfileStore.class);
         Bridge.get(LinkStatus.class).refresh();
         if (plugin.client != null && plugin.client.getGameState() == GameState.LOGGED_IN) {
@@ -119,6 +120,7 @@ final class PluginLifecycle {
 
     static void shutDown(GeLifecyclePlugin plugin) {
         Bridge.get(RankUp.class).stop();
+        Bridge.get(SkillTab.class).stop();
         ChatboxDecimalInputListener decimalInputListener =
             Bridge.get(ChatboxDecimalInputListener.class);
         if (plugin.keyManager != null && decimalInputListener != null) {

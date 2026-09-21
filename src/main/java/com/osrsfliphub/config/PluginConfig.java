@@ -180,11 +180,24 @@ public interface PluginConfig extends Config {
     }
 
     @ConfigItem(
+        keyName = "showMerchantSkill",
+        name = "Show Merchant in the skills tab",
+        description = "Adds Merchant to the game's own skills tab as a<br>"
+            + "twenty-fifth skill, with a level built from your combined<br>"
+            + "lifetime flip profit, a hover box like any other skill's<br>"
+            + "and a guide listing the ten ranks. Turn this off and the<br>"
+            + "tab goes straight back to the game's own twenty-four."
+    )
+    default boolean showMerchantSkill() {
+        return true;
+    }
+
+    @ConfigItem(
         keyName = "celebrateRankUps",
-        name = "Celebrate rank-ups",
+        name = "Celebrate level-ups",
         description = "When a sale on any of your characters takes your combined<br>"
-            + "lifetime flip profit to a new FlipHub rank, shows a<br>"
-            + "level-up style message with the rank's picture, sets off<br>"
+            + "lifetime flip profit to a new Merchant level, shows a<br>"
+            + "level-up style message with your rank's picture, sets off<br>"
             + "the level-up fireworks, makes your character dance and<br>"
             + "adds a line to your game chat. Only you see the fireworks<br>"
             + "and the dance."
