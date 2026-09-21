@@ -232,7 +232,7 @@ final class RecipeFlipLedger {
     }
 
     /** The part of a trade's coins that belongs to {@code quantity} of it. */
-    private static long share(long totalGp, int quantity, int totalQty) {
+    static long share(long totalGp, int quantity, int totalQty) {
         if (totalQty <= 0) {
             return 0L;
         }

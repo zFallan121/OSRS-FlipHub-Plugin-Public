@@ -217,8 +217,10 @@ requested, read, or transmitted.
 - **Without linking (default)** — No trade data leaves your machine. The only network calls are
   read-only price lookups to `prices.runescape.wiki`.
 - **With sync enabled and linked** — Your Grand Exchange offer events (item, quantity, price, offer
-  state, timestamps) are uploaded over HTTPS to `osrsfliphub.com` to power your dashboard. As with
-  any request to a third-party server, this exposes your IP address to it.
+  state, timestamps) are uploaded over HTTPS to `osrsfliphub.com` to power your dashboard, along
+  with any recipes you record (which of those trades went into which, and the fee you entered), so
+  the dashboard stops showing the parts as still held. As with any request to a third-party server,
+  this exposes your IP address to it.
 
 <img src="docs/divider.png" width="100%" alt="">
 

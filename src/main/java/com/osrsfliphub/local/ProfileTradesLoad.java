@@ -73,6 +73,7 @@ final class ProfileTradesLoad {
         // Before the rebuild below, which has to honour them.
         recipeFlipStore.replace(accountHash, loaded.recipeFlips);
         localStatsCacheService.rebuild(accountHash, merged);
+        Bridge.get(RecipeUpload.class).sendStored(accountHash);
         String resolvedName = loaded.resolvedDisplayName;
         if (Str.hasText(resolvedName)) {
             pluginState.getProfileDisplayNames().put(accountHash, resolvedName.trim());

@@ -654,6 +654,7 @@ final class RecipeRecorder {
         if (flip == null || store == null || accountKey <= 0 || !store.add(accountKey, flip)) {
             return;
         }
+        Bridge.get(RecipeUpload.class).send(accountKey, flip);
         commit();
         close();
     }
@@ -663,6 +664,7 @@ final class RecipeRecorder {
         if (store == null || accountKey <= 0 || !store.remove(accountKey, flip)) {
             return;
         }
+        Bridge.get(RecipeUpload.class).sendDeleted(accountKey, flip);
         commit();
         // Its trades are free again, so the screen is rebuilt rather than the one row redrawn.
         open();

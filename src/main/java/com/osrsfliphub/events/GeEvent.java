@@ -43,6 +43,15 @@ public class GeEvent {
     public long delta_gp;
     public Integer world;
     public int schema_version = 1;
+    /**
+     * Set only on the parts of a recorded recipe ({@link RecipeUpload}), which ride the trade upload but
+     * are not trades. Null on a trade, and Gson leaves a null out, so a trade is sent exactly as before.
+     */
+    public String recipe_id;
+    public String recipe_kind;
+    public Integer recipe_parts;
+    public Long recipe_fee_gp;
+    public Long recipe_trade_end_ms;
 
     public static GeEvent createBase(OfferSnapshot snap, OfferSnapshot prev, String eventType) {
         GeEvent e = new GeEvent();
