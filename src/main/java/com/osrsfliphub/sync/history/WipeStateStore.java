@@ -34,16 +34,16 @@ import net.runelite.client.config.ConfigManager;
 @Slf4j
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 final class WipeStateStore {
+    private static final String WIPE_BARRIER_KEY_PREFIX = "wipeBarrierV1_";
+    private static final String GE_HISTORY_CURSOR_KEY_PREFIX = "geHistoryCursorV1_";
+    /** Under this key: where the last sync left off, as {@link AutoSyncTradeMatcher.LastSync} stores it. */
+    private static final String GE_HISTORY_SYNCED_SINCE_KEY_PREFIX = "geHistorySyncedSinceV1_";
 
     private final ConfigManager configManager;
     private final String configGroup = FliphubConfigGroups.CONFIG_GROUP;
-    private final String wipeBarrierKeyPrefix = Const.WIPE_BARRIER_KEY_PREFIX;
-    private final String cursorKeyPrefix = Const.GE_HISTORY_CURSOR_KEY_PREFIX;
+    private final String wipeBarrierKeyPrefix = WIPE_BARRIER_KEY_PREFIX;
+    private final String cursorKeyPrefix = GE_HISTORY_CURSOR_KEY_PREFIX;
     private final int maxCursorTrades = Math.max(1, Const.GE_HISTORY_CURSOR_MAX_TRADES);
-
-    private void writeConfiguration(String group, String key, String value) {
-        configManager.setConfiguration(group, key, value);
-    }
 
     boolean isWipeBarrierArmed(long accountKey) {
         if (accountKey <= 0) {
@@ -57,7 +57,19 @@ final class WipeStateStore {
         if (accountKey <= 0) {
             return;
         }
-        writeConfiguration(configGroup, wipeBarrierKeyPrefix + accountKey, armed ? "1" : "");
+        configManager.setConfiguration(configGroup, wipeBarrierKeyPrefix + accountKey, armed ? "1" : "");
+        if (armed) {
+            // Armed only by a wipe. When, so that what other accounts moved here before it goes too.
+            configManager.setConfiguration(configGroup, "profileWipedMs_" + accountKey, System.currentTimeMillis());
+        }
+    }
+
+    /**
+     * When this account's history was last wiped, or null. A move recorded to it before then is
+     * not counted: it lives in the other account's file, and the wipe could not take it from there.
+     */
+    Long wipedMs(long accountKey) {
+        return configManager.getConfiguration(configGroup, "profileWipedMs_" + accountKey, Long.class);
     }
 
     /**
@@ -81,11 +93,12 @@ final class WipeStateStore {
     /** Where the last sync left off; NONE when nothing is stored, which compares everything as before. */
     AutoSyncTradeMatcher.LastSync loadLastSync(long accountKey, long nowMs) {
         return AutoSyncTradeMatcher.LastSync.decode(
-            configManager.getConfiguration(configGroup, Const.GE_HISTORY_SYNCED_SINCE_KEY_PREFIX + accountKey), nowMs);
+            configManager.getConfiguration(configGroup, GE_HISTORY_SYNCED_SINCE_KEY_PREFIX + accountKey), nowMs);
     }
 
     void persistLastSync(long accountKey, AutoSyncTradeMatcher.LastSync lastSync) {
-        writeConfiguration(configGroup, Const.GE_HISTORY_SYNCED_SINCE_KEY_PREFIX + accountKey, lastSync.encode());
+        configManager.setConfiguration(
+            configGroup, GE_HISTORY_SYNCED_SINCE_KEY_PREFIX + accountKey, lastSync.encode());
     }
 
     void persistCursor(long accountKey, List<String> cursor) {
@@ -93,11 +106,11 @@ final class WipeStateStore {
             return;
         }
         if (cursor == null || cursor.isEmpty()) {
-            writeConfiguration(configGroup, cursorKeyPrefix + accountKey, "");
+            configManager.setConfiguration(configGroup, cursorKeyPrefix + accountKey, "");
             return;
         }
         int limit = Math.min(maxCursorTrades, cursor.size());
-        writeConfiguration(configGroup, cursorKeyPrefix + accountKey,
+        configManager.setConfiguration(configGroup, cursorKeyPrefix + accountKey,
             GeHistoryCursorService.encode(cursor.subList(0, limit)));
     }
 }

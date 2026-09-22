@@ -59,6 +59,48 @@ public class LocalFlipHistoryServiceTest {
         assertEquals(8L, flip.taxGp);
     }
 
+    /**
+     * A sell offer cancelled part-sold leaves no completion behind. Once another item takes its
+     * slot the offer is over, and what it sold stays counted -- a finished flip at its last sale.
+     * It used to vanish from TOTAL PROFIT here while the stats cache kept it.
+     */
+    @Test
+    public void aPartSoldOfferStaysCountedWhenItsSlotMovesOn() {
+        LocalFlipHistoryService service = new LocalFlipHistoryService();
+        List<Delta> deltas = Arrays.asList(
+            delta(1_000L, 7, 560, true, 10, 1_000L, "OFFER_COMPLETED", 100, false),
+            delta(2_000L, 7, 560, false, 4, 520L, "OFFER_UPDATED", 130, false),
+            delta(3_000L, 3, 561, true, 5, 500L, "OFFER_COMPLETED", 100, false),
+            delta(4_000L, 7, 561, false, 5, 600L, "OFFER_COMPLETED", 120, false)
+        );
+
+        Map<Integer, List<StatsFlipInstance>> result = service.buildHistory(deltas, null);
+
+        assertTrue(result.containsKey(560));
+        StatsFlipInstance flip = result.get(560).get(0);
+        assertEquals(120L, flip.profitGp);
+        assertEquals(4, flip.quantity);
+        assertFalse(flip.inProgress);
+        assertEquals(2_000L, flip.completionTsMs);
+        assertEquals(100L, result.get(561).get(0).profitGp);
+    }
+
+    /** A buy of another item in that slot ends the offer just the same; it is not still selling. */
+    @Test
+    public void aPartSoldOfferIsNotLeftInProgressOnceItsSlotBuysSomethingElse() {
+        LocalFlipHistoryService service = new LocalFlipHistoryService();
+        List<Delta> deltas = Arrays.asList(
+            delta(1_000L, 7, 560, true, 10, 1_000L, "OFFER_COMPLETED", 100, false),
+            delta(2_000L, 7, 560, false, 4, 520L, "OFFER_UPDATED", 130, false),
+            delta(3_000L, 7, 561, true, 5, 500L, "OFFER_COMPLETED", 100, false)
+        );
+
+        StatsFlipInstance flip = service.buildHistory(deltas, null).get(560).get(0);
+
+        assertEquals(120L, flip.profitGp);
+        assertFalse(flip.inProgress);
+    }
+
     @Test
     public void rangeFilterIncludesInWindowSellsUsingOlderBuys() {
         LocalFlipHistoryService service = new LocalFlipHistoryService();

@@ -140,10 +140,23 @@ public class GeHistorySyncedSinceTest {
     }
 
     @Test
-    public void aTradeTheSyncImportedIsLeftOutWhateverItsTime() {
+    public void aTradeTheSyncImportedIsLeftOutThoughItsTimeIsInsideTheSlack() {
         AutoSyncTradeMatcher.LastSync lastSync = new AutoSyncTradeMatcher.LastSync(9_000L, open());
 
         assertTrue(lastSync.predates(9_500L, Const.GE_HISTORY_SYNTHETIC_SLOT_START, 9_400L));
+        assertTrue(lastSync.predates(9_000L + SLACK_MS, Const.GE_HISTORY_SYNTHETIC_SLOT_START, 9_400L));
+    }
+
+    /**
+     * The moment is RuneLite config: written minutes after the trades file, and kept per RuneLite
+     * profile. A client killed soon after a sync comes back with the old moment and the old cursor
+     * beside a file holding what that sync imported. Those rows are above the old cursor again.
+     */
+    @Test
+    public void aTradeImportedAfterTheMomentWasByASyncItNeverHeardOfAndStaysComparable() {
+        AutoSyncTradeMatcher.LastSync lastSync = new AutoSyncTradeMatcher.LastSync(9_000L, open());
+
+        assertFalse(lastSync.predates(9_001L + SLACK_MS, Const.GE_HISTORY_SYNTHETIC_SLOT_START, 9_400L));
     }
 
     @Test

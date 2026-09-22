@@ -32,10 +32,7 @@ import static com.osrsfliphub.Skin.*;
 @RequiredArgsConstructor
 final class StatsPanelHeaderBuilder {
     private final UiStyler uiStyler;
-    private final PanelState panelStateService;
-    private final PanelMutableState panelState;
-    private final PanelListener listener;
-    private final Runnable renderStatsItems;
+    private final PanelState panelState;
 
     JPanel buildHeader(
         JComboBox<StatsRange> statsRangeCombo,
@@ -51,7 +48,7 @@ final class StatsPanelHeaderBuilder {
         statsRangeCombo.addActionListener(e -> {
             StatsRange range = (StatsRange) statsRangeCombo.getSelectedItem();
             if (range != null) {
-                panelStateService.onStatsRangeSelectionChanged(listener, panelState, range);
+                panelState.setStatsRange(range);
             }
         });
         rangeRow.add(statsRangeCombo, BorderLayout.WEST);

@@ -51,7 +51,7 @@ public class RecordedConversionHistoryTest {
     }
 
     private static RecipeFlip.Part part(Delta delta, int qty) {
-        return new RecipeFlip.Part(TradeKey.of(delta), qty);
+        return new RecipeFlip.Part(TradeKey.of(delta), qty, null);
     }
 
 
@@ -76,7 +76,7 @@ public class RecordedConversionHistoryTest {
         RecipeFlipStore store = new RecipeFlipStore();
         store.add(ACCOUNT, new RecipeFlip(ConversionKind.ASSEMBLE, "Armadyl godsword",
             Arrays.asList(part(blade, 1), part(hilt, 1)),
-            Collections.singletonList(part(sale, 1)), 0L, 9_000L));
+            Collections.singletonList(part(sale, 1)), 0L, 9_000L, null, null));
 
         List<StatsFlipInstance> entries = allEntries(new LocalFlipHistoryService(store)
             .buildHistory(Arrays.asList(blade, hilt, sale), null, ACCOUNT));
@@ -104,7 +104,7 @@ public class RecordedConversionHistoryTest {
         RecipeFlipStore store = new RecipeFlipStore();
         store.add(ACCOUNT, new RecipeFlip(ConversionKind.ASSEMBLE, "Armadyl godsword",
             Arrays.asList(part(blades, 1), part(hilt, 1)),
-            Collections.singletonList(part(godswordSale, 1)), 0L, 9_000L));
+            Collections.singletonList(part(godswordSale, 1)), 0L, 9_000L, null, null));
 
         Map<Integer, List<StatsFlipInstance>> byItem =
             new LocalFlipHistoryService(store)
@@ -126,9 +126,9 @@ public class RecordedConversionHistoryTest {
         Delta bladeSale = sell(2_000L, 2, BLADE, 1, 4_500_000L);
         RecipeFlipStore store = new RecipeFlipStore();
         store.add(ACCOUNT, new RecipeFlip(ConversionKind.ASSEMBLE, "Armadyl godsword",
-            Arrays.asList(part(blade, 1), new RecipeFlip.Part(new TradeKey(99L, 9, HILT), 1)),
-            Collections.singletonList(new RecipeFlip.Part(new TradeKey(98L, 8, GODSWORD), 1)),
-            0L, 9_000L));
+            Arrays.asList(part(blade, 1), new RecipeFlip.Part(new TradeKey(99L, 9, HILT), 1, null)),
+            Collections.singletonList(new RecipeFlip.Part(new TradeKey(98L, 8, GODSWORD), 1, null)),
+            0L, 9_000L, null, null));
 
         List<StatsFlipInstance> entries = allEntries(new LocalFlipHistoryService(store)
             .buildHistory(Arrays.asList(blade, bladeSale), null, ACCOUNT));
@@ -147,7 +147,7 @@ public class RecordedConversionHistoryTest {
         RecipeFlipStore store = new RecipeFlipStore();
         store.add(ACCOUNT, new RecipeFlip(ConversionKind.ASSEMBLE, "Armadyl godsword",
             Arrays.asList(part(blade, 1), part(hilt, 1)),
-            Collections.singletonList(part(sale, 1)), 0L, 9_000L));
+            Collections.singletonList(part(sale, 1)), 0L, 9_000L, null, null));
 
         Map<Integer, List<StatsFlipInstance>> byItem =
             new LocalFlipHistoryService(store)
@@ -170,7 +170,7 @@ public class RecordedConversionHistoryTest {
         RecipeFlipStore store = new RecipeFlipStore();
         store.add(ACCOUNT, new RecipeFlip(ConversionKind.ASSEMBLE, "Armadyl godsword",
             Arrays.asList(part(blade, 1), part(hilt, 1)),
-            Collections.singletonList(part(sale, 1)), 0L, 9_000L));
+            Collections.singletonList(part(sale, 1)), 0L, 9_000L, null, null));
 
         Map<Integer, List<StatsFlipInstance>> history =
             new LocalFlipHistoryService(store).buildHistory(deltas, null, ACCOUNT);
@@ -207,7 +207,7 @@ public class RecordedConversionHistoryTest {
         RecipeFlipStore store = new RecipeFlipStore();
         store.add(ACCOUNT, new RecipeFlip(ConversionKind.ASSEMBLE, "Armadyl godsword",
             Arrays.asList(part(blades, 1), part(hilt, 1)),
-            Collections.singletonList(part(godswordSale, 1)), 0L, 9_000L));
+            Collections.singletonList(part(godswordSale, 1)), 0L, 9_000L, null, null));
 
         Map<Integer, List<StatsFlipInstance>> history =
             new LocalFlipHistoryService(store).buildHistory(deltas, null, ACCOUNT);

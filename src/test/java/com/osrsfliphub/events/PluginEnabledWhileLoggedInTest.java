@@ -38,7 +38,6 @@ import java.util.Comparator;
 import java.util.stream.Stream;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
-import net.runelite.api.Skill;
 import org.junit.After;
 import org.junit.Test;
 
@@ -51,13 +50,11 @@ import static org.junit.Assert.assertTrue;
  * <p>RuneLite delivers events only to plugins that are running, and it never replays the
  * login for one enabled afterwards. Everything the plugin arranges at login was therefore
  * skipped for the most ordinary way anybody turns it on: log in, open the plugin list, tick
- * the box. The session clock stayed at zero so the Session range showed nothing, and nobody
- * had asked the client for the Smithing level so repairs were priced at the full NPC rate,
- * both until the player happened to log out and back in again.
+ * the box. The session clock stayed at zero so the Session range showed nothing, until the
+ * player happened to log out and back in again.
  */
 public class PluginEnabledWhileLoggedInTest {
     private static final long ACCOUNT_HASH = 987654321L;
-    private static final int SMITHING_LEVEL = 70;
 
     private GameState gameState = GameState.LOGGED_IN;
     /** Somewhere of this test's own. Without it the login path writes into the real profiles. */
@@ -145,6 +142,7 @@ public class PluginEnabledWhileLoggedInTest {
                 bind(LinkAttempt.class).toProvider(Providers.of(null));
                 bind(WikiPrice.class).toProvider(Providers.of(null));
                 bind(PanelRefresh.class).toProvider(Providers.of(null));
+                bind(WipeStateStore.class).toProvider(Providers.of(null));
             }
         });
         Bridge.set(injector);
@@ -153,16 +151,7 @@ public class PluginEnabledWhileLoggedInTest {
 
     private static OfferStampStateServices stampState(PluginState state) {
         OfferUpdateStamp stampService = new OfferUpdateStamp();
-        return new OfferStampStateServices(
-            FliphubConfigGroups.CONFIG_GROUP,
-            FliphubConfigGroups.LEGACY_DEV_CONFIG_GROUP,
-            Const.LOGIN_GRACE_MS,
-            state.getOfferUpdateStamps(),
-            () -> null,
-            () -> null,
-            () -> null,
-            () -> stampService
-        );
+        return new OfferStampStateServices(state, () -> null, () -> null, () -> null, () -> stampService);
     }
 
     private static GameStateChangedHandler handler() {
@@ -180,9 +169,6 @@ public class PluginEnabledWhileLoggedInTest {
                         return gameState;
                     case "getAccountHash":
                         return ACCOUNT_HASH;
-                    case "getRealSkillLevel":
-                        return args != null && args.length == 1 && args[0] == Skill.SMITHING
-                            ? SMITHING_LEVEL : 1;
                     case "toString":
                         return "client-stub";
                     default:

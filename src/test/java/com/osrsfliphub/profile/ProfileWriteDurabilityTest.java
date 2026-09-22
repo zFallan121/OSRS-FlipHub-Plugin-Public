@@ -121,6 +121,98 @@ public class ProfileWriteDurabilityTest {
         }
     }
 
+    /**
+     * A file that will not parse is kept for the player to repair. The load already left it alone,
+     * but the next trade was saved over it, and a year of history became that one trade. Found by
+     * the final audit, 22 Sep 2026. A wipe, which the player asks for in so many words, still may.
+     */
+    @Test
+    public void aFileThatWillNotParseIsNotSavedOverByTheNextTrade() throws Exception {
+        Path baseDir = Files.createTempDirectory("profile-store-unreadable");
+        try {
+            ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
+            PluginState state = new PluginState();
+            RecipeFlipStore recipes = new RecipeFlipStore();
+            Bridge.set(Guice.createInjector(binder -> {
+                binder.bind(ProfileStore.class).toInstance(store);
+                binder.bind(PluginState.class).toInstance(state);
+                binder.bind(Gson.class).toInstance(new Gson());
+                binder.bind(RecipeFlipStore.class).toInstance(recipes);
+                binder.bind(net.runelite.api.Client.class).toInstance((net.runelite.api.Client) java.lang.reflect.Proxy
+                    .newProxyInstance(getClass().getClassLoader(), new Class<?>[] {net.runelite.api.Client.class},
+                        (proxy, method, args) -> method.getReturnType() == boolean.class ? false : null));
+                binder.bind(net.runelite.client.game.ItemManager.class)
+                    .toInstance(unbuilt(net.runelite.client.game.ItemManager.class));
+                binder.bind(net.runelite.client.callback.ClientThread.class).toInstance(queueOnly());
+                binder.bind(net.runelite.client.config.ConfigManager.class)
+                    .toInstance(unbuilt(net.runelite.client.config.ConfigManager.class));
+                binder.bind(okhttp3.OkHttpClient.class).toInstance(new okhttp3.OkHttpClient());
+                binder.bind(WipeStateStore.class).toProvider(com.google.inject.util.Providers.of(null));
+                // Not linked, so a file that reads again sends nothing anywhere.
+                binder.bind(PluginConfig.class).toInstance((PluginConfig) java.lang.reflect.Proxy.newProxyInstance(
+                    getClass().getClassLoader(), new Class<?>[] {PluginConfig.class},
+                    (proxy, method, args) -> method.getReturnType() == boolean.class ? false : null));
+            }));
+            Path file = store.getProfileFile(ACCOUNT, ACCOUNTWIDE);
+            Files.createDirectories(file.getParent());
+            String broken = "{\"deltas\":[{\"itemId\"";
+            Files.writeString(file, broken, java.nio.charset.StandardCharsets.UTF_8);
+
+            Access.set(new GeLifecyclePlugin());
+            assertFalse(Bridge.get(ProfileTradesLoad.class).load(ACCOUNT, false));
+            LocalTradesRuntime runtime = runtimeService(state, () -> new ProfileStorage(state));
+            synchronized (state.getLocalStatsLock()) {
+                runtime.appendTradeDelta(ACCOUNT, trades(1).get(0));
+            }
+            runtime.persistLocalTrades(ACCOUNT);
+            runtime.flushUnsavedProfiles();
+
+            assertEquals("the file is as the player left it", broken,
+                Files.readString(file, java.nio.charset.StandardCharsets.UTF_8));
+
+            // Repaired by hand and read again, it is the plugin's to save once more.
+            store.writeProfileData(ACCOUNT, ACCOUNTWIDE, "Mended", trades(3));
+            assertTrue(Bridge.get(ProfileTradesLoad.class).load(ACCOUNT, false));
+            assertFalse(state.getUnreadableProfiles().contains(ACCOUNT));
+            state.getUnreadableProfiles().add(ACCOUNT);
+
+            assertTrue(new ProfileWipeDataService(state, new Gson(), new ProfileStorage(state), recipes)
+                .clearProfileDataForWipe(ACCOUNT, "Wiped"));
+            assertNotNull("a wipe was asked for, and it writes", store.readProfileData(ACCOUNT, ACCOUNTWIDE));
+        } finally {
+            Access.set(null);
+            Bridge.set(null);
+            deleteRecursively(baseDir);
+        }
+    }
+
+    /** A client thread that only queues what it is handed: nothing here needs it to run. */
+    private static net.runelite.client.callback.ClientThread queueOnly() {
+        net.runelite.client.callback.ClientThread thread = unbuilt(net.runelite.client.callback.ClientThread.class);
+        try {
+            java.lang.reflect.Field invokes =
+                net.runelite.client.callback.ClientThread.class.getDeclaredField("invokes");
+            invokes.setAccessible(true);
+            invokes.set(thread, new java.util.concurrent.ConcurrentLinkedQueue<>());
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError(ex);
+        }
+        return thread;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> T unbuilt(Class<T> type) {
+        try {
+            Class<?> unsafeType = Class.forName("sun.misc.Unsafe");
+            java.lang.reflect.Field handle = unsafeType.getDeclaredField("theUnsafe");
+            handle.setAccessible(true);
+            Object unsafe = handle.get(null);
+            return (T) unsafeType.getMethod("allocateInstance", Class.class).invoke(unsafe, type);
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError("could not stand in for " + type.getSimpleName(), ex);
+        }
+    }
+
     /** A write that could not happen has to leave the account marked unsaved, not saved. */
     @Test
     public void aFailedSaveLeavesTheTradesQueuedForTheNextAttempt() throws Exception {
@@ -190,25 +282,7 @@ public class ProfileWriteDurabilityTest {
     private static LocalTradesRuntime runtimeService(
         PluginState state, Supplier<ProfileStorage> storageSupplier) {
         return new LocalTradesRuntime(
-            ACCOUNTWIDE,
-            Const.LOCAL_EVENT_BUCKET_MS,
-            Const.DUPLICATE_TRADE_WINDOW_MS,
-            state.getLocalStatsLock(),
-            state.getLocalTradeDeltasByAccount(),
-            state.getLoadedProfiles(),
-            state.getLocalTradesLoadState(),
-            () -> null,
-            () -> null,
-            () -> false,
-            () -> null,
-            storageSupplier,
-            () -> { },
-            () -> null,
-            () -> null,
-            () -> null,
-            () -> { },
-            () -> { }
-        );
+            state, () -> null, () -> null, storageSupplier::get, () -> null, () -> null, () -> null, () -> null);
     }
 
     private static List<Delta> trades(int count) {

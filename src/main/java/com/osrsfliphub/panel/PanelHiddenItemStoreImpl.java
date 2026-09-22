@@ -31,13 +31,11 @@ import net.runelite.client.config.ConfigManager;
 @Singleton
 final class PanelHiddenItemStoreImpl implements PanelHiddenItemStore {
     private final Set<Integer> hiddenItems;
-    private final HiddenItemConfigStore hiddenItemConfigStore;
     private final ConfigManager configManager;
 
     @Inject
     PanelHiddenItemStoreImpl(PluginState pluginState, ConfigManager configManager) {
         this.hiddenItems = pluginState.getHiddenItems();
-        this.hiddenItemConfigStore = pluginState.getHiddenItemConfigStore();
         this.configManager = configManager;
     }
 
@@ -48,15 +46,10 @@ final class PanelHiddenItemStoreImpl implements PanelHiddenItemStore {
 
     @Override
     public void hideItem(int itemId) {
-        if (itemId <= 0) {
+        if (itemId <= 0 || !hiddenItems.add(itemId)) {
             return;
         }
-        if (!hiddenItems.add(itemId)) {
-            return;
-        }
-        String value = hiddenItemConfigStore.serializeItemIds(hiddenItems);
-        configManager.setConfiguration(
-            FliphubConfigGroups.CONFIG_GROUP, hiddenItemConfigStore.configKey(), value);
+        configManager.setConfiguration(FliphubConfigGroups.CONFIG_GROUP, "hiddenItems", ItemIdList.join(hiddenItems));
         Panel panel = Access.plugin().panel;
         if (panel != null) {
             panel.refreshBookmarks();

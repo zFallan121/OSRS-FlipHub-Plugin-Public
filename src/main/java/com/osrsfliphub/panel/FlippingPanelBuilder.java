@@ -40,10 +40,7 @@ final class FlippingPanelBuilder {
     }
 
     private final UiStyler uiStyler;
-    private final PanelState panelStateService;
-    private final PanelMutableState panelState;
-    private final PanelListener listener;
-    private final Runnable renderItems;
+    private final PanelState panelState;
     private final FlipHubSearchCoordinator searchCoordinator;
     private final MouseWheelListener wheelForwarder;
 
@@ -84,7 +81,7 @@ final class FlippingPanelBuilder {
             // so the control and the rows it selected read as one statement. Off, it drops back
             // to the action colour: an offer to filter rather than a filter in force.
             bookmarkFilterButton.setForeground(enabled ? WARNING : ACCENT);
-            panelStateService.onBookmarkFilterChanged(panelState, enabled, listener, renderItems);
+            panelState.setBookmarkFilter(enabled);
         });
 
         searchRow.add(searchField, BorderLayout.CENTER);
@@ -135,12 +132,8 @@ final class FlippingPanelBuilder {
         stylePagerButton(prevButton);
         stylePagerButton(nextButton);
 
-        prevButton.addActionListener(e -> {
-            panelStateService.onPrevPageRequested(panelState, listener);
-        });
-        nextButton.addActionListener(e -> {
-            panelStateService.onNextPageRequested(panelState, listener);
-        });
+        prevButton.addActionListener(e -> panelState.previousPage());
+        nextButton.addActionListener(e -> panelState.nextPage());
 
         pageLabel.setForeground(MUTED);
         pageLabel.setFont(uiStyler.font(10.5f));
@@ -154,7 +147,7 @@ final class FlippingPanelBuilder {
         panel.add(scrollPane, BorderLayout.CENTER);
         panel.add(footerPanel, BorderLayout.SOUTH);
 
-        panelStateService.hookSearchListener(searchCoordinator, searchField, panelState, listener);
+        searchCoordinator.hookSearchListener(searchField, () -> panelState.setSearchQuery(searchField.getText()));
         return new BuildResult(panel, footerPanel);
     }
 
@@ -173,18 +166,15 @@ final class FlippingPanelBuilder {
         // is pushed sideways by half the panel.
         row.setAlignmentX(JPanel.CENTER_ALIGNMENT);
 
-        panelStateService.restoreItemSort(panelState);
+        panelState.restoreItemSort();
 
         uiStyler.styleComboBox(itemSortCombo);
         itemSortCombo.setBorder(uiStyler.roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
-        itemSortCombo.setSelectedItem(panelState.itemSort != null
-            ? panelState.itemSort
-            : StatsItemSort.COMPLETION);
+        itemSortCombo.setSelectedItem(panelState.itemSort);
         itemSortCombo.addActionListener(e -> {
             StatsItemSort sort = (StatsItemSort) itemSortCombo.getSelectedItem();
             if (sort != null) {
-                panelStateService.onItemSortChanged(
-                    panelState, sort, panelState.itemSortAscending, listener);
+                panelState.setItemSort(sort, panelState.itemSortAscending);
             }
         });
 
@@ -197,11 +187,7 @@ final class FlippingPanelBuilder {
         uiStyler.sizeTrailingControl(itemSortDirectionButton, itemSortCombo);
         itemSortDirectionButton.addActionListener(e -> {
             boolean ascending = !panelState.itemSortAscending;
-            panelStateService.onItemSortChanged(
-                panelState,
-                panelState.itemSort,
-                ascending,
-                listener);
+            panelState.setItemSort(panelState.itemSort, ascending);
             updateSortDirectionButton(itemSortDirectionButton, ascending, markSize);
         });
         updateSortDirectionButton(itemSortDirectionButton,

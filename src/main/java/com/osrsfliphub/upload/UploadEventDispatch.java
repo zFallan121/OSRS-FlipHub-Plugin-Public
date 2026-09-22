@@ -32,13 +32,15 @@ import org.slf4j.Logger;
 
 @Singleton
 final class UploadEventDispatch {
+    private static final int MAX_PENDING_UPLOAD_EVENTS = 10_000;
+
     /** First wait after a failure the server might recover from. */
     private static final long UPLOAD_BACKOFF_INITIAL_MS = 5_000L;
     /** Longest the flush will wait before trying again. */
     private static final long UPLOAD_BACKOFF_MAX_MS = 5L * 60L * 1000L;
     private final Client client;
     private final UploadDiagnosticsState uploadState;
-    private final int maxPendingUploadEvents = Const.MAX_PENDING_UPLOAD_EVENTS;
+    private final int maxPendingUploadEvents = MAX_PENDING_UPLOAD_EVENTS;
     private final int maxBatchSize = Const.MAX_BATCH_SIZE;
 
     @Inject

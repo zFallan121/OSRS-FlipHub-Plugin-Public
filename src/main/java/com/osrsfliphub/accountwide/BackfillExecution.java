@@ -32,6 +32,8 @@ import net.runelite.client.config.ConfigManager;
 
 @Singleton
 final class BackfillExecution {
+    private static final long BACKFILL_MIN_INTERVAL_MS = 60_000L;
+
     private final UploadBackfillDispatch uploadBackfillDispatch;
     private final AccountwideBackfillCoordinator accountwideBackfillCoordinator;
     private final ProfileSelectionPresentation profileSelectionPresentation;
@@ -54,7 +56,7 @@ final class BackfillExecution {
         this.uploadBackfillDispatch = uploadBackfillDispatch;
         this.accountwideBackfillCoordinator = accountwideBackfillCoordinator;
         this.profileSelectionPresentation = profileSelectionPresentation;
-        this.backfillMinIntervalMs = Math.max(0L, Const.BACKFILL_MIN_INTERVAL_MS);
+        this.backfillMinIntervalMs = Math.max(0L, BACKFILL_MIN_INTERVAL_MS);
         this.client = client;
         this.apiClient = apiClient;
         this.configManager = configManager;

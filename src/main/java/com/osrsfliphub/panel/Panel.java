@@ -27,6 +27,7 @@ package com.osrsfliphub;
 import java.awt.*;
 import java.awt.event.MouseWheelListener;
 import java.awt.image.BufferedImage;
+import java.time.Instant;
 import java.util.*;
 import java.util.List;
 import javax.swing.*;
@@ -64,12 +65,10 @@ public class Panel extends PluginPanel {
     private final Set<Integer> expandedStatsHistoryItems = new HashSet<>();
     private final UiStyler uiStyler = new UiStyler();
     private final PanelValueFormat valueFormatService = new PanelValueFormat();
-    private final ItemsRender itemsRenderCoordinator = new ItemsRender();
     private final StatsRender statsRenderCoordinator = new StatsRender();
     private final StatsPagerBuilder statsPagerBuilder = new StatsPagerBuilder(uiStyler);
     private final StatsState statsStateCoordinator = new StatsState();
-    private final PanelState panelStateService = new PanelState();
-    private final PanelMutableState panelState = new PanelMutableState();
+    private final PanelState panelState;
     private final ExternalLink externalLinkCoordinator = new ExternalLink(DEFAULT_BASE_URL);
     private final AgeTooltip ageTooltipCoordinator = new AgeTooltip(valueFormatService);
     private final WheelScroll wheelScrollCoordinator;
@@ -97,6 +96,7 @@ public class Panel extends PluginPanel {
         PluginConfig config
     ) {
         super(false);
+        panelState = new PanelState(listener, this::renderItems, this::renderStatsItems, this::updateStatsSummary);
         ItemIconResolver itemIconResolver = new ItemIconResolver(itemManager, new HashMap<>());
         wheelScrollCoordinator = new WheelScroll(
             () -> statsTab.isSelected() ? activeStatsScrollPane() : scrollPane, this);
@@ -108,11 +108,9 @@ public class Panel extends PluginPanel {
         itemListContentRenderer = new ItemListContentRenderer(
             uiStyler, hiddenItemStore, bookmarkStore, itemCardBuilder, ageTooltipCoordinator);
         FlippingPanelBuilder flippingPanelBuilder = new FlippingPanelBuilder(
-            uiStyler, panelStateService, panelState, listener, this::renderItems,
-            new FlipHubSearchCoordinator(), wheelForwarder);
+            uiStyler, panelState, new FlipHubSearchCoordinator(), wheelForwarder);
         statsPanelBuilder = new StatsPanelBuilder(
-            uiStyler, valueFormatService, panelStateService, panelState, listener,
-            this::renderStatsItems, this::updateStatsSummary, wheelScrollCoordinator, wheelForwarder);
+            uiStyler, valueFormatService, panelState, wheelScrollCoordinator, wheelForwarder);
         statsItemCardBuilder = new StatsItemCardBuilder(
             valueFormatService, uiStyler, itemIconResolver, () -> expandedStatsItemId,
             expandedStatsHistoryItems, panelState, this::toggleStatsItemExpanded,
@@ -137,8 +135,7 @@ public class Panel extends PluginPanel {
         JButton discordButton = chromeBuilder.buildDiscordButton(
             () -> externalLinkCoordinator.openExternalUrl(DISCORD_INVITE_URL));
         JPanel tabs = chromeBuilder.buildTabs(flippingTab, statsTab, linkTab, discordButton,
-            card -> panelStateService.switchTab(card, ageTooltipCoordinator, uiStyler, flippingTab,
-                statsTab, linkTab, cardLayout, cardPanel, listener, statsRangeCombo));
+            card -> switchTab(card, listener));
 
         cardPanel.setOpaque(false);
         FlippingPanelBuilder.BuildResult flipping = flippingPanelBuilder.build(
@@ -176,6 +173,25 @@ public class Panel extends PluginPanel {
         addMouseWheelListener(wheelForwarder);
         cardPanel.addMouseWheelListener(wheelForwarder);
         wheelScrollCoordinator.installGlobalWheelListener();
+    }
+
+    private void switchTab(String card, PanelListener listener) {
+        boolean statsSelected = "stats".equals(card);
+        ageTooltipCoordinator.clearHoverAndHide();
+        uiStyler.styleTab(flippingTab, "flipping".equals(card));
+        uiStyler.styleTab(statsTab, statsSelected);
+        uiStyler.styleTab(linkTab, "account".equals(card));
+        cardLayout.show(cardPanel, card);
+        if ("account".equals(card)) {
+            LinkStatus status = Bridge.get(LinkStatus.class);
+            if (status != null) {
+                status.pushToPanel();
+            }
+        }
+        StatsRange range = (StatsRange) statsRangeCombo.getSelectedItem();
+        if (statsSelected && range != null) {
+            listener.onStatsRangeChanged(range);
+        }
     }
 
     /**
@@ -244,18 +260,42 @@ public class Panel extends PluginPanel {
     // Everything below that sets something is called off the Swing thread, so each hops onto it.
 
     void setItems(List<FlipHubItem> items, int page, int totalPages, long asOfMs, Long priceCacheMs) {
-        SwingUtilities.invokeLater(() -> panelStateService.setItems(panelState, items, page, totalPages,
-            asOfMs, priceCacheMs, pageLabel, prevButton, nextButton, this::renderItems));
+        SwingUtilities.invokeLater(() -> {
+            panelState.lastItems = items;
+            panelState.lastAsOfMs = asOfMs;
+            panelState.lastPriceCacheMs = priceCacheMs;
+            panelState.currentPage = page;
+            panelState.totalPages = Math.max(1, totalPages);
+            // The page actually drawn, which is the requested one clamped to what exists. Leaving
+            // the plugin on the page the user had asked for meant a list that shrank and later grew
+            // silently jumped back to it.
+            GeLifecyclePlugin plugin = Access.pluginOrNull();
+            if (plugin != null) {
+                plugin.currentPage = page;
+            }
+            pageLabel.setText("Page " + page + " of " + panelState.totalPages);
+            prevButton.setEnabled(page > 1);
+            nextButton.setEnabled(page < panelState.totalPages);
+            renderItems();
+        });
     }
 
     void setStatsData(StatsSummary summary,
                       List<StatsItem> items,
                       Map<Integer, List<StatsFlipInstance>> historyByItem,
                       long asOfMs) {
-        SwingUtilities.invokeLater(() -> expandedStatsItemId = panelStateService.setStatsData(
-            panelState, summary, items, historyByItem, expandedStatsItemId, expandedStatsHistoryItems,
-            statsStateCoordinator, this::updateStatsUpdatedLabel, this::updateStatsSummary,
-            this::renderStatsItems, asOfMs));
+        SwingUtilities.invokeLater(() -> {
+            StatsState.Result shown = statsStateCoordinator.normalize(
+                summary, items, historyByItem, expandedStatsItemId, expandedStatsHistoryItems);
+            panelState.statsSummary = summary;
+            panelState.statsItems = shown.statsItems;
+            panelState.statsFlipHistoryByItem = shown.flipHistoryByItem;
+            expandedStatsItemId = shown.expandedStatsItemId;
+            if (asOfMs > 0) {
+                statsUpdatedLabel.setText(refreshText(asOfMs, null));
+            }
+            panelState.drawStats();
+        });
     }
 
     void refreshBookmarks() {
@@ -267,8 +307,7 @@ public class Panel extends PluginPanel {
     }
 
     void setOfferPreview(FlipHubItem item, long asOfMs, Long priceCacheMs) {
-        SwingUtilities.invokeLater(() -> panelStateService.setOfferPreview(
-            panelState, item, asOfMs, priceCacheMs, this::renderItems));
+        SwingUtilities.invokeLater(() -> panelState.setOfferPreview(item, asOfMs, priceCacheMs));
     }
 
     void setAccountState(boolean linked, String keyHint, String message, Color messageColor) {
@@ -292,15 +331,41 @@ public class Panel extends PluginPanel {
         SwingUtilities.invokeLater(() -> profileMenuCoordinator.setProfileOptions(options, selectedKey));
     }
 
-    private void updateStatsUpdatedLabel(long asOfMs) {
-        panelStateService.updateStatsUpdatedLabel(statsUpdatedLabel, asOfMs);
+    private static String refreshText(long asOfMs, Long priceCacheMs) {
+        String asOf = REFRESH_TIME_FORMATTER.format(Instant.ofEpochMilli(asOfMs));
+        if (priceCacheMs != null) {
+            String cache = REFRESH_TIME_FORMATTER.format(Instant.ofEpochMilli(priceCacheMs));
+            return "Updated: " + asOf + " (Prices: " + cache + ")";
+        }
+        return "Updated: " + asOf;
     }
 
     private void renderItems() {
-        itemsRenderCoordinator.renderItems(listPanel, ageTooltipCoordinator, itemListContentRenderer,
-            panelState.offerPreviewItem, panelState.offerAsOfMs, panelState.lastItems, panelState.lastAsOfMs,
-            panelState.showBookmarkedOnly, panelState.searchQuery, refreshLabel, panelState.lastPriceCacheMs,
-            panelState.offerPriceCacheMs, panelStateService::buildRefreshText, footerPanel, scrollPane);
+        FlipHubItem offer = panelState.offerPreviewItem;
+        // The renderer answers whether it had to rebuild the panel or could write the new
+        // values into the rows already in it. A refresh that only moved the numbers has no
+        // layout to run and no hover to put back - that is the whole point of asking.
+        boolean rebuilt = itemListContentRenderer.renderList(listPanel, offer, panelState.offerAsOfMs,
+            panelState.lastItems, panelState.lastAsOfMs, panelState.showBookmarkedOnly, panelState.searchQuery);
+        long refreshAsOf = panelState.lastAsOfMs > 0 ? panelState.lastAsOfMs : panelState.offerAsOfMs;
+        if (refreshAsOf > 0) {
+            refreshLabel.setText(refreshText(refreshAsOf,
+                panelState.lastPriceCacheMs != null ? panelState.lastPriceCacheMs : panelState.offerPriceCacheMs));
+        }
+        // Null only while the constructor is still building the tabs.
+        if (footerPanel != null) {
+            footerPanel.setVisible(offer == null);
+        }
+        if (offer != null) {
+            scrollPane.getVerticalScrollBar().setValue(0);
+        }
+        if (rebuilt) {
+            listPanel.revalidate();
+            listPanel.repaint();
+            // The rows the pointer was over are gone, replaced by rows that never heard of it.
+            HoverRestorer.restoreAfterRebuild(listPanel);
+        }
+        ageTooltipCoordinator.ensureCountdownTimer();
     }
 
     private void updateStatsSummary() {
@@ -328,7 +393,7 @@ public class Panel extends PluginPanel {
      * rows of the page that was just replaced - scroll back to the first card of the new page.
      */
     private void goToStatsPage(int page) {
-        panelStateService.onStatsPageRequested(panelState, page, this::renderStatsItems);
+        panelState.setStatsPage(page);
         SwingUtilities.invokeLater(() -> statsItemsListPanel.scrollRectToVisible(new Rectangle(0, 0, 1, 1)));
     }
 

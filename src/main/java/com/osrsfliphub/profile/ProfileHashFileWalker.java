@@ -26,7 +26,9 @@ package com.osrsfliphub;
 
 import java.io.IOException;
 import java.nio.file.*;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 final class ProfileHashFileWalker {
     interface Visitor {
         void visit(long profileHash, Path file);
@@ -50,7 +52,9 @@ final class ProfileHashFileWalker {
                 }
                 visitor.visit(hash, path);
             }
-        } catch (IOException ignored) {
+        } catch (IOException ex) {
+            // Silently listing nothing reads as a player with no saved characters.
+            log.warn("FlipHub: could not list the profile files in {}", dir, ex);
         }
     }
 }

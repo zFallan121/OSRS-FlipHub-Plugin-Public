@@ -25,124 +25,96 @@
 package com.osrsfliphub;
 
 import java.util.*;
-import java.util.function.Supplier;
 import javax.inject.*;
 import lombok.*;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.client.config.ConfigManager;
 
 @Singleton
-@RequiredArgsConstructor
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class OfferStampStateServices {
-    private final String configGroup;
-    private final String legacyDevConfigGroup;
-    private final long loginGraceMs;
-    private final Map<Integer, Stamp> offerUpdateStamps;
-    private final Supplier<ConfigManager> configManagerSupplier;
-    private final Supplier<PluginConfig> configSupplier;
-    private final Supplier<OfferUpdateStampPersistence> offerUpdateStampPersistenceServiceSupplier;
-    private final Supplier<OfferUpdateStamp> offerUpdateStampServiceSupplier;
+    private static final long LOGIN_GRACE_MS = 60_000L;
+
+    private final PluginState state;
+    // Providers, so a unit test can leave out whichever it does not exercise.
+    private final Provider<ConfigManager> configManager;
+    private final Provider<PluginConfig> config;
+    private final Provider<OfferUpdateStampPersistence> persistence;
+    private final Provider<OfferUpdateStamp> stamps;
 
     private volatile long offerUpdateStampsAccountKey = -1L;
     private volatile boolean offerUpdateStampsLoaded = false;
     @Getter
     private volatile long lastLoginMs;
 
-    @Inject
-    OfferStampStateServices(PluginState pluginState, ConfigManager configManager) {
-        this(FliphubConfigGroups.CONFIG_GROUP,
-            FliphubConfigGroups.LEGACY_DEV_CONFIG_GROUP,
-            Const.LOGIN_GRACE_MS,
-            pluginState.getOfferUpdateStamps(),
-            () -> configManager,
-            () -> Access.plugin().config,
-            () -> Bridge.get(OfferUpdateStampPersistence.class),
-            () -> Bridge.get(OfferUpdateStamp.class));
-    }
-
     void resetForStartup() {
         offerUpdateStampsAccountKey = -1L;
         offerUpdateStampsLoaded = false;
-        if (offerUpdateStamps != null) {
-            offerUpdateStamps.clear();
-        }
+        state.getOfferUpdateStamps().clear();
     }
 
     void migrateLegacyDevConfigIfNeeded() {
-        ConfigManager configManager = resolveConfigManager();
-        if (configManager == null) {
+        ConfigManager manager = configManager.get();
+        if (manager == null) {
             return;
         }
-        migrateLegacyDevConfigValue(configManager, "deviceId");
-        migrateLegacyDevConfigValue(configManager, "sessionToken");
-        migrateLegacyDevConfigValue(configManager, "signingSecret");
-        migrateLegacyDevConfigValue(configManager, "bookmarks");
-        migrateLegacyDevConfigValue(configManager, "hiddenItems");
+        migrateLegacyDevConfigValue(manager, "deviceId");
+        migrateLegacyDevConfigValue(manager, "sessionToken");
+        migrateLegacyDevConfigValue(manager, "signingSecret");
+        migrateLegacyDevConfigValue(manager, "bookmarks");
+        migrateLegacyDevConfigValue(manager, "hiddenItems");
     }
 
     void ensureDeviceId() {
-        PluginConfig config = configSupplier != null ? configSupplier.get() : null;
-        ConfigManager configManager = resolveConfigManager();
-        if (config == null || configManager == null) {
-            return;
-        }
-        String deviceId = config.deviceId();
-        if (Str.isBlank(deviceId)) {
-            configManager.setConfiguration(configGroup, "deviceId", UUID.randomUUID().toString());
+        PluginConfig pluginConfig = config.get();
+        ConfigManager manager = configManager.get();
+        if (pluginConfig != null && manager != null && Str.isBlank(pluginConfig.deviceId())) {
+            manager.setConfiguration(FliphubConfigGroups.CONFIG_GROUP, "deviceId", UUID.randomUUID().toString());
         }
     }
 
     void loadOfferUpdateTimesForCurrentAccount() {
-        OfferUpdateStampPersistence persistence = resolveOfferUpdateStampPersistenceService();
-        if (persistence == null || offerUpdateStamps == null) {
+        OfferUpdateStampPersistence store = persistence.get();
+        if (store == null) {
             return;
         }
-        OfferUpdateStampPersistence.LoadState state = persistence.loadForCurrentAccount(
-            offerUpdateStamps,
+        OfferUpdateStampPersistence.LoadState loaded = store.loadForCurrentAccount(
+            state.getOfferUpdateStamps(),
             offerUpdateStampsAccountKey,
             offerUpdateStampsLoaded
         );
-        offerUpdateStampsAccountKey = state.accountKey;
-        offerUpdateStampsLoaded = state.loaded;
+        offerUpdateStampsAccountKey = loaded.accountKey;
+        offerUpdateStampsLoaded = loaded.loaded;
     }
 
     void persistOfferUpdateTimes() {
-        OfferUpdateStampPersistence persistence = resolveOfferUpdateStampPersistenceService();
-        if (persistence == null || offerUpdateStamps == null) {
-            return;
+        OfferUpdateStampPersistence store = persistence.get();
+        if (store != null) {
+            offerUpdateStampsAccountKey = store.persistForCurrentAccount(
+                state.getOfferUpdateStamps(), offerUpdateStampsAccountKey);
         }
-        offerUpdateStampsAccountKey = persistence.persistForCurrentAccount(
-            offerUpdateStamps,
-            offerUpdateStampsAccountKey
-        );
     }
 
     void trackOfferUpdate(int slot, OfferSnapshot prev, OfferSnapshot next) {
-        OfferUpdateStamp service = resolveOfferUpdateStampService();
-        if (service != null && offerUpdateStamps != null) {
-            service.trackOfferUpdate(offerUpdateStamps, slot, prev, next);
+        OfferUpdateStamp service = stamps.get();
+        if (service != null) {
+            service.trackOfferUpdate(state.getOfferUpdateStamps(), slot, prev, next);
         }
     }
 
     boolean isWithinLoginGrace() {
-        if (lastLoginMs <= 0) {
-            return false;
-        }
-        return System.currentTimeMillis() - lastLoginMs <= loginGraceMs;
+        return lastLoginMs > 0 && System.currentTimeMillis() - lastLoginMs <= LOGIN_GRACE_MS;
     }
 
     boolean stampMatchesSnapshot(Stamp stamp, OfferSnapshot snapshot) {
-        OfferUpdateStamp service = resolveOfferUpdateStampService();
+        OfferUpdateStamp service = stamps.get();
         return service != null && service.stampMatchesSnapshot(stamp, snapshot);
     }
 
     long getOfferLastUpdateMs(int slot, GrandExchangeOffer offer) {
         loadOfferUpdateTimesForCurrentAccount();
-        OfferUpdateStamp service = resolveOfferUpdateStampService();
-        if (service == null || offerUpdateStamps == null) {
-            return 0L;
-        }
-        return service.getOfferLastUpdateMs(offerUpdateStamps, slot, offer);
+        OfferUpdateStamp service = stamps.get();
+        return service == null ? 0L : service.getOfferLastUpdateMs(state.getOfferUpdateStamps(), slot, offer);
     }
 
     void resetOfferUpdateStampsOnLogout() {
@@ -153,35 +125,19 @@ final class OfferStampStateServices {
         lastLoginMs = System.currentTimeMillis();
     }
 
-    private void migrateLegacyDevConfigValue(ConfigManager configManager, String key) {
-        if (Str.isBlank(key)) {
-            return;
-        }
-        String current = configManager.getConfiguration(configGroup, key);
+    private void migrateLegacyDevConfigValue(ConfigManager manager, String key) {
+        String current = manager.getConfiguration(FliphubConfigGroups.CONFIG_GROUP, key);
         if (Str.hasText(current)) {
             return;
         }
-        String legacy = configManager.getConfiguration(legacyDevConfigGroup, key);
+        String legacy = manager.getConfiguration(FliphubConfigGroups.LEGACY_DEV_CONFIG_GROUP, key);
         if (Str.isBlank(legacy)) {
             return;
         }
         try {
-            configManager.setConfiguration(configGroup, key, legacy);
+            manager.setConfiguration(FliphubConfigGroups.CONFIG_GROUP, key, legacy);
         } catch (RuntimeException ignored) {
+            // The old value stays where it was, and the next start tries the copy again.
         }
-    }
-
-    private ConfigManager resolveConfigManager() {
-        return configManagerSupplier != null ? configManagerSupplier.get() : null;
-    }
-
-    private OfferUpdateStampPersistence resolveOfferUpdateStampPersistenceService() {
-        return offerUpdateStampPersistenceServiceSupplier != null
-            ? offerUpdateStampPersistenceServiceSupplier.get()
-            : null;
-    }
-
-    private OfferUpdateStamp resolveOfferUpdateStampService() {
-        return offerUpdateStampServiceSupplier != null ? offerUpdateStampServiceSupplier.get() : null;
     }
 }

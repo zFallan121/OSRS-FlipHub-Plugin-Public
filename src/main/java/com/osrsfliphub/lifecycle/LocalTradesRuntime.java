@@ -27,10 +27,11 @@ package com.osrsfliphub;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.*;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class LocalTradesRuntime {
     private static final org.slf4j.Logger log =
         org.slf4j.LoggerFactory.getLogger(LocalTradesRuntime.class);
@@ -40,129 +41,42 @@ final class LocalTradesRuntime {
     /** Accounts a write is already running for, so two writers cannot race the same file. */
     private final Map<Long, AtomicBoolean> savingProfiles = new ConcurrentHashMap<>();
 
-    private final long accountwideKey;
-    private final long localEventBucketMs;
-    private final long duplicateTradeWindowMs;
-    private final Object localStatsLock;
-    private final Map<Long, List<Delta>> localTradeDeltasByAccount;
-    private final Set<Long> loadedProfiles;
-    private final TradesLoad.State localTradesLoadState;
-    private final Supplier<TradesLoad> localTradesLoadCoordinatorSupplier;
-    private final Supplier<ScheduledExecutorService> schedulerSupplier;
-    private final BooleanSupplier clientThreadAvailableSupplier;
-    private final Supplier<ProfileTradesLoad> localProfileTradesLoadServiceSupplier;
-    private final Supplier<ProfileStorage> profileStorageFacadeServiceSupplier;
-    private final Runnable markLocalTradesLoadedForLogin;
-    private final Supplier<SummaryUploader> accountwideSummaryUploaderSupplier;
-    private final Supplier<ProfileSelectionPresentation> profileSelectionPresentationFacadeSupplier;
-    private final Supplier<UploadBackfillDispatch> uploadBackfillDispatchServiceSupplier;
-    private final Runnable onProfileOptionsChanged;
-    private final Runnable onProfileHeaderChanged;
-
-    @Inject
-    LocalTradesRuntime(PluginState pluginState) {
-        this(Const.ACCOUNTWIDE_KEY,
-            Const.LOCAL_EVENT_BUCKET_MS,
-            Const.DUPLICATE_TRADE_WINDOW_MS,
-            pluginState.getLocalStatsLock(),
-            pluginState.getLocalTradeDeltasByAccount(),
-            pluginState.getLoadedProfiles(),
-            pluginState.getLocalTradesLoadState(),
-            () -> Bridge.get(TradesLoad.class),
-            () -> Access.plugin().scheduler,
-            () -> Access.plugin().clientThread != null,
-            () -> Bridge.get(ProfileTradesLoad.class),
-            () -> Bridge.get(ProfileStorage.class),
-            () -> Access.plugin().localTradesLoadedThisLogin = true,
-            () -> Bridge.get(SummaryUploader.class),
-            () -> Bridge.get(ProfileSelectionPresentation.class),
-            () -> Bridge.get(UploadBackfillDispatch.class),
-            () -> Access.plugin().getProfileWorkflowService().updateProfileOptionsUI(),
-            () -> Access.plugin().getProfileWorkflowService().updateProfileHeader());
-    }
-
-    LocalTradesRuntime(
-        long accountwideKey,
-        long localEventBucketMs,
-        long duplicateTradeWindowMs,
-        Object localStatsLock,
-        Map<Long, List<Delta>> localTradeDeltasByAccount,
-        Set<Long> loadedProfiles,
-        TradesLoad.State localTradesLoadState,
-        Supplier<TradesLoad> localTradesLoadCoordinatorSupplier,
-        Supplier<ScheduledExecutorService> schedulerSupplier,
-        BooleanSupplier clientThreadAvailableSupplier,
-        Supplier<ProfileTradesLoad> localProfileTradesLoadServiceSupplier,
-        Supplier<ProfileStorage> profileStorageFacadeServiceSupplier,
-        Runnable markLocalTradesLoadedForLogin,
-        Supplier<SummaryUploader> accountwideSummaryUploaderSupplier,
-        Supplier<ProfileSelectionPresentation> profileSelectionPresentationFacadeSupplier,
-        Supplier<UploadBackfillDispatch> uploadBackfillDispatchServiceSupplier,
-        Runnable onProfileOptionsChanged,
-        Runnable onProfileHeaderChanged
-    ) {
-        this.accountwideKey = accountwideKey;
-        this.localEventBucketMs = localEventBucketMs;
-        this.duplicateTradeWindowMs = duplicateTradeWindowMs;
-        this.localStatsLock = localStatsLock;
-        this.localTradeDeltasByAccount = localTradeDeltasByAccount;
-        this.loadedProfiles = loadedProfiles;
-        this.localTradesLoadState = localTradesLoadState;
-        this.localTradesLoadCoordinatorSupplier = localTradesLoadCoordinatorSupplier;
-        this.schedulerSupplier = schedulerSupplier;
-        this.clientThreadAvailableSupplier = clientThreadAvailableSupplier;
-        this.localProfileTradesLoadServiceSupplier = localProfileTradesLoadServiceSupplier;
-        this.profileStorageFacadeServiceSupplier = profileStorageFacadeServiceSupplier;
-        this.markLocalTradesLoadedForLogin = markLocalTradesLoadedForLogin;
-        this.accountwideSummaryUploaderSupplier = accountwideSummaryUploaderSupplier;
-        this.profileSelectionPresentationFacadeSupplier = profileSelectionPresentationFacadeSupplier;
-        this.uploadBackfillDispatchServiceSupplier = uploadBackfillDispatchServiceSupplier;
-        this.onProfileOptionsChanged = onProfileOptionsChanged;
-        this.onProfileHeaderChanged = onProfileHeaderChanged;
-    }
+    private final PluginState state;
+    // Providers rather than the services: most of them reach back here, and a unit test leaves
+    // out whichever it does not exercise.
+    private final Provider<TradesLoad> tradesLoad;
+    private final Provider<ProfileTradesLoad> profileTradesLoad;
+    private final Provider<ProfileStorage> profileStorage;
+    private final Provider<SummaryUploader> summaryUploader;
+    private final Provider<ProfileSelectionPresentation> profileSelection;
+    private final Provider<UploadBackfillDispatch> uploads;
+    private final Provider<ProfileUi> profileUi;
 
     void ensureLocalTradesLoaded(long accountKey) {
-        TradesLoad coordinator = localTradesLoadCoordinatorSupplier.get();
-        if (coordinator != null) {
-            coordinator.ensureLocalTradesLoaded(accountKey);
+        TradesLoad loads = tradesLoad.get();
+        if (loads != null) {
+            loads.ensureLocalTradesLoaded(accountKey);
         }
     }
 
     void scheduleLocalTradesLoad() {
-        TradesLoad coordinator = localTradesLoadCoordinatorSupplier.get();
-        if (coordinator != null) {
-            coordinator.scheduleLocalTradesLoad(
-                localTradesLoadState,
-                schedulerSupplier.get(),
-                clientThreadAvailableSupplier.getAsBoolean()
-            );
-        }
-    }
-
-    void attemptLocalTradesLoad() {
-        TradesLoad coordinator = localTradesLoadCoordinatorSupplier.get();
-        if (coordinator != null) {
-            coordinator.attemptLocalTradesLoad();
+        TradesLoad loads = tradesLoad.get();
+        if (loads != null) {
+            GeLifecyclePlugin plugin = Access.plugin();
+            loads.scheduleLocalTradesLoad(state.getLocalTradesLoadState(), plugin.scheduler, plugin.clientThread != null);
         }
     }
 
     void loadLocalTradesAsync(long accountHash) {
-        TradesLoad coordinator = localTradesLoadCoordinatorSupplier.get();
-        if (coordinator != null) {
-            coordinator.loadLocalTradesAsync(accountHash);
+        TradesLoad loads = tradesLoad.get();
+        if (loads != null) {
+            loads.loadLocalTradesAsync(accountHash);
         }
-    }
-
-    boolean loadLocalTradesForAccount(long accountHash) {
-        return loadLocalTradesForAccount(accountHash, true);
     }
 
     boolean loadLocalTradesForAccount(long accountHash, boolean persistAfterLoad) {
-        ProfileTradesLoad service = localProfileTradesLoadServiceSupplier.get();
-        if (service == null) {
-            return false;
-        }
-        return service.load(accountHash, persistAfterLoad);
+        ProfileTradesLoad service = profileTradesLoad.get();
+        return service != null && service.load(accountHash, persistAfterLoad);
     }
 
     /**
@@ -181,17 +95,17 @@ final class LocalTradesRuntime {
         }
         unsavedProfiles.computeIfAbsent(accountKey, key -> new AtomicBoolean()).set(true);
         beginSaving(accountKey);
-        markLocalTradesLoadedForLogin.run();
-        if (accountKey != accountwideKey) {
-            SummaryUploader uploader = accountwideSummaryUploaderSupplier.get();
+        markLocalTradesLoadedForLogin();
+        if (accountKey != Const.ACCOUNTWIDE_KEY) {
+            SummaryUploader uploader = summaryUploader.get();
             if (uploader != null) {
                 uploader.markDirty();
             }
-            ProfileSelectionPresentation profileFacade = profileSelectionPresentationFacadeSupplier.get();
-            if (profileFacade != null && profileFacade.isLinked()) {
-                UploadBackfillDispatch uploadService = uploadBackfillDispatchServiceSupplier.get();
-                if (uploadService != null) {
-                    uploadService.requestAccountwideSync();
+            ProfileSelectionPresentation profiles = profileSelection.get();
+            if (profiles != null && profiles.isLinked()) {
+                UploadBackfillDispatch dispatch = uploads.get();
+                if (dispatch != null) {
+                    dispatch.requestAccountwideSync();
                 }
             }
         }
@@ -240,11 +154,11 @@ final class LocalTradesRuntime {
     /** @return true when the account's trades reached disk. */
     private boolean writeProfileSnapshot(long accountKey) {
         List<Delta> snapshot;
-        synchronized (localStatsLock) {
-            List<Delta> deltas = localTradeDeltasByAccount.get(accountKey);
+        synchronized (state.getLocalStatsLock()) {
+            List<Delta> deltas = state.getLocalTradeDeltasByAccount().get(accountKey);
             snapshot = deltas != null ? new ArrayList<>(deltas) : new ArrayList<>();
         }
-        ProfileStorage storageFacade = profileStorageFacadeServiceSupplier.get();
+        ProfileStorage storageFacade = profileStorage.get();
         return storageFacade != null && storageFacade.writeProfileData(accountKey, snapshot);
     }
 
@@ -284,50 +198,31 @@ final class LocalTradesRuntime {
         if (accountKey < 0 || delta == null) {
             return TradeOfferCollapser.Outcome.DROPPED;
         }
-        List<Delta> deltas = localTradeDeltasByAccount.computeIfAbsent(accountKey, key -> new ArrayList<>());
+        List<Delta> deltas = state.getLocalTradeDeltasByAccount().computeIfAbsent(accountKey, key -> new ArrayList<>());
         if (TradeDeltaUtils.isLikelyDuplicateTradeDelta(
-            deltas,
-            delta,
-            localEventBucketMs,
-            duplicateTradeWindowMs,
-            12
-        )) {
+            deltas, delta, Const.LOCAL_EVENT_BUCKET_MS, Const.DUPLICATE_TRADE_WINDOW_MS, 12)) {
             return TradeOfferCollapser.Outcome.DROPPED;
         }
         return TradeOfferCollapser.append(deltas, delta);
     }
 
     void ensureProfileLoaded(long accountKey) {
-        if (accountKey < 0) {
+        Set<Long> loaded = state.getLoadedProfiles();
+        if (accountKey < 0 || loaded.contains(accountKey)) {
             return;
         }
-        if (accountKey == accountwideKey) {
-            if (!loadedProfiles.contains(accountKey)) {
-                loadLocalTradesForAccount(accountKey);
-                loadedProfiles.add(accountKey);
-                onProfileOptionsChanged.run();
-                onProfileHeaderChanged.run();
-            }
-            return;
-        }
-        if (loadedProfiles.contains(accountKey)) {
-            return;
-        }
-        loadLocalTradesForAccount(accountKey);
-        loadedProfiles.add(accountKey);
-        onProfileOptionsChanged.run();
-        onProfileHeaderChanged.run();
-    }
-
-    void ensureProfileLoadedBoxed(Long accountHash) {
-        if (accountHash == null) {
-            return;
-        }
-        ensureProfileLoaded(accountHash);
+        loadLocalTradesForAccount(accountKey, true);
+        loaded.add(accountKey);
+        ProfileUi ui = profileUi.get();
+        ui.updateProfileOptionsUi();
+        ui.updateProfileHeader();
     }
 
     void markLocalTradesLoadedForLogin() {
-        markLocalTradesLoadedForLogin.run();
+        GeLifecyclePlugin plugin = Access.pluginOrNull();
+        if (plugin != null) {
+            plugin.localTradesLoadedThisLogin = true;
+        }
     }
 
     /**
@@ -337,7 +232,7 @@ final class LocalTradesRuntime {
      *         the per-account files on load, so it follows the account's lead
      */
     TradeOfferCollapser.Outcome appendTradeDeltaPair(long accountKey, long accountwideKey, Delta delta) {
-        synchronized (localStatsLock) {
+        synchronized (state.getLocalStatsLock()) {
             TradeOfferCollapser.Outcome outcome = appendTradeDelta(accountKey, delta);
             appendTradeDelta(accountwideKey, delta);
             return outcome;

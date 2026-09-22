@@ -174,6 +174,8 @@ final class ProfileWorkflow {
     }
 
     void mergeLocalAccountData(long targetKey, long sourceKey) {
+        // Before the rebuild below, which has to see the old key's records as the new key's.
+        Bridge.get(RecipeFlipStore.class).fold(sourceKey, targetKey);
         AccountMerge.Result mergeResult;
         synchronized (localStatsLock) {
             mergeResult = accountMerge.merge(

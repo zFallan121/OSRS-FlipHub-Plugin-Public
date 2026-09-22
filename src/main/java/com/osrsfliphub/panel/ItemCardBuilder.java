@@ -39,7 +39,7 @@ final class ItemCardBuilder {
     private final ExternalLink externalLinkCoordinator;
     private final PanelBookmarkStore bookmarkStore;
     private final PanelHiddenItemStore hiddenItemStore;
-    private final PanelMutableState panelState;
+    private final PanelState panelState;
     private final Runnable renderItems;
     private final AgeTooltip ageTooltipCoordinator;
     private final WheelScroll wheelScrollCoordinator;

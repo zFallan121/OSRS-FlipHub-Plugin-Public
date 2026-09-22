@@ -303,6 +303,81 @@ public class GeHistoryAutoSyncTradeMatcherTest {
         assertTrue(missing(rows, stored).isEmpty());
     }
 
+    // ---- when an imported trade is dated ----
+
+    private static final int BREW = 27629;
+    private static final long YESTERDAY = 1_789_994_557_697L;
+    private static final long TODAY = YESTERDAY + 20L * 60 * 60 * 1000;
+
+    /**
+     * The owner's case, 22 Sep 2026: 2,000 Forgotten brews bought yesterday, completed while logged
+     * out and seen at today's login; 274 sold today, 20 of them watched here and 254 on a phone. The
+     * sync imports the 254. They were dated 8 ms after the purchase's first fill - yesterday - and
+     * Today and Session showed 88 sold where the player had sold 342.
+     */
+    private static List<Trade> brewRows() {
+        return Arrays.asList(history(BREW, false, 274, 274 * 4_012L, 4_093), history(BREW, true, 2_000, 7_594_000L, 3_797));
+    }
+
+    private static List<Delta> brewStored() {
+        return Arrays.asList(
+            new Delta(YESTERDAY, 4, BREW, true, 2_000, 7_594_000L, "OFFER_COMPLETED", 3_797, false,
+                YESTERDAY - 60_000L, TODAY),
+            fill(TODAY + 76_000L, 0, TODAY + 40_000L, BREW, false, 20, 20 * 4_012L, 4_093));
+    }
+
+    @Test
+    public void aTradeASyncImportsIsDatedWhenTheSyncFoundItNotBesideTheTradeBelowIt() {
+        AutoSyncTradeMatcher.LastSync lastSync =
+            new AutoSyncTradeMatcher.LastSync(YESTERDAY - 3_600_000L, Collections.<Integer, Long>emptyMap());
+        AutoSyncTradeMatcher.SelectionPlan plan = AutoSyncTradeMatcher.planMissingTrades(brewRows(), brewStored(), lastSync);
+        assertEquals("the 254 sold unseen", 254, plan.missingTrades.get(0).quantity);
+        long now = TODAY + 300_000L;
+
+        long[] planned = AutoSync.planSyntheticUpdateTimestamps(brewRows(), plan, brewStored(), now, lastSync);
+
+        assertTrue("today, after the 20 watched here: " + planned[0], planned[0] > TODAY + 76_000L);
+        assertTrue("and no later than the sync that found them", planned[0] <= now);
+        assertEquals("the purchase was already stored, and is not imported", 0L, planned[1]);
+    }
+
+    /**
+     * The owner's second case, 22 Sep 2026: an Ornate maul handle bought on a phone and sold on this
+     * client at 19:14:13, the purchase found by the sync 19 seconds later. It has to come BEFORE the
+     * sale it funded, or the flip is lost here; and within two minutes of it, or the website - which
+     * pairs a late purchase only with a sale that close - shows the handle as held for ever.
+     */
+    @Test
+    public void aPurchaseFoundAfterItsSaleIsDatedJustBeforeTheSale() {
+        int handle = 24229;
+        long sold = TODAY + 1_454_000L;
+        List<Delta> stored = Collections.singletonList(
+            new Delta(sold, 0, handle, false, 1, 678_160L, "OFFER_COMPLETED", 692_000, false, sold - 250L, sold + 15_000L));
+        List<Trade> rows = Arrays.asList(history(handle, false, 1, 678_160L, 692_000), history(handle, true, 1, 675_800L, 675_800));
+        AutoSyncTradeMatcher.LastSync lastSync =
+            new AutoSyncTradeMatcher.LastSync(TODAY - 600_000L, Collections.<Integer, Long>emptyMap());
+        AutoSyncTradeMatcher.SelectionPlan plan = AutoSyncTradeMatcher.planMissingTrades(rows, stored, lastSync);
+        assertEquals("only the purchase is new", 1, plan.missingTrades.size());
+
+        long[] planned = AutoSync.planSyntheticUpdateTimestamps(rows, plan, stored, sold + 19_000L, lastSync);
+
+        assertEquals("the sale was already stored", 0L, planned[0]);
+        assertTrue("before the sale: " + (sold - planned[1]), planned[1] < sold);
+        assertTrue("and within the website's two minutes of it", sold - planned[1] < 120_000L);
+    }
+
+    @Test
+    public void withNothingKnownOfWhenTheRowsWereMadeTheyKeepTheirPlaceAmongStoredTrades() {
+        // After a wipe the rows may be as old as anything stored, so "now" would be a guess too far.
+        AutoSyncTradeMatcher.SelectionPlan plan =
+            AutoSyncTradeMatcher.planMissingTrades(brewRows(), brewStored(), AutoSyncTradeMatcher.LastSync.NONE);
+
+        long[] planned = AutoSync.planSyntheticUpdateTimestamps(brewRows(), plan, brewStored(), TODAY + 300_000L,
+            AutoSyncTradeMatcher.LastSync.NONE);
+
+        assertTrue(planned[0] > 0 && planned[0] < TODAY);
+    }
+
     // ---- rows known to be newer than the last sync ----
 
     private static final int YEW_LONGBOW = 855;
@@ -387,6 +462,21 @@ public class GeHistoryAutoSyncTradeMatcherTest {
         List<Trade> rows = Collections.singletonList(history(YEW_LONGBOW, false, 100, 58_800L, 600));
 
         assertEquals(1, missingSince(rows, stored, LAST_SYNC_MS).size());
+    }
+
+    @Test
+    public void aSaleImportedByASyncThisClientNeverHeardOfIsNotImportedASecondTime() {
+        // Sold 100 on a phone; a sync imported it and wrote the trades file at once. The cursor
+        // and the moment are RuneLite config, saved minutes later, and the client was killed
+        // first - or the next login was under another RuneLite profile. Both come back old, so
+        // the row is above the cursor again and the imported record is all that explains it.
+        // Found by the final audit, 21 Sep 2026: it was left out as "imported", and came in twice.
+        List<Delta> stored = Collections.singletonList(completed(
+            LAST_SYNC_MS + Const.GE_HISTORY_SYNCED_SINCE_SLACK_MS + 86_400_000L, Const.GE_HISTORY_SYNTHETIC_SLOT_START,
+            0L, YEW_LONGBOW, false, 100, 58_800L, 600));
+        List<Trade> rows = Collections.singletonList(history(YEW_LONGBOW, false, 100, 58_800L, 600));
+
+        assertTrue(missingSince(rows, stored, LAST_SYNC_MS).isEmpty());
     }
 
     @Test

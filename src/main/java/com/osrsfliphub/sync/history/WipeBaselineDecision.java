@@ -39,6 +39,16 @@ import java.util.List;
  */
 @javax.inject.Singleton
 final class WipeBaselineDecision {
+    private static final int GE_HISTORY_CURSOR_MIN_MATCH = 6;
+    private static final int GE_HISTORY_CURSOR_ROLLOVER_MIN_LEN = 30;
+    /**
+     * How many times running the visible list may be shorter than the stored cursor before
+     * the cursor is rewritten rather than trusted. A short read is normally a half-drawn
+     * widget and is skipped; a list that stays short means the cursor describes rows that
+     * are gone, and skipping forever meant the sync never ran again with no way to clear it.
+     */
+    private static final int GE_HISTORY_SHORT_READS_BEFORE_REBASELINE = 5;
+
     enum Outcome {
         SET_BASELINE,
         SKIP_MISMATCH,
@@ -102,14 +112,14 @@ final class WipeBaselineDecision {
 
     @javax.inject.Inject
     WipeBaselineDecision() {
-        this(Const.GE_HISTORY_CURSOR_MIN_MATCH,
-            Const.GE_HISTORY_CURSOR_ROLLOVER_MIN_LEN,
-            Const.GE_HISTORY_SHORT_READS_BEFORE_REBASELINE);
+        this(GE_HISTORY_CURSOR_MIN_MATCH,
+            GE_HISTORY_CURSOR_ROLLOVER_MIN_LEN,
+            GE_HISTORY_SHORT_READS_BEFORE_REBASELINE);
     }
 
     WipeBaselineDecision(int minMatchThreshold, int rolloverMinCursorLength) {
         this(minMatchThreshold, rolloverMinCursorLength,
-            Const.GE_HISTORY_SHORT_READS_BEFORE_REBASELINE);
+            GE_HISTORY_SHORT_READS_BEFORE_REBASELINE);
     }
 
     WipeBaselineDecision(int minMatchThreshold, int rolloverMinCursorLength,

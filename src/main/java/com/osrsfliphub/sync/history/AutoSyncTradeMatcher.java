@@ -172,10 +172,17 @@ final class AutoSyncTradeMatcher {
         /**
          * Whether a stored trade is too old to be one of the rows newer than this sync.
          *
-         * <p>So is any trade an earlier sync imported, whatever its time says: it was a row of
-         * that sync, which puts it below the cursor now, and its time was made up just before
+         * <p>So is a trade that sync or an earlier one imported, slack or no slack: it was a row
+         * of that sync, which puts it below the cursor now, and its time was made up just before
          * that sync - close enough to pass for recent. Left in, each imported sale went on
          * explaining the next identical one made on another client.
+         *
+         * <p>But only up to the moment itself ({@link #ms} is that moment less the slack). One
+         * dated after it was imported by a sync this moment never heard of, so the cursor beside
+         * it has not heard of it either and its row is above that cursor: it is the one thing
+         * that stops the row being imported twice. The moment and the cursor are RuneLite config,
+         * which is written minutes after the trades file and kept per RuneLite profile, so a
+         * client killed soon after a sync, or a second profile, comes back with both of them old.
          */
         boolean predates(long closedAtMs, int slot, long firstMs) {
             if (ms <= 0) {
@@ -183,7 +190,8 @@ final class AutoSyncTradeMatcher {
             }
             Long placedMs = openOffers.get(slot);
             return slot >= Const.GE_HISTORY_SYNTHETIC_SLOT_START
-                || closedAtMs < ms && (placedMs == null || firstMs < placedMs);
+                ? closedAtMs <= ms + Const.GE_HISTORY_SYNCED_SINCE_SLACK_MS
+                : closedAtMs < ms && (placedMs == null || firstMs < placedMs);
         }
 
         String encode() {

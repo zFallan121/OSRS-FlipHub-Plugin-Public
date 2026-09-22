@@ -42,9 +42,11 @@ import net.runelite.client.util.ImageUtil;
  * Merchant levels: the level-up message when a sale earns one, and the rank shown on the
  * Profile tab.
  *
- * <p>The level is lifetime profit across every character on this computer, added up character by
- * character the way the Accountwide view does it, read on {@link FlipLevel}'s curve. Every level
- * is celebrated, the way the game celebrates every level.
+ * <p>The level is lifetime profit read on {@link FlipLevel}'s curve. By default that is every
+ * character on this computer, added up character by character the way the Accountwide view does
+ * it; the Merchant level setting can make it the logged-in character's alone, and then each
+ * character remembers its own best level. Every level is celebrated, the way the game celebrates
+ * every level.
  *
  * <p>The website's ten rank names survive as BANDS. A band is now a range of LEVELS rather than
  * a gp line, so that a player is never shown a level and a title that disagree about where they
@@ -102,9 +104,21 @@ final class RankUp {
     static final int[] COLOURS = {0xCD9B63, 0x9FA9B5, 0x5FA8C8, 0xE5584A, 0xB3C646,
         0xE9C46A, 0xD3D8DF, 0x6ED6EC, 0xF3E6C4, 0x7086FF};
 
-    // Lifetime profit across every character, as it was last added up. The skills tab reads it
-    // straight off here: it draws on the client thread, where adding it up would read files.
-    volatile long combined;
+    // The lifetime profit the level is read from, as it was last worked out: every character's,
+    // or the logged-in character's alone, as the setting says. The skills tab reads it straight
+    // off here: it draws on the client thread, where working it out would read files.
+    volatile long profit;
+
+    // The character last seen logged in, under the key its trades are filed by, kept through a
+    // logout so the Profile tab goes on showing the last character played. Noted by tick(), on
+    // the client thread. -1 until anyone has logged in.
+    private volatile long character = -1L;
+
+    // Every live sale's change to its character's total, added up in the order the sales were
+    // made. Written only on the client thread, as each sale is filed; read on the scheduler,
+    // where each sale is judged, to tell how much the total has moved since that sale began.
+    // See onSale.
+    private volatile long sold;
 
     // The Profile tab's FLIP RANK words and rank picture, handed over when the panel is built.
     volatile JLabel panelText;
@@ -151,7 +165,11 @@ final class RankUp {
         return "<html>Flip Rank: " + TITLES[band] + "<br>" + next + "</html>";
     }
 
-    /** Lifetime profit of one character, as its stats cache holds it. */
+    /**
+     * Lifetime profit of one character, as its stats cache holds it: cheap enough for the client
+     * thread, so it is what measures how far one sale moved things. It is NOT the figure the
+     * level is read from -- that is {@link #levelProfit}, the one TOTAL PROFIT shows.
+     */
     static long lifetimeProfit(long accountKey) {
         LocalStatsCacheService caches = Bridge.get(LocalStatsCacheService.class);
         StatsCache cache = caches != null ? caches.getOrBuild(accountKey) : null;
@@ -160,31 +178,42 @@ final class RankUp {
     }
 
     /**
-     * Lifetime profit across every character on this computer. The first call after start-up
-     * reads each character's saved trades, so never call it on the client thread.
+     * The lifetime profit the level is read from, worked out afresh: exactly what TOTAL PROFIT
+     * shows on All time, for every character or the logged-in one. Not the stats cache's own
+     * total, which books a sale when its first units sold rather than when the offer ended, and
+     * so can pair it with different stock -- one real item came out 362,490 apart. The first
+     * call after start-up reads saved trades, so never call it on the client thread.
      */
-    long combinedLifetimeProfit() {
-        LocalStatsSnapshotService snapshots = Bridge.get(LocalStatsSnapshotService.class);
-        long total = 0L;
-        if (snapshots == null) {
-            return total;
-        }
-        for (long key : snapshots.collectAccountwideProfileKeys()) {
-            Access.plugin().getLocalTradesRuntimeService().ensureProfileLoaded(key);
-            total += lifetimeProfit(key);
-        }
-        return total;
+    long levelProfit() {
+        return levelProfit(character);
     }
 
-    int bestLevel() {
-        return best(BEST_KEY);
+    /** The same, as it stands for one character: the one a sale was filed under, say. */
+    long levelProfit(long who) {
+        // Nobody has logged in yet this session, so there is no one character to read.
+        long key = perCharacter() && who > 0 ? who : Const.ACCOUNTWIDE_KEY;
+        Long total = Bridge.get(StatsView.class).view(key, null, StatsItemSort.COMPLETION, 0L).summary.total_profit_gp;
+        return total != null ? total : 0L;
     }
 
-    int bestPrestige() {
-        return best(BEST_PRESTIGE_KEY);
+    private static boolean perCharacter() {
+        return Access.plugin().config.merchantLevelScope() == PluginConfig.MerchantLevelScope.CHARACTER;
     }
 
-    private static int best(String key) {
+    /**
+     * Where a best is remembered. Levelled alone, each character keeps its own: one best for
+     * all of them would leave an alt at 40 silent until it passed the main's 80.
+     */
+    String bestKey(String key) {
+        return bestKey(key, character);
+    }
+
+    String bestKey(String key, long who) {
+        return perCharacter() && who > 0 ? key + "_" + who : key;
+    }
+
+    /** The best stored under a key from {@link #bestKey}, or 0 when none has been. */
+    static int best(String key) {
         Integer stored = Access.plugin().configManager
             .getConfiguration(FliphubConfigGroups.CONFIG_GROUP, key, Integer.class);
         return stored != null ? stored : 0;
@@ -221,46 +250,77 @@ final class RankUp {
     }
 
     /**
-     * A live sale has moved the selling character's lifetime profit from {@code before} to
-     * {@code after}. Called on the client thread; the adding-up happens on the scheduler.
+     * A live sale filed under {@code key} has moved that character's lifetime profit from
+     * {@code before} to {@code after}. Called on the client thread; the adding-up happens on the
+     * scheduler.
+     *
+     * <p>The character is the seller's, never the one {@link #tick} last noted. That is noted a
+     * tick late, and the fills a login finds waiting are filed in the very tick of the login,
+     * so they were judged against the previous character's total and best.
      */
-    void onSale(long before, long after) {
+    void onSale(long key, long before, long after) {
         GeLifecyclePlugin plugin = Access.plugin();
+        long from = sold;
+        sold = from + after - before;
         if (after == before || !plugin.config.celebrateRankUps()) {
             return;
         }
         plugin.executeAsync(() -> {
-            // Only the selling character's total moved, so the combined total before the sale
-            // is the combined total now less that character's change.
-            combined = combinedLifetimeProfit();
-            long was = combined - (after - before);
-            int level = earned(was, combined, bestLevel());
+            // What the total was before this sale is worked out from what it is NOW, which by
+            // the time this runs can hold later sales as well -- two in the same tick both come
+            // here after both are filed. Taking only this sale's own change off would put the
+            // "before" past the first sale, and a level line the first sale crossed would go
+            // unseen by both. So everything filed since this sale began comes off: its own
+            // change and every later one. The later ones' own checks then run over the same
+            // ground, and the best level stored below keeps any line from being paid twice.
+            //
+            // Read before the total and not after. A sale filed in between is then in the total
+            // but not in this, which can at worst hide a line in that sliver; the other way it
+            // would reach back past where the total really stood and name a level the player
+            // already had. Only the selling character's total moves on a sale, so whichever
+            // total the level is read from, the change is the same; it is measured on the stats
+            // cache, the one total cheap enough to read either side of a sale on the client
+            // thread.
+            long moved = sold - from;
+            long now = levelProfit(key);
+            profit = now;
+            long was = now - moved;
+            int best = best(bestKey(BEST_KEY, key));
+            int level = earned(was, now, best);
             if (level > 0) {
-                plugin.configManager.setConfiguration(FliphubConfigGroups.CONFIG_GROUP, BEST_KEY, level);
-                celebrate(level);
+                plugin.configManager.setConfiguration(FliphubConfigGroups.CONFIG_GROUP, bestKey(BEST_KEY, key), level);
+                celebrate(level, Math.max(FlipLevel.levelFor(was), best));
             }
             // Checked after the level, so a sale that somehow crossed both leaves the prestige
             // on screen -- it is the further of the two.
-            int tier = earnedPrestige(was, combined, bestPrestige());
+            int tier = earnedPrestige(was, now, best(bestKey(BEST_PRESTIGE_KEY, key)));
             if (tier > 0) {
                 plugin.configManager.setConfiguration(FliphubConfigGroups.CONFIG_GROUP,
-                    BEST_PRESTIGE_KEY, tier);
+                    bestKey(BEST_PRESTIGE_KEY, key), tier);
                 celebratePrestige(tier);
             }
         });
     }
 
-    /** The chat line straight away, the message and fireworks once the chatbox is free. */
-    void celebrate(int level) {
+    /**
+     * The chat line straight away, the message and fireworks once the chatbox is free.
+     *
+     * @param from the level the player already stood at: the higher of the level before the
+     *             sale and the best one ever celebrated. The rank is named when the new level
+     *             lands in a band above that one's, so a sale that jumps several levels at once
+     *             -- 1 to 6 -- still makes the player a Greenhorn, and a band already announced
+     *             is not announced again after a fall back through it.
+     */
+    void celebrate(int level, int from) {
         GeLifecyclePlugin plugin = Access.plugin();
         int band = bandFor(level);
         plugin.invokeOnClientThread(() -> {
             plugin.runtimeUtilityServices.pushGameMessage(plugin.client,
                 "Congratulations, you've just advanced your " + FlipLevel.SKILL
                     + " level. You are now level " + level + ".");
-            // A level that opens a band is a rank-up as well, and these names are the only place
-            // the website's ladder is spoken aloud in game.
-            if (level == BAND_FIRST_LEVEL[band]) {
+            // A level-up into a new band is a rank-up as well, and these names are the only
+            // place the website's ladder is spoken aloud in game.
+            if (band > bandFor(from)) {
                 plugin.runtimeUtilityServices.pushGameMessage(plugin.client,
                     "You are now " + named(band) + ".");
             }
@@ -285,7 +345,9 @@ final class RankUp {
      * <p>It rides with the celebration rather than beside it, so turning off Celebrate
      * level-ups turns this off too. That is the reading that matches the setting's words: it is
      * there for a player who does not want a level-up drawn to their attention, and a flashing
-     * tab is exactly that. It settles once the tab is opened and the square is hovered.
+     * tab is exactly that. It settles once the Merchant guide is opened, which is where the game
+     * settles its own; opening the tab only darkens the sidebar stone while the tab is open, and
+     * hovering the square settles nothing. See {@link SkillTab#unseen}.
      */
     private static void flashSkill() {
         SkillTab tab = Bridge.get(SkillTab.class);
@@ -296,6 +358,14 @@ final class RankUp {
 
     /** Every client tick: show a waiting message once nothing else has the chatbox. */
     void tick() {
+        // Not the account hash on its own: the game gives many characters a negative one, and
+        // those are filed under a key made from the name, which can only be read on this thread.
+        long key = Bridge.get(AccountSession.class).resolveLocalAccountKey();
+        if (key > 0 && key != character) {
+            character = key;
+            // A switch of character moves the level with it, skills tab showing or not.
+            Access.plugin().executeAsync(this::refreshPanel);
+        }
         int level = pending;
         int tier = pendingTier;
         if (level < 0 && tier < 0) {
@@ -333,8 +403,9 @@ final class RankUp {
     void refreshPanel() {
         JLabel text = panelText;
         JLabel picture = panelPicture;
-        combined = combinedLifetimeProfit();
-        int band = bandFor(FlipLevel.levelFor(combined));
+        long now = levelProfit();
+        profit = now;
+        int band = bandFor(FlipLevel.levelFor(now));
         Icon icon = panelIcons[band];
         if (text == null || picture == null || icon == null) {
             return;

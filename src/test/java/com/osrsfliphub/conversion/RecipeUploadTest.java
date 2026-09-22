@@ -62,7 +62,7 @@ public class RecipeUploadTest {
     }
 
     private static RecipeFlip.Part all(Delta delta) {
-        return new RecipeFlip.Part(TradeKey.of(delta), delta.deltaQty);
+        return new RecipeFlip.Part(TradeKey.of(delta), delta.deltaQty, null);
     }
 
     private final Delta helm = bought(1_000L, 0, HELM, 1, 1_000_000L);
@@ -72,12 +72,12 @@ public class RecipeUploadTest {
 
     private RecipeFlip recipe(long recordedMs) {
         return new RecipeFlip(ConversionKind.SET_COMBINE, "Dharok's set",
-            Arrays.asList(all(helm), all(body)), Collections.singletonList(all(set)), 0L, recordedMs);
+            Arrays.asList(all(helm), all(body)), Collections.singletonList(all(set)), 0L, recordedMs, null, null);
     }
 
     @Test
     public void thePurchasesComeFirstThenTheSalesOneEventToATrade() {
-        List<GeEvent> events = RecipeUpload.parts(ACCOUNT, recipe(50_000L), stored);
+        List<GeEvent> events = RecipeUpload.parts(ACCOUNT, recipe(50_000L), stored, new RecipeFlipStore());
 
         assertEquals(3, events.size());
         assertEquals(Arrays.asList("RECIPE_IN", "RECIPE_IN", "RECIPE_OUT"),
@@ -88,7 +88,7 @@ public class RecipeUploadTest {
 
     @Test
     public void aPartNamesItsTradeTheWayTheWebsiteStoredIt() {
-        GeEvent sale = RecipeUpload.parts(ACCOUNT, recipe(50_000L), stored).get(2);
+        GeEvent sale = RecipeUpload.parts(ACCOUNT, recipe(50_000L), stored, new RecipeFlipStore()).get(2);
 
         // Slot, item and first-fill time are how the website finds the sale's own events.
         assertEquals(4, sale.slot);
@@ -102,7 +102,7 @@ public class RecipeUploadTest {
 
     @Test
     public void everyPartSaysWhichRecipeItBelongsToAndHowManyPartsThereAre() {
-        List<GeEvent> events = RecipeUpload.parts(ACCOUNT, recipe(50_000L), stored);
+        List<GeEvent> events = RecipeUpload.parts(ACCOUNT, recipe(50_000L), stored, new RecipeFlipStore());
 
         Set<String> recipeIds = new HashSet<>();
         Set<String> eventIds = new HashSet<>();
@@ -120,7 +120,7 @@ public class RecipeUploadTest {
     public void everyPartSaysWhichCharacterRecordedIt() {
         // Stored recipes of every character go up when their profiles load, whoever is logged in:
         // the tag has to come from the recipe's own account, not from the character on screen.
-        for (GeEvent event : RecipeUpload.parts(ACCOUNT, recipe(50_000L), stored)) {
+        for (GeEvent event : RecipeUpload.parts(ACCOUNT, recipe(50_000L), stored, new RecipeFlipStore())) {
             assertEquals(GeEvent.characterId(ACCOUNT), event.character_id);
         }
     }
@@ -129,10 +129,10 @@ public class RecipeUploadTest {
     public void onlyTheQuantityUsedAndItsShareOfTheCoinsIsSent() {
         Delta helms = bought(1_000L, 0, HELM, 4, 4_000_000L);
         RecipeFlip flip = new RecipeFlip(ConversionKind.ASSEMBLE, "x",
-            Collections.singletonList(new RecipeFlip.Part(TradeKey.of(helms), 1)),
-            Collections.singletonList(all(set)), 60_000L, 50_000L);
+            Collections.singletonList(new RecipeFlip.Part(TradeKey.of(helms), 1, null)),
+            Collections.singletonList(all(set)), 60_000L, 50_000L, null, null);
 
-        GeEvent part = RecipeUpload.parts(ACCOUNT, flip, Arrays.asList(helms, set)).get(0);
+        GeEvent part = RecipeUpload.parts(ACCOUNT, flip, Arrays.asList(helms, set), new RecipeFlipStore()).get(0);
 
         assertEquals(1, part.delta_qty);
         assertEquals(1_000_000L, part.delta_gp);
@@ -141,8 +141,8 @@ public class RecipeUploadTest {
 
     @Test
     public void sendingARecipeAgainSendsTheSameIds() {
-        List<GeEvent> first = RecipeUpload.parts(ACCOUNT, recipe(50_000L), stored);
-        List<GeEvent> again = RecipeUpload.parts(ACCOUNT, recipe(50_000L), stored);
+        List<GeEvent> first = RecipeUpload.parts(ACCOUNT, recipe(50_000L), stored, new RecipeFlipStore());
+        List<GeEvent> again = RecipeUpload.parts(ACCOUNT, recipe(50_000L), stored, new RecipeFlipStore());
 
         for (int i = 0; i < first.size(); i++) {
             assertEquals(first.get(i).event_id, again.get(i).event_id);
@@ -164,14 +164,14 @@ public class RecipeUploadTest {
 
     @Test
     public void aRecipeNamingATradeThatIsGoneSendsNothingRatherThanHalf() {
-        assertTrue(RecipeUpload.parts(ACCOUNT, recipe(50_000L), Arrays.asList(helm, set)).isEmpty());
-        assertTrue(RecipeUpload.parts(ACCOUNT, recipe(50_000L), new ArrayList<>()).isEmpty());
+        assertTrue(RecipeUpload.parts(ACCOUNT, recipe(50_000L), Arrays.asList(helm, set), new RecipeFlipStore()).isEmpty());
+        assertTrue(RecipeUpload.parts(ACCOUNT, recipe(50_000L), new ArrayList<>(), new RecipeFlipStore()).isEmpty());
     }
 
     @Test
     public void deletingNamesTheSameRecipeWithAnIdOfItsOwn() {
         GeEvent deleted = RecipeUpload.deleted(ACCOUNT, recipe(50_000L));
-        List<GeEvent> parts = RecipeUpload.parts(ACCOUNT, recipe(50_000L), stored);
+        List<GeEvent> parts = RecipeUpload.parts(ACCOUNT, recipe(50_000L), stored, new RecipeFlipStore());
 
         assertEquals("RECIPE_VOID", deleted.event_type);
         assertEquals(parts.get(0).recipe_id, deleted.recipe_id);
@@ -193,7 +193,7 @@ public class RecipeUploadTest {
 
     @Test
     public void aPartCarriesEveryFieldTheWebsiteReads() {
-        JsonObject part = new Gson().toJsonTree(RecipeUpload.parts(ACCOUNT, recipe(50_000L), stored).get(0))
+        JsonObject part = new Gson().toJsonTree(RecipeUpload.parts(ACCOUNT, recipe(50_000L), stored, new RecipeFlipStore()).get(0))
             .getAsJsonObject();
 
         for (String key : Arrays.asList("event_id", "event_type", "recipe_id", "recipe_kind", "recipe_parts",

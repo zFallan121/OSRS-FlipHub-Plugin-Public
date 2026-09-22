@@ -32,13 +32,19 @@ import java.util.Locale;
  * <p>Three shapes cover all five: N to 1 (assemble, set combine), 1 to N
  * (disassemble, set break), and 1 to 1 plus a fee (repair). The shape is what
  * the ledger needs; the kind is what the panel says, which is why both exist.
+ *
+ * <p>{@link #TRANSFER} is not one of the five and makes nothing: it is stock handed to another
+ * of the player's own accounts to be sold there. It is a kind because it is recorded on the same
+ * screen, kept in the same file and sent the same way as the others. It never becomes an
+ * activity, so no card, icon or filter ever meets it.
  */
 enum ConversionKind {
     ASSEMBLE("Assembled"),
     DISASSEMBLE("Disassembled"),
     REPAIR("Repaired"),
     SET_COMBINE("Combined a set"),
-    SET_BREAK("Broke up a set");
+    SET_BREAK("Broke up a set"),
+    TRANSFER("Moved to an alt");
 
     private final String label;
 

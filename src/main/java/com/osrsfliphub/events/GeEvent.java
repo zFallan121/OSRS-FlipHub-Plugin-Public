@@ -60,11 +60,18 @@ public class GeEvent {
     public Integer recipe_parts;
     public Long recipe_fee_gp;
     public Long recipe_trade_end_ms;
+    /**
+     * Set only on stock recorded as moved to another of the player's characters: that character's
+     * {@link #characterId}. The website keeps each character's purchases to itself, so it has to be
+     * told whose book they went to.
+     */
+    public String recipe_to_character_id;
 
     /**
-     * A fixed code for one character, the same on every computer, that says nothing about it: not
-     * its name, and not the account hash it is derived from, which cannot be read back out of it.
-     * Null when the character is not known.
+     * A fixed code for one character, the same on every computer. It is not the character's name,
+     * and the key it is made from cannot be read back out of it. That key is the account hash or,
+     * for a character without a usable one, a hash of the name, so a code can be checked against a
+     * name someone already knows. Null when the character is not known.
      */
     public static String characterId(long accountKey) {
         return accountKey > 0

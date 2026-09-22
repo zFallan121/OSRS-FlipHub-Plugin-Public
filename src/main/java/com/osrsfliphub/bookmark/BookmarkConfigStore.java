@@ -24,8 +24,6 @@
  */
 package com.osrsfliphub;
 
-import java.util.*;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
@@ -79,37 +77,5 @@ final class BookmarkConfigStore {
         return normalizedProfileKey == accountwideKey
             ? BOOKMARKS_KEY
             : BOOKMARKS_KEY_PREFIX + normalizedProfileKey;
-    }
-
-    Set<Integer> parseItemIds(String raw) {
-        Set<Integer> parsed = new HashSet<>();
-        if (Str.isBlank(raw)) {
-            return parsed;
-        }
-        String[] parts = raw.split(",");
-        for (String part : parts) {
-            String trimmed = part.trim();
-            if (trimmed.isEmpty()) {
-                continue;
-            }
-            try {
-                int itemId = Integer.parseInt(trimmed);
-                if (itemId > 0) {
-                    parsed.add(itemId);
-                }
-            } catch (NumberFormatException ignored) {
-            }
-        }
-        return parsed;
-    }
-
-    String serializeItemIds(Set<Integer> itemIds) {
-        if (itemIds == null || itemIds.isEmpty()) {
-            return "";
-        }
-        return itemIds.stream()
-            .sorted()
-            .map(String::valueOf)
-            .collect(Collectors.joining(","));
     }
 }

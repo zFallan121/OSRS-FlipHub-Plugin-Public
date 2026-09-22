@@ -56,9 +56,10 @@ final class AccountPanelBuilder {
             + "personalised flipping insights based on your own trades to make you a better "
             + "flipper, and unlock ranks and achievements as your profit climbs."
             + "<br><br>"
-            + "To do that this plugin will send your GE offers (item, quantity, price and time) "
-            + "and your IP address to osrsfliphub.com, a 3rd party not controlled or verified by "
-            + "the RuneLite developers."
+            + "To do that this plugin will send your GE offers (item, quantity, price, time and "
+            + "world), any recipes and moves you record, your profit totals per item, a code for "
+            + "each character, a random device ID, the plugin version and your IP address to "
+            + "osrsfliphub.com, a 3rd party not controlled or verified by the RuneLite developers."
             + "<br><br>"
             + "Nothing else is sent, and you can unlink at any time."
             + "</div></html>";

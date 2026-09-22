@@ -43,28 +43,20 @@ final class BookmarkState {
         this.config = config;
     }
 
-    private String readBookmarksForProfile(long normalizedProfileKey) {
-        if (configStore == null) {
-            return "";
-        }
+    /** What is stored for a profile, whose key is already normalised. */
+    private String readBookmarks(long profileKey) {
         if (configManager == null) {
-            return configStore.isAccountwide(normalizedProfileKey) && config != null
-                ? config.bookmarks()
-                : "";
+            // Only in tests, which build this without RuneLite's config store.
+            return configStore.isAccountwide(profileKey) ? config.bookmarks() : "";
         }
-        return configManager.getConfiguration(
-            FliphubConfigGroups.CONFIG_GROUP,
-            configStore.buildConfigKey(normalizedProfileKey));
+        return configManager.getConfiguration(FliphubConfigGroups.CONFIG_GROUP, configStore.buildConfigKey(profileKey));
     }
 
-    private void persistBookmarksForProfile(long normalizedProfileKey, String serializedBookmarkIds) {
-        if (configManager == null || configStore == null) {
-            return;
+    private void persistBookmarks(long profileKey, Set<Integer> bookmarkIds) {
+        if (configManager != null) {
+            configManager.setConfiguration(
+                FliphubConfigGroups.CONFIG_GROUP, configStore.buildConfigKey(profileKey), ItemIdList.join(bookmarkIds));
         }
-        configManager.setConfiguration(
-            FliphubConfigGroups.CONFIG_GROUP,
-            configStore.buildConfigKey(normalizedProfileKey),
-            serializedBookmarkIds);
     }
 
     private Long resolveActiveProfileKey() {
@@ -92,32 +84,22 @@ final class BookmarkState {
     }
 
     boolean isBookmarksConfigKey(String configKey) {
-        return configStore != null && configStore.isBookmarksConfigKey(configKey);
+        return configStore.isBookmarksConfigKey(configKey);
     }
 
     void reloadFromConfigKey(String configKey) {
-        if (configStore == null) {
-            return;
-        }
         Long profileKey = configStore.parseProfileKey(configKey);
-        if (profileKey == null) {
-            return;
+        if (profileKey != null) {
+            bookmarksByProfile.remove(profileKey);
         }
-        bookmarksByProfile.remove(profileKey);
     }
 
     void loadSelectedBookmarks(long selectedProfileKey, Set<Integer> destination) {
-        if (destination == null) {
-            return;
-        }
         destination.clear();
         destination.addAll(getOrLoadBookmarksForProfile(selectedProfileKey));
     }
 
     BookmarkSync.ToggleResult toggleForSelected(long selectedProfileKey, int itemId) {
-        if (configStore == null) {
-            return BookmarkSync.toggleBookmark(BookmarkSync.ACCOUNTWIDE_KEY, itemId, null, null);
-        }
         long normalizedSelectedProfileKey = configStore.normalizeProfileKey(selectedProfileKey);
         if (normalizedSelectedProfileKey == BookmarkSync.ACCOUNTWIDE_KEY) {
             Set<Integer> accountwideBookmarks = getOrLoadBookmarksForProfile(BookmarkSync.ACCOUNTWIDE_KEY);
@@ -131,10 +113,10 @@ final class BookmarkState {
                 activeProfileBookmarks
             );
             if (result.accountwideChanged) {
-                persistBookmarksForProfile(BookmarkSync.ACCOUNTWIDE_KEY, accountwideBookmarks);
+                persistBookmarks(BookmarkSync.ACCOUNTWIDE_KEY, accountwideBookmarks);
             }
             if (activeProfileKey != null && result.mirroredProfileChanged) {
-                persistBookmarksForProfile(activeProfileKey, activeProfileBookmarks);
+                persistBookmarks(activeProfileKey, activeProfileBookmarks);
             }
             return result;
         }
@@ -148,10 +130,10 @@ final class BookmarkState {
             accountwideBookmarks
         );
         if (result.selectedChanged) {
-            persistBookmarksForProfile(normalizedSelectedProfileKey, selectedBookmarks);
+            persistBookmarks(normalizedSelectedProfileKey, selectedBookmarks);
         }
         if (result.accountwideChanged) {
-            persistBookmarksForProfile(BookmarkSync.ACCOUNTWIDE_KEY, accountwideBookmarks);
+            persistBookmarks(BookmarkSync.ACCOUNTWIDE_KEY, accountwideBookmarks);
         }
         return result;
     }
@@ -163,18 +145,8 @@ final class BookmarkState {
             return cached;
         }
         Set<Integer> loaded = ConcurrentHashMap.newKeySet();
-        loaded.addAll(configStore.parseItemIds(readBookmarksConfig(normalizedProfileKey)));
+        loaded.addAll(ItemIdList.parse(readBookmarks(normalizedProfileKey)));
         Set<Integer> existing = bookmarksByProfile.putIfAbsent(normalizedProfileKey, loaded);
         return existing != null ? existing : loaded;
-    }
-
-    private String readBookmarksConfig(long profileKey) {
-        String raw = readBookmarksForProfile(configStore.normalizeProfileKey(profileKey));
-        return raw != null ? raw : "";
-    }
-
-    private void persistBookmarksForProfile(long profileKey, Set<Integer> bookmarkIds) {
-        long normalizedProfileKey = configStore.normalizeProfileKey(profileKey);
-        persistBookmarksForProfile(normalizedProfileKey, configStore.serializeItemIds(bookmarkIds));
     }
 }

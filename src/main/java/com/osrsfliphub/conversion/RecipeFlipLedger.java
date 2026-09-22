@@ -65,6 +65,16 @@ final class RecipeFlipLedger {
         /** How much of each trade a conversion has taken, so the plain replay can skip it. */
         final Map<TradeKey, Integer> claimed;
         final List<Activity> activities;
+        /**
+         * What this account's replay starts from: its own trades, and the purchases other
+         * accounts recorded as moved to it. Those are this account's from then on - to sell, which
+         * is all it takes for its sales to find them, and to move on or make something of, which
+         * is why its own records are applied over them too. The plain replay is handed these,
+         * less what the records took.
+         */
+        List<Delta> trades = new ArrayList<>();
+        /** The records that applied, which is how an account that was handed stock knows it still has it. */
+        List<RecipeFlip> applied = new ArrayList<>();
 
         int claimedOn(Delta delta) {
             if (delta == null) {
@@ -75,7 +85,7 @@ final class RecipeFlipLedger {
         }
 
         boolean isEmpty() {
-            return activities.isEmpty();
+            return claimed.isEmpty();
         }
 
         /**
@@ -109,9 +119,9 @@ final class RecipeFlipLedger {
                     // Wholly spoken for, and nothing else to say about it.
                     continue;
                 }
-                long keptGp = delta.deltaQty > 0
-                    ? (Math.max(0L, delta.deltaGp) * keptQty) / delta.deltaQty
-                    : 0L;
+                // What is left is what the records did not take, not its own share rounded down:
+                // 1 of 3 bought for 1,000 was 333 moved and 666 kept, a coin lost on every split.
+                long keptGp = Math.max(0L, delta.deltaGp) - share(delta.deltaGp, take, delta.deltaQty);
                 out.add(new Delta(delta.tsClientMs, delta.slot, delta.itemId, delta.isBuy,
                     keptQty, keptGp, delta.eventType, delta.price, delta.baselineSynthetic,
                     delta.offerStartMs, delta.endMs));
@@ -127,6 +137,27 @@ final class RecipeFlipLedger {
 
     static Result empty() {
         return EMPTY;
+    }
+
+    /**
+     * Everything the records do to one account's replay: what its own take out of its trades,
+     * and what other accounts' moves put in. Both ledgers come through here.
+     *
+     * @param store passed in by tests; in the running plugin it is looked up
+     */
+    static Result apply(List<Delta> deltas, RecipeFlipStore store, long accountKey) {
+        if (store == null) {
+            store = Bridge.get(RecipeFlipStore.class);
+        }
+        List<Delta> trades = new ArrayList<>(deltas);
+        if (store != null) {
+            trades.addAll(received(store, accountKey, new HashSet<>()));
+        }
+        Result own = apply(trades, store != null ? store.applicable(accountKey) : null);
+        // A fresh one, because the one handed back may be the shared empty result.
+        Result out = new Result(own.claimed, own.activities);
+        out.trades = trades;
+        return out;
     }
 
     /**
@@ -160,10 +191,12 @@ final class RecipeFlipLedger {
 
         Map<TradeKey, Integer> claimed = new HashMap<>();
         List<Activity> activities = new ArrayList<>();
+        List<RecipeFlip> applied = new ArrayList<>();
         for (RecipeFlip flip : ordered) {
             if (flip == null || !flip.isUsable() || !canApply(flip, byKey, remaining)) {
                 continue;
             }
+            applied.add(flip);
             long cost = Math.max(0L, flip.feeGp);
             for (RecipeFlip.Part part : flip.inputParts()) {
                 Delta delta = byKey.get(part.trade);
@@ -182,13 +215,59 @@ final class RecipeFlipLedger {
                 completion = Math.max(completion, delta.closedAtMs());
                 take(remaining, claimed, part.trade, part.quantity);
             }
-            activities.add(new Activity(flip.subjectItemId(), flip.kind, flip.name,
-                cost, revenue, tax, quantity, completion));
+            // Stock moved to another account leaves these books and is nothing else here: no
+            // sale, no profit. The account it went to books the flip when it sells.
+            if (flip.toAccount == null) {
+                activities.add(new Activity(flip.subjectItemId(), flip.kind, flip.name,
+                    cost, revenue, tax, quantity, completion));
+            }
         }
-        if (activities.isEmpty()) {
+        if (claimed.isEmpty()) {
             return empty();
         }
-        return new Result(claimed, activities);
+        Result out = new Result(claimed, activities);
+        out.applied = applied;
+        return out;
+    }
+
+    /**
+     * What other accounts' moves hand this one, as the purchases they were.
+     *
+     * <p>A move counts only while it still applies on the account that made it. One that no
+     * longer does - the move that fed it forgotten, or its purchase already claimed by an older
+     * record there - hands over nothing: before, the stock was counted on both accounts. Two
+     * lots of one purchase handed to the same account are one row here, or the second could
+     * never be used: a purchase is looked up by what it is, and only the first row was found.
+     *
+     * <p>Dated when it was bought and not when it was handed over. The player often records a
+     * move only once the other account has sold, and the purchase is the one moment certain to
+     * come before every sale of it; it is also when the coins went out, which is where held time
+     * is counted from. The coins are the record's own.
+     *
+     * <p>{@code seen} is the chain being worked out, so a round trip cannot loop. With no trades to
+     * look at, which is only ever a test, every move is taken to apply.
+     */
+    static List<Delta> received(RecipeFlipStore store, long accountKey, Set<Long> seen) {
+        Map<TradeKey, Delta> out = new LinkedHashMap<>();
+        Map<Long, List<RecipeFlip>> moved = store.movesTo(accountKey);
+        if (!moved.isEmpty() && seen.add(accountKey)) {
+            TradeSession session = Bridge.get(TradeSession.class);
+            moved.forEach((giver, moves) -> {
+                if (session != null) {
+                    List<Delta> theirs = session.snapshotLocalTradeDeltas(giver);
+                    theirs.addAll(received(store, giver, seen));
+                    moves.retainAll(apply(theirs, store.applicable(giver)).applied);
+                }
+                moves.forEach(move -> move.inputParts().forEach(part -> out.merge(part.trade, gift(part.trade,
+                    part.quantity, part.gp), (a, b) -> gift(part.trade, a.deltaQty + b.deltaQty, a.deltaGp + b.deltaGp))));
+            });
+            seen.remove(accountKey);
+        }
+        return new ArrayList<>(out.values());
+    }
+
+    private static Delta gift(TradeKey trade, int qty, long gp) {
+        return new Delta(trade.tsMs, trade.slot, trade.itemId, true, qty, gp, "OFFER_COMPLETED", (int) (gp / qty), false);
     }
 
     private static boolean canApply(RecipeFlip flip, Map<TradeKey, Delta> byKey,

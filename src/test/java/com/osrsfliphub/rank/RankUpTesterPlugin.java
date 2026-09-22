@@ -30,6 +30,8 @@ import java.util.Arrays;
 import javax.inject.Inject;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import net.runelite.api.Client;
+import net.runelite.api.widgets.Widget;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -58,9 +60,9 @@ public class RankUpTesterPlugin extends Plugin {
     @Inject
     private ConfigManager configManager;
 
-    // Every tier the plaque can hold: at XVIII it fills the corner it has, so there is nothing
-    // past it to look at.
-    private static final int MARKS = 18;
+    // Every tier the plaque can hold: at XVIII it fills the corner it has, so the tiers stop
+    // there and there is nothing past it to look at.
+    private static final int MARKS = FlipLevel.MAX_PRESTIGE;
 
     private final long[] realLines = FlipLevel.PROFIT.clone();
     private NavigationButton navButton;
@@ -111,10 +113,12 @@ public class RankUpTesterPlugin extends Plugin {
         levelPicker.setAlignmentX(Component.LEFT_ALIGNMENT);
         levelPicker.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
         panel.add(levelPicker);
+        // As if from the level below, so a level that opens a band names the rank as well.
         panel.add(button("Play level-up", () -> withFlipHub(rankUp ->
-            rankUp.celebrate(levelPicker.getSelectedIndex() + 2))));
+            rankUp.celebrate(levelPicker.getSelectedIndex() + 2, levelPicker.getSelectedIndex() + 1))));
 
-        String[] tiers = new String[FlipLevel.PRESTIGE_PIPS];
+        // The first five tiers; past those the numeral is the only thing that changes.
+        String[] tiers = new String[5];
         for (int i = 0; i < tiers.length; i++) {
             tiers[i] = "Prestige " + FlipLevel.roman(i + 1);
         }
@@ -153,7 +157,7 @@ public class RankUpTesterPlugin extends Plugin {
             wear(next);
         }));
         panel.add(button("Put my real profit back", () -> withFlipHub(rankUp -> {
-            rankUp.combined = rankUp.combinedLifetimeProfit();
+            rankUp.profit = rankUp.levelProfit();
             setStatus("The square is reading your real profit again.");
         })));
 
@@ -170,15 +174,15 @@ public class RankUpTesterPlugin extends Plugin {
                 + "then open the tab and click Merchant to settle it.");
         })));
         panel.add(button("What did it find on the sidebar?", () -> withSkillTab(tab ->
-            setStatus(tab.stoneReport()))));
+            setStatus(stoneReport(tab)))));
         panel.add(button("Is it still flashing?", () -> withSkillTab(tab ->
-            setStatus(tab.flashing()
+            setStatus(tab.unseen
                 ? "Still glowing -- the guide has not been opened on it yet."
                 : "Settled. Opening the guide is what does it."))));
 
         panel.add(Box.createVerticalStrut(16));
         panel.add(heading("Test a real sale"));
-        panel.add(note("Moves the next level's line to 1 gp above your profit across all characters. "
+        panel.add(note("Moves the next level's line to 1 gp above the profit your level is read from. "
             + "Then buy any item and sell it for more than you paid: that sale sets the level-up off "
             + "the real way. Needs Celebrate level-ups on."));
         panel.add(button("Put the next line just above my profit", this::stageNextLine));
@@ -189,12 +193,14 @@ public class RankUpTesterPlugin extends Plugin {
 
         panel.add(Box.createVerticalStrut(16));
         panel.add(heading("Reset"));
-        panel.add(note("Forgets the best level celebrated, so real sales can celebrate levels you've already had."));
-        panel.add(button("Forget best level", () -> {
-            configManager.unsetConfiguration(FliphubConfigGroups.CONFIG_GROUP, RankUp.BEST_KEY);
-            configManager.unsetConfiguration(FliphubConfigGroups.CONFIG_GROUP, RankUp.BEST_PRESTIGE_KEY);
+        panel.add(note("Forgets the best level celebrated, so real sales can celebrate levels you've already had. "
+            + "With Merchant level on Per character, it is this character's best that goes."));
+        panel.add(button("Forget best level", () -> withFlipHub(rankUp -> {
+            configManager.unsetConfiguration(FliphubConfigGroups.CONFIG_GROUP, rankUp.bestKey(RankUp.BEST_KEY));
+            configManager.unsetConfiguration(FliphubConfigGroups.CONFIG_GROUP,
+                rankUp.bestKey(RankUp.BEST_PRESTIGE_KEY));
             refreshStatus();
-        }));
+        })));
         return panel;
     }
 
@@ -202,7 +208,7 @@ public class RankUpTesterPlugin extends Plugin {
     private void wear(int tier) {
         withFlipHub(rankUp -> {
             long profit = FlipLevel.profitForPrestige(tier);
-            rankUp.combined = profit;
+            rankUp.profit = profit;
             setStatus((tier > 0 ? "Prestige " + FlipLevel.roman(tier) : "Level 99, no prestige")
                 + " on the square.<br>"
                 + "Reading " + QuantityFormatter.formatNumber(profit) + " gp.<br>"
@@ -212,11 +218,11 @@ public class RankUpTesterPlugin extends Plugin {
 
     private void refreshStatus() {
         withFlipHub(rankUp -> {
-            long profit = rankUp.combinedLifetimeProfit();
+            long profit = rankUp.levelProfit();
             int level = FlipLevel.levelFor(profit);
-            int best = rankUp.bestLevel();
+            int best = RankUp.best(rankUp.bestKey(RankUp.BEST_KEY));
             boolean staged = !Arrays.equals(FlipLevel.PROFIT, realLines);
-            setStatus("All characters: " + QuantityFormatter.formatNumber(profit) + " gp<br>"
+            setStatus("Level read from: " + QuantityFormatter.formatNumber(profit) + " gp<br>"
                 + FlipLevel.SKILL + " level: " + level + " (" + RankUp.TITLES[RankUp.bandFor(level)] + ")<br>"
                 + "Best celebrated: " + (best > 0 ? "level " + best : "none")
                 + (FlipLevel.prestigeFor(profit) > 0
@@ -228,7 +234,7 @@ public class RankUpTesterPlugin extends Plugin {
     private void stageNextLine() {
         withFlipHub(rankUp -> {
             restoreLines();
-            long profit = rankUp.combinedLifetimeProfit();
+            long profit = rankUp.levelProfit();
             int next = FlipLevel.levelFor(profit) + 1;
             if (next > FlipLevel.MAX_LEVEL) {
                 setStatus("You're already level 99, so there's no next line to move.");
@@ -236,8 +242,9 @@ public class RankUpTesterPlugin extends Plugin {
             }
             FlipLevel.PROFIT[next] = profit + 1;
             // A level already celebrated would stay quiet, which is not what this is testing.
-            if (rankUp.bestLevel() >= next) {
-                configManager.setConfiguration(FliphubConfigGroups.CONFIG_GROUP, RankUp.BEST_KEY, next - 1);
+            if (RankUp.best(rankUp.bestKey(RankUp.BEST_KEY)) >= next) {
+                configManager.setConfiguration(FliphubConfigGroups.CONFIG_GROUP,
+                    rankUp.bestKey(RankUp.BEST_KEY), next - 1);
             }
             setStatus("Next profitable sale takes you to level " + next + ".<br>"
                 + "Line moved to " + QuantityFormatter.formatNumber(profit + 1) + " gp.");
@@ -266,6 +273,40 @@ public class RankUpTesterPlugin extends Plugin {
             return;
         }
         work.accept(tab);
+    }
+
+    /**
+     * What the skill tab's sidebar half found.
+     *
+     * <p>That half went wrong twice over one fact: the Skills tab's picture is not part of its
+     * stone, it is the widget beside it. So the report names exactly what it is looking at.
+     */
+    private static String stoneReport(SkillTab skillTab) {
+        Client client = Access.plugin().client;
+        StringBuilder out = new StringBuilder();
+        out.append("Skills tab open: ").append(SkillTab.tabOpen(client)).append("<br>");
+        for (int[] tab : SkillTab.SKILLS_TAB) {
+            out.append(Integer.toHexString(tab[0])).append(": ");
+            Widget icon = client.getWidget(tab[1]);
+            Widget stone = client.getWidget(tab[0]);
+            out.append("picture ")
+                .append(icon == null ? "absent"
+                    : icon.isHidden() ? "hidden"
+                    : "ON SCREEN " + icon.getWidth() + "x" + icon.getHeight()
+                        + " at " + icon.getRelativeX() + "," + icon.getRelativeY())
+                .append("; stone ")
+                .append(stone == null ? "absent" : "sprite " + stone.getSpriteId())
+                .append("; named shape ").append(tab[2])
+                .append("<br>");
+        }
+        out.append("Shape in use: ").append(skillTab.stoneSprite).append("<br>");
+        out.append("Glow built: ").append(skillTab.stoneGlow != null).append("<br>");
+        out.append("Still unseen: ").append(skillTab.unseen).append("<br>");
+        out.append("Tab counts as open: ").append(SkillTab.tabOpen(client)).append("<br>");
+        for (String why : skillTab.said) {
+            out.append("&nbsp;- ").append(why).append("<br>");
+        }
+        return out.toString();
     }
 
     private void setStatus(String html) {

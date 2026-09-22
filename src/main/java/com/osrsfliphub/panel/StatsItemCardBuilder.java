@@ -43,14 +43,14 @@ final class StatsItemCardBuilder {
     private final ItemIconResolver itemIconResolver;
     private final Supplier<Integer> expandedStatsItemIdSupplier;
     private final Set<Integer> expandedStatsHistoryItems;
-    private final PanelMutableState panelState;
+    private final PanelState panelState;
 
     StatsItemCardBuilder(PanelValueFormat valueFormatService,
                                 UiStyler uiStyler,
                                 ItemIconResolver itemIconResolver,
                                 Supplier<Integer> expandedStatsItemIdSupplier,
                                 Set<Integer> expandedStatsHistoryItems,
-                                PanelMutableState panelState,
+                                PanelState panelState,
                                 IntConsumer toggleStatsItemExpanded,
                                 IntConsumer toggleStatsHistoryExpanded) {
         this.valueFormatService = valueFormatService;

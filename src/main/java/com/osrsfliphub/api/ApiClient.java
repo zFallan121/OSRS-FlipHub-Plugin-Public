@@ -164,6 +164,7 @@ public class ApiClient {
                         result.rejected = parsed.rejected;
                     }
                 } catch (JsonParseException ignored) {
+                    // The upload went through; only the counts in the reply are unreadable.
                 }
             }
             return result;

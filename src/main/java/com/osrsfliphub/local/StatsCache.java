@@ -32,7 +32,7 @@ final class StatsCache {
     private final Map<Integer, StatsCacheDelta.MatchedSellMarker> recentMatchedSellBySlot = new HashMap<>();
     private final List<Delta> sortedDeltas = new ArrayList<>();
     private final StatsCacheDelta.Totals totals = new StatsCacheDelta.Totals();
-    /** Whose trades these are; a repair fee depends on the player's Smithing. */
+    /** Whose trades these are, which says whose recorded recipes and received stock apply. */
     private final long accountKey;
     private final StatsCacheDelta deltaService;
     private long lastTs = Long.MIN_VALUE;
@@ -54,20 +54,23 @@ final class StatsCache {
     StatsCache(long accountKey, RecipeFlipStore recipeFlips) {
         this.recipeFlips = recipeFlips;
         this.accountKey = accountKey;
-        this.deltaService = new StatsCacheDelta(
-            itemAggs, inventory, recentMatchedSellBySlot, totals, accountKey);
+        this.deltaService = new StatsCacheDelta(itemAggs, inventory, recentMatchedSellBySlot, totals);
     }
 
     synchronized void rebuild(List<Delta> deltas) {
         deltaService.reset();
         sortedDeltas.clear();
         lastTs = Long.MIN_VALUE;
-        if (deltas == null || deltas.isEmpty()) {
+        // An empty list is not nothing to do. An account that has traded nothing yet may have
+        // been handed stock by another, and the first sale it makes is applied to this cache as
+        // it stands: built without that stock, the sale would find nothing to sell.
+        if (deltas == null) {
             return;
         }
-        // Price what the player recorded, then replay only what those conversions did not use.
-        recorded = RecipeFlipLedger.apply(deltas, recordedFlips());
-        List<Delta> snapshot = new ArrayList<>(recorded.remainingTrades(deltas));
+        // Price what the player recorded, then replay only what those conversions did not use,
+        // along with whatever another account recorded as moved to this one.
+        recorded = RecipeFlipLedger.apply(deltas, recipeFlips, accountKey);
+        List<Delta> snapshot = new ArrayList<>(recorded.remainingTrades(recorded.trades));
         snapshot.sort(TradeDeltaUtils.replayOrder());
         sortedDeltas.addAll(snapshot);
         for (Delta delta : snapshot) {
@@ -75,11 +78,6 @@ final class StatsCache {
             deltaService.applyDelta(delta);
         }
         addRecordedConversions(null);
-    }
-
-    private List<RecipeFlip> recordedFlips() {
-        RecipeFlipStore store = recipeFlips != null ? recipeFlips : Bridge.get(RecipeFlipStore.class);
-        return store != null ? store.applicable(accountKey) : Collections.emptyList();
     }
 
     private void addRecordedConversions(Long sinceMs) {

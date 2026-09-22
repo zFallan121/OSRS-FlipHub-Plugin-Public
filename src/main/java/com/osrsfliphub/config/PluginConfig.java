@@ -24,6 +24,7 @@
  */
 package com.osrsfliphub;
 
+import lombok.RequiredArgsConstructor;
 import net.runelite.client.config.*;
 
 @ConfigGroup(FliphubConfigGroups.CONFIG_GROUP)
@@ -41,8 +42,9 @@ public interface PluginConfig extends Config {
         keyName = "enableFlipHubSync",
         name = "Sync flips to my FlipHub account",
         description = "Uploads your Grand Exchange offers (item, quantity, price,<br>"
-            + "time) to your FlipHub dashboard at osrsfliphub.com and reads<br>"
-            + "your flip history back from it, so your stats follow<br>"
+            + "time, world), the recipes and moves you record and a code<br>"
+            + "for each character to your FlipHub dashboard at<br>"
+            + "osrsfliphub.com, and reads your stats back from it, so they follow<br>"
             + "you between devices. While this is off the plugin never<br>"
             + "connects to FlipHub's servers and every flip stays on this<br>"
             + "computer. Linking is done in the side panel, not here.",
@@ -183,7 +185,7 @@ public interface PluginConfig extends Config {
         keyName = "showMerchantSkill",
         name = "Show Merchant in the skills tab",
         description = "Adds Merchant to the game's own skills tab as a<br>"
-            + "twenty-fifth skill, with a level built from your combined<br>"
+            + "twenty-fifth skill, with a level built from your<br>"
             + "lifetime flip profit, a hover box like any other skill's<br>"
             + "and a guide listing the ten ranks. Turn this off and the<br>"
             + "tab goes straight back to the game's own twenty-four."
@@ -195,8 +197,7 @@ public interface PluginConfig extends Config {
     @ConfigItem(
         keyName = "celebrateRankUps",
         name = "Celebrate level-ups",
-        description = "When a sale on any of your characters takes your combined<br>"
-            + "lifetime flip profit to a new Merchant level, shows a<br>"
+        description = "When a sale takes you to a new Merchant level, shows a<br>"
             + "level-up style message with your rank's picture, sets off<br>"
             + "the level-up fireworks, makes your character dance and<br>"
             + "adds a line to your game chat. Only you see the fireworks<br>"
@@ -204,5 +205,48 @@ public interface PluginConfig extends Config {
     )
     default boolean celebrateRankUps() {
         return true;
+    }
+
+    @ConfigItem(
+        keyName = "merchantLevelScope",
+        name = "Merchant level",
+        description = "Accountwide builds your Merchant level and FLIP RANK<br>"
+            + "from every character's lifetime flip profit added<br>"
+            + "together. Per character builds them from the character<br>"
+            + "you are logged in on alone, and each character<br>"
+            + "celebrates its own level-ups."
+    )
+    default MerchantLevelScope merchantLevelScope() {
+        return MerchantLevelScope.ACCOUNTWIDE;
+    }
+
+    // The key it had before 13 Sep 2026, when it went with the recipe guessing: a player who had
+    // turned it off then gets their answer back rather than the default.
+    @ConfigItem(
+        keyName = "repairAtArmourStand",
+        name = "I repair on an armour stand",
+        description = "Recording a Barrows or Moons of Peril repair fills in<br>"
+            + "its fee at what a player-owned house armour stand<br>"
+            + "charges: half a percent off per Smithing level, so a<br>"
+            + "little over half the NPC price at 99. Turn this off if<br>"
+            + "you pay an NPC full price. You can type over it either way."
+    )
+    default boolean repairAtArmourStand() {
+        return true;
+    }
+
+    @RequiredArgsConstructor
+    enum MerchantLevelScope {
+        ACCOUNTWIDE("Accountwide"),
+        // Short on purpose: the settings panel sizes the dropdown to its longest option and
+        // gives the name what is left, and "Logged-in character" cut the name to "Merchant l...".
+        CHARACTER("Per character");
+
+        private final String label;
+
+        @Override
+        public String toString() {
+            return label;
+        }
     }
 }

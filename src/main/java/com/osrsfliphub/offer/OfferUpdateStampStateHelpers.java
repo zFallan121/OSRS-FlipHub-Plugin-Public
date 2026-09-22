@@ -106,31 +106,7 @@ final class OfferUpdateStampStateHelpers {
     }
 
     static boolean markCompletedIfNeeded(Stamp stamp, OfferSnapshot snapshot, LongSupplier nowMsSupplier) {
-        if (stamp == null || snapshot == null) {
-            return false;
-        }
-        if (!isOfferComplete(snapshot)) {
-            return false;
-        }
-        if (stamp.completedMs > 0) {
-            return false;
-        }
-        long now = nowMs(nowMsSupplier);
-        stamp.completedMs = now;
-        if (stamp.firstSeenMs <= 0) {
-            stamp.firstSeenMs = stamp.lastUpdateMs > 0 ? stamp.lastUpdateMs : now;
-        }
-        return true;
-    }
-
-    static boolean markCompletedIfNeeded(Stamp stamp, GrandExchangeOffer offer, LongSupplier nowMsSupplier) {
-        if (stamp == null || offer == null) {
-            return false;
-        }
-        if (!isOfferComplete(offer)) {
-            return false;
-        }
-        if (stamp.completedMs > 0) {
+        if (stamp == null || !isOfferComplete(snapshot) || stamp.completedMs > 0) {
             return false;
         }
         long now = nowMs(nowMsSupplier);
@@ -151,18 +127,6 @@ final class OfferUpdateStampStateHelpers {
             return false;
         }
         return snapshot.totalQty <= 0 || snapshot.filledQty >= snapshot.totalQty;
-    }
-
-    static boolean isOfferComplete(GrandExchangeOffer offer) {
-        if (offer == null) {
-            return false;
-        }
-        GrandExchangeOfferState state = offer.getState();
-        boolean terminal = state == GrandExchangeOfferState.BOUGHT || state == GrandExchangeOfferState.SOLD;
-        if (!terminal) {
-            return false;
-        }
-        return offer.getTotalQuantity() <= 0 || offer.getQuantitySold() >= offer.getTotalQuantity();
     }
 
     static long computeCompletedDisplayTimestamp(Stamp stamp, LongSupplier nowMsSupplier) {

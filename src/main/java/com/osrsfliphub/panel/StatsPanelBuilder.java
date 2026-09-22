@@ -55,19 +55,13 @@ final class StatsPanelBuilder {
 
     StatsPanelBuilder(UiStyler uiStyler,
                              PanelValueFormat valueFormatService,
-                             PanelState panelStateService,
-                             PanelMutableState panelState,
-                             PanelListener listener,
-                             Runnable renderStatsItems,
-                             Runnable updateStatsSummary,
+                             PanelState panelState,
                              WheelScroll wheelScrollCoordinator,
                              MouseWheelListener wheelForwarder) {
-        this.headerBuilder = new StatsPanelHeaderBuilder(
-            uiStyler, panelStateService, panelState, listener, renderStatsItems);
+        this.headerBuilder = new StatsPanelHeaderBuilder(uiStyler, panelState);
         this.recorder = new RecipeRecorder(uiStyler, valueFormatService, this::showTab);
         this.contentBuilder = new StatsPanelContentBuilder(
-            uiStyler, panelStateService, panelState, listener,
-            renderStatsItems, updateStatsSummary, wheelScrollCoordinator, wheelForwarder,
+            uiStyler, panelState, wheelScrollCoordinator, wheelForwarder,
             this::showRecorder);
     }
 
@@ -79,8 +73,8 @@ final class StatsPanelBuilder {
      * body keeps the panel's one surface and gives the form the full width, and the tabs above
      * stay live, so leaving is never a trap.
      */
-    private void showRecorder() {
-        recorder.open();
+    private void showRecorder(boolean move) {
+        recorder.open(move);
         recorderOpen = true;
         deckLayout.show(deck, RECORDER_CARD);
     }

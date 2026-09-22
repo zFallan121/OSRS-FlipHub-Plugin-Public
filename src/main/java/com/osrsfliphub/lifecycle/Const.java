@@ -27,67 +27,16 @@ package com.osrsfliphub;
 final class Const {
     static final int MAX_BATCH_SIZE = 200;
     static final int MAX_BACKFILL_PROFILE_COUNT = 16;
-    static final int MAX_PENDING_UPLOAD_EVENTS = 10_000;
-    static final long BACKFILL_MIN_INTERVAL_MS = 60_000L;
-    static final long BACKFILL_RETRY_INTERVAL_SECONDS = 90L;
-    static final long BACKFILL_RETRY_MAX_INTERVAL_SECONDS = 15 * 60L;
-    static final double BACKFILL_MATCH_SCORE_THRESHOLD = 0.45d;
-    static final long ACCOUNTWIDE_UPLOAD_INTERVAL_SECONDS = 60L;
-    static final long ACCOUNTWIDE_UPLOAD_MIN_INTERVAL_MS = 4_000L;
-    static final long ACCOUNTWIDE_UPLOAD_RESYNC_INTERVAL_MS = 5 * 60_000L;
-    static final String BACKFILLED_PROFILES_KEY = "backfilledProfilesV1";
     static final int DEFAULT_ITEMS_PAGE_SIZE = 10;
-    static final int MAX_SEARCH_CATALOGUE_RESULTS = 100;
-    static final int SUGGESTION_TEXT_COLOR = 0x800000;
-    static final int SUGGESTION_HOVER_TEXT_COLOR = 0xFFFFFF;
-    static final int SUGGESTION_TOP_Y = 2;
-    static final int SUGGESTION_RIGHT_X = 8;
-    static final int SUGGESTION_RIGHT_WIDTH_PADDING = 16;
-    static final String WIKI_LATEST_URL = "https://prices.runescape.wiki/api/v1/osrs/latest";
-    // The wiki price API requires a contact route that actually works, and blocks callers whose
-    // contact goes nowhere. The site is listed alongside the mailbox because the mailbox sits on
-    // a different domain from everything else the plugin shows the player.
-    static final String WIKI_USER_AGENT =
-        "FlipHub OSRS RuneLite plugin (https://www.osrsfliphub.com; contact: support@fliphub.app)";
-    static final long WIKI_CACHE_TTL_MS = 2 * 60 * 1000;
-    static final long WIKI_MIN_REFRESH_MS = 60_000L;
-    static final long LOGIN_GRACE_MS = 60_000L;
     static final long SUGGESTION_UPDATE_INTERVAL_MS = 250L;
-    static final String PRICE_SUGGESTION_WIDGET_NAME = "FlipHub Current Price";
-    static final String LIMIT_SUGGESTION_WIDGET_NAME = "FlipHub Remaining Limit";
-    static final String AFFORDABLE_LIMIT_SUGGESTION_WIDGET_NAME = "FlipHub Affordable Limit";
-    static final int GE_OFFER_PRICE_VARBIT = 4398;
-    static final int COINS_ITEM_ID = 995;
-    static final long OFFER_POLL_INTERVAL_MS = 250L;
-    static final int MAX_GE_LIMIT_LOOKUPS_PER_REQUEST = 24;
-    static final long LOCAL_TRADES_LOAD_RETRY_MS = 1000L;
     static final long PROFILE_WATCH_DEBOUNCE_MS = 1000L;
     static final long ACCOUNTWIDE_KEY = 0L;
     static final long LOCAL_LIMIT_WINDOW_MS = 4L * 60L * 60L * 1000L;
-    static final long LOCAL_LIMIT_FUTURE_TOLERANCE_MS = 5L * 60L * 1000L;
     static final String ACCOUNTWIDE_KEY_STRING = "accountwide";
-    static final String PROFILE_SELECTION_MODE_KEY = "profileSelectionMode";
-    static final String PROFILE_SELECTED_KEY = "selectedProfileKey";
-    static final String PROFILE_DIR_NAME = "fliphub";
-    static final String LEGACY_PROFILE_DIR_NAME = "fliphub-dev";
-    static final String LEGACY_DEV_CONFIG_GROUP = FliphubConfigGroups.LEGACY_DEV_CONFIG_GROUP;
     static final int GE_HISTORY_GROUP_ID = 383;
     static final int GE_HISTORY_CONTAINER_CHILD_ID = 3;
-    /** How long a read of the history list must hold still before it is trusted as complete. */
-    static final long GE_HISTORY_SYNC_WIDGET_SETTLE_MS = 2_000L;
-    /** How long the list may stay incomplete or keep changing before this login's sync is given up. */
-    static final long GE_HISTORY_SYNC_READ_GIVE_UP_MS = 20_000L;
     // GE history UI only shows ~42 entries; treat as <=45 for safety.
     static final int GE_HISTORY_CURSOR_MAX_TRADES = 45;
-    static final int GE_HISTORY_CURSOR_MIN_MATCH = 6;
-    static final int GE_HISTORY_CURSOR_ROLLOVER_MIN_LEN = 30;
-    /**
-     * How many times running the visible list may be shorter than the stored cursor before
-     * the cursor is rewritten rather than trusted. A short read is normally a half-drawn
-     * widget and is skipped; a list that stays short means the cursor describes rows that
-     * are gone, and skipping forever meant the sync never ran again with no way to clear it.
-     */
-    static final int GE_HISTORY_SHORT_READS_BEFORE_REBASELINE = 5;
     /**
      * Slot number the GE-history sync starts numbering replayed trades from.
      * Real Grand Exchange slots are single digits, so a delta at or above this
@@ -96,10 +45,6 @@ final class Const {
      * evidence of when anything happened.
      */
     static final int GE_HISTORY_SYNTHETIC_SLOT_START = 10_000;
-    static final String WIPE_BARRIER_KEY_PREFIX = "wipeBarrierV1_";
-    static final String GE_HISTORY_CURSOR_KEY_PREFIX = "geHistoryCursorV1_";
-    /** Under this key: where the last sync left off, as {@link AutoSyncTradeMatcher.LastSync} stores it. */
-    static final String GE_HISTORY_SYNCED_SINCE_KEY_PREFIX = "geHistorySyncedSinceV1_";
     /** Taken off every moment in it when it is read back: a fill reaches the plugin a tick after the game. */
     static final long GE_HISTORY_SYNCED_SINCE_SLACK_MS = 60_000L;
     static final String[] OFFER_STATUS_MARKERS = new String[] {
@@ -111,22 +56,6 @@ final class Const {
     };
     static final long LOCAL_EVENT_BUCKET_MS = 600L;
     static final long DUPLICATE_TRADE_WINDOW_MS = 2_000L;
-    static final String[] OFFER_SETUP_BLOCKERS = new String[] {
-        "choose an item",
-        "click the icon",
-        "select an offer slot",
-        "set up or view an offer"
-    };
-    static final String[] ITEM_NAME_EXCLUDES = new String[] {
-        "offer status",
-        "buy offer",
-        "sell offer",
-        "quantity",
-        "price per item",
-        "coins",
-        "history",
-        "you have"
-    };
 
     private Const() {
     }

@@ -177,7 +177,9 @@ final class AutoSyncCoordinator {
             log.info("GE history auto-sync lost its place for account {}: none of the last sync's rows are listed",
                 accountKey);
         }
-        persistPlace(accountKey, currentCursor, nowMs);
+        // Read again: what was just imported may be dated after nowMs, and the next sync leaves
+        // an imported trade out only when it is dated no later than this.
+        persistPlace(accountKey, currentCursor, System.currentTimeMillis());
         if (decision.releasesWipeBarrier()) {
             wipeStateStore.setWipeBarrierArmed(accountKey, false);
             log.info("GE history wipe barrier released for account {} after a reconciling sync", accountKey);

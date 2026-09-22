@@ -41,18 +41,12 @@ final class ProfileTradesLoad {
     private final ItemLookup itemLookup;
     private final LocalTradesRuntime localTradesRuntime;
 
-    private ProfileTradesLoader.Result loadProfileTrades(long accountHash) {
-        return loader.load(
-            accountHash,
-            Const.LOCAL_EVENT_BUCKET_MS,
-            Const.DUPLICATE_TRADE_WINDOW_MS);
-    }
-
     boolean load(long accountHash, boolean persistAfterLoad) {
         if (accountHash < 0) {
             return false;
         }
-        ProfileTradesLoader.Result loaded = loadProfileTrades(accountHash);
+        ProfileTradesLoader.Result loaded = loader.load(
+            accountHash, Const.LOCAL_EVENT_BUCKET_MS, Const.DUPLICATE_TRADE_WINDOW_MS);
         if (loaded == null) {
             return false;
         }
@@ -61,8 +55,10 @@ final class ProfileTradesLoad {
             // the file alone: replacing the list with nothing and then persisting would turn a
             // recoverable bad file into a permanent loss. Not recording the modification time
             // either, so a later repair of the file is still picked up as a change.
+            pluginState.getUnreadableProfiles().add(accountHash);
             return false;
         }
+        pluginState.getUnreadableProfiles().remove(accountHash);
         if (loaded.profileFileModifiedMs > 0) {
             pluginState.getLoadedProfileFileMs().put(accountHash, loaded.profileFileModifiedMs);
         }
@@ -70,10 +66,18 @@ final class ProfileTradesLoad {
         synchronized (pluginState.getLocalStatsLock()) {
             pluginState.getLocalTradeDeltasByAccount().put(accountHash, new ArrayList<>(merged));
         }
-        // Before the rebuild below, which has to honour them.
-        recipeFlipStore.replace(accountHash, loaded.recipeFlips);
+        // Before the rebuild below, which has to honour them. Stock moved to another account is
+        // in that account's totals too, and a second client may have just recorded or forgotten
+        // one, so every account's go - before the rebuild, so that this one's is kept.
+        WipeStateStore wipes = Bridge.get(WipeStateStore.class);
+        if (wipes != null) {
+            recipeFlipStore.wiped(accountHash, wipes.wipedMs(accountHash));
+        }
+        if (recipeFlipStore.replace(accountHash, loaded.recipeFlips)) {
+            localStatsCacheService.invalidateAll();
+        }
         localStatsCacheService.rebuild(accountHash, merged);
-        Bridge.get(RecipeUpload.class).sendStored(accountHash);
+        Bridge.get(RecipeUpload.class).sendStored();
         String resolvedName = loaded.resolvedDisplayName;
         if (Str.hasText(resolvedName)) {
             pluginState.getProfileDisplayNames().put(accountHash, resolvedName.trim());

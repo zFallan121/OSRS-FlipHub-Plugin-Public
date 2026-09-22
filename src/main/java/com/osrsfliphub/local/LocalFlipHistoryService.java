@@ -39,11 +39,6 @@ final class LocalFlipHistoryService {
 
     /** The store is passed in by tests; in the running plugin it is looked up. */
 
-    private List<RecipeFlip> recordedFlips(long accountKey) {
-        RecipeFlipStore store = recipeFlips != null ? recipeFlips : Bridge.get(RecipeFlipStore.class);
-        return store != null ? store.applicable(accountKey) : Collections.emptyList();
-    }
-
     /** One entry per conversion the player recorded, filed against what it produced. */
     private void appendRecordedConversions(Map<Integer, List<StatsFlipInstance>> byItem,
                                                   RecipeFlipLedger.Result recorded,
@@ -76,9 +71,9 @@ final class LocalFlipHistoryService {
     }
 
     /**
-     * @param accountKey whose trades these are. A repair fee depends on the
-     *                   player's Smithing level; 0 when unknown, which prices
-     *                   the fee as the NPC would.
+     * @param accountKey whose trades these are: which recorded recipes apply,
+     *                   and which stock other accounts moved to this one. 0
+     *                   when unknown, which applies none of either.
      */
     Map<Integer, List<StatsFlipInstance>> buildHistory(List<Delta> deltas, Long sinceMs, long accountKey) {
         Map<Integer, List<StatsFlipInstance>> byItem = new HashMap<>();
@@ -88,9 +83,10 @@ final class LocalFlipHistoryService {
 
         // Conversions the player recorded are priced first, and the trades they used are taken
         // out of what follows, so the ordinary replay below never sees a unit that has already
-        // been accounted for and needs to know nothing about conversions at all.
-        RecipeFlipLedger.Result recorded = RecipeFlipLedger.apply(deltas, recordedFlips(accountKey));
-        List<Delta> snapshot = new ArrayList<>(recorded.remainingTrades(deltas));
+        // been accounted for and needs to know nothing about conversions at all. Purchases another
+        // account recorded as moved to this one join it as if they had been made here.
+        RecipeFlipLedger.Result recorded = RecipeFlipLedger.apply(deltas, recipeFlips, accountKey);
+        List<Delta> snapshot = new ArrayList<>(recorded.remainingTrades(recorded.trades));
         snapshot.sort(TradeDeltaUtils.replayOrder());
         appendRecordedConversions(byItem, recorded, sinceMs, accountKey);
 
@@ -103,6 +99,17 @@ final class LocalFlipHistoryService {
             boolean isCompletion = "OFFER_COMPLETED".equals(delta.eventType);
             if (delta.deltaQty <= 0 && !isCompletion) {
                 continue;
+            }
+            // A slot holds one offer at a time, so another item turning up in it means the sale
+            // waiting there is over -- cancelled part-sold, most often, with no completion ever
+            // seen. What it sold is still sold: dropping it here took a real sale out of TOTAL
+            // PROFIT while the stats cache kept it, 362,490 gp on one player's single item.
+            PendingSellFlip abandoned = pendingSellBySlot.get(resolveSlotKey(delta));
+            if (abandoned != null && abandoned.itemId != delta.itemId && abandoned.matchedQty > 0) {
+                pendingSellBySlot.remove(resolveSlotKey(delta));
+                if (sinceMs == null || abandoned.lastSellTsMs >= sinceMs) {
+                    recordPendingFlip(byItem, abandoned, abandoned.itemId, abandoned.lastSellTsMs, 0, false);
+                }
             }
 
             InventoryState inventory = inventoryByItem.computeIfAbsent(delta.itemId, ignored -> new InventoryState());

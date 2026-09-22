@@ -31,6 +31,15 @@ import net.runelite.api.widgets.*;
 
 @Singleton
 final class ChatboxSuggestionWidgetFactory {
+    private static final int SUGGESTION_TEXT_COLOR = 0x800000;
+    private static final int SUGGESTION_HOVER_TEXT_COLOR = 0xFFFFFF;
+    private static final int SUGGESTION_TOP_Y = 2;
+    private static final int SUGGESTION_RIGHT_X = 8;
+    private static final int SUGGESTION_RIGHT_WIDTH_PADDING = 16;
+    private static final String PRICE_SUGGESTION_WIDGET_NAME = "FlipHub Current Price";
+    private static final String LIMIT_SUGGESTION_WIDGET_NAME = "FlipHub Remaining Limit";
+    private static final String AFFORDABLE_LIMIT_SUGGESTION_WIDGET_NAME = "FlipHub Affordable Limit";
+
     private final int suggestionTextColor;
     private final int suggestionHoverTextColor;
     private final int suggestionTopY;
@@ -42,14 +51,14 @@ final class ChatboxSuggestionWidgetFactory {
 
     @Inject
     ChatboxSuggestionWidgetFactory() {
-        this.suggestionTextColor = Const.SUGGESTION_TEXT_COLOR;
-        this.suggestionHoverTextColor = Const.SUGGESTION_HOVER_TEXT_COLOR;
-        this.suggestionTopY = Const.SUGGESTION_TOP_Y;
-        this.suggestionRightX = Const.SUGGESTION_RIGHT_X;
-        this.suggestionRightWidthPadding = Const.SUGGESTION_RIGHT_WIDTH_PADDING;
-        this.priceSuggestionWidgetName = Const.PRICE_SUGGESTION_WIDGET_NAME;
-        this.limitSuggestionWidgetName = Const.LIMIT_SUGGESTION_WIDGET_NAME;
-        this.affordableLimitSuggestionWidgetName = Const.AFFORDABLE_LIMIT_SUGGESTION_WIDGET_NAME;
+        this.suggestionTextColor = SUGGESTION_TEXT_COLOR;
+        this.suggestionHoverTextColor = SUGGESTION_HOVER_TEXT_COLOR;
+        this.suggestionTopY = SUGGESTION_TOP_Y;
+        this.suggestionRightX = SUGGESTION_RIGHT_X;
+        this.suggestionRightWidthPadding = SUGGESTION_RIGHT_WIDTH_PADDING;
+        this.priceSuggestionWidgetName = PRICE_SUGGESTION_WIDGET_NAME;
+        this.limitSuggestionWidgetName = LIMIT_SUGGESTION_WIDGET_NAME;
+        this.affordableLimitSuggestionWidgetName = AFFORDABLE_LIMIT_SUGGESTION_WIDGET_NAME;
     }
 
     Widget ensurePriceSuggestionWidget(Widget container, Widget currentWidget) {

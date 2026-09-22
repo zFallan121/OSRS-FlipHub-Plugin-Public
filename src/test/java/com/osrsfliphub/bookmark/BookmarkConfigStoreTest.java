@@ -73,14 +73,4 @@ public class BookmarkConfigStoreTest {
         assertEquals("bookmarks", store.buildConfigKey(-10L));
         assertEquals("bookmarks_99", store.buildConfigKey(99L));
     }
-
-    @Test
-    public void parseAndSerializeItemIdsNormalizeDuplicatesAndOrdering() {
-        BookmarkConfigStore store = new BookmarkConfigStore(ACCOUNTWIDE_KEY);
-
-        Set<Integer> parsed = store.parseItemIds(" 5,1,5,0,-2,abc,3 ");
-        assertEquals(new HashSet<>(Arrays.asList(1, 3, 5)), parsed);
-        assertEquals("1,3,5", store.serializeItemIds(parsed));
-        assertEquals("", store.serializeItemIds(new HashSet<>()));
-    }
 }

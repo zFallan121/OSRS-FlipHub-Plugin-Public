@@ -44,11 +44,11 @@ public class RecipeFlipStoreTest {
             ConversionKind.ASSEMBLE,
             "Armadyl godsword",
             Arrays.asList(
-                new RecipeFlip.Part(new TradeKey(1_000L, 1, BLADE), 1),
-                new RecipeFlip.Part(new TradeKey(2_000L, 2, HILT), 1)),
-            Collections.singletonList(new RecipeFlip.Part(new TradeKey(3_000L, 3, GODSWORD), 1)),
+                new RecipeFlip.Part(new TradeKey(1_000L, 1, BLADE), 1, null),
+                new RecipeFlip.Part(new TradeKey(2_000L, 2, HILT), 1, null)),
+            Collections.singletonList(new RecipeFlip.Part(new TradeKey(3_000L, 3, GODSWORD), 1, null)),
             0L,
-            4_000L);
+            4_000L, null, null);
     }
 
     @Test
@@ -77,19 +77,19 @@ public class RecipeFlipStoreTest {
 
         assertFalse("no kind", store.add(7L, new RecipeFlip(
             null, "x",
-            Collections.singletonList(new RecipeFlip.Part(new TradeKey(1L, 1, BLADE), 1)),
-            Collections.singletonList(new RecipeFlip.Part(new TradeKey(2L, 2, GODSWORD), 1)),
-            0L, 0L)));
+            Collections.singletonList(new RecipeFlip.Part(new TradeKey(1L, 1, BLADE), 1, null)),
+            Collections.singletonList(new RecipeFlip.Part(new TradeKey(2L, 2, GODSWORD), 1, null)),
+            0L, 0L, null, null)));
         assertFalse("nothing bought", store.add(7L, new RecipeFlip(
             ConversionKind.ASSEMBLE, "x",
             Collections.emptyList(),
-            Collections.singletonList(new RecipeFlip.Part(new TradeKey(2L, 2, GODSWORD), 1)),
-            0L, 0L)));
+            Collections.singletonList(new RecipeFlip.Part(new TradeKey(2L, 2, GODSWORD), 1, null)),
+            0L, 0L, null, null)));
         assertFalse("a part with no quantity", store.add(7L, new RecipeFlip(
             ConversionKind.ASSEMBLE, "x",
-            Collections.singletonList(new RecipeFlip.Part(new TradeKey(1L, 1, BLADE), 0)),
-            Collections.singletonList(new RecipeFlip.Part(new TradeKey(2L, 2, GODSWORD), 1)),
-            0L, 0L)));
+            Collections.singletonList(new RecipeFlip.Part(new TradeKey(1L, 1, BLADE), 0, null)),
+            Collections.singletonList(new RecipeFlip.Part(new TradeKey(2L, 2, GODSWORD), 1, null)),
+            0L, 0L, null, null)));
         assertTrue(store.applicable(7L).isEmpty());
     }
 

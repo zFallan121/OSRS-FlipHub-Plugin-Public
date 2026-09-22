@@ -64,8 +64,12 @@ final class TradeDeltaRecorder {
             return false;
         }
 
+        // A cancelled offer is over as surely as a filled one, so what it filled is stored as one
+        // finished trade. Left as loose fills, stock from a cancelled buy could never be recorded
+        // as moved to another account or used in a recipe: the recorder offers finished trades only.
+        String type = "OFFER_ABORTED".equals(event.event_type) ? "OFFER_COMPLETED" : event.event_type;
         boolean hasDelta = event.delta_qty > 0 || event.delta_gp > 0;
-        if (!hasDelta && !"OFFER_COMPLETED".equals(event.event_type)) {
+        if (!hasDelta && !"OFFER_COMPLETED".equals(type)) {
             return false;
         }
         if (baselineSynthetic) {
@@ -91,7 +95,7 @@ final class TradeDeltaRecorder {
             event.is_buy,
             event.delta_qty,
             event.delta_gp,
-            event.event_type,
+            type,
             event.price,
             baselineSynthetic,
             Math.max(0L, offerStartMs),
@@ -129,7 +133,7 @@ final class TradeDeltaRecorder {
         // imports, recorded recipes and wipes from setting off a rank-up.
         RankUp rankUp = Bridge.get(RankUp.class);
         if (rankUp != null) {
-            rankUp.onSale(profitBefore, RankUp.lifetimeProfit(accountKey));
+            rankUp.onSale(accountKey, profitBefore, RankUp.lifetimeProfit(accountKey));
         }
         tradesRuntime.persistLocalTrades(accountKey);
         // The accountwide file is not written here. Its stored deltas are never read: the

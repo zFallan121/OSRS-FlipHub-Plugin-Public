@@ -26,7 +26,6 @@ package com.osrsfliphub;
 
 import java.util.function.*;
 import lombok.RequiredArgsConstructor;
-import net.runelite.api.GrandExchangeOffer;
 
 @RequiredArgsConstructor
 final class OfferUpdateStampRuleEvaluator {
@@ -34,146 +33,88 @@ final class OfferUpdateStampRuleEvaluator {
     private final BooleanSupplier loginGraceSupplier;
 
     boolean shouldPreserveStamp(Stamp stamp, OfferSnapshot snapshot) {
-        if (snapshot == null) {
-            return false;
-        }
-        return shouldPreserveStampInternal(stamp, snapshot.itemId, snapshot.price, snapshot.totalQty,
-            snapshot.isBuy, snapshot.filledQty, snapshot.spentGp, false);
-    }
-
-    boolean shouldPreserveStamp(Stamp stamp, GrandExchangeOffer offer, boolean isBuy) {
-        if (offer == null) {
-            return false;
-        }
-        return shouldPreserveStampInternal(stamp, offer.getItemId(), offer.getPrice(), offer.getTotalQuantity(),
-            isBuy, offer.getQuantitySold(), offer.getSpent(), false);
+        return snapshot != null && shouldPreserveStampInternal(stamp, snapshot, false);
     }
 
     boolean shouldPreserveStampAfterLogin(Stamp stamp, OfferSnapshot snapshot) {
-        if (!isWithinLoginGrace() || snapshot == null) {
-            return false;
-        }
-        return shouldPreserveStampInternal(stamp, snapshot.itemId, snapshot.price, snapshot.totalQty,
-            snapshot.isBuy, snapshot.filledQty, snapshot.spentGp, true);
-    }
-
-    boolean shouldPreserveStampAfterLogin(Stamp stamp, GrandExchangeOffer offer) {
-        if (!isWithinLoginGrace() || offer == null) {
-            return false;
-        }
-        return shouldPreserveStampInternal(stamp, offer.getItemId(), offer.getPrice(), offer.getTotalQuantity(),
-            OfferUpdateStampStateHelpers.isBuyOffer(offer), offer.getQuantitySold(), offer.getSpent(), true);
+        return isWithinLoginGrace() && snapshot != null && shouldPreserveStampInternal(stamp, snapshot, true);
     }
 
     boolean shouldPreserveIdentityAfterLogin(Stamp stamp, OfferSnapshot snapshot) {
-        if (!isWithinLoginGrace() || snapshot == null) {
+        if (!isWithinLoginGrace() || snapshot == null || stamp == null) {
             return false;
         }
-        return shouldPreserveIdentityAfterLoginInternal(stamp, snapshot.itemId, snapshot.price, snapshot.totalQty,
-            snapshot.isBuy, snapshot.filledQty, snapshot.spentGp, OfferUpdateStampStateHelpers.isOfferComplete(snapshot));
+        if (snapshot.itemId <= 0 || stamp.itemId != snapshot.itemId || stamp.isBuy != snapshot.isBuy) {
+            return false;
+        }
+        if (OfferUpdateStampStateHelpers.isOfferComplete(snapshot)) {
+            return false;
+        }
+        // During login reconciliation the client can briefly report incomplete metadata.
+        if (snapshot.price <= 0 || snapshot.totalQty <= 0) {
+            return true;
+        }
+        if (!isMetadataCompatible(stamp, snapshot.price, snapshot.totalQty)) {
+            return false;
+        }
+        boolean candidateHasProgress = snapshot.filledQty > 0 || snapshot.spentGp > 0;
+        return !candidateHasProgress && !hasProgress(stamp);
     }
 
-    boolean shouldPreserveIdentityAfterLogin(Stamp stamp, GrandExchangeOffer offer) {
-        if (!isWithinLoginGrace() || offer == null) {
+    /** The same offer back in a slot that showed empty for a moment while logging in. */
+    boolean shouldPreserveStampAfterEmpty(OfferSnapshot next, Stamp stamp) {
+        if (!isWithinLoginGrace() || next == null || stamp == null || stamp.lastEmptyMs <= 0) {
             return false;
         }
-        return shouldPreserveIdentityAfterLoginInternal(stamp, offer.getItemId(), offer.getPrice(), offer.getTotalQuantity(),
-            OfferUpdateStampStateHelpers.isBuyOffer(offer), offer.getQuantitySold(), offer.getSpent(),
-            OfferUpdateStampStateHelpers.isOfferComplete(offer));
+        if (next.itemId <= 0 || stamp.itemId != next.itemId) {
+            return false;
+        }
+        boolean metadataIncomplete = next.price <= 0 || next.totalQty <= 0;
+        if (!metadataIncomplete && !isMetadataCompatible(stamp, next.price, next.totalQty)) {
+            return false;
+        }
+        return stamp.isBuy == next.isBuy;
     }
 
-    boolean shouldPreserveStampAfterEmpty(OfferSnapshot prev, OfferSnapshot next, Stamp stamp) {
-        if (!isWithinLoginGrace()) {
+    boolean stampMatches(Stamp stamp, OfferSnapshot snapshot) {
+        if (stamp.itemId != snapshot.itemId || stamp.isBuy != snapshot.isBuy) {
             return false;
         }
-        if (prev == null || next == null) {
+        if (snapshot.price > 0 && stamp.price > 0 && stamp.price != snapshot.price) {
             return false;
         }
-        if (!OfferUpdateStampStateHelpers.isEmptySnapshot(prev)) {
+        // A different quantity is the same offer only if something has filled against it.
+        if (snapshot.totalQty > 0 && stamp.totalQty > 0 && stamp.totalQty != snapshot.totalQty
+            && snapshot.filledQty <= 0 && stamp.filledQty <= 0) {
             return false;
         }
-        return shouldPreserveStampAfterEmptyInternal(stamp, next.itemId, next.price, next.totalQty, next.isBuy);
+        return progressMatches(stamp, snapshot.filledQty, snapshot.spentGp);
     }
 
-    boolean shouldPreserveStampAfterEmpty(GrandExchangeOffer offer, Stamp stamp, boolean isBuy) {
-        if (!isWithinLoginGrace() || offer == null) {
-            return false;
-        }
-        return shouldPreserveStampAfterEmptyInternal(stamp, offer.getItemId(), offer.getPrice(), offer.getTotalQuantity(), isBuy);
-    }
-
-    boolean stampMatchesOffer(Stamp stamp, GrandExchangeOffer offer) {
-        if (stamp == null || offer == null) {
-            return false;
-        }
-        return stampMatches(stamp, offer.getItemId(), offer.getPrice(), offer.getTotalQuantity(),
-            OfferUpdateStampStateHelpers.isBuyOffer(offer), offer.getQuantitySold(), offer.getSpent());
-    }
-
-    boolean stampMatches(Stamp stamp,
-                         int itemId,
-                         int price,
-                         int totalQty,
-                         boolean isBuy,
-                         int filledQty,
-                         long spentGp) {
-        if (stamp == null) {
-            return false;
-        }
-        if (stamp.itemId != itemId || stamp.isBuy != isBuy) {
-            return false;
-        }
-        if (price > 0 && stamp.price > 0 && stamp.price != price) {
-            return false;
-        }
-        boolean progressCompatible = progressMatches(stamp, filledQty, spentGp);
-        if (totalQty > 0 && stamp.totalQty > 0 && stamp.totalQty != totalQty) {
-            if (filledQty <= 0 && stamp.filledQty <= 0) {
-                return false;
-            }
-            if (!progressCompatible) {
-                return false;
-            }
-        }
-        if (!progressCompatible) {
-            return false;
-        }
-        return true;
-    }
-
-    boolean maybeUpdateStampDetails(Stamp stamp,
-                                    int itemId,
-                                    int price,
-                                    int totalQty,
-                                    boolean isBuy,
-                                    int filledQty,
-                                    long spentGp) {
-        if (stamp == null) {
-            return false;
-        }
+    boolean maybeUpdateStampDetails(Stamp stamp, OfferSnapshot snapshot) {
         boolean changed = false;
-        if (stamp.itemId != itemId) {
-            stamp.itemId = itemId;
+        if (stamp.itemId != snapshot.itemId) {
+            stamp.itemId = snapshot.itemId;
             changed = true;
         }
-        if (price > 0 && stamp.price != price) {
-            stamp.price = price;
+        if (snapshot.price > 0 && stamp.price != snapshot.price) {
+            stamp.price = snapshot.price;
             changed = true;
         }
-        if (totalQty > 0 && stamp.totalQty != totalQty) {
-            stamp.totalQty = totalQty;
+        if (snapshot.totalQty > 0 && stamp.totalQty != snapshot.totalQty) {
+            stamp.totalQty = snapshot.totalQty;
             changed = true;
         }
-        if (stamp.isBuy != isBuy) {
-            stamp.isBuy = isBuy;
+        if (stamp.isBuy != snapshot.isBuy) {
+            stamp.isBuy = snapshot.isBuy;
             changed = true;
         }
-        if (filledQty > stamp.filledQty) {
-            stamp.filledQty = filledQty;
+        if (snapshot.filledQty > stamp.filledQty) {
+            stamp.filledQty = snapshot.filledQty;
             changed = true;
         }
-        if (spentGp > stamp.spentGp) {
-            stamp.spentGp = spentGp;
+        if (snapshot.spentGp > stamp.spentGp) {
+            stamp.spentGp = snapshot.spentGp;
             changed = true;
         }
         if (stamp.lastEmptyMs != 0) {
@@ -187,29 +128,22 @@ final class OfferUpdateStampRuleEvaluator {
         return changed;
     }
 
-    private boolean shouldPreserveStampInternal(
-        Stamp stamp,
-        int itemId,
-        int price,
-        int totalQty,
-        boolean isBuy,
-        int filledQty,
-        long spentGp,
-        boolean forceLoginGrace
-    ) {
+    private boolean shouldPreserveStampInternal(Stamp stamp, OfferSnapshot snapshot, boolean forceLoginGrace) {
         if (stamp == null) {
             return false;
         }
-        if (stamp.itemId != itemId || stamp.isBuy != isBuy) {
+        if (stamp.itemId != snapshot.itemId || stamp.isBuy != snapshot.isBuy) {
             return false;
         }
-        boolean metadataIncomplete = price <= 0 || totalQty <= 0;
-        if (!metadataIncomplete && !isMetadataCompatible(stamp, price, totalQty)) {
+        boolean metadataIncomplete = snapshot.price <= 0 || snapshot.totalQty <= 0;
+        if (!metadataIncomplete && !isMetadataCompatible(stamp, snapshot.price, snapshot.totalQty)) {
             return false;
         }
         if (!hasProgress(stamp)) {
             return false;
         }
+        int filledQty = snapshot.filledQty;
+        long spentGp = snapshot.spentGp;
         boolean candidateHasProgress = filledQty > 0 || spentGp > 0;
         boolean withinGrace = forceLoginGrace || isWithinLoginGrace();
         if (!candidateHasProgress) {
@@ -224,60 +158,7 @@ final class OfferUpdateStampRuleEvaluator {
         return false;
     }
 
-    private boolean shouldPreserveIdentityAfterLoginInternal(
-        Stamp stamp,
-        int itemId,
-        int price,
-        int totalQty,
-        boolean isBuy,
-        int filledQty,
-        long spentGp,
-        boolean offerComplete
-    ) {
-        if (stamp == null) {
-            return false;
-        }
-        if (itemId <= 0 || stamp.itemId != itemId || stamp.isBuy != isBuy) {
-            return false;
-        }
-        if (offerComplete) {
-            return false;
-        }
-        // During login reconciliation the client can briefly report incomplete metadata.
-        if (price <= 0 || totalQty <= 0) {
-            return true;
-        }
-        if (!isMetadataCompatible(stamp, price, totalQty)) {
-            return false;
-        }
-        boolean candidateHasProgress = filledQty > 0 || spentGp > 0;
-        return !candidateHasProgress && !hasProgress(stamp);
-    }
-
-    private boolean shouldPreserveStampAfterEmptyInternal(
-        Stamp stamp,
-        int itemId,
-        int price,
-        int totalQty,
-        boolean isBuy
-    ) {
-        if (stamp == null || stamp.lastEmptyMs <= 0) {
-            return false;
-        }
-        if (itemId <= 0 || stamp.itemId != itemId) {
-            return false;
-        }
-        boolean metadataIncomplete = price <= 0 || totalQty <= 0;
-        if (!metadataIncomplete && !isMetadataCompatible(stamp, price, totalQty)) {
-            return false;
-        }
-        return stamp.isBuy == isBuy;
-    }
-
     private boolean progressMatches(Stamp stamp, int filledQty, long spentGp) {
-        if (stamp == null) {
-            return false;
-        }
         if (stamp.filledQty > 0 && filledQty < stamp.filledQty) {
             return isWithinLoginGrace();
         }
@@ -288,16 +169,10 @@ final class OfferUpdateStampRuleEvaluator {
     }
 
     private boolean isMetadataCompatible(Stamp stamp, int price, int totalQty) {
-        if (stamp == null) {
-            return false;
-        }
         if (price > 0 && stamp.price > 0 && stamp.price != price) {
             return false;
         }
-        if (totalQty > 0 && stamp.totalQty > 0 && stamp.totalQty != totalQty) {
-            return false;
-        }
-        return true;
+        return totalQty <= 0 || stamp.totalQty <= 0 || stamp.totalQty == totalQty;
     }
 
     private long nowMs() {
@@ -310,7 +185,6 @@ final class OfferUpdateStampRuleEvaluator {
 
     /** Whether anything has actually been bought or sold against this stamp yet. */
     private static boolean hasProgress(Stamp stamp) {
-        return stamp != null && (stamp.filledQty > 0 || stamp.spentGp > 0);
+        return stamp.filledQty > 0 || stamp.spentGp > 0;
     }
-
 }

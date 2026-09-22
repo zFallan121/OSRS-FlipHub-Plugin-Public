@@ -34,6 +34,7 @@ import net.runelite.client.game.ItemManager;
 @Singleton
 @Slf4j
 final class GeLimit {
+    private static final int MAX_GE_LIMIT_LOOKUPS_PER_REQUEST = 24;
 
     private final ItemLookup itemLookup;
     private final int maxLookupsPerRequest;
@@ -47,16 +48,10 @@ final class GeLimit {
     @Inject
     GeLimit(ItemManager itemManager, ClientThread clientThread, Client client, ItemLookup itemLookup) {
         this.itemLookup = itemLookup;
-        this.maxLookupsPerRequest = Const.MAX_GE_LIMIT_LOOKUPS_PER_REQUEST;
+        this.maxLookupsPerRequest = MAX_GE_LIMIT_LOOKUPS_PER_REQUEST;
         this.itemManager = itemManager;
         this.clientThread = clientThread;
         this.client = client;
-    }
-
-    private void invokeOnClientThread(Runnable task) {
-        if (task != null) {
-            clientThread.invokeLater(task);
-        }
     }
 
     private Integer lookupGeLimit(int itemId) {
@@ -110,7 +105,7 @@ final class GeLimit {
         if (missing.isEmpty()) {
             return;
         }
-        invokeOnClientThread(() -> {
+        clientThread.invokeLater(() -> {
             boolean updated = false;
             for (int itemId : missing) {
                 int limit = 0;

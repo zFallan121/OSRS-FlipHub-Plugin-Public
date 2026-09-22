@@ -32,6 +32,9 @@ import net.runelite.api.gameval.VarbitID;
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 final class AffordableLimitSuggestion {
+    private static final int GE_OFFER_PRICE_VARBIT = 4398;
+    private static final int COINS_ITEM_ID = 995;
+
     private final Client client;
     private final OfferPreviewRuntime facade;
 
@@ -63,7 +66,7 @@ final class AffordableLimitSuggestion {
         if (client == null) {
             return null;
         }
-        int enteredPrice = client.getVarbitValue(Const.GE_OFFER_PRICE_VARBIT);
+        int enteredPrice = client.getVarbitValue(GE_OFFER_PRICE_VARBIT);
         return enteredPrice > 0 ? enteredPrice : null;
     }
 
@@ -92,7 +95,7 @@ final class AffordableLimitSuggestion {
         }
         long totalCoins = 0L;
         for (Item item : items) {
-            if (item == null || item.getId() != Const.COINS_ITEM_ID) {
+            if (item == null || item.getId() != COINS_ITEM_ID) {
                 continue;
             }
             totalCoins += Math.max(0, item.getQuantity());

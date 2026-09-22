@@ -30,6 +30,9 @@ import javax.inject.*;
 
 @Singleton
 final class BackfillRetryScheduler {
+    private static final long BACKFILL_RETRY_INTERVAL_SECONDS = 90L;
+    private static final long BACKFILL_RETRY_MAX_INTERVAL_SECONDS = 15 * 60L;
+
     private final long baseRetryIntervalSeconds;
     private final long maxRetryIntervalSeconds;
     private final Object scheduleLock = new Object();
@@ -38,8 +41,8 @@ final class BackfillRetryScheduler {
 
     @Inject
     BackfillRetryScheduler() {
-        this(Const.BACKFILL_RETRY_INTERVAL_SECONDS,
-            Const.BACKFILL_RETRY_MAX_INTERVAL_SECONDS);
+        this(BACKFILL_RETRY_INTERVAL_SECONDS,
+            BACKFILL_RETRY_MAX_INTERVAL_SECONDS);
     }
 
     BackfillRetryScheduler(long baseRetryIntervalSeconds, long maxRetryIntervalSeconds) {

@@ -27,8 +27,10 @@ package com.osrsfliphub;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
+import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 
+@Slf4j
 final class RuntimeUtilityServices {
     void scheduleRefreshSoon(PanelRefresh coordinator, ScheduledExecutorService scheduler) {
         if (coordinator != null) {
@@ -80,7 +82,9 @@ final class RuntimeUtilityServices {
                 // A refusal already cleared the session inside the refresh; an unreachable
                 // server must not cost the user their link.
             }
-        } catch (IOException | RuntimeException ignored) {
+        } catch (IOException | RuntimeException ex) {
+            // Debug, not warn: an unreachable server is routine and this runs on every refresh.
+            log.debug("FlipHub: the website's stats summary could not be fetched", ex);
         }
         return null;
     }
@@ -109,6 +113,7 @@ final class RuntimeUtilityServices {
         try {
             client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", message, null);
         } catch (RuntimeException ignored) {
+            // A notice that could not be shown is not worth failing whatever raised it.
         }
     }
 }

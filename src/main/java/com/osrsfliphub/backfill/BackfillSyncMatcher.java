@@ -32,11 +32,12 @@ import lombok.extern.slf4j.Slf4j;
 @Singleton
 @Slf4j
 final class BackfillSyncMatcher {
+    private static final double BACKFILL_MATCH_SCORE_THRESHOLD = 0.45d;
 
     private final int maxBackfillProfileCount =
         Math.max(1, Const.MAX_BACKFILL_PROFILE_COUNT);
     private final double backfillMatchScoreThreshold =
-        Math.max(0.0d, Const.BACKFILL_MATCH_SCORE_THRESHOLD);
+        Math.max(0.0d, BACKFILL_MATCH_SCORE_THRESHOLD);
 
     @Inject
     BackfillSyncMatcher() {

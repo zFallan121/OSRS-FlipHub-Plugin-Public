@@ -30,6 +30,7 @@ import java.awt.image.BufferedImage;
 import javax.inject.*;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
+import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.SpriteID;
@@ -88,13 +89,6 @@ final class SkillTab {
     // looked like. The game's eight rows are not negotiable at 29.
     private static final int TIGHTEN_BY = 1;
 
-    // A skill square's WIDGET runs two pixels past the stone it draws, on the right only. Left
-    // to itself the plate took those two as well, which pushed its right end past where the
-    // third column ends and into the frame's margin -- the pair of lines that ran off the end
-    // of it to the border, where its left end finishes clean. Measured: the third column's
-    // stone ends at 196 and the plate was ending at 198.
-    private static final int PLATE_TRIM = 2;
-
     // The band left under the grid. The TOP takes none of ours: the frame draws two pixels of
     // its own shadow there and none at the foot, so two here is what makes the two ends read
     // as the same width.
@@ -117,8 +111,14 @@ final class SkillTab {
     // from this rather than from the squares, which would read back our own tightening and
     // creep a pixel tighter on every rebuild.
     private int originalStep = -1;
-    private int originalFirstY = -1;
-    private int originalHeight = -1;
+
+    // Each square's own place and height as the game laid it out, captured at the same moment,
+    // so that the way out puts every one of them back exactly. The grid is NOT regular: read
+    // out of the game cache, the squares sit at 1, 31 ... 181 and are 30 tall, but the bottom
+    // row -- Construction, Hunter and Sailing -- sits at 211 and is 32 tall. Working the way
+    // out from one pitch and Attack's height gave that row back two pixels short.
+    private int[] gameY;
+    private int[] gameHeight;
 
     // A square's stone is built from sprites this size laid side by side.
     private static final int BACKDROP = 36;
@@ -153,6 +153,11 @@ final class SkillTab {
     // The stats interface we last built into. The game makes new widgets every time it reloads
     // the tab, so when this stops being the live one, the row went with it and is built again.
     private Widget built;
+    /**
+     * The tab a build was last tried on. A build that failed, because a game update changed what
+     * a square holds, used to be tried again every tick, and each try added another row to the tab.
+     */
+    private Widget tried;
 
     // One layer holds the whole cell -- icon, numbers and the square that takes the mouse -- so
     // it is hidden, emptied and rebuilt as a single thing, never touching anyone else's widgets.
@@ -171,6 +176,19 @@ final class SkillTab {
     private int plateWidth;
     private int tabHeight;
 
+    // The plate is not one picture. It is a left end, a right end, and four plain lengths of
+    // border in between that the game puts at FIXED places -- 36, 72, 108 and 144 -- because
+    // its plate is always 190 wide. Only the right end follows the width. On our shorter plate
+    // the lengths stayed where they were and ran out past the right end: through its bevelled
+    // corners, which are see-through, and one column beyond it. Those were the two lines off
+    // its right end, and why the left end, where nothing overruns, finished clean.
+    //
+    // So each length is kept as far in from the right as the game's own last one is, which is
+    // ten pixels on the game's plate, and is back where the game had it on the way out. Keyed
+    // by widget id, because the game makes new widgets each time it reloads the tab.
+    private final java.util.Map<Integer, Integer> pieceX = new java.util.HashMap<>();
+    private int pieceGap;
+
     // Where the plate was last put, and the tab height that went with it. The game re-lays this
     // interface out on its own account -- the first build in the client showed the plate back on
     // its old strip -- so the row is re-asserted whenever it has drifted.
@@ -178,7 +196,6 @@ final class SkillTab {
     private int wantPlateY;
     private int wantPlateWidth;
     private int wantTabHeight;
-    private int wantFirstY;
 
     // What the row is showing, so the numbers are only rewritten when they move. Past 99 the
     // level stops, and the tier is the only one of the two that still changes.
@@ -192,6 +209,9 @@ final class SkillTab {
 
     // Whether the lifetime total has been added up since this login.
     private boolean primed;
+
+    // Whether the skills tab was on screen last tick, so the tick it comes back can be told.
+    private boolean looking;
 
     // Ours for as long as the plugin is on, so it can be handed back on the way out.
     private final Wheel wheel = new Wheel();
@@ -218,15 +238,25 @@ final class SkillTab {
             mouse.unregisterMouseWheelListener(wheel);
         }
         plugin.invokeOnClientThread(() -> {
+            // Ours would stay up with nothing left to close it.
+            letGo();
             restore();
-            plugin.client.getSpriteOverrides().remove(ICON);
-            plugin.client.getSpriteOverrides().remove(ICON_SMALL);
-            plugin.client.getSpriteOverrides().remove(ICON_GLOW);
-            plugin.client.getSpriteOverrides().remove(ICON_GLOW_SMALL);
+            // Every sprite this put in the game's table, and nothing else's. That is the four
+            // pictures, ICON down to ICON_GLOW_SMALL, and then each of the game's own sprites
+            // flattened for the sidebar glow, which flattened() numbers on down from the last
+            // of those four -- so the whole set is one unbroken run of ids.
+            for (int id = ICON_GLOW_SMALL - flats.size(); id <= ICON; id++) {
+                plugin.client.getSpriteOverrides().remove(id);
+            }
+            // Forgotten with them, or the next start would hand out ids that no longer draw.
+            flats.clear();
+            // In here rather than after it: a tick can be running on the client thread while
+            // this is called from the settings panel's, and these four are the tick's.
+            built = null;
+            tried = null;
+            shown = -1;
+            struck = -1;
         });
-        built = null;
-        shown = -1;
-        struck = -1;
     }
 
     /**
@@ -238,15 +268,15 @@ final class SkillTab {
         Client client = Access.plugin().client;
         Widget universe = client.getWidget(InterfaceID.Stats.UNIVERSE);
         Widget plate = client.getWidget(InterfaceID.Stats.TOTAL);
-        if (universe != null && originalStep > 0) {
-            // A lift of nothing: the game's own places go back with the game's own spacing.
-            tighten(client, originalFirstY, originalStep,
-                originalHeight > 0 ? originalHeight : originalStep, 0);
+        if (universe != null && gameY != null) {
+            // A lift of nothing: every square back where the game had it, at its own height.
+            tighten(client, 0, 0);
         }
         if (universe != null && plate != null && plateKnown) {
             plate.setOriginalX(plateX);
             plate.setOriginalY(plateY);
             plate.setOriginalWidth(plateWidth);
+            pieces(plate, plateWidth);
             relayout(plate);
             universe.setOriginalHeight(tabHeight);
             universe.revalidate();
@@ -281,6 +311,10 @@ final class SkillTab {
      * is no longer ours, so there is nothing left to put back and this falls straight through.
      */
     private void stand() {
+        // Before the early way out below, which is the one a FAILED build takes: it leaves
+        // nothing standing to put back. Turning the setting off and on again is the player's
+        // way of asking for another try, so a tab a build gave up on is tried once more.
+        tried = null;
         if (built == null && wantPlateX < 0 && !claiming) {
             return;
         }
@@ -302,15 +336,20 @@ final class SkillTab {
         }
         prime(client);
         glowTick(client);
+        // Before the tab is looked for, because the guide does not live in the tab. Logged out
+        // with ours open, the tab is gone and so is the window; looked after only below, the
+        // window was never let go of, and the wheel went on being swallowed over the empty
+        // place it had been, login screen and all.
+        dressGuide(client);
         Widget universe = client.getWidget(InterfaceID.Stats.UNIVERSE);
         if (universe == null) {
             built = null;
             return;
         }
-        dressGuide(client);
-        if (universe != built) {
+        if (universe != built && universe != tried) {
+            tried = universe;
             build(universe);
-        } else {
+        } else if (universe == built) {
             hold(universe, client.getWidget(InterfaceID.Stats.TOTAL));
         }
         yieldToTooltip(client);
@@ -356,22 +395,24 @@ final class SkillTab {
     }
 
     /**
-     * Moves the real squares onto a given spacing. Idempotent: it works from the step and each
-     * square's place in the grid, never from where a square currently is.
+     * Moves the real squares onto the tightened spacing, from the top of the tab down, or --
+     * with a lift of nothing -- puts every one back exactly where the game had it. Idempotent
+     * both ways: it works from the step and each square's place in the grid, or from what was
+     * captured before anything moved, never from where a square currently is.
      *
-     * <p>The pitch and the square's own height are asked for separately. They are the same
-     * number while we are tightening -- the squares are shortened to match so they sit flush --
-     * but they are NOT the same on the way out, where the game's own pitch and the game's own
-     * square height both have to go back. They happen to be equal in the live interface today,
-     * so passing one for both worked by luck rather than by right.
+     * <p>Tightened, every square is one pitch tall, so they sit flush. The way out does NOT
+     * work anything out: it writes back each square's own captured place and height, because
+     * the game's grid is not regular -- its bottom row is two pixels taller than the rest, and
+     * a way out built from one pitch and one height left that row short.
      */
-    private void tighten(Client client, int firstY, int step, int height, int lift) {
+    private void tighten(Client client, int step, int lift) {
         for (int i = 0; i < SKILLS; i++) {
             Widget square = client.getWidget(InterfaceID.Stats.ATTACK + i);
             if (square == null) {
                 continue;
             }
-            int wanted = firstY + (i % ROWS) * step;
+            int wanted = lift == 0 ? gameY[i] : (i % ROWS) * step;
+            int height = lift == 0 ? gameHeight[i] : step;
             if (square.getRelativeY() != wanted || square.getHeight() != height) {
                 square.setOriginalY(wanted);
                 square.setOriginalHeight(height);
@@ -430,6 +471,7 @@ final class SkillTab {
             plate.setOriginalX(wantPlateX);
             plate.setOriginalY(wantPlateY);
             plate.setOriginalWidth(wantPlateWidth);
+            pieces(plate, wantPlateWidth);
             relayout(plate);
         }
         if (universe.getHeight() != wantTabHeight) {
@@ -437,8 +479,7 @@ final class SkillTab {
             universe.revalidate();
         }
         if (originalStep > 0) {
-            tighten(Access.plugin().client, wantFirstY, originalStep - TIGHTEN_BY,
-                originalStep - TIGHTEN_BY, TIGHTEN_BY);
+            tighten(Access.plugin().client, originalStep - TIGHTEN_BY, TIGHTEN_BY);
         }
     }
 
@@ -465,28 +506,30 @@ final class SkillTab {
             originalStep = stepY;
             // Captured before anything moves. Reading these back afterwards would take our own
             // adjustment as the starting point and creep further on every rebuild.
-            originalFirstY = first.getRelativeY();
-            originalHeight = first.getHeight();
             childY = new int[SKILLS][];
+            gameY = new int[SKILLS];
+            gameHeight = new int[SKILLS];
             for (int i = 0; i < SKILLS; i++) {
-                Widget[] kids = parts(client.getWidget(InterfaceID.Stats.ATTACK + i));
+                Widget square = client.getWidget(InterfaceID.Stats.ATTACK + i);
+                Widget[] kids = parts(square);
                 childY[i] = new int[kids.length];
                 for (int k = 0; k < kids.length; k++) {
                     childY[i][k] = kids[k].getRelativeY();
                 }
+                gameY[i] = square.getRelativeY();
+                gameHeight[i] = square.getHeight();
             }
         }
         // A pixel out of each of the nine rows, and the squares shortened to match so they sit
-        // flush instead of overlapping.
+        // flush instead of overlapping. The grid starts at the very top of the tab.
         //
         // Counted off the screen, the tab gives 260 pixels. Nine rows of 29 wanted 261, so the
         // ninth ran a pixel INTO the frame and had nothing under it; nine of 28 want 252 and
         // leave eight over, which is where the bands at the two ends come from.
         int tight = originalStep - TIGHTEN_BY;
         int x = first.getRelativeX();
-        int firstY = 0;
-        tighten(client, firstY, tight, tight, TIGHTEN_BY);
-        int y = firstY + ROWS * tight;
+        tighten(client, tight, TIGHTEN_BY);
+        int y = ROWS * tight;
 
         // Where the real squares put their icon, so ours lands in the same place. Read before
         // the row is sized, because how short the row may be depends on it.
@@ -521,16 +564,31 @@ final class SkillTab {
             plateY = plate.getRelativeY();
             plateWidth = plate.getWidth();
             tabHeight = universe.getHeight();
+            // Every picture but the right end, which is the one placed from the right.
+            int end = 0;
+            for (Widget part : statics(plate)) {
+                if (part.getType() == WidgetType.GRAPHIC
+                    && part.getXPositionMode() == WidgetPositionMode.ABSOLUTE_LEFT) {
+                    pieceX.put(part.getId(), part.getOriginalX());
+                    end = Math.max(end, part.getOriginalX() + part.getWidth());
+                }
+            }
+            pieceGap = plateWidth - end;
         }
         // The plate keeps its own height and centres in the row, filling from the second square
         // to the right edge of the third. It centres in the row's REAL height, so that when the
         // ninth is the short one it rides up with the square beside it rather than sitting low.
+        //
+        // Its border is drawn a pixel in from each end of it, on the game's plate as on ours, so
+        // both ends sit a pixel inside the stones above. An earlier fix took two more off the
+        // right for the lines there, which was the wrong cause and left that end three in.
         int from = x + stepX;
-        int span = last.getRelativeX() + width - from - PLATE_TRIM;
+        int span = last.getRelativeX() + width - from;
         int plateY9 = y + (rowHeight - plate.getHeight()) / 2;
         plate.setOriginalX(from);
         plate.setOriginalY(plateY9);
         plate.setOriginalWidth(span);
+        pieces(plate, span);
         relayout(plate);
 
         // The tab is NOT grown. Measured in the client, the grid ends 31px above the bottom of
@@ -538,7 +596,6 @@ final class SkillTab {
         // that was what pushed the row out of sight.
         wantPlateX = from;
         wantPlateWidth = span;
-        wantFirstY = firstY;
         wantPlateY = plateY9;
         wantTabHeight = tabHeight;
 
@@ -614,6 +671,7 @@ final class SkillTab {
             levelBottom = levelTop;
         }
         if (levelTop == null || levelBottom == null) {
+            restore();
             return;
         }
 
@@ -676,6 +734,22 @@ final class SkillTab {
         }
     }
 
+    /**
+     * Puts the plate's lengths of border where a plate this wide wants them. See {@link #pieceX}.
+     *
+     * <p>At the game's own width this writes back exactly where the game had them, since no
+     * length there comes closer to the right than the gap was measured from. The caller lays
+     * the plate out afterwards.
+     */
+    private void pieces(Widget plate, int width) {
+        for (Widget part : statics(plate)) {
+            Integer x = pieceX.get(part.getId());
+            if (x != null) {
+                part.setOriginalX(Math.min(x, width - pieceGap - part.getWidth()));
+            }
+        }
+    }
+
     /** What a square carries INSIDE its stone: the skill's picture and its two numbers. */
     private static boolean carried(Widget kid) {
         if (kid.getType() == WidgetType.TEXT) {
@@ -706,6 +780,9 @@ final class SkillTab {
         if (kids == null) {
             return new Widget[0];
         }
+        // The game's own array, which the loop below would compact in place: a gap in it became
+        // a second copy of whatever followed. Twenty-four squares, every tick.
+        kids = kids.clone();
         int kept = 0;
         for (Widget kid : kids) {
             if (kid != null) {
@@ -823,7 +900,9 @@ final class SkillTab {
             if (level >= FlipLevel.MAX_LEVEL) {
                 int tier = FlipLevel.prestigeFor(profit);
                 say(1, "Prestige:", tier > 0 ? FlipLevel.roman(tier) : "none yet");
-                say(2, "Next tier at:", exact(FlipLevel.profitForPrestige(tier + 1)));
+                // The last tier has no next one. See FlipLevel.MAX_PRESTIGE.
+                say(2, "Next tier at:", tier < FlipLevel.MAX_PRESTIGE
+                    ? exact(FlipLevel.profitForPrestige(tier + 1)) : "none");
             } else {
                 say(1, "Next level at:", exact(FlipLevel.profitFor(level + 1)));
                 say(2, "Remaining:", exact(FlipLevel.toNextLevel(profit)));
@@ -905,7 +984,9 @@ final class SkillTab {
     // sprite to read -- which is why the glow kept coming out as the little picture's outline.
     // So the shape is named outright instead. Both are the lit stone the game draws under a
     // selected tab, and Skills is not a corner tab, so the middle one is its shape.
-    private static final int[][] SKILLS_TAB = {
+    // Not private, and nor are unseen, stoneGlow, said, stoneSprite or tabOpen: the development
+    // client's tester reads them to report what the sidebar half found. Nothing that ships does.
+    static final int[][] SKILLS_TAB = {
         {0x0224_0041, 0x0224_0048, SpriteID.SideStoneHighlights.MIDDLE},
         {0x00a1_003c, 0x00a1_0043, SpriteID.SideStoneHighlights.MIDDLE},
         {0x00a4_0035, 0x00a4_003c, SpriteID.PreEocStones.MIDDLE},
@@ -925,9 +1006,11 @@ final class SkillTab {
     // filled with.
     private static final int GLOW_INK = 0xFFFFA0;
 
-    // A level-up nobody has looked at yet, and how much of it has been answered: opening the
-    // tab settles the stone, hovering the square settles the square.
-    private volatile boolean unseen;
+    // A level-up nobody has looked at yet. Only opening the Merchant guide answers it, which is
+    // where the game stops its own (see fill()). Until then the square glows, and so does the
+    // Skills stone whenever the tab is not the one on screen: opening the tab darkens the stone
+    // only for as long as it stays open. Hovering the square settles nothing.
+    volatile boolean unseen;
     private int beat;
 
     // The game's sprites we have flattened, so each is built and registered once.
@@ -935,21 +1018,15 @@ final class SkillTab {
     private final java.util.Map<Integer, int[]> sizes = new java.util.HashMap<>();
 
     private Widget glow;
-    private Widget stoneGlow;
-    private final java.util.Set<String> said = new java.util.HashSet<>();
+    Widget stoneGlow;
+    final java.util.Set<String> said = new java.util.HashSet<>();
     private Widget stoneGlowPaint;
-    private int stoneSprite = -1;
-    private int stoneId = -1;
+    int stoneSprite = -1;
 
     /** A Merchant level has been earned. Flashes until the player goes and looks at it. */
     void flash() {
         unseen = true;
         beat = 0;
-    }
-
-    /** Whether a level-up is still waiting to be seen. For the tester to read back. */
-    boolean flashing() {
-        return unseen;
     }
 
     /**
@@ -970,43 +1047,9 @@ final class SkillTab {
     }
 
     /** Whether the skills tab is the one on screen right now. */
-    private static boolean tabOpen(Client client) {
+    static boolean tabOpen(Client client) {
         Widget universe = client.getWidget(InterfaceID.Stats.UNIVERSE);
         return universe != null && !universe.isHidden();
-    }
-
-    /**
-     * What the sidebar half found, for the tester to show.
-     *
-     * <p>This half went wrong twice over one fact: the Skills tab's picture is not part of its
-     * stone, it is the widget beside it. So the report names exactly what it is looking at.
-     */
-    String stoneReport() {
-        Client client = Access.plugin().client;
-        StringBuilder out = new StringBuilder();
-        out.append("Skills tab open: ").append(tabOpen(client)).append("<br>");
-        for (int[] tab : SKILLS_TAB) {
-            out.append(Integer.toHexString(tab[0])).append(": ");
-            Widget icon = client.getWidget(tab[1]);
-            Widget stone = client.getWidget(tab[0]);
-            out.append("picture ")
-                .append(icon == null ? "absent"
-                    : icon.isHidden() ? "hidden"
-                    : "ON SCREEN " + icon.getWidth() + "x" + icon.getHeight()
-                        + " at " + icon.getRelativeX() + "," + icon.getRelativeY())
-                .append("; stone ")
-                .append(stone == null ? "absent" : "sprite " + stone.getSpriteId())
-                .append("; named shape ").append(tab[2])
-                .append("<br>");
-        }
-        out.append("Shape in use: ").append(stoneSprite).append("<br>");
-        out.append("Glow built: ").append(stoneGlow != null).append("<br>");
-        out.append("Still unseen: ").append(unseen).append("<br>");
-        out.append("Tab counts as open: ").append(tabOpen(client)).append("<br>");
-        for (String why : said) {
-            out.append("&nbsp;- ").append(why).append("<br>");
-        }
-        return out.toString();
     }
 
     /**
@@ -1030,12 +1073,6 @@ final class SkillTab {
         // Kept because a hidden widget need not carry a size, and the sprite always does.
         sizes.put(sprite, new int[]{art.getWidth(), art.getHeight()});
         return id;
-    }
-
-    private static void show(Widget widget, boolean showing) {
-        if (widget != null && widget.isSelfHidden() == showing) {
-            widget.setHidden(!showing);
-        }
     }
 
     /**
@@ -1079,7 +1116,18 @@ final class SkillTab {
         int height = size == null ? icon.getHeight() : size[1];
         int x = icon.getRelativeX() + (icon.getWidth() - width) / 2;
         int y = icon.getRelativeY() + (icon.getHeight() - height) / 2;
-        if (stoneGlow == null || stoneSprite != source) {
+        // Built again whenever the one we have no longer hangs where it was put. A relog, a
+        // world hop or a switch between fixed and resizable loads the sidebar afresh: its old
+        // widgets, ours among them, are dropped, and a layout switch hangs the picture in a
+        // different container altogether. Asked only whether the SHAPE had changed, the glow
+        // went on fading a widget that was no longer drawn, and never showed again. Asking
+        // whether the live container still holds ours answers every one of those at once, and
+        // a sidebar that has cleared its own children as well.
+        if (stoneGlow == null || stoneSprite != source
+            || !java.util.Arrays.asList(parts(parent)).contains(stoneGlow)) {
+            // One that is still standing is put out first, so a change of shape cannot leave
+            // the old one lit beside the new.
+            hide(stoneGlow);
             // A layer cut to what is being glowed, with the glow inside it. A layer clips what
             // spills, so none of it can reach past the tab whatever the sprite turns out to be.
             Widget box = parent.createChild(-1, WidgetType.LAYER);
@@ -1209,18 +1257,30 @@ final class SkillTab {
     }
 
     /**
-     * Adds up the lifetime profit once on login, off this thread.
+     * Works the level's profit out on login, and again every time the skills tab comes on
+     * screen, off this thread.
      *
      * <p>Without it the square reads level 1 until something else happens to work the total out
      * -- opening the Profile tab was doing it -- so a player saw the wrong level for as long as
-     * they left the panel alone.
+     * they left the panel alone. Every login counts, so with the level read per character a
+     * switch to another character brings that character's level with it.
+     *
+     * <p>Every opening of the tab counts too, because a live sale is not the only thing that
+     * moves the total. A GE history import, a recorded recipe and a wipe all do, none of them
+     * passes through here, and each asks only the Profile tab to refresh -- which does nothing
+     * while that tab is not the one showing. The square is only ever seen with the tab open, so
+     * working the total out as the tab opens is enough for it never to be seen stale, and it
+     * costs one adding-up per opening rather than a watch on every way the trades can change.
      */
     private void prime(Client client) {
+        boolean open = tabOpen(client);
+        boolean opened = open && !looking;
+        looking = open;
         if (client.getGameState() != GameState.LOGGED_IN) {
             primed = false;
             return;
         }
-        if (primed) {
+        if (primed && !opened) {
             return;
         }
         primed = true;
@@ -1228,7 +1288,7 @@ final class SkillTab {
         plugin.executeAsync(() -> {
             RankUp rankUp = Bridge.get(RankUp.class);
             if (rankUp != null) {
-                rankUp.combined = rankUp.combinedLifetimeProfit();
+                rankUp.profit = rankUp.levelProfit();
             }
         });
     }
@@ -1308,9 +1368,14 @@ final class SkillTab {
      * <p>Baked rather than drawn over: the sprite drawer paints every pixel that is not fully
      * clear as solid, so a struck mark has the hard edges it wants by construction, and the
      * numeral can never drift out of step with the art underneath it.
+     *
+     * <p>No tier past {@link FlipLevel#MAX_PRESTIGE} is ever drawn, whatever is asked for. Past
+     * it the numeral runs to letters the plaque has no shape for (L at 40), and at XXVIII the
+     * plate is wider than the 19-pixel picture, which then throws on the first pixel off its
+     * edge -- on the client thread, every time the tier is struck.
      */
     static BufferedImage marked(BufferedImage art, int tier) {
-        int[] columns = columns(FlipLevel.roman(tier));
+        int[] columns = columns(FlipLevel.roman(Math.min(tier, FlipLevel.MAX_PRESTIGE)));
         if (columns.length == 0) {
             return art;
         }
@@ -1365,12 +1430,12 @@ final class SkillTab {
     }
 
     /**
-     * The combined lifetime profit as it was last added up. Read here, never worked out here:
-     * adding it up reads every character's saved trades, which must not happen on this thread.
+     * The profit the level is read from, as it was last worked out. Read here, never worked out
+     * here: that reads saved trades, which must not happen on this thread.
      */
     private static long profit() {
         RankUp rankUp = Bridge.get(RankUp.class);
-        return rankUp != null ? rankUp.combined : 0L;
+        return rankUp != null ? rankUp.profit : 0L;
     }
 
     /** 1,904,221. */
@@ -1446,13 +1511,18 @@ final class SkillTab {
     // screen at once.
     private static final int SCROLL_LEAST = 20;
 
-    // Set from asking for the window until it closes. The game's script fills that window for
-    // whichever skill was clicked, so ours is written over the top for as long as it is open.
+    // Set from asking for the window until it closes. The game's script fills that window for a
+    // real skill, so ours is written over the top for as long as it is open.
     private volatile boolean claiming;
 
     // Whether the window has actually been on screen since we asked for it, which is how the
     // wait before it opens is told apart from it having been closed.
     private boolean sawGuide;
+
+    // How many client ticks it has been asked for and not yet seen, and how many it gets: one
+    // second, when the window is up on the very next tick. See dressGuide().
+    private int waited;
+    static final int GUIDE_WAIT = 50;
 
     // The bar we built and the pieces of it that move, kept as they were made rather than
     // fished back out of the widget they went into.
@@ -1466,25 +1536,20 @@ final class SkillTab {
     // not ours again means somebody opened a different guide over the top of it.
     private volatile boolean dressed;
 
-    // Said once, so the log shows which op was borrowed -- or that there was none to borrow.
-    private boolean saidGuideOp;
+    // The window when we opened it ourselves. The server never opened it, so it will not close
+    // it either: that is ours too. Null when there is none, or the game opened the one we took.
+    private WidgetNode opened;
+    private int openedAt;
 
     // Where the ranks are on the canvas, left here by the client thread for the wheel listener
     // on the mouse's thread, which may not read a widget itself.
     private volatile Rectangle guideArea;
 
     /**
-     * Opens the real guide window by clicking a real skill's guide op for it.
-     *
-     * <p>Two earlier versions tried to LEARN this op by watching menu entries go past. Both
-     * failed, and for the same reason: the option is only ever offered once that square has been
-     * under the pointer, and clicking Merchant straight after login never has been, so every
-     * click fell through to the chatbox. The op is read off the real Attack square instead,
-     * which needs nothing to have happened first.
-     *
-     * <p>The interface itself says each of the 24 squares carries two ops, with the text written
-     * in by the game's own script. The first is the guide -- which is why a plain left click
-     * opens one -- but the text is matched all the same, in case the pair is ever reordered.
+     * Opens the game's own skill guide window on this client alone, the way Examine Log opens
+     * its own: the window is hung in the layout's main window slot here, and nothing about it
+     * is sent to the server. The server never learns it is open, so it never closes it either;
+     * {@link #letGo} does that, and {@link #clicked} keeps every click on it here.
      */
     private void openGuide() {
         Client client = Access.plugin().client;
@@ -1494,45 +1559,87 @@ final class SkillTab {
         }
         Widget open = client.getWidget(InterfaceID.SkillGuide.WINDOW);
         if (open != null && !open.isHidden()) {
-            // The window is already up on somebody else's guide, so it is taken over where it
-            // stands. Asking the game to open it again lands a frame LATER than the ranks go
-            // in, which read as the ranks being replaced by Attack the moment they appeared.
+            // The window is already up on a real skill's guide, so it is taken over where it
+            // stands.
             claiming = true;
             dressed = false;
             return;
         }
-        Widget square = client.getWidget(InterfaceID.Stats.ATTACK);
-        String[] ops = square == null ? null : square.getActions();
-        if (ops == null || ops.length == 0) {
+        int slot = modalSlot(client.getTopLevelInterfaceId());
+        // Another window is in that slot, and opening over it would close it here while the
+        // server still thinks it is up.
+        if (slot < 0 || client.getComponentTable().get(slot) != null) {
             return;
         }
-        int op = 1;
-        for (int i = 0; i < ops.length; i++) {
-            if (ops[i] != null && ops[i].startsWith("View")) {
-                op = i + 1;
-                break;
-            }
-        }
-        if (!saidGuideOp) {
-            saidGuideOp = true;
-            log.info("[guide] borrowing op {} of {} from the Attack square", op,
-                java.util.Arrays.toString(ops));
-        }
         claiming = true;
-        // What the client passes for a component op itself: no index, and the option text only
-        // so anything watching the click reads what the game would have shown.
-        client.menuAction(-1, square.getId(), MenuAction.CC_OP, op, -1,
-            ops[op - 1] == null ? "" : ops[op - 1], "");
-        // The window itself is not up until the game finishes the frame, so it is written on
-        // the next client tick -- one frame later, not one game tick.
+        // After the click rather than inside it: opening runs the window's own load script.
+        Access.plugin().invokeOnClientThread(() -> {
+            // The slot is looked at again now that it is time to open, because the click was
+            // a moment ago. Something may have been hung there since, and opening over it would
+            // close it here while the server still thinks it is up. Or this is a second click
+            // from the same moment, and what is there is ours, still to be dressed.
+            WidgetNode there = client.getComponentTable().get(slot);
+            if (there != null) {
+                claiming = there == opened;
+                return;
+            }
+            try {
+                openedAt = slot;
+                opened = client.openInterface(slot, InterfaceID.SKILL_GUIDE,
+                    WidgetModalMode.MODAL_NOCLICKTHROUGH);
+            } catch (IllegalStateException e) {
+                log.info("[guide] could not open the window: {}", e.getMessage());
+                claiming = false;
+            }
+        });
+    }
+
+    /** The slot each layout opens its main windows in, the guide among them. */
+    private static int modalSlot(int topLevel) {
+        switch (topLevel) {
+            case InterfaceID.TOPLEVEL:
+                return InterfaceID.Toplevel.MAINMODAL;
+            case InterfaceID.TOPLEVEL_OSRS_STRETCH:
+                return InterfaceID.ToplevelOsrsStretch.MAINMODAL;
+            case InterfaceID.TOPLEVEL_PRE_EOC:
+                return InterfaceID.ToplevelPreEoc.MAINMODAL;
+            default:
+                return -1;
+        }
+    }
+
+    /**
+     * A click on the window we opened. The server does not know it is open, so nothing clicked
+     * on it goes there: Close closes it here, and nothing else does anything.
+     */
+    void clicked(MenuOptionClicked event) {
+        Widget widget = event.getWidget();
+        if (opened == null || widget == null) {
+            return;
+        }
+        int group = WidgetUtil.componentToInterface(widget.getId());
+        String option = event.getMenuOption();
+        if (group == InterfaceID.STATS && option.startsWith("View") && !option.equals(guideOption())) {
+            // A real skill's guide, which the game opens where ours is. Opened over ours it came
+            // up blank, so ours goes first and the game's opens as if nothing had been up.
+            letGo();
+            return;
+        }
+        if (group != InterfaceID.SKILL_GUIDE) {
+            return;
+        }
+        event.consume();
+        if (option.startsWith("Close")) {
+            letGo();
+        }
     }
 
     /**
      * The wheel over the ranks.
      *
      * <p>The game wires a panel's wheel up as part of building its scroll bar, and it only
-     * builds one for a page that needs it. The page it fills before ours goes in is Attack's,
-     * which fits, so there was nothing wired and the wheel did nothing over the ranks.
+     * builds one for a page that needs it. The page it fills before ours goes in may fit, and
+     * then nothing is wired and the wheel does nothing over the ranks.
      *
      * <p>This runs on the mouse's thread, not the client's, so it asks no widget anything.
      * Doing that is not merely unsafe: reading one throws "must be called on client thread"
@@ -1567,10 +1674,13 @@ final class SkillTab {
         }
         Widget window = client.getWidget(InterfaceID.SkillGuide.WINDOW);
         if (window == null || window.isHidden()) {
-            // Not up YET is not the same as closed. The game opens the window at the end of the
-            // frame the click landed in, so giving up here was what left the first click on a
-            // fresh guide showing Attack until it was clicked a second time.
-            if (sawGuide) {
+            // Not up YET is not the same as closed: the window opens after the click, not in it.
+            //
+            // But it is up within a tick of being opened, so one still not seen after a second
+            // never will be -- the interface this opens by number having stopped being the
+            // guide in some game update, say. Waited on for ever, that would leave an empty
+            // window that lets no click through hanging over the game until the next login.
+            if (sawGuide || ++waited > GUIDE_WAIT) {
                 letGo();
             }
             return;
@@ -1601,9 +1711,23 @@ final class SkillTab {
 
     /** Stops writing into the guide window, whether it closed or somebody else claimed it. */
     private void letGo() {
+        Client client = Access.plugin().client;
+        // Only while it is still the one in its slot. Anything else there is the game's own.
+        if (opened != null && client.getComponentTable().get(openedAt) == opened) {
+            try {
+                client.closeInterface(opened, true);
+            } catch (RuntimeException e) {
+                // Forgotten below all the same. A window that would not close is still not one
+                // to go on writing into or taking clicks for, and stop() has more to put back
+                // after this that a throw here would have skipped.
+                log.info("[guide] could not close the window: {}", e.getMessage());
+            }
+        }
+        opened = null;
         guideArea = null;
         claiming = false;
         sawGuide = false;
+        waited = 0;
         dressed = false;
         barOwner = null;
         barTrack = null;
@@ -1660,9 +1784,9 @@ final class SkillTab {
      *
      * <p>A scroll height on its own leaves the panel scrollable with nothing to take hold of.
      * The game's own scrollbar script was the obvious answer and it is the wrong one: it MOVES
-     * a bar, it does not make one. Asked to update a guide that had never built one -- and the
-     * skill we borrow the click from is Attack, whose page fits -- it left the widget empty
-     * with everything else about it correct, which is what the log showed. So the bar is built
+     * a bar, it does not make one. Asked to update a guide that had never built one -- a real
+     * page that fits -- it left the widget empty with everything else about it correct, which
+     * is what the log showed. So the bar is built
      * here out of the pieces the interface itself uses: a 16x16 arrow at each end and a track
      * of 16x5 tiles between them, with a dragger of a cap, a tiled middle and a cap.
      */

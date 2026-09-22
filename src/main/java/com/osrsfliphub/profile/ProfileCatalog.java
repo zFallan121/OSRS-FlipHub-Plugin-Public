@@ -47,6 +47,20 @@ final class ProfileCatalog {
         return profiles;
     }
 
+    /**
+     * Every account with a file on this computer, by the name it is already known by. The files are
+     * listed, not read: {@link #loadProfiles} parses every one in full, which the recorder did on
+     * the Swing thread each time it opened, only for names that are almost always in memory.
+     */
+    Map<Long, String> listed(Map<Long, String> known) {
+        Map<Long, String> out = new HashMap<>();
+        for (Path dir : new Path[] {profileStore.getProfilesDir(), profileStore.getLegacyProfilesDir()}) {
+            ProfileHashFileWalker.walk(dir, (hash, path) ->
+                out.putIfAbsent(hash, known.getOrDefault(hash, ProfileDisplayNames.placeholderFor(hash))));
+        }
+        return out;
+    }
+
     private void mergeProfilesFromDir(Map<Long, String> profiles, Path dir) {
         if (profiles == null) {
             return;

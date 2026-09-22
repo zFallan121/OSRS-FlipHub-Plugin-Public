@@ -39,6 +39,8 @@ final class AgeTooltip {
     private final List<CountdownEntry> countdownEntries = new ArrayList<>();
     private final List<AgePairEntry> ageEntries = new ArrayList<>();
     private Timer countdownTimer;
+    /** Set by {@link #shutDown}: a redraw already queued behind it must not start the timer again. */
+    private boolean shut;
     private AgePairEntry hoveredAgeEntry;
     private boolean awaitingRebind;
     private JWindow ageTooltipWindow;
@@ -189,7 +191,7 @@ final class AgeTooltip {
     }
 
     void ensureCountdownTimer() {
-        if (countdownEntries.isEmpty() && ageEntries.isEmpty()) {
+        if (shut || countdownEntries.isEmpty() && ageEntries.isEmpty()) {
             awaitingRebind = false;
             hoveredAgeEntry = null;
             hideAgeTooltip();
@@ -452,6 +454,7 @@ final class AgeTooltip {
      * closing the panel never does, so the timer kept ticking on a panel nobody could see.
      */
     void shutDown() {
+        shut = true;
         stopTimer(countdownTimer);
         countdownTimer = null;
         clearHoverAndHide();

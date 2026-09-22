@@ -24,351 +24,159 @@
  */
 package com.osrsfliphub;
 
-import java.awt.CardLayout;
-import java.time.Instant;
 import java.util.*;
-import java.util.function.Consumer;
-import javax.swing.*;
-import static com.osrsfliphub.Skin.*;
+import lombok.RequiredArgsConstructor;
 
+/**
+ * What the side panel is showing, and the changes its controls make to it.
+ *
+ * <p>This was two classes: the fields, and a stateless set of transitions that took the fields as
+ * a parameter on every call, along with the listener to tell and the redraw to run afterwards. So
+ * every control carried four things to say one. It now holds the listener and the redraws itself.
+ */
+@RequiredArgsConstructor
 final class PanelState {
-    void switchTab(
-        String card,
-        AgeTooltip ageTooltipCoordinator,
-        UiStyler uiStyler,
-        JToggleButton flippingTab,
-        JToggleButton statsTab,
-        JToggleButton linkTab,
-        CardLayout cardLayout,
-        JPanel cardPanel,
-        PanelListener listener,
-        JComboBox<StatsRange> statsRangeCombo
-    ) {
-        String target = card != null ? card : "flipping";
-        boolean statsSelected = "stats".equals(target);
-        if (ageTooltipCoordinator != null) {
-            ageTooltipCoordinator.clearHoverAndHide();
-        }
-        if (uiStyler != null) {
-            uiStyler.styleTab(flippingTab, "flipping".equals(target));
-            uiStyler.styleTab(statsTab, statsSelected);
-            uiStyler.styleTab(linkTab, "account".equals(target));
-        }
-        if (cardLayout != null && cardPanel != null) {
-            cardLayout.show(cardPanel, target);
-        }
-        if ("account".equals(target)) {
-            LinkStatus status = Bridge.get(LinkStatus.class);
-            if (status != null) {
-                status.pushToPanel();
-            }
-        }
-        if (statsSelected && listener != null && statsRangeCombo != null) {
-            StatsRange range = (StatsRange) statsRangeCombo.getSelectedItem();
-            if (range != null) {
-                listener.onStatsRangeChanged(range);
-            }
-        }
-    }
+    private final PanelListener listener;
+    private final Runnable renderItems;
+    private final Runnable renderStatsItems;
+    private final Runnable updateStatsSummary;
 
-    void onBookmarkFilterChanged(
-        PanelMutableState state,
-        boolean enabled,
-        PanelListener listener,
-        Runnable renderItems
-    ) {
-        if (state == null) {
-            return;
-        }
-        state.showBookmarkedOnly = enabled;
-        state.currentPage = 1;
-        if (listener != null) {
-            listener.onBookmarkFilterChanged(state.showBookmarkedOnly);
-        }
-        if (renderItems != null) {
-            renderItems.run();
-        }
+    int currentPage = 1;
+    int totalPages = 1;
+    List<FlipHubItem> lastItems;
+    long lastAsOfMs;
+    Long lastPriceCacheMs;
+    FlipHubItem offerPreviewItem;
+    long offerAsOfMs;
+    Long offerPriceCacheMs;
+    String searchQuery = "";
+    boolean showBookmarkedOnly;
+    StatsItemSort itemSort = StatsItemSort.COMPLETION;
+    boolean itemSortAscending;
+    StatsItemSort statsSort = StatsItemSort.COMPLETION;
+    /** Which activities the item list shows. */
+    StatsRecipeFilter statsRecipeFilter = StatsRecipeFilter.ALL;
+    /** Which activities the total at the top of the tab adds up. */
+    StatsRecipeFilter statsProfitFilter = StatsRecipeFilter.ALL;
+    boolean statsSortAscending;
+    int statsPage = 1;
+    String statsSearchQuery = "";
+    StatsSummary statsSummary;
+    List<StatsItem> statsItems = new ArrayList<>();
+    Map<Integer, List<StatsFlipInstance>> statsFlipHistoryByItem = new HashMap<>();
+
+    // ---- the Activity tab ----
+
+    void setBookmarkFilter(boolean enabled) {
+        showBookmarkedOnly = enabled;
+        currentPage = 1;
+        listener.onBookmarkFilterChanged(enabled);
+        renderItems.run();
     }
 
     /** Seeds the sort controls from the choice restored at start-up, before they are shown. */
-    void restoreItemSort(PanelMutableState state) {
+    void restoreItemSort() {
         GeLifecyclePlugin plugin = Access.pluginOrNull();
-        if (state == null || plugin == null) {
-            return;
-        }
-        state.itemSort = plugin.currentItemSort != null ? plugin.currentItemSort : StatsItemSort.COMPLETION;
-        state.itemSortAscending = plugin.currentItemSortAscending;
-    }
-
-    void onItemSortChanged(
-        PanelMutableState state,
-        StatsItemSort sort,
-        boolean ascending,
-        PanelListener listener
-    ) {
-        if (state == null) {
-            return;
-        }
-        state.itemSort = sort != null ? sort : StatsItemSort.COMPLETION;
-        state.itemSortAscending = ascending;
-        state.currentPage = 1;
-        if (listener != null) {
-            listener.onItemSortChanged(state.itemSort, state.itemSortAscending);
+        if (plugin != null) {
+            itemSort = plugin.currentItemSort != null ? plugin.currentItemSort : StatsItemSort.COMPLETION;
+            itemSortAscending = plugin.currentItemSortAscending;
         }
     }
 
-    void onPrevPageRequested(PanelMutableState state, PanelListener listener) {
-        if (state != null && state.currentPage > 1 && listener != null) {
-            listener.onPageChanged(state.currentPage - 1);
+    void setItemSort(StatsItemSort sort, boolean ascending) {
+        itemSort = sort;
+        itemSortAscending = ascending;
+        currentPage = 1;
+        listener.onItemSortChanged(sort, ascending);
+    }
+
+    void previousPage() {
+        if (currentPage > 1) {
+            listener.onPageChanged(currentPage - 1);
         }
     }
 
-    void onNextPageRequested(PanelMutableState state, PanelListener listener) {
-        if (state != null && state.currentPage < state.totalPages && listener != null) {
-            listener.onPageChanged(state.currentPage + 1);
+    void nextPage() {
+        if (currentPage < totalPages) {
+            listener.onPageChanged(currentPage + 1);
         }
     }
 
-    void onStatsRangeSelectionChanged(PanelListener listener, PanelMutableState state, StatsRange range) {
+    void setSearchQuery(String text) {
+        // The empty state has to know whether the list is empty because nothing was
+        // traded or because nothing matched, and only the query can tell it apart.
+        searchQuery = text != null ? text : "";
+        listener.onSearchChanged(text);
+    }
+
+    void setOfferPreview(FlipHubItem item, long asOfMs, Long priceCacheMs) {
+        boolean shown = item != null && item.item_id > 0;
+        offerPreviewItem = shown ? item : null;
+        offerAsOfMs = shown ? asOfMs : 0;
+        offerPriceCacheMs = shown ? priceCacheMs : null;
+        renderItems.run();
+    }
+
+    // ---- the Profile tab ----
+
+    /** Draws the tab's list and its total, which is also how the tab first fills in. */
+    void drawStats() {
+        renderStatsItems.run();
+        updateStatsSummary.run();
+    }
+
+    void setStatsRange(StatsRange range) {
         // A new range is a different set of items, so the page the user was on no longer refers to
         // anything. Data refreshes within a range deliberately keep their page instead.
-        if (state != null) {
-            state.statsPage = 1;
-        }
-        if (listener != null && range != null) {
-            listener.onStatsRangeChanged(range);
-        }
+        statsPage = 1;
+        listener.onStatsRangeChanged(range);
     }
 
     /** Which activities the list shows. Nothing needs refetching to answer it. */
-    void onStatsRecipeFilterChanged(
-        PanelMutableState state,
-        StatsRecipeFilter filter,
-        Runnable renderStatsItems
-    ) {
-        if (state == null || filter == null) {
-            return;
-        }
-        state.statsRecipeFilter = filter;
+    void setStatsRecipeFilter(StatsRecipeFilter filter) {
+        statsRecipeFilter = filter;
         // A different set of items means page 3 of the old list says nothing
         // about page 3 of the new one.
-        state.statsPage = 1;
-        if (renderStatsItems != null) {
-            renderStatsItems.run();
-        }
+        restartStatsList();
     }
 
     /** Which activities the total at the top adds up. The list is unaffected. */
-    void onStatsProfitFilterChanged(
-        PanelMutableState state,
-        StatsRecipeFilter filter,
-        Runnable updateStatsSummary
-    ) {
-        if (state == null || filter == null) {
-            return;
-        }
-        state.statsProfitFilter = filter;
-        if (updateStatsSummary != null) {
-            updateStatsSummary.run();
-        }
+    void setStatsProfitFilter(StatsRecipeFilter filter) {
+        statsProfitFilter = filter;
+        updateStatsSummary.run();
     }
 
-    void onStatsSortSelectionChanged(
-        PanelListener listener,
-        PanelMutableState state,
-        StatsItemSort sort,
-        Runnable renderStatsItems
-    ) {
-        if (listener != null && sort != null) {
-            listener.onStatsSortChanged(sort);
-        }
+    void setStatsSort(StatsItemSort sort) {
+        statsSort = sort;
+        listener.onStatsSortChanged(sort);
         // Re-sorting reshuffles which items land on which page, so page 3 of the old order says
         // nothing about page 3 of the new one.
-        if (state != null) {
-            state.statsPage = 1;
-        }
-        if (renderStatsItems != null) {
-            renderStatsItems.run();
-        }
+        restartStatsList();
     }
 
-    void onStatsSortDirectionToggled(PanelMutableState state, Runnable renderStatsItems) {
-        if (state == null) {
-            return;
-        }
-        state.statsSortAscending = !state.statsSortAscending;
-        state.statsPage = 1;
-        if (renderStatsItems != null) {
-            renderStatsItems.run();
-        }
+    void toggleStatsSortDirection() {
+        statsSortAscending = !statsSortAscending;
+        restartStatsList();
     }
 
-    void onStatsSearchQueryChanged(PanelMutableState state, String query, Runnable renderStatsItems) {
-        if (state == null) {
-            return;
-        }
+    void setStatsSearchQuery(String query) {
         String normalizedQuery = query != null ? query.trim().toLowerCase(Locale.US) : "";
-        if (!normalizedQuery.equals(state.statsSearchQuery)) {
-            state.statsPage = 1;
+        if (!normalizedQuery.equals(statsSearchQuery)) {
+            statsPage = 1;
         }
-        state.statsSearchQuery = normalizedQuery;
-        if (renderStatsItems != null) {
+        statsSearchQuery = normalizedQuery;
+        renderStatsItems.run();
+    }
+
+    void setStatsPage(int page) {
+        if (page >= 1) {
+            statsPage = page;
             renderStatsItems.run();
         }
     }
 
-    void onStatsPageRequested(PanelMutableState state, int page, Runnable renderStatsItems) {
-        if (state == null || page < 1) {
-            return;
-        }
-        state.statsPage = page;
-        if (renderStatsItems != null) {
-            renderStatsItems.run();
-        }
-    }
-
-    void setItems(
-        PanelMutableState state,
-        List<FlipHubItem> items,
-        int page,
-        int totalPages,
-        long asOfMs,
-        Long priceCacheMs,
-        JLabel pageLabel,
-        JButton prevButton,
-        JButton nextButton,
-        Runnable renderItems
-    ) {
-        if (state == null) {
-            return;
-        }
-        state.lastItems = items;
-        state.lastAsOfMs = asOfMs;
-        state.lastPriceCacheMs = priceCacheMs;
-        state.currentPage = page;
-        state.totalPages = totalPages <= 0 ? 1 : totalPages;
-        // The page actually drawn, which is the requested one clamped to what exists. Leaving
-        // the plugin on the page the user had asked for meant a list that shrank and later grew
-        // silently jumped back to it.
-        GeLifecyclePlugin plugin = Access.pluginOrNull();
-        if (plugin != null) {
-            plugin.currentPage = page;
-        }
-
-        if (pageLabel != null) {
-            pageLabel.setText("Page " + page + " of " + state.totalPages);
-        }
-        if (prevButton != null) {
-            prevButton.setEnabled(page > 1);
-        }
-        if (nextButton != null) {
-            nextButton.setEnabled(page < state.totalPages);
-        }
-        if (renderItems != null) {
-            renderItems.run();
-        }
-    }
-
-    Integer setStatsData(
-        PanelMutableState state,
-        StatsSummary summary,
-        List<StatsItem> items,
-        Map<Integer, List<StatsFlipInstance>> historyByItem,
-        Integer expandedStatsItemId,
-        Set<Integer> expandedStatsHistoryItems,
-        StatsState statsStateCoordinator,
-        Consumer<Long> updateStatsUpdatedLabelAction,
-        Runnable updateStatsSummaryAction,
-        Runnable renderStatsItemsAction,
-        long asOfMs
-    ) {
-        if (state == null || statsStateCoordinator == null) {
-            return expandedStatsItemId;
-        }
-        state.statsSummary = summary;
-        StatsState.Result normalizedState = statsStateCoordinator.normalize(
-            summary,
-            items,
-            historyByItem,
-            expandedStatsItemId,
-            expandedStatsHistoryItems
-        );
-        state.statsItems = normalizedState.statsItems;
-        state.statsFlipHistoryByItem = normalizedState.flipHistoryByItem;
-
-        if (updateStatsUpdatedLabelAction != null) {
-            updateStatsUpdatedLabelAction.accept(asOfMs);
-        }
-        if (updateStatsSummaryAction != null) {
-            updateStatsSummaryAction.run();
-        }
-        if (renderStatsItemsAction != null) {
-            renderStatsItemsAction.run();
-        }
-        return normalizedState.expandedStatsItemId;
-    }
-
-    void setOfferPreview(
-        PanelMutableState state,
-        FlipHubItem item,
-        long asOfMs,
-        Long priceCacheMs,
-        Runnable renderItems
-    ) {
-        if (state == null) {
-            return;
-        }
-        if (item == null || item.item_id <= 0) {
-            state.offerPreviewItem = null;
-            state.offerAsOfMs = 0;
-            state.offerPriceCacheMs = null;
-        } else {
-            state.offerPreviewItem = item;
-            state.offerAsOfMs = asOfMs;
-            state.offerPriceCacheMs = priceCacheMs;
-        }
-        if (renderItems != null) {
-            renderItems.run();
-        }
-    }
-
-    void updateStatsUpdatedLabel(JLabel statsUpdatedLabel, long asOfMs) {
-        if (statsUpdatedLabel != null && asOfMs > 0) {
-            statsUpdatedLabel.setText(buildRefreshText(asOfMs, null));
-        }
-    }
-
-    String buildRefreshText(long asOfMs, Long priceCacheMs) {
-        String asOf = REFRESH_TIME_FORMATTER.format(Instant.ofEpochMilli(asOfMs));
-        if (priceCacheMs != null) {
-            String cache = REFRESH_TIME_FORMATTER.format(Instant.ofEpochMilli(priceCacheMs));
-            return "Updated: " + asOf + " (Prices: " + cache + ")";
-        }
-        return "Updated: " + asOf;
-    }
-
-    void hookSearchListener(
-        FlipHubSearchCoordinator searchCoordinator,
-        JTextField searchField,
-        PanelMutableState state,
-        PanelListener listener
-    ) {
-        if (searchCoordinator == null || searchField == null) {
-            return;
-        }
-        searchCoordinator.hookSearchListener(
-            searchField,
-            () -> {
-                // The empty state has to know whether the list is empty because nothing was
-                // traded or because nothing matched, and only the query can tell it apart.
-                if (state != null) {
-                    state.searchQuery = searchField.getText() != null ? searchField.getText() : "";
-                }
-                if (listener != null) {
-                    listener.onSearchChanged(searchField.getText());
-                }
-            }
-        );
+    private void restartStatsList() {
+        statsPage = 1;
+        renderStatsItems.run();
     }
 }
-

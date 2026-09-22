@@ -57,8 +57,17 @@ final class FlipLevel {
     static final long PRESTIGE_FIRST = 5_000_000_000L;
     private static final double PRESTIGE_GROWTH = 1.25d;
 
-    /** Prestige tiers shown as filled pips before the numeral carries on alone. */
-    static final int PRESTIGE_PIPS = 5;
+    /**
+     * The last prestige tier: XVIII, at 1.1 trillion gp, where the tiers stop.
+     *
+     * <p>Two things end here. The numeral is struck into the picture's corner on a plate, and
+     * XVIII is the widest the corner holds: a wider plate covers the coins, the plate's letters
+     * are I, V and X alone (40 is XL), and at XXVIII it is wider than the small picture itself.
+     * And without an end the sums below do not have one either: somewhere past tier 80 a tier's
+     * total no longer fits in a long, wraps negative, and prestigeFor then counts for ever --
+     * on the client thread, which is where the skills tab asks.
+     */
+    static final int MAX_PRESTIGE = 18;
 
     /**
      * PROFIT[n] is the profit needed for level n. Index 0 is unused so the array reads as the
@@ -108,51 +117,37 @@ final class FlipLevel {
     /** Profit still to go before the next level, or 0 at 99. */
     static long toNextLevel(long profit) {
         int level = levelFor(profit);
-        return level >= MAX_LEVEL ? 0L : Math.max(0L, PROFIT[level + 1] - profit);
-    }
-
-    /** How far through the current level, 0..1. At 99 it is full. */
-    static double progressThroughLevel(long profit) {
-        int level = levelFor(profit);
         if (level >= MAX_LEVEL) {
-            return 1d;
+            return 0L;
         }
-        long floor = PROFIT[level];
-        long ceiling = PROFIT[level + 1];
-        if (ceiling <= floor) {
-            return 1d;
-        }
-        return Math.max(0d, Math.min(1d, (double) (profit - floor) / (ceiling - floor)));
+        // Below 99 the line is always above the profit, so this is never truly negative. It
+        // only comes out negative when a profit near the bottom of a long leaves more to go
+        // than a long holds, and then the most a long holds is the honest answer.
+        long left = PROFIT[level + 1] - profit;
+        return left < 0 ? Long.MAX_VALUE : left;
     }
 
-    /** Total profit needed for a prestige tier, counting from 1. Tier 0 is 99 itself. */
+    /**
+     * Total profit needed for a prestige tier, counting from 1. Tier 0 is 99 itself, and a
+     * tier past {@link #MAX_PRESTIGE} costs what the last one does.
+     */
     static long profitForPrestige(int tier) {
         long total = TOP;
         double step = PRESTIGE_FIRST;
-        for (int i = 0; i < tier; i++) {
+        for (int i = 0; i < Math.min(tier, MAX_PRESTIGE); i++) {
             total += Math.round(step);
             step *= PRESTIGE_GROWTH;
         }
         return total;
     }
 
-    /** Prestige tiers earned past 99; 0 below the cap. */
+    /** Prestige tiers earned past 99; 0 below the cap, and never past {@link #MAX_PRESTIGE}. */
     static int prestigeFor(long profit) {
-        if (profit < TOP) {
-            return 0;
-        }
         int tier = 0;
-        // Each tier is a quarter dearer than the last, so this converges fast however large the
-        // total is -- no need to bound it.
-        while (profit >= profitForPrestige(tier + 1)) {
+        while (tier < MAX_PRESTIGE && profit >= profitForPrestige(tier + 1)) {
             tier++;
         }
         return tier;
-    }
-
-    /** Profit still to go before the next prestige tier. */
-    static long toNextPrestige(long profit) {
-        return Math.max(0L, profitForPrestige(prestigeFor(profit) + 1) - profit);
     }
 
     /** I, II, III... for the prestige numeral. */

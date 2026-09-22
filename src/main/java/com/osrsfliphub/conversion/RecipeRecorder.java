@@ -26,9 +26,11 @@ package com.osrsfliphub;
 
 import java.awt.*;
 import java.awt.event.*;
+import java.io.InputStream;
 import java.util.*;
 import java.util.List;
 import javax.swing.*;
+import net.runelite.api.Skill;
 import static com.osrsfliphub.Skin.*;
 
 /**
@@ -38,7 +40,8 @@ import static com.osrsfliphub.Skin.*;
  * plugin. It is deliberately a statement rather than a question: pick the purchases that went in,
  * pick the sales the result went out through, and the record names those exact trades for good.
  * Nothing here is inferred, and nothing here is checked against a recipe table, because there is
- * no longer a recipe table to check against. The running tally at the bottom is what catches a
+ * no longer a recipe table to check against. The one thing it fills in is a repair's fee, and that
+ * sits in the box in plain sight to be typed over. The running tally at the bottom is what catches a
  * wrong tick instead, which is why it is priced by the very calculator that will price the record
  * once it is stored.
  *
@@ -54,6 +57,20 @@ final class RecipeRecorder {
     /** One trade's row, and the line inside it the name sits on. Neither ever changes. */
     private static final int ROW_HEIGHT = 36;
     private static final int NAME_HEIGHT = 20;
+
+    /**
+     * What an NPC charges to repair each broken item this screen can price, by item id: the
+     * Barrows and Moons of Peril pieces, whose repair is a fixed price in coins. See the file.
+     */
+    private static final Properties REPAIRS = new Properties();
+
+    static {
+        try (InputStream in = RecipeRecorder.class.getResourceAsStream("repairs.properties")) {
+            REPAIRS.load(in);
+        } catch (Exception ignored) {
+            // Without the list a repair's fee is typed by hand, which is all it ever was.
+        }
+    }
 
     /** One stored trade the player may pick, and how much of it is still unspoken for. */
     private static final class Candidate {
@@ -79,8 +96,32 @@ final class RecipeRecorder {
 
     private final JPanel content = new TrackingPanel(SCROLL_UNIT_INCREMENT, SCROLL_BLOCK_INCREMENT);
     private final JScrollPane scrollPane = new JScrollPane(content);
-    private final JComboBox<ConversionKind> kindCombo = new JComboBox<>(ConversionKind.values());
+    /**
+     * What a recipe did. A move is not one of them: it has its own way in (the Move link) and its
+     * own screen, and offered here as a sixth kind of recipe it was a second, older way to it.
+     */
+    private final JComboBox<ConversionKind> kindCombo = new JComboBox<>(java.util.Arrays.stream(ConversionKind.values())
+        .filter(kind -> kind != ConversionKind.TRANSFER).toArray(ConversionKind[]::new));
+    /** Whether this is the move screen, as it was opened. */
+    private boolean moving;
+    /**
+     * Where the stock went, for a move and only then: the player's other accounts that have
+     * logged in on this computer, and beside it the key each name stands for.
+     */
+    private final JComboBox<String> toCombo = new JComboBox<>();
+    private final List<Long> toKeys = new ArrayList<>();
+    /** The fee and the tally. A move has neither: nothing was made, and nothing is sold here. */
+    private final JPanel recipeOnly = new Column();
     private final JTextField feeField = new PlaceholderTextField("0");
+    /** Beside the fee's heading while the fee is one this screen filled in, saying how it priced it. */
+    private final JLabel feeNote = new JLabel();
+    /** The last fee this screen filled in, which is how it tells that from one the player typed. */
+    private String suggested = "";
+    /**
+     * The Smithing level a repair is priced at: the player's own when they repair on a house
+     * armour stand, 0 for an NPC's full price. Read when the screen opens, as the account is.
+     */
+    private int standLevel;
     private final JTextField findField = new PlaceholderTextField("Find a trade");
     private final JPanel tradesBody = new Column();
     private final JPanel storedBody = new Column();
@@ -94,6 +135,15 @@ final class RecipeRecorder {
     private final JPanel form = new Column();
     private final JPanel storedSection = new Column();
     private final JLabel nothingToDo = new Line();
+    /** The screen's title, which says which of the two it is recording. */
+    private JLabel title;
+    /**
+     * What was just recorded. Without it a record left no trace the player could see: the
+     * screen closed, and the Profile tab has nothing to show for stock that has not sold yet.
+     */
+    private final JLabel notice = new Line();
+    /** Purchases other accounts moved to this one, which are this account's to use now. */
+    private final Set<TradeKey> received = new HashSet<>();
     private final StatsPagerBuilder pager;
 
     private final List<Candidate> picks = new ArrayList<>();
@@ -123,8 +173,10 @@ final class RecipeRecorder {
      *
      * <p>Done every time the screen is opened rather than once, because both the trades it
      * offers and the records it lists change while it is closed.
+     *
+     * @param move whether it opens set to record stock moved to an alt, rather than a recipe
      */
-    void open() {
+    void open(boolean move) {
         // Which character this is has to be asked of the game, on the game's own thread. The
         // screen is put up empty first so the click lands straight away, and filled in when the
         // answer comes back.
@@ -135,8 +187,11 @@ final class RecipeRecorder {
         applied = RecipeFlipLedger.empty();
         appliedBefore = 0;
         picks.clear();
+        notice.setVisible(false);
+        moving = move;
         kindCombo.setSelectedItem(ConversionKind.ASSEMBLE);
         feeField.setText("");
+        suggested = "";
         findField.setText("");
         page = 1;
         scrollPane.getVerticalScrollBar().setValue(0);
@@ -149,7 +204,12 @@ final class RecipeRecorder {
         }
         plugin.invokeOnClientThread(() -> {
             long key = resolveAccountKey();
-            SwingUtilities.invokeLater(() -> openFor(key));
+            // The level now, not when the repair was done - the game keeps no record of that.
+            int level = plugin.config.repairAtArmourStand() ? plugin.client.getRealSkillLevel(Skill.SMITHING) : 0;
+            SwingUtilities.invokeLater(() -> {
+                standLevel = level;
+                openFor(key);
+            });
         });
     }
 
@@ -160,11 +220,42 @@ final class RecipeRecorder {
         trades = snapshotTrades(key);
         RecipeFlipStore store = Bridge.get(RecipeFlipStore.class);
         stored = store != null && key > 0 ? store.applicable(key) : new ArrayList<>();
+        // What another account moved to this one is offered beside this account's own trades,
+        // because it is this account's now: to sell, to move on again, or to make something of.
+        received.clear();
+        if (store != null && key > 0) {
+            for (Delta gift : RecipeFlipLedger.received(store, key, new HashSet<>())) {
+                received.add(TradeKey.of(gift));
+                trades.add(gift);
+            }
+        }
         applied = RecipeFlipLedger.apply(trades, stored);
         appliedBefore = applied.activities.size();
 
+        // Asked of the disk and not of what happens to be loaded: an account can only be picked
+        // if this computer has a file for it, and that is exactly the set the move can reach.
+        // The account already picked stays picked. The screen is read again after every Record,
+        // and a rebuilt list falls back to its first entry: with two alts, the second move of
+        // an evening went to the other one unless the player thought to look.
+        int was = toCombo.getSelectedIndex();
+        Long picked = was >= 0 && was < toKeys.size() ? toKeys.get(was) : null;
+        toCombo.removeAllItems();
+        toKeys.clear();
+        ProfileCatalog catalog = Bridge.get(ProfileCatalog.class);
+        if (catalog != null) {
+            catalog.listed(Bridge.get(PluginState.class).getProfileDisplayNames()).forEach((account, name) -> {
+                if (account != key) {
+                    toKeys.add(account);
+                    toCombo.addItem(name);
+                }
+            });
+        }
+        if (toKeys.contains(picked)) {
+            toCombo.setSelectedIndex(toKeys.indexOf(picked));
+        }
+
         picks.clear();
-        for (Delta trade : offerable(trades, applied)) {
+        for (Delta trade : offerable(trades, applied, received)) {
             picks.add(new Candidate(trade));
         }
         warmNames();
@@ -195,13 +286,19 @@ final class RecipeRecorder {
         content.setOpaque(false);
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
 
-        content.add(headingRow("Record a recipe",
-            uiStyler.actionLink("Cancel", "Leave without recording", this::close)));
+        title = micro("Record a recipe");
+        // "Close" and not "Cancel": after a record the screen stays up to show it, and a word that
+        // means "undo" beside something just recorded reads as the way to take it back.
+        content.add(headingRow(title,
+            uiStyler.actionLink("Close", "Back to the Profile tab", this::close)));
 
-        nothingToDo.setForeground(MUTED_2);
-        nothingToDo.setFont(uiStyler.font(10.5f));
-        nothingToDo.setAlignmentX(JComponent.CENTER_ALIGNMENT);
-        content.add(nothingToDo);
+        for (JLabel line : new JLabel[] {notice, nothingToDo}) {
+            line.setForeground(MUTED_2);
+            line.setFont(uiStyler.font(10.5f));
+            line.setAlignmentX(JComponent.CENTER_ALIGNMENT);
+            content.add(line);
+        }
+        notice.setForeground(SUCCESS);
 
         content.add(form);
         content.add(Box.createVerticalStrut(10));
@@ -210,36 +307,53 @@ final class RecipeRecorder {
         // The heading over this said only what the dropdown itself says. What it also did
         // was hold the dropdown off the title above it, so the room stays and the words go.
         form.add(Box.createVerticalStrut(18));
-        uiStyler.styleComboBox(kindCombo);
-        kindCombo.setBorder(uiStyler.roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
-        wide(kindCombo, kindCombo.getPreferredSize().height);
-        kindCombo.addActionListener(event -> updateRecordButton());
+        for (JComboBox<?> combo : new JComboBox<?>[] {kindCombo, toCombo}) {
+            uiStyler.styleComboBox(combo);
+            combo.setBorder(uiStyler.roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
+            wide(combo, kindCombo.getPreferredSize().height);
+            // The whole screen, not the button alone: a move shows the account it went to and
+            // hides the fee, the tally and every sale.
+            combo.addActionListener(event -> refresh());
+        }
         form.add(kindCombo);
 
         // The same search the rest of the panel uses: the field alone, at full width, with the
         // clear mark inside its own right edge. No heading over it - the placeholder says what
         // it is, and the row it sits in is the one the Profile tab draws.
-        form.add(Box.createVerticalStrut(8));
+        //
+        // The gap above it is in two halves with the account picker between them. A hidden
+        // component takes no room, so while recording a recipe the two halves are the one gap
+        // that was always here.
+        form.add(Box.createVerticalStrut(4));
+        toCombo.setToolTipText("The account that sold them. It has to have logged in on this computer");
+        form.add(toCombo);
+        form.add(Box.createVerticalStrut(4));
         form.add(searchRow());
         form.add(Box.createVerticalStrut(10));
 
-        form.add(headingRow("Your trades", picked()));
+        form.add(headingRow(micro("Your trades"), picked()));
         form.add(CardSection.of(tradesBody));
 
         form.add(Box.createVerticalStrut(8));
-        form.add(headingRow("Fee (if any)", null));
+        uiStyler.styleMicroLabel(feeNote, 9.5f);
+        // In from the edge by what the counts over the trades are, which the last figure needs:
+        // flush against it, the 9 of "Smithing 99" lost its right side.
+        feeNote.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 3));
+        feeNote.setToolTipText("Filled in for you. Type over it if you paid something else");
+        recipeOnly.add(headingRow(micro("Fee (if any)"), feeNote));
         field(feeField, this::price);
         feeField.setToolTipText("What the recipe itself cost");
-        form.add(feeField);
+        recipeOnly.add(feeField);
 
-        form.add(Box.createVerticalStrut(8));
+        recipeOnly.add(Box.createVerticalStrut(8));
         JPanel tally = new Column();
         tally.add(detailLine("Cost", costValue));
         tally.add(detailLine("Received", receivedValue));
         tally.add(detailLine("Tax", taxValue));
         tally.add(detailLine("Profit", profitValue));
-        form.add(CardSection.of(tally));
-        form.add(Box.createVerticalStrut(8));
+        recipeOnly.add(CardSection.of(tally));
+        recipeOnly.add(Box.createVerticalStrut(8));
+        form.add(recipeOnly);
 
         // A ghost, like every other control in the panel. This is the first thing in the panel
         // that commits anything, so it is also the first that could have argued for a filled
@@ -250,7 +364,7 @@ final class RecipeRecorder {
         recordButton.addActionListener(event -> record());
         form.add(recordButton);
 
-        storedSection.add(headingRow("Recorded", null));
+        storedSection.add(headingRow(micro("Recorded"), null));
         storedSection.add(CardSection.of(storedBody));
 
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
@@ -276,9 +390,16 @@ final class RecipeRecorder {
             : accountKey <= 0
                 ? "Log in to record a recipe."
                 : "No finished trades of yours are left to build one from.");
+        toCombo.setVisible(move());
+        kindCombo.setVisible(!move());
+        recipeOnly.setVisible(!move());
+        // Upper case written out: the heading style capitalises a label once, when it is styled.
+        title.setText(move() ? "RECORD A MOVE" : "RECORD A RECIPE");
+        recordButton.setText(move() ? "Record Transfer" : "Record");
 
         fillTrades();
         fillStored();
+        suggestFee();
         price();
 
         content.revalidate();
@@ -319,6 +440,10 @@ final class RecipeRecorder {
         int bought = 0;
         int sold = 0;
         for (Candidate candidate : picks) {
+            if (move() && !candidate.trade.isBuy) {
+                // A move names what was bought here. What it sold for is the other account's.
+                continue;
+            }
             if (candidate.picked()) {
                 if (candidate.trade.isBuy) {
                     bought++;
@@ -409,7 +534,8 @@ final class RecipeRecorder {
         // two colours the panel already spends on coins leaving and coins arriving.
         JLabel detail = new Line("<html><font color='"
             + toHex(candidate.trade.isBuy ? DANGER : SUCCESS) + "'>"
-            + (candidate.trade.isBuy ? "Bought" : "Sold") + "</font> · "
+            + (!candidate.trade.isBuy ? "Sold" : received.contains(candidate.key) ? "Received" : "Bought")
+            + "</font> · "
             + valueFormat.formatGpCompact(candidate.trade.deltaGp)
             + " · " + age(candidate.trade.closedAtMs()) + "</html>");
         detail.setForeground(MUTED_2);
@@ -445,7 +571,7 @@ final class RecipeRecorder {
      * first and leaves the rest, so offering both would let the player pick a row that quietly
      * resolves to the other one.
      */
-    static List<Delta> offerable(List<Delta> trades, RecipeFlipLedger.Result applied) {
+    static List<Delta> offerable(List<Delta> trades, RecipeFlipLedger.Result applied, Set<TradeKey> received) {
         List<Delta> out = new ArrayList<>();
         List<Delta> free = applied.remainingTrades(trades);
         Set<TradeKey> offered = new HashSet<>();
@@ -460,6 +586,9 @@ final class RecipeRecorder {
             }
         }
         out.sort(Comparator.comparingLong(Delta::closedAtMs).reversed());
+        // What another account handed over goes first. It is dated when that account bought it, so
+        // by date alone it could be pages down, and it is usually why this screen was opened.
+        out.sort(Comparator.comparing(trade -> !received.contains(TradeKey.of(trade))));
         return out;
     }
 
@@ -475,12 +604,17 @@ final class RecipeRecorder {
         used.setFont(uiStyler.fontNumeric(9.5f));
         used.setHorizontalAlignment(SwingConstants.RIGHT);
         used.setBorder(uiStyler.roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(1, 4, 1, 4)));
-        used.setPreferredSize(new Dimension(QUANTITY_FIELD_WIDTH, NAME_HEIGHT - 2));
+        // Wide enough for the whole purchase. At a fixed width 11,000 logs read as "1100(": the
+        // box cut the last digit, which is a player being told they are moving a tenth of them.
+        int width = Math.max(QUANTITY_FIELD_WIDTH,
+            used.getFontMetrics(used.getFont()).stringWidth(String.valueOf(candidate.available)) + 12);
+        used.setPreferredSize(new Dimension(width, NAME_HEIGHT - 2));
         uiStyler.onEdit(used, () -> {
             // Clamped rather than refused: an empty box while the player retypes must not drop
             // the pick out from under them, and more than they bought is a typo, not a claim.
             candidate.used = (int) Math.max(1L,
                 Math.min(candidate.available, parseNumber(used.getText(), 1L)));
+            suggestFee();
             price();
         });
         // Typing is left alone while it is happening, because correcting a half-written number
@@ -502,7 +636,7 @@ final class RecipeRecorder {
         holder.add(used, BorderLayout.CENTER);
         holder.add(total, BorderLayout.EAST);
         holder.setPreferredSize(new Dimension(
-            QUANTITY_FIELD_WIDTH + 3 + total.getPreferredSize().width, NAME_HEIGHT - 2));
+            width + 3 + total.getPreferredSize().width, NAME_HEIGHT - 2));
         return holder;
     }
 
@@ -598,7 +732,51 @@ final class RecipeRecorder {
         setValue(receivedValue, revenue, TEXT);
         setValue(taxValue, activity != null ? activity.taxGp : 0L, TEXT);
         setValue(profitValue, profit, activity == null ? TEXT : (profit >= 0 ? SUCCESS : DANGER));
+        feeNote.setVisible(!suggested.isEmpty() && suggested.equals(feeField.getText()));
         updateRecordButton();
+    }
+
+    /**
+     * Fill in what a repair cost, where the screen can know it.
+     *
+     * <p>It can for a Barrows or Moons of Peril piece: an NPC's fixed price, less the armour
+     * stand's half a percent per Smithing level for a player who repairs on one - a little over
+     * half price at 99, so 45,450 for a Dharok's platebody the NPC would charge 90,000 for. Left
+     * blank, as it was before this, the repair counted as free.
+     *
+     * <p>A number the player typed is theirs and is left alone. One this filled in follows the
+     * ticks, and goes when the kind stops being a repair, because an assembly's fee is nothing to
+     * do with it. An empty box is not a number anybody typed; a free repair is typed as 0.
+     *
+     * <p>Never called from the fee box's own listener: a box cannot be written to while it is
+     * telling its listeners about a change.
+     */
+    private void suggestFee() {
+        long fee = 0L;
+        for (Candidate candidate : picks) {
+            if (candidate.picked() && candidate.trade.isBuy) {
+                fee += repairFee(candidate.trade.itemId, candidate.used, standLevel);
+            }
+        }
+        String text = fee > 0 && kindCombo.getSelectedItem() == ConversionKind.REPAIR
+            ? String.format(Locale.US, "%,d", fee)
+            : "";
+        String typed = feeField.getText();
+        if ((typed.isEmpty() || typed.equals(suggested)) && !typed.equals(text)) {
+            feeField.setText(text);
+        }
+        suggested = text;
+        // Upper case written out: the heading style capitalises a label once, when it is styled.
+        feeNote.setText(standLevel > 0 ? "STAND · SMITHING " + standLevel : "NPC PRICE");
+    }
+
+    /**
+     * What an NPC charges to repair this many of a broken item, less half a percent per level of
+     * {@code standLevel}. 0 for anything not in {@link #REPAIRS}.
+     */
+    static long repairFee(int itemId, int quantity, int standLevel) {
+        long price = Long.parseLong(REPAIRS.getProperty(String.valueOf(itemId), "0"));
+        return price * (200 - standLevel) / 200 * quantity;
     }
 
     private void setValue(JLabel label, long value, Color color) {
@@ -613,36 +791,55 @@ final class RecipeRecorder {
         recordButton.setForeground(ready ? TEXT : MUTED_2);
         recordButton.setToolTipText(ready
             ? "Record as one activity"
-            : "Tick a purchase and a sale");
+            : picks.stream().filter(Candidate::picked).count() > 64 ? "At most 64 trades in one record"
+            : move() ? "Tick a purchase and pick the account" : "Tick a purchase and a sale");
     }
 
+    /** Whether what is being recorded is stock handed to another account, not a recipe. */
+    private boolean move() {
+        return moving;
+    }
+
+    /**
+     * The record the ticks describe, or null while they do not describe one. What makes one -
+     * a purchase and a sale for a recipe, a purchase and an account for a move - is
+     * {@link RecipeFlip#isUsable()}'s to say, and is not said a second time here.
+     */
     private RecipeFlip buildFlip() {
-        List<RecipeFlip.Part> inputs = partsOf(true);
-        List<RecipeFlip.Part> outputs = partsOf(false);
-        if (inputs.isEmpty() || outputs.isEmpty()) {
-            return null;
-        }
-        ConversionKind kind = (ConversionKind) kindCombo.getSelectedItem();
+        ConversionKind kind = move() ? ConversionKind.TRANSFER : (ConversionKind) kindCombo.getSelectedItem();
+        int to = toCombo.getSelectedIndex();
         RecipeFlip flip = new RecipeFlip(
             kind != null ? kind : ConversionKind.ASSEMBLE,
             null,
-            inputs,
-            outputs,
-            Math.max(0L, parseNumber(feeField.getText(), 0L)),
-            System.currentTimeMillis());
-        if (!flip.isUsable()) {
+            partsOf(true),
+            // A sale ticked before the player chose to record a move is not part of it.
+            move() ? null : partsOf(false),
+            move() ? 0L : Math.max(0L, parseNumber(feeField.getText(), 0L)),
+            System.currentTimeMillis(),
+            move() && to >= 0 ? toKeys.get(to) : null, null);
+        // The website takes at most 64 trades in one record and refuses the rest, and a refused
+        // record is sent again every session, refused every time, for as long as it is kept.
+        if (!flip.isUsable() || flip.trades().size() > 64) {
             return null;
         }
-        flip.name = nameFor(flip);
+        flip.name = nameFor(flip) + (move() ? " to " + toCombo.getSelectedItem() : "");
         return flip;
     }
 
-    /** The ticked purchases, or the ticked sales. Which side a trade is on is the game's. */
+    /**
+     * The ticked purchases, or the ticked sales. Which side a trade is on is the game's.
+     *
+     * <p>A move's parts carry their coins with them, because the account they go to has no
+     * other way to know what they cost. The coins are those of what is left of the trade, which
+     * is what the row offered: part of it may already belong to a recipe.
+     */
     private List<RecipeFlip.Part> partsOf(boolean bought) {
         List<RecipeFlip.Part> parts = new ArrayList<>();
         for (Candidate candidate : picks) {
             if (candidate.picked() && candidate.trade.isBuy == bought) {
-                parts.add(new RecipeFlip.Part(candidate.key, candidate.used));
+                parts.add(new RecipeFlip.Part(candidate.key, candidate.used, move()
+                    ? RecipeFlipLedger.share(candidate.trade.deltaGp, candidate.used, candidate.available)
+                    : null));
             }
         }
         return parts;
@@ -656,7 +853,11 @@ final class RecipeRecorder {
         }
         Bridge.get(RecipeUpload.class).send(accountKey, flip);
         commit();
-        close();
+        // The screen stays up and is read again, so the record is there to be seen: named here,
+        // at the top of the list below, and its trades gone from the ones on offer.
+        open(move());
+        notice.setText("Recorded: " + flip.name);
+        notice.setVisible(true);
     }
 
     private void forget(RecipeFlip flip) {
@@ -666,8 +867,9 @@ final class RecipeRecorder {
         }
         Bridge.get(RecipeUpload.class).sendDeleted(accountKey, flip);
         commit();
-        // Its trades are free again, so the screen is rebuilt rather than the one row redrawn.
-        open();
+        // Its trades are free again, so the screen is rebuilt rather than the one row redrawn -
+        // still recording whichever of the two it was.
+        open(move());
     }
 
     /**
@@ -773,21 +975,16 @@ final class RecipeRecorder {
     }
 
     /** Digits only, so a player who types "1,500,000" or "1500000 gp" is understood either way. */
-    private static long parseNumber(String raw, long fallback) {
-        if (raw == null) {
-            return fallback;
-        }
-        StringBuilder digits = new StringBuilder();
-        for (int i = 0; i < raw.length(); i++) {
-            char c = raw.charAt(i);
-            if (c >= '0' && c <= '9') {
-                digits.append(c);
-            }
-        }
-        if (digits.length() == 0 || digits.length() > 18) {
-            return fallback;
-        }
-        return Long.parseLong(digits.toString());
+    /**
+     * An amount as the chatbox reads one, so "10k" and "1.5m" mean what they say. Keeping only the
+     * digits read "10k" as 10 and "1.5" as 15. A plain number is given the decimal point the chatbox
+     * parser insists on ("12k" becomes "12.k"), which changes nothing about its value.
+     */
+    static long parseNumber(String raw, long fallback) {
+        String text = raw != null ? raw.replace(",", "").trim() : "";
+        String plain = ChatboxDecimalInput.toPlainAmount(
+            text.indexOf('.') >= 0 ? text : text.replaceFirst("(?i)^(\\d+)([kmb]?)$", "$1.$2"));
+        return plain != null ? Long.parseLong(plain) : fallback;
     }
 
     private void field(JTextField input, Runnable onChange) {
@@ -840,10 +1037,10 @@ final class RecipeRecorder {
         return label;
     }
 
-    private JPanel headingRow(String text, JComponent trailing) {
+    private JPanel headingRow(JLabel label, JComponent trailing) {
         JPanel row = plain(new BorderLayout(6, 0));
         wide(row, 18);
-        row.add(micro(text), BorderLayout.WEST);
+        row.add(label, BorderLayout.WEST);
         if (trailing != null) {
             row.add(trailing, BorderLayout.EAST);
         }

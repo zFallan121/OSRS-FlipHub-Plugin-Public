@@ -69,7 +69,9 @@ final class ProfileStorage {
      */
     boolean writeProfileData(long accountHash, List<Delta> deltas) {
         ProfileStore store = profileStore();
-        if (store == null) {
+        // A file that would not parse is left for the player to repair. The load kept it, but the
+        // next trade was then saved over it, and everything the file held was gone for good.
+        if (store == null || pluginState.getUnreadableProfiles().contains(accountHash)) {
             return false;
         }
         String displayName = accountHash == accountwideKey

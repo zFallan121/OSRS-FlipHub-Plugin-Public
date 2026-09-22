@@ -92,25 +92,7 @@ public class LocalTradesUncappedTest {
     public void theLiveListIsNeverTrimmed() {
         PluginState state = new PluginState();
         LocalTradesRuntime runtime = new LocalTradesRuntime(
-            Const.ACCOUNTWIDE_KEY,
-            Const.LOCAL_EVENT_BUCKET_MS,
-            Const.DUPLICATE_TRADE_WINDOW_MS,
-            state.getLocalStatsLock(),
-            state.getLocalTradeDeltasByAccount(),
-            state.getLoadedProfiles(),
-            state.getLocalTradesLoadState(),
-            () -> null,
-            () -> null,
-            () -> false,
-            () -> null,
-            () -> null,
-            () -> { },
-            () -> null,
-            () -> null,
-            () -> null,
-            () -> { },
-            () -> { }
-        );
+            state, () -> null, () -> null, () -> null, () -> null, () -> null, () -> null, () -> null);
         List<Delta> records = aYearOfTrading();
         Delta oldest = records.get(0);
 

@@ -27,6 +27,9 @@ package com.osrsfliphub;
 import net.runelite.api.GameState;
 
 final class PluginLifecycle {
+    private static final long ACCOUNTWIDE_UPLOAD_INTERVAL_SECONDS = 60L;
+    private static final long OFFER_POLL_INTERVAL_MS = 250L;
+
     private PluginLifecycle() {
     }
 
@@ -40,11 +43,14 @@ final class PluginLifecycle {
             Bridge.get(ProfileSelectionPresentation.class).resolveSelectedProfileKey(),
             pluginState.getBookmarkedItems()
         );
+        // The panel is built afresh with an empty search and the star filter off; turned off and on
+        // again, the plugin went on filtering by the old ones, and clearing the star took two clicks.
+        plugin.currentQuery = "";
+        plugin.bookmarkFilterEnabled = false;
         plugin.currentItemSort = StatsItemSort.fromName(plugin.config.itemSort());
         plugin.currentItemSortAscending = plugin.config.itemSortAscending();
         pluginState.getHiddenItems().clear();
-        pluginState.getHiddenItems().addAll(
-            pluginState.getHiddenItemConfigStore().parseItemIds(plugin.config.hiddenItems()));
+        pluginState.getHiddenItems().addAll(ItemIdList.parse(plugin.config.hiddenItems()));
         plugin.getOfferStampStateServices().resetForStartup();
         // Before the panel is built: the Profile tab draws the rank pictures loaded here.
         Bridge.get(RankUp.class).start();
@@ -80,8 +86,8 @@ final class PluginLifecycle {
             plugin.gson,
             plugin::refreshPanelData,
             plugin::refreshStatsData,
-            Const.ACCOUNTWIDE_UPLOAD_INTERVAL_SECONDS,
-            Const.OFFER_POLL_INTERVAL_MS,
+            ACCOUNTWIDE_UPLOAD_INTERVAL_SECONDS,
+            OFFER_POLL_INTERVAL_MS,
             plugin::startProfileWatcher
         );
         plugin.apiClient = runtimeState.getApiClient();

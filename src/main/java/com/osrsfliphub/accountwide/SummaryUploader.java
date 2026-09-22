@@ -33,12 +33,15 @@ import lombok.RequiredArgsConstructor;
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 final class SummaryUploader {
+    private static final long ACCOUNTWIDE_UPLOAD_MIN_INTERVAL_MS = 4_000L;
+    private static final long ACCOUNTWIDE_UPLOAD_RESYNC_INTERVAL_MS = 5 * 60_000L;
+
     private final PluginRuntime pluginRuntime;
 
     private final long minUploadIntervalMs =
-        Math.max(0L, Const.ACCOUNTWIDE_UPLOAD_MIN_INTERVAL_MS);
+        Math.max(0L, ACCOUNTWIDE_UPLOAD_MIN_INTERVAL_MS);
     private final long resyncIntervalMs =
-        Math.max(0L, Const.ACCOUNTWIDE_UPLOAD_RESYNC_INTERVAL_MS);
+        Math.max(0L, ACCOUNTWIDE_UPLOAD_RESYNC_INTERVAL_MS);
     private final AtomicBoolean dirty = new AtomicBoolean(true);
     private volatile long lastUploadAttemptMs;
     private volatile long lastUploadSuccessMs;

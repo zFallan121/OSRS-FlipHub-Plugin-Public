@@ -40,6 +40,9 @@ import net.runelite.client.RuneLite;
 @Slf4j
 @RequiredArgsConstructor
 final class ProfileStore {
+    private static final String PROFILE_DIR_NAME = "fliphub";
+    private static final String LEGACY_PROFILE_DIR_NAME = "fliphub-dev";
+
     private final Gson gson;
     private final String profileDirName;
     private final String legacyProfileDirName;
@@ -59,8 +62,8 @@ final class ProfileStore {
 
     @Inject
     ProfileStore(Gson gson) {
-        this(gson, Const.PROFILE_DIR_NAME,
-            Const.LEGACY_PROFILE_DIR_NAME, RuneLite.RUNELITE_DIR.toPath());
+        this(gson, PROFILE_DIR_NAME,
+            LEGACY_PROFILE_DIR_NAME, RuneLite.RUNELITE_DIR.toPath());
     }
 
     ProfileStore(Gson gson, String profileDirName, String legacyProfileDirName) {
@@ -75,6 +78,7 @@ final class ProfileStore {
         try {
             Files.createDirectories(dir);
         } catch (IOException ignored) {
+            // Left to the write, which reports it: a folder that cannot be made is a save that fails.
         }
         migrateLegacyProfilesIfNeeded(dir);
         return dir;
@@ -242,7 +246,9 @@ final class ProfileStore {
             if (!devHasFiles) {
                 legacyProfilesMigrated.set(false);
             }
-        } catch (IOException ignored) {
+        } catch (IOException ex) {
+            // A history left behind in the old folder looks, to the player, like a history lost.
+            log.warn("FlipHub: could not copy the old profile folder into {}", devDir, ex);
         }
     }
 }

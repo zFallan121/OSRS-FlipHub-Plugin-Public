@@ -24,52 +24,28 @@
  */
 package com.osrsfliphub;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
+import org.junit.Test;
 
-final class HiddenItemConfigStore {
-    private static final String HIDDEN_ITEMS_KEY = "hiddenItems";
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
-    String configKey() {
-        return HIDDEN_ITEMS_KEY;
+public class ItemIdListTest {
+    @Test
+    public void parseAndJoinNormalizeDuplicatesAndOrdering() {
+        Set<Integer> parsed = ItemIdList.parse(" 9,3,9,0,-5,abc,1 ");
+        assertEquals(new HashSet<>(Arrays.asList(1, 3, 9)), parsed);
+        assertEquals("1,3,9", ItemIdList.join(parsed));
+        assertEquals("", ItemIdList.join(new HashSet<>()));
+        assertEquals("", ItemIdList.join(null));
     }
 
-    boolean isHiddenItemsConfigKey(String configKey) {
-        if (Str.isBlank(configKey)) {
-            return false;
-        }
-        return HIDDEN_ITEMS_KEY.equals(configKey.trim());
-    }
-
-    Set<Integer> parseItemIds(String raw) {
-        Set<Integer> parsed = new HashSet<>();
-        if (Str.isBlank(raw)) {
-            return parsed;
-        }
-        String[] parts = raw.split(",");
-        for (String part : parts) {
-            String trimmed = part.trim();
-            if (trimmed.isEmpty()) {
-                continue;
-            }
-            try {
-                int itemId = Integer.parseInt(trimmed);
-                if (itemId > 0) {
-                    parsed.add(itemId);
-                }
-            } catch (NumberFormatException ignored) {
-            }
-        }
-        return parsed;
-    }
-
-    String serializeItemIds(Set<Integer> itemIds) {
-        if (itemIds == null || itemIds.isEmpty()) {
-            return "";
-        }
-        return itemIds.stream()
-            .sorted()
-            .map(String::valueOf)
-            .collect(Collectors.joining(","));
+    @Test
+    public void nothingStoredIsAnEmptySet() {
+        assertTrue(ItemIdList.parse(null).isEmpty());
+        assertTrue(ItemIdList.parse("  ").isEmpty());
+        assertTrue(ItemIdList.parse(",,").isEmpty());
     }
 }

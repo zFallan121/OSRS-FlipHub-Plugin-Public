@@ -113,7 +113,10 @@ final class GrandExchangeOfferChangedHandler {
         UploadEventDispatch uploadFacade =
             Bridge.get(UploadEventDispatch.class);
         if (uploadFacade != null) {
-            geEvent.character_id = GeEvent.characterId(resolveAccountHash());
+            // The key the trade is filed under below, not the bare account hash: that is negative
+            // for about half of all characters, and theirs went up with no code at all while
+            // their stored trades, recipes and moves were sent under the name's key.
+            geEvent.character_id = GeEvent.characterId(Bridge.get(AccountSession.class).resolveLocalAccountKey());
             uploadFacade.enqueueEvent(geEvent);
         }
         // Read after tracking: a fill that opens a new offer on a reused slot has only now

@@ -54,9 +54,11 @@ final class OfferUpdateStampStore {
                         result.put(slot, entry.getValue());
                     }
                 } catch (NumberFormatException ignored) {
+                    // Not a slot number; skipped.
                 }
             }
         } catch (JsonParseException ignored) {
+            // Unreadable timers start again from now, which is what having none means.
         }
         return result;
     }

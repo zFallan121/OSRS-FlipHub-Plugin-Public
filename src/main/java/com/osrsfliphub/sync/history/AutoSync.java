@@ -226,7 +226,7 @@ final class AutoSync {
         return Math.max(1L, fallbackNowMs);
     }
 
-    private long[] planSyntheticUpdateTimestamps(
+    static long[] planSyntheticUpdateTimestamps(
         List<Trade> validTrades,
         AutoSyncTradeMatcher.SelectionPlan plan,
         List<Delta> existingDeltas,
@@ -238,9 +238,36 @@ final class AutoSync {
         if (size == 0 || plan == null) {
             return planned;
         }
-
+        long stepMs = SYNTHETIC_EVENT_SPACING_MS * 2L;
         Map<AutoSyncTradeMatcher.TradeSignature, Deque<Long>> existingTsBySignature =
             buildObservedTimestampQueues(existingDeltas, lastSync);
+        // Rows above the last sync's were made after it. Each is dated as late as the history
+        // allows: just before the stored trade above it, or now when nothing is above it.
+        // Dated beside the stored trade BELOW it, as it was, 254 brews sold on a phone today were
+        // filed under the day they were bought, 21 hours earlier, and Today and Session left them
+        // out. Dated now whatever is above it, as it briefly was, a purchase made on a phone and
+        // found after its sale on this client came after that sale, and the flip was lost - and
+        // the website, which will pair a late purchase only with a sale within two minutes of it,
+        // was left holding what had been sold. With nothing known of when the rows were made -
+        // after a wipe - they keep their place beside the stored trades.
+        if (lastSync.ms > 0) {
+            long[] storedAt = new long[size];
+            for (int i = size - 1; i >= 0; i--) {
+                Deque<Long> queue = plan.isMissing(i) ? null
+                    : existingTsBySignature.get(AutoSyncTradeMatcher.signatureForTrade(validTrades.get(i)));
+                storedAt[i] = queue != null && !queue.isEmpty() ? queue.pollFirst() : 0L;
+            }
+            long upper = nowMs;
+            for (int i = 0; i < size; i++) {
+                if (storedAt[i] > 0L) {
+                    upper = Math.min(upper, storedAt[i]);
+                } else if (plan.isMissing(i)) {
+                    planned[i] = upper -= stepMs;
+                }
+            }
+            return planned;
+        }
+
         long anchorMinTs = Long.MAX_VALUE;
         for (int i = size - 1; i >= 0; i--) {
             if (plan.isMissing(i)) {
@@ -261,7 +288,6 @@ final class AutoSync {
             }
         }
 
-        long stepMs = SYNTHETIC_EVENT_SPACING_MS * 2L;
         long cursor;
         if (anchorMinTs != Long.MAX_VALUE) {
             cursor = Math.max(1L, anchorMinTs - ((long) (size + 4) * stepMs));
@@ -294,7 +320,7 @@ final class AutoSync {
     }
 
     /** The times of the stored trades a row could be, by what they look like: the same trades the matcher compares. */
-    private Map<AutoSyncTradeMatcher.TradeSignature, Deque<Long>> buildObservedTimestampQueues(
+    private static Map<AutoSyncTradeMatcher.TradeSignature, Deque<Long>> buildObservedTimestampQueues(
         List<Delta> deltas,
         AutoSyncTradeMatcher.LastSync lastSync
     ) {

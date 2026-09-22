@@ -29,6 +29,8 @@ import javax.inject.*;
 
 @Singleton
 final class TradeAnalytics {
+    private static final long LOCAL_LIMIT_FUTURE_TOLERANCE_MS = 5L * 60L * 1000L;
+
     private final long limitWindowMs;
     private final long futureToleranceMs;
     private final long localEventBucketMs;
@@ -36,7 +38,7 @@ final class TradeAnalytics {
     @Inject
     TradeAnalytics() {
         this(Const.LOCAL_LIMIT_WINDOW_MS,
-            Const.LOCAL_LIMIT_FUTURE_TOLERANCE_MS,
+            LOCAL_LIMIT_FUTURE_TOLERANCE_MS,
             Const.LOCAL_EVENT_BUCKET_MS);
     }
 

@@ -48,6 +48,12 @@ final class RecipeFlip {
     static final class Part {
         TradeKey trade;
         int quantity;
+        /**
+         * What this much of the purchase cost. Only a move carries it, because the account the
+         * stock went to prices it without the purchase in front of it; a recipe reads its coins
+         * off the trade. Boxed so that a recipe's part is written exactly as it always was.
+         */
+        Long gp;
 
         Part() {
         }
@@ -68,6 +74,25 @@ final class RecipeFlip {
     long feeGp;
     /** When the player recorded it, used only to order equally-timed activities. */
     long recordedMs;
+    /**
+     * Set on a move and on nothing else: the account the purchases were handed to.
+     *
+     * <p>Each account keeps its own books, so items bought on one and sold on another were held
+     * for ever by the first and sold out of nowhere by the second. A move names the purchases
+     * and where they went, and no sales: here the purchases leave the books
+     * ({@link RecipeFlipLedger}), there they arrive as if bought there
+     * ({@link RecipeFlipLedger#received}), and that account's ordinary replay matches whatever it
+     * sold, before the move was recorded or after. Boxed so a recipe is written as it always was.
+     */
+    Long toAccount;
+    /**
+     * Set on what is left of a record the player forgot, and on nothing else: the id the website
+     * knows it by. Kept only to tell the website again each session, because the first telling
+     * could be lost - made while unlinked, or in an upload that was refused - and the website then
+     * kept the recipe for ever. With no kind and no trades it is unusable, so the ledgers pass over
+     * it, and so does every older build, which drops it.
+     */
+    String voided;
 
     RecipeFlip() {
     }
@@ -82,14 +107,15 @@ final class RecipeFlip {
 
     /**
      * Whether this is worth applying at all: a kind, at least one purchase and at least one sale,
-     * every part naming a trade and a positive quantity.
+     * every part naming a trade and a positive quantity. A move is the other way about: it has
+     * no sales, and every purchase says what it cost.
      */
     boolean isUsable() {
-        if (kind == null || inputParts().isEmpty() || outputParts().isEmpty()) {
+        if (kind == null || inputParts().isEmpty() || outputParts().isEmpty() == (toAccount == null)) {
             return false;
         }
         for (Part part : inputParts()) {
-            if (!part.isUsable()) {
+            if (!part.isUsable() || toAccount != null && part.gp == null) {
                 return false;
             }
         }

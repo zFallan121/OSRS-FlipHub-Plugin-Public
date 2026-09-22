@@ -45,6 +45,7 @@ final class ProfileWipeDataService {
     private final Map<Long, StatsCache> statsCacheByAccount;
     private final Set<Long> loadedProfiles;
     private final Map<Long, Long> loadedProfileFileMs;
+    private final Set<Long> unreadableProfiles;
     private final Gson gson;
 
     @Inject
@@ -62,6 +63,7 @@ final class ProfileWipeDataService {
         this.statsCacheByAccount = pluginState.getStatsCacheByAccount();
         this.loadedProfiles = pluginState.getLoadedProfiles();
         this.loadedProfileFileMs = pluginState.getLoadedProfileFileMs();
+        this.unreadableProfiles = pluginState.getUnreadableProfiles();
         this.gson = gson;
     }
 
@@ -122,9 +124,14 @@ final class ProfileWipeDataService {
             localTradeDeltasByAccount.put(accountKey, new ArrayList<>());
             localSessionStartByAccount.remove(accountKey);
         }
-        statsCacheByAccount.remove(accountKey);
+        // Every account's, not this one's alone: stock this account recorded as moved to another
+        // is in that other account's totals, and goes with the record below.
+        statsCacheByAccount.clear();
         loadedProfiles.remove(accountKey);
         loadedProfileFileMs.remove(accountKey);
         recipeFlipStore.clear(accountKey);
+        recipeFlipStore.wiped(accountKey, System.currentTimeMillis());
+        // Asked for in so many words: a bad file may be written over now, and nothing else may.
+        unreadableProfiles.remove(accountKey);
     }
 }

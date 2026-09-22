@@ -36,6 +36,7 @@ import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
+import net.runelite.api.Player;
 import net.runelite.api.events.GrandExchangeOfferChanged;
 import org.junit.After;
 import org.junit.Before;
@@ -65,41 +66,16 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
     private final List<GeEvent> uploads = new ArrayList<>();
     private volatile boolean linked = true;
     private volatile GameState gameState = GameState.LOGGED_IN;
+    private volatile long accountHash = ACCOUNT_HASH;
+    private volatile String playerName;
 
     @Before
     public void setUp() {
         state = new PluginState();
         OfferUpdateStamp stampService = new OfferUpdateStamp();
-        stampState = new OfferStampStateServices(
-            FliphubConfigGroups.CONFIG_GROUP,
-            FliphubConfigGroups.LEGACY_DEV_CONFIG_GROUP,
-            Const.LOGIN_GRACE_MS,
-            state.getOfferUpdateStamps(),
-            () -> null,
-            () -> null,
-            () -> null,
-            () -> stampService
-        );
+        stampState = new OfferStampStateServices(state, () -> null, () -> null, () -> null, () -> stampService);
         LocalTradesRuntime tradesRuntime = new LocalTradesRuntime(
-            Const.ACCOUNTWIDE_KEY,
-            Const.LOCAL_EVENT_BUCKET_MS,
-            Const.DUPLICATE_TRADE_WINDOW_MS,
-            state.getLocalStatsLock(),
-            state.getLocalTradeDeltasByAccount(),
-            state.getLoadedProfiles(),
-            state.getLocalTradesLoadState(),
-            () -> null,
-            () -> null,
-            () -> false,
-            () -> null,
-            () -> null,
-            () -> { },
-            () -> null,
-            () -> null,
-            () -> null,
-            () -> { },
-            () -> { }
-        );
+            state, () -> null, () -> null, () -> null, () -> null, () -> null, () -> null, () -> new ProfileUi(null, null));
         Client client = client();
         PluginConfig config = config();
         plugin = new GeLifecyclePlugin();
@@ -210,6 +186,31 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
         assertEquals(GeEvent.characterId(ACCOUNT_HASH), uploads().get(0).character_id);
     }
 
+    /**
+     * About half of all characters have a negative account hash and are filed under their name's
+     * key instead. Their live trades went up with no code at all, so the website paired them with
+     * any character's purchases, while the same character's stored trades, recipes and moves were
+     * sent under the name's key.
+     */
+    @Test
+    public void aCharacterFiledUnderItsNameIsTaggedWithTheKeyItsTradesAreStoredUnder() {
+        accountHash = -779575573390842518L;
+        playerName = "Sips Potion";
+        long nameKey = 13886278L;
+
+        fire(GrandExchangeOfferState.EMPTY, 0, 0, 0L);
+        fire(GrandExchangeOfferState.BUYING, 0, 10, 0L);
+        fire(GrandExchangeOfferState.BOUGHT, 10, 10, 1_000L);
+
+        List<GeEvent> sent = uploads();
+        assertEquals(2, sent.size());
+        assertEquals(GeEvent.characterId(nameKey), sent.get(0).character_id);
+        assertEquals(GeEvent.characterId(nameKey), sent.get(1).character_id);
+        synchronized (state.getLocalStatsLock()) {
+            assertEquals(1, state.getLocalTradeDeltasByAccount().get(nameKey).size());
+        }
+    }
+
     @Test
     public void emptyToNewBuyOfferEmitsOfferPlaced() {
         fire(GrandExchangeOfferState.EMPTY, 0, 0, 0L);
@@ -269,6 +270,43 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
         assertEquals(sent.get(1).ts_client_ms, offer.tsClientMs);
         assertEquals(completion.ts_client_ms, offer.endMs);
         assertTrue(offer.offerStartMs > 0);
+    }
+
+    /**
+     * 25,000 logs asked for, 21,780 bought, the rest cancelled. The cancel ends the offer as surely
+     * as a last fill would, so what it bought is stored as one finished trade. Left as loose fills,
+     * it could never be recorded as moved to another account or used in a recipe. Found by the
+     * final audit, 22 Sep 2026.
+     */
+    @Test
+    public void aCancelledOfferIsStoredAsOneFinishedTradeTheRecorderCanOffer() {
+        fire(GrandExchangeOfferState.EMPTY, 0, 0, 0L);
+        fire(GrandExchangeOfferState.BUYING, 0, 10, 0L);
+        fire(GrandExchangeOfferState.BUYING, 3, 10, 300L);
+        fire(GrandExchangeOfferState.BUYING, 4, 10, 400L);
+
+        fire(GrandExchangeOfferState.CANCELLED_BUY, 4, 10, 400L);
+
+        List<Delta> recorded = recorded();
+        assertEquals(1, recorded.size());
+        Delta trade = recorded.get(0);
+        assertEquals("OFFER_COMPLETED", trade.eventType);
+        assertEquals(4, trade.deltaQty);
+        assertEquals(400L, trade.deltaGp);
+        assertTrue("it is known to be over", trade.endMs > 0);
+        assertEquals(1, RecipeRecorder.offerable(recorded, RecipeFlipLedger.empty(), new java.util.HashSet<>()).size());
+        assertEquals("the website is told what happened, as before", "OFFER_ABORTED",
+            uploads().get(uploads().size() - 1).event_type);
+    }
+
+    @Test
+    public void anOfferCancelledBeforeAnyFillStoresNothing() {
+        fire(GrandExchangeOfferState.EMPTY, 0, 0, 0L);
+        fire(GrandExchangeOfferState.BUYING, 0, 10, 0L);
+
+        fire(GrandExchangeOfferState.CANCELLED_BUY, 0, 10, 0L);
+
+        assertTrue(recorded().isEmpty());
     }
 
     /** Until the completion arrives, every chunk is its own record: the offer counts as it fills. */
@@ -455,7 +493,9 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
                     case "getGameState":
                         return gameState;
                     case "getAccountHash":
-                        return ACCOUNT_HASH;
+                        return accountHash;
+                    case "getLocalPlayer":
+                        return playerName != null ? player(playerName) : null;
                     case "getWorld":
                         return WORLD;
                     case "toString":
@@ -464,6 +504,14 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
                         return defaultValue(method);
                 }
             }
+        );
+    }
+
+    private static Player player(String name) {
+        return (Player) Proxy.newProxyInstance(
+            Player.class.getClassLoader(),
+            new Class<?>[] {Player.class},
+            (proxy, method, args) -> "getName".equals(method.getName()) ? name : defaultValue(method)
         );
     }
 

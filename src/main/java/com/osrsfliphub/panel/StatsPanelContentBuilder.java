@@ -46,14 +46,11 @@ final class StatsPanelContentBuilder {
     }
 
     private final UiStyler uiStyler;
-    private final PanelState panelStateService;
-    private final PanelMutableState panelState;
-    private final PanelListener listener;
-    private final Runnable renderStatsItems;
-    private final Runnable updateStatsSummary;
+    private final PanelState panelState;
     private final WheelScroll wheelScrollCoordinator;
     private final MouseWheelListener wheelForwarder;
-    private final Runnable openRecorder;
+    /** Opens the recorder: true to record stock moved to an alt, false to record a recipe. */
+    private final java.util.function.Consumer<Boolean> openRecorder;
 
     ContentResult buildContent(
         JPanel statsContentPanel,
@@ -120,8 +117,7 @@ final class StatsPanelContentBuilder {
         statsBar.setBlockIncrement(SCROLL_BLOCK_INCREMENT);
 
         wheelScrollCoordinator.installWheelForwarder(statsContentPanel);
-        renderStatsItems.run();
-        updateStatsSummary.run();
+        panelState.drawStats();
 
         return new ContentResult(
             statsScrollPane,
@@ -151,11 +147,16 @@ final class StatsPanelContentBuilder {
         uiStyler.styleMicroLabel(heading, 9.5f);
         row.add(heading, BorderLayout.WEST);
 
-        row.add(uiStyler.actionLink("Record a recipe",
-            "Record trades as one recipe",
-            () -> {
-                openRecorder.run();
-            }), BorderLayout.EAST);
+        // Moving stock to an alt is recorded on the same screen, but it is not a recipe, and as
+        // the sixth entry of a list of recipe kinds nobody found it - not even the player who had
+        // asked for it. So it has a word of its own, which opens the screen already set to it.
+        JPanel links = plain(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        links.add(uiStyler.actionLink("Record a recipe", "Record trades as one recipe",
+            () -> openRecorder.accept(false)));
+        links.add(styled(new JLabel(" · "), MUTED_2, uiStyler.font(9.5f)));
+        links.add(uiStyler.actionLink("Move", "Record stock you handed to another of your accounts",
+            () -> openRecorder.accept(true)));
+        row.add(links, BorderLayout.EAST);
         return row;
     }
 
@@ -170,9 +171,7 @@ final class StatsPanelContentBuilder {
 
         uiStyler.styleTextField(statsSearchField);
         statsSearchField.setToolTipText("Filter items");
-        uiStyler.onEdit(statsSearchField, () -> {
-            panelStateService.onStatsSearchQueryChanged(panelState, statsSearchField.getText(), renderStatsItems);
-        });
+        uiStyler.onEdit(statsSearchField, () -> panelState.setStatsSearchQuery(statsSearchField.getText()));
 
         uiStyler.installInlineClear(statsSearchField);
 
@@ -205,8 +204,7 @@ final class StatsPanelContentBuilder {
         statsSortCombo.addActionListener(e -> {
             StatsItemSort sort = (StatsItemSort) statsSortCombo.getSelectedItem();
             if (sort != null) {
-                panelState.statsSort = sort;
-                panelStateService.onStatsSortSelectionChanged(listener, panelState, sort, renderStatsItems);
+                panelState.setStatsSort(sort);
             }
         });
 
@@ -218,7 +216,7 @@ final class StatsPanelContentBuilder {
         statsFilterCombo.addActionListener(e -> {
             StatsRecipeFilter filter = (StatsRecipeFilter) statsFilterCombo.getSelectedItem();
             if (filter != null) {
-                panelStateService.onStatsRecipeFilterChanged(panelState, filter, renderStatsItems);
+                panelState.setStatsRecipeFilter(filter);
             }
         });
 
@@ -230,7 +228,7 @@ final class StatsPanelContentBuilder {
         uiStyler.matchFieldHeight(statsSortDirectionButton, statsSortCombo);
         uiStyler.sizeTrailingControl(statsSortDirectionButton, statsSortCombo, SORT_DIRECTION_WIDTH);
         statsSortDirectionButton.addActionListener(e -> {
-            panelStateService.onStatsSortDirectionToggled(panelState, renderStatsItems);
+            panelState.toggleStatsSortDirection();
             updateStatsSortDirectionButton(statsSortDirectionButton,
                 panelState.statsSortAscending, markSize);
         });
@@ -316,9 +314,7 @@ final class StatsPanelContentBuilder {
                     entry.setBorder(BorderFactory.createEmptyBorder(3, 10, 3, 14));
                     entry.addChangeListener(e -> entry.setBackground(
                         entry.getModel().isArmed() ? SURFACE_TOP : OVERLAY_BASE));
-                    entry.addActionListener(e -> {
-                        panelStateService.onStatsProfitFilterChanged(panelState, filter, updateStatsSummary);
-                    });
+                    entry.addActionListener(e -> panelState.setStatsProfitFilter(filter));
                     menu.add(entry);
                 }
                 menu.show(trigger, 0, trigger.getHeight());

@@ -50,7 +50,7 @@ public class RecipeFlipLedgerTest {
     }
 
     private static RecipeFlip.Part part(Delta delta, int qty) {
-        return new RecipeFlip.Part(TradeKey.of(delta), qty);
+        return new RecipeFlip.Part(TradeKey.of(delta), qty, null);
     }
 
     /**
@@ -65,7 +65,7 @@ public class RecipeFlipLedgerTest {
         Delta sale = sell(3_000L, 3, GODSWORD, 1, 18_500_000L);
         RecipeFlip flip = new RecipeFlip(ConversionKind.ASSEMBLE, "Armadyl godsword",
             Arrays.asList(part(blade, 1), part(hilt, 1)),
-            Collections.singletonList(part(sale, 1)), 0L, 9_000L);
+            Collections.singletonList(part(sale, 1)), 0L, 9_000L, null, null);
 
         RecipeFlipLedger.Result result = RecipeFlipLedger.apply(
             Arrays.asList(blade, hilt, sale), Collections.singletonList(flip));
@@ -93,7 +93,7 @@ public class RecipeFlipLedgerTest {
         Delta sale = sell(2_000L, 2, TORVA, 1, 120_000_000L);
         RecipeFlip flip = new RecipeFlip(ConversionKind.REPAIR, "Torva full helm",
             Collections.singletonList(part(damaged, 1)),
-            Collections.singletonList(part(sale, 1)), 1_500_000L, 3_000L);
+            Collections.singletonList(part(sale, 1)), 1_500_000L, 3_000L, null, null);
 
         RecipeFlipLedger.Activity activity = RecipeFlipLedger
             .apply(Arrays.asList(damaged, sale), Collections.singletonList(flip))
@@ -112,7 +112,7 @@ public class RecipeFlipLedgerTest {
         Delta sale = sell(3_000L, 3, GODSWORD, 1, 18_500_000L);
         RecipeFlip flip = new RecipeFlip(ConversionKind.ASSEMBLE, "Armadyl godsword",
             Arrays.asList(part(blades, 1), part(hilt, 1)),
-            Collections.singletonList(part(sale, 1)), 0L, 9_000L);
+            Collections.singletonList(part(sale, 1)), 0L, 9_000L, null, null);
 
         RecipeFlipLedger.Result result = RecipeFlipLedger.apply(
             Arrays.asList(blades, hilt, sale), Collections.singletonList(flip));
@@ -129,7 +129,7 @@ public class RecipeFlipLedgerTest {
         Delta hiltSale = sell(3_000L, 3, HILT, 1, 12_000_000L);
         RecipeFlip flip = new RecipeFlip(ConversionKind.DISASSEMBLE, "Armadyl godsword",
             Collections.singletonList(part(godsword, 1)),
-            Arrays.asList(part(bladeSale, 1), part(hiltSale, 1)), 0L, 9_000L);
+            Arrays.asList(part(bladeSale, 1), part(hiltSale, 1)), 0L, 9_000L, null, null);
 
         RecipeFlipLedger.Activity activity = RecipeFlipLedger
             .apply(Arrays.asList(godsword, bladeSale, hiltSale), Collections.singletonList(flip))
@@ -147,8 +147,8 @@ public class RecipeFlipLedgerTest {
         Delta blade = buy(1_000L, 1, BLADE, 1, 4_000_000L);
         Delta sale = sell(3_000L, 3, GODSWORD, 1, 18_500_000L);
         RecipeFlip flip = new RecipeFlip(ConversionKind.ASSEMBLE, "Armadyl godsword",
-            Arrays.asList(part(blade, 1), new RecipeFlip.Part(new TradeKey(99_000L, 9, HILT), 1)),
-            Collections.singletonList(part(sale, 1)), 0L, 9_000L);
+            Arrays.asList(part(blade, 1), new RecipeFlip.Part(new TradeKey(99_000L, 9, HILT), 1, null)),
+            Collections.singletonList(part(sale, 1)), 0L, 9_000L, null, null);
 
         RecipeFlipLedger.Result result = RecipeFlipLedger.apply(
             Arrays.asList(blade, sale), Collections.singletonList(flip));
@@ -166,10 +166,10 @@ public class RecipeFlipLedgerTest {
         Delta second = sell(4_000L, 4, GODSWORD, 1, 18_000_000L);
         RecipeFlip older = new RecipeFlip(ConversionKind.ASSEMBLE, "Armadyl godsword",
             Arrays.asList(part(blade, 1), part(hilt, 1)),
-            Collections.singletonList(part(first, 1)), 0L, 10L);
+            Collections.singletonList(part(first, 1)), 0L, 10L, null, null);
         RecipeFlip newer = new RecipeFlip(ConversionKind.ASSEMBLE, "Armadyl godsword",
             Arrays.asList(part(blade, 1), part(hilt, 1)),
-            Collections.singletonList(part(second, 1)), 0L, 20L);
+            Collections.singletonList(part(second, 1)), 0L, 20L, null, null);
 
         List<Delta> deltas = Arrays.asList(blade, hilt, first, second);
         RecipeFlipLedger.Result a = RecipeFlipLedger.apply(deltas, Arrays.asList(older, newer));
@@ -188,7 +188,7 @@ public class RecipeFlipLedgerTest {
         Delta sale = sell(3_000L, 3, GODSWORD, 1, 18_500_000L);
         RecipeFlip flip = new RecipeFlip(ConversionKind.ASSEMBLE, "Armadyl godsword",
             Collections.singletonList(part(sale, 1)),
-            Collections.singletonList(part(blade, 1)), 0L, 9_000L);
+            Collections.singletonList(part(blade, 1)), 0L, 9_000L, null, null);
 
         assertTrue(RecipeFlipLedger.apply(Arrays.asList(blade, sale),
             Collections.singletonList(flip)).isEmpty());
@@ -209,7 +209,7 @@ public class RecipeFlipLedgerTest {
         List<Delta> deltas = Arrays.asList(blades, hilts, first, second);
         RecipeFlip older = new RecipeFlip(ConversionKind.ASSEMBLE, "Armadyl godsword",
             Arrays.asList(part(blades, 1), part(hilts, 1)),
-            Collections.singletonList(part(first, 1)), 0L, 10L);
+            Collections.singletonList(part(first, 1)), 0L, 10L, null, null);
 
         // What the screen would put in front of the player for a second conversion.
         List<Delta> free = RecipeFlipLedger
@@ -222,7 +222,7 @@ public class RecipeFlipLedgerTest {
 
         RecipeFlip newer = new RecipeFlip(ConversionKind.ASSEMBLE, "Armadyl godsword",
             Arrays.asList(part(bladesLeft, 1), part(hiltsLeft, 1)),
-            Collections.singletonList(part(second, 1)), 0L, 20L);
+            Collections.singletonList(part(second, 1)), 0L, 20L, null, null);
 
         RecipeFlipLedger.Result both = RecipeFlipLedger.apply(deltas, Arrays.asList(older, newer));
 

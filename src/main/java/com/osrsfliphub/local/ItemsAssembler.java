@@ -34,6 +34,8 @@ import net.runelite.http.api.item.ItemPrice;
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 final class ItemsAssembler {
+    private static final int MAX_SEARCH_CATALOGUE_RESULTS = 100;
+
     static final class Result {
         final List<FlipHubItem> items;
         final Set<Integer> itemsNeedingLimits;
@@ -165,7 +167,7 @@ final class ItemsAssembler {
 
         int added = 0;
         for (ItemPrice match : ranked) {
-            if (added >= Const.MAX_SEARCH_CATALOGUE_RESULTS) {
+            if (added >= MAX_SEARCH_CATALOGUE_RESULTS) {
                 break;
             }
             if (match == null) {

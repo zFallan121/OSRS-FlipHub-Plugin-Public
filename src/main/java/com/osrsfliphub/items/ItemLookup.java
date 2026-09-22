@@ -71,7 +71,9 @@ final class ItemLookup {
             return null;
         }
         ItemComposition composition = itemManager.getItemComposition(itemId);
-        return composition != null ? composition.getName() : null;
+        // Not getName(): on a free world that is "Twinflame staff (Members)", and a lapsed member's
+        // offers still fill there. The name is cached for the session and sent to the website.
+        return composition != null ? composition.getMembersName() : null;
     }
 
     private Integer lookupGeLimit(int itemId) {
@@ -83,12 +85,6 @@ final class ItemLookup {
             return stats.getGeLimit();
         }
         return null;
-    }
-
-    private void invokeOnClientThread(Runnable task) {
-        if (task != null && clientThread != null) {
-            clientThread.invokeLater(task);
-        }
     }
 
     private void onItemNameCacheUpdated() {
@@ -126,6 +122,7 @@ final class ItemLookup {
                 return resolved;
             }
         } catch (RuntimeException ignored) {
+            // A lookup that throws is a miss like any other, and is remembered as one below.
         }
         rememberMiss(key, nowMs);
         return -1;
@@ -180,7 +177,7 @@ final class ItemLookup {
         if (itemNameCache != null && itemNameCache.containsKey(itemId)) {
             return;
         }
-        invokeOnClientThread(() -> {
+        clientThread.invokeLater(() -> {
             try {
                 String name = lookupItemNameSafe(itemId);
                 if (Str.isBlank(name)) {
@@ -192,8 +189,8 @@ final class ItemLookup {
                 if (itemNameCache.putIfAbsent(itemId, name) == null) {
                     onItemNameCacheUpdated();
                 }
-            } catch (AssertionError ignored) {
-            } catch (RuntimeException ignored) {
+            } catch (AssertionError | RuntimeException ignored) {
+                // The name stays unknown, and the next sighting of the item asks again.
             }
         });
     }

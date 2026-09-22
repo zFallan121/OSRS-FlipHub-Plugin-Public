@@ -55,6 +55,9 @@ final class PluginState {
     private final Map<Long, Long> loadedProfileFileMs = new ConcurrentHashMap<>();
     @Getter
     private final Map<Long, Long> selfWrittenProfileFileMs = new ConcurrentHashMap<>();
+    /** Accounts whose file would not parse. It is not written over: see ProfileStorage.writeProfileData. */
+    @Getter
+    private final Set<Long> unreadableProfiles = ConcurrentHashMap.newKeySet();
     @Getter
     private final Map<Long, String> profileDisplayNames = new ConcurrentHashMap<>();
     @Getter
@@ -73,8 +76,6 @@ final class PluginState {
     @Getter
     private final BookmarkConfigStore bookmarkConfigStore =
         new BookmarkConfigStore(Const.ACCOUNTWIDE_KEY);
-    @Getter
-    private final HiddenItemConfigStore hiddenItemConfigStore = new HiddenItemConfigStore();
     @Getter
     private final OfferUpdateStampConfigStore offerUpdateStampConfigStore = new OfferUpdateStampConfigStore();
     @Getter

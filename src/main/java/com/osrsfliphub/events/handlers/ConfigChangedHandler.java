@@ -39,6 +39,8 @@ final class ConfigChangedHandler {
     private final BookmarkState bookmarkState;
     private final ProfileSelectionPresentation profileSelectionPresentation;
     private final ProfileWorkflow profileWorkflow;
+    private final RankUp rankUp;
+    private final RecipeUpload recipeUpload;
 
     private void refreshBookmarksUi() {
         Panel panel = Access.plugin().panel;
@@ -75,8 +77,18 @@ final class ConfigChangedHandler {
             }
         }
 
+        // Written by every link and every session refresh.
+        if ("sessionToken".equals(key)) {
+            Access.plugin().executeAsync(recipeUpload::relinked);
+        }
+
         if ("licenseKey".equals(key)) {
             linkAttempt.attemptLink(config.licenseKey());
+        }
+
+        // The skills tab follows on its own; the Profile tab's rank is only redrawn when asked.
+        if ("merchantLevelScope".equals(key)) {
+            Access.plugin().executeAsync(rankUp::refreshPanel);
         }
 
         if (bookmarkState.isBookmarksConfigKey(key)) {
@@ -88,10 +100,9 @@ final class ConfigChangedHandler {
             }
         }
 
-        if (state.getHiddenItemConfigStore().isHiddenItemsConfigKey(key)) {
+        if ("hiddenItems".equals(key)) {
             state.getHiddenItems().clear();
-            state.getHiddenItems().addAll(
-                state.getHiddenItemConfigStore().parseItemIds(config.hiddenItems()));
+            state.getHiddenItems().addAll(ItemIdList.parse(config.hiddenItems()));
             if (Access.plugin().panel != null) {
                 refreshBookmarksUi();
             }

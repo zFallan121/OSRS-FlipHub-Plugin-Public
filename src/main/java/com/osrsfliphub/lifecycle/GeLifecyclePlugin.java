@@ -207,17 +207,6 @@ public class GeLifecyclePlugin extends Plugin {
     }
 
     @Subscribe
-    public void onStatChanged(StatChanged event) {
-        // What a repair cost depends on the player's Smithing level, and this is
-        // the cheapest place to learn it: the client reports every skill at login
-        // and again whenever one moves, on its own thread, and the fee service
-        // only keeps the number - per account, since the profile being viewed
-        // is not always the one logged in.
-        if (event.getSkill() == Skill.SMITHING) {
-        }
-    }
-
-    @Subscribe
     public void onScriptPostFired(ScriptPostFired event) {
         int scriptId = event.getScriptId();
         if (scriptId == ScriptID.CHAT_TEXT_INPUT_REBUILD ||
@@ -225,6 +214,11 @@ public class GeLifecyclePlugin extends Plugin {
             scriptId == ScriptID.MESSAGE_LAYER_OPEN) {
             Bridge.get(ChatboxSuggestionRuntimeState.class).markSuggestionDirty();
         }
+    }
+
+    @Subscribe
+    public void onMenuOptionClicked(MenuOptionClicked event) {
+        Bridge.get(SkillTab.class).clicked(event);
     }
 
     @Subscribe

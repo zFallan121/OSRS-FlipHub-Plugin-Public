@@ -43,12 +43,10 @@ final class GameStateChangedHandler {
      *
      * <p>RuneLite delivers events only to plugins that are running, and it does not replay
      * the login for one enabled afterwards. Everything the plugin sets up at login was
-     * therefore skipped: the conversion table was never resolved, so every assemble, break
-     * and repair went unrecognised; the session clock never started, so the Session range
-     * showed nothing; the Grand Exchange slots were never photographed, so an offer already
-     * running could be read as a brand new one; and nobody had asked the client for the
-     * Smithing level, so repairs were priced at the full NPC rate. All of it lasted until the
-     * player happened to log out and back in.
+     * therefore skipped: the session clock never started, so the Session range showed
+     * nothing, and the Grand Exchange slots were never photographed, so an offer already
+     * running could be read as a brand new one. Both lasted until the player happened to log
+     * out and back in.
      */
     void catchUpWithAnAlreadyRunningGame() {
         GeLifecyclePlugin plugin = Access.pluginOrNull();

@@ -35,16 +35,6 @@ final class StatsCacheDelta {
     private final Map<Integer, LocalInventoryState> inventory;
     private final Map<Integer, MatchedSellMarker> recentMatchedSellBySlot;
     private final Totals totals;
-    /** Whose trades these are; a repair fee depends on the player's Smithing. */
-    private final long accountKey;
-    StatsCacheDelta(
-        Map<Integer, ItemAgg> itemAggs,
-        Map<Integer, LocalInventoryState> inventory,
-        Map<Integer, MatchedSellMarker> recentMatchedSellBySlot,
-        Totals totals
-    ) {
-        this(itemAggs, inventory, recentMatchedSellBySlot, totals, 0L);
-    }
 
     void reset() {
         itemAggs.clear();

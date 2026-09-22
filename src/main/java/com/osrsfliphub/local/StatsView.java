@@ -67,8 +67,17 @@ final class StatsView {
         }
 
         long sessionStartMs = tradeSession.resolveStatsSessionStartMs(accountKey, nowMs);
-        Long sinceMs = effectiveRange.getSinceMs(sessionStartMs, nowMs);
-        StatsSnapshot snapshot = localStatsSnapshotService.buildSnapshot(accountKey, sinceMs, effectiveSort);
+        return view(accountKey, effectiveRange.getSinceMs(sessionStartMs, nowMs), effectiveSort, nowMs);
+    }
+
+    /**
+     * One character's figures, or every character's for the accountwide key, over a range.
+     *
+     * <p>The Merchant level reads its lifetime profit here too, so the skills tab and TOTAL
+     * PROFIT on All time can never name two different figures.
+     */
+    Result view(long accountKey, Long sinceMs, StatsItemSort sort, long nowMs) {
+        StatsSnapshot snapshot = localStatsSnapshotService.buildSnapshot(accountKey, sinceMs, sort);
         Map<Integer, List<StatsFlipInstance>> history = tradeSession.buildStatsFlipHistory(accountKey, sinceMs);
 
         StatsSummary summary = snapshot != null && snapshot.summary != null ? snapshot.summary : new StatsSummary();

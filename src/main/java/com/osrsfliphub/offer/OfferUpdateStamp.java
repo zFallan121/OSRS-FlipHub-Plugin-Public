@@ -57,87 +57,58 @@ final class OfferUpdateStamp {
         }
         Stamp existing = stamps.get(slot);
         if (prev == null) {
-            if (existing != null) {
-                if (stampMatchesSnapshot(existing, next) || ruleEvaluator.shouldPreserveStamp(existing, next)
-                    || ruleEvaluator.shouldPreserveStampAfterLogin(existing, next)
-                    || ruleEvaluator.shouldPreserveIdentityAfterLogin(existing, next)
-                    || ruleEvaluator.shouldPreserveStampAfterEmpty(prev, next, existing)) {
-                    boolean changed = ruleEvaluator.maybeUpdateStampDetails(existing, next.itemId, next.price, next.totalQty, next.isBuy,
-                        next.filledQty, next.spentGp);
-                    if (existing.lastUpdateMs <= 0) {
-                        existing.lastUpdateMs = nowMs();
-                        changed = true;
-                    }
-                    if (OfferUpdateStampStateHelpers.markCompletedIfNeeded(existing, next, this::nowMs)) {
-                        changed = true;
-                    }
-                    if (changed) {
-                        persistOfferUpdateTimes();
-                    }
-                    return;
+            if (existing != null && keeps(existing, next, false)) {
+                boolean changed = ruleEvaluator.maybeUpdateStampDetails(existing, next);
+                if (existing.lastUpdateMs <= 0) {
+                    existing.lastUpdateMs = nowMs();
+                    changed = true;
                 }
-            }
-            Stamp created = Stamp.fromSnapshot(next, nowMs());
-            stamps.put(slot, created);
-            if (OfferUpdateStampStateHelpers.markCompletedIfNeeded(created, next, this::nowMs)) {
-                persistOfferUpdateTimes();
+                if (OfferUpdateStampStateHelpers.markCompletedIfNeeded(existing, next, this::nowMs)) {
+                    changed = true;
+                }
+                if (changed) {
+                    persistOfferUpdateTimes();
+                }
                 return;
             }
-            persistOfferUpdateTimes();
+            createStamp(stamps, slot, next);
             return;
         }
 
         if (OfferUpdateStampStateHelpers.hasOfferChanged(prev, next)) {
-            if (existing != null && OfferUpdateStampStateHelpers.isEmptySnapshot(prev) && existing.lastEmptyMs <= 0) {
+            boolean afterEmpty = OfferUpdateStampStateHelpers.isEmptySnapshot(prev);
+            if (existing != null && afterEmpty && existing.lastEmptyMs <= 0) {
                 existing = null;
             }
-            if (existing != null) {
-                if (stampMatchesSnapshot(existing, next) || ruleEvaluator.shouldPreserveStamp(existing, next)
-                    || ruleEvaluator.shouldPreserveStampAfterLogin(existing, next)
-                    || ruleEvaluator.shouldPreserveIdentityAfterLogin(existing, next)
-                    || ruleEvaluator.shouldPreserveStampAfterEmpty(prev, next, existing)) {
-                    int filledBefore = existing.filledQty;
-                    long spentBefore = existing.spentGp;
-                    boolean changed = ruleEvaluator.maybeUpdateStampDetails(existing, next.itemId, next.price, next.totalQty, next.isBuy,
-                        next.filledQty, next.spentGp);
-                    if (OfferUpdateStampStateHelpers.shouldRefreshOfferTimestamp(
-                        prev,
-                        next,
-                        existing,
-                        filledBefore,
-                        spentBefore,
-                        this::isWithinLoginGrace
-                    )) {
-                        existing.lastUpdateMs = nowMs();
-                        changed = true;
-                    }
-                    if (OfferUpdateStampStateHelpers.markCompletedIfNeeded(existing, next, this::nowMs)) {
-                        changed = true;
-                    }
-                    if (changed) {
-                        persistOfferUpdateTimes();
-                    }
-                    return;
+            if (existing != null && keeps(existing, next, afterEmpty)) {
+                int filledBefore = existing.filledQty;
+                long spentBefore = existing.spentGp;
+                boolean changed = ruleEvaluator.maybeUpdateStampDetails(existing, next);
+                if (OfferUpdateStampStateHelpers.shouldRefreshOfferTimestamp(
+                    prev,
+                    next,
+                    existing,
+                    filledBefore,
+                    spentBefore,
+                    this::isWithinLoginGrace
+                )) {
+                    existing.lastUpdateMs = nowMs();
+                    changed = true;
                 }
-            }
-            Stamp created = Stamp.fromSnapshot(next, nowMs());
-            stamps.put(slot, created);
-            if (OfferUpdateStampStateHelpers.markCompletedIfNeeded(created, next, this::nowMs)) {
-                persistOfferUpdateTimes();
+                if (OfferUpdateStampStateHelpers.markCompletedIfNeeded(existing, next, this::nowMs)) {
+                    changed = true;
+                }
+                if (changed) {
+                    persistOfferUpdateTimes();
+                }
                 return;
             }
-            persistOfferUpdateTimes();
+            createStamp(stamps, slot, next);
             return;
         }
 
         if (existing == null) {
-            Stamp created = Stamp.fromSnapshot(next, nowMs());
-            stamps.put(slot, created);
-            if (OfferUpdateStampStateHelpers.markCompletedIfNeeded(created, next, this::nowMs)) {
-                persistOfferUpdateTimes();
-                return;
-            }
-            persistOfferUpdateTimes();
+            createStamp(stamps, slot, next);
         }
     }
 
@@ -153,48 +124,56 @@ final class OfferUpdateStamp {
             }
             return -1;
         }
+        // Read as the snapshot the change handler would make of it, so one set of rules serves both.
+        OfferSnapshot now = OfferSnapshot.fromOffer(slot, offer, null);
         Stamp existing = stamps.get(slot);
-        boolean isBuy = OfferUpdateStampStateHelpers.isBuyOffer(offer);
-        if (existing != null) {
-            if (ruleEvaluator.stampMatchesOffer(existing, offer) || ruleEvaluator.shouldPreserveStamp(existing, offer, isBuy)
-                || ruleEvaluator.shouldPreserveStampAfterLogin(existing, offer)
-                || ruleEvaluator.shouldPreserveIdentityAfterLogin(existing, offer)
-                || ruleEvaluator.shouldPreserveStampAfterEmpty(offer, existing, isBuy)) {
-                boolean changed = ruleEvaluator.maybeUpdateStampDetails(existing, offer.getItemId(), offer.getPrice(),
-                    offer.getTotalQuantity(), isBuy, offer.getQuantitySold(), offer.getSpent());
-                if (existing.lastUpdateMs <= 0) {
-                    existing.lastUpdateMs = nowMs();
-                    changed = true;
-                }
-                if (OfferUpdateStampStateHelpers.markCompletedIfNeeded(existing, offer, this::nowMs)) {
-                    changed = true;
-                }
-                if (changed) {
-                    persistOfferUpdateTimes();
-                }
-                if (OfferUpdateStampStateHelpers.isOfferComplete(offer)) {
-                    return OfferUpdateStampStateHelpers.computeCompletedDisplayTimestamp(existing, this::nowMs);
-                }
-                return existing.lastUpdateMs;
+        if (existing != null && keeps(existing, now, true)) {
+            boolean changed = ruleEvaluator.maybeUpdateStampDetails(existing, now);
+            if (existing.lastUpdateMs <= 0) {
+                existing.lastUpdateMs = nowMs();
+                changed = true;
             }
+            if (OfferUpdateStampStateHelpers.markCompletedIfNeeded(existing, now, this::nowMs)) {
+                changed = true;
+            }
+            if (changed) {
+                persistOfferUpdateTimes();
+            }
+            return displayedMs(existing, now);
         }
+        return displayedMs(createStamp(stamps, slot, now), now);
+    }
 
-        Stamp stamp = Stamp.fromOffer(offer, nowMs(), isBuy);
-        stamps.put(slot, stamp);
-        OfferUpdateStampStateHelpers.markCompletedIfNeeded(stamp, offer, this::nowMs);
+    /**
+     * Whether the slot's stamp still describes this offer, so its timer carries on.
+     *
+     * @param mayFollowEmpty whether the slot may just have shown empty, which a login can make
+     *                       it do for a moment without the offer having gone anywhere
+     */
+    private boolean keeps(Stamp existing, OfferSnapshot next, boolean mayFollowEmpty) {
+        return stampMatchesSnapshot(existing, next) || ruleEvaluator.shouldPreserveStamp(existing, next)
+            || ruleEvaluator.shouldPreserveStampAfterLogin(existing, next)
+            || ruleEvaluator.shouldPreserveIdentityAfterLogin(existing, next)
+            || mayFollowEmpty && ruleEvaluator.shouldPreserveStampAfterEmpty(next, existing);
+    }
+
+    private Stamp createStamp(Map<Integer, Stamp> stamps, int slot, OfferSnapshot next) {
+        Stamp created = Stamp.fromSnapshot(next, nowMs());
+        stamps.put(slot, created);
+        OfferUpdateStampStateHelpers.markCompletedIfNeeded(created, next, this::nowMs);
         persistOfferUpdateTimes();
-        if (OfferUpdateStampStateHelpers.isOfferComplete(offer)) {
-            return OfferUpdateStampStateHelpers.computeCompletedDisplayTimestamp(stamp, this::nowMs);
-        }
-        return stamp.lastUpdateMs;
+        return created;
+    }
+
+    /** A finished offer shows how long it took; one still going shows its last change. */
+    private long displayedMs(Stamp stamp, OfferSnapshot offer) {
+        return OfferUpdateStampStateHelpers.isOfferComplete(offer)
+            ? OfferUpdateStampStateHelpers.computeCompletedDisplayTimestamp(stamp, this::nowMs)
+            : stamp.lastUpdateMs;
     }
 
     boolean stampMatchesSnapshot(Stamp stamp, OfferSnapshot snapshot) {
-        if (stamp == null || snapshot == null) {
-            return false;
-        }
-        return ruleEvaluator.stampMatches(stamp, snapshot.itemId, snapshot.price, snapshot.totalQty, snapshot.isBuy,
-            snapshot.filledQty, snapshot.spentGp);
+        return stamp != null && snapshot != null && ruleEvaluator.stampMatches(stamp, snapshot);
     }
 
     private long nowMs() {

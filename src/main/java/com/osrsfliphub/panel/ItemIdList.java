@@ -24,35 +24,38 @@
  */
 package com.osrsfliphub;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
-import org.junit.Test;
+import java.util.*;
+import java.util.stream.Collectors;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-
-public class HiddenItemConfigStoreTest {
-    @Test
-    public void configKeyRecognitionMatchesHiddenItemsKey() {
-        HiddenItemConfigStore store = new HiddenItemConfigStore();
-
-        assertTrue(store.isHiddenItemsConfigKey("hiddenItems"));
-        assertTrue(store.isHiddenItemsConfigKey(" hiddenItems "));
-
-        assertFalse(store.isHiddenItemsConfigKey(null));
-        assertFalse(store.isHiddenItemsConfigKey(""));
-        assertFalse(store.isHiddenItemsConfigKey("bookmarks"));
+/**
+ * How a set of item ids is stored in the config: "1,3,9". Bookmarks and hidden items both keep
+ * their ids this way, and each used to carry its own identical copy of the two halves.
+ */
+final class ItemIdList {
+    private ItemIdList() {
     }
 
-    @Test
-    public void parseAndSerializeItemIdsNormalizeDuplicatesAndOrdering() {
-        HiddenItemConfigStore store = new HiddenItemConfigStore();
+    /** Repeats, zero, negatives and anything unreadable are dropped: the config is hand-editable. */
+    static Set<Integer> parse(String raw) {
+        Set<Integer> parsed = new HashSet<>();
+        if (Str.isBlank(raw)) {
+            return parsed;
+        }
+        for (String part : raw.split(",")) {
+            try {
+                int itemId = Integer.parseInt(part.trim());
+                if (itemId > 0) {
+                    parsed.add(itemId);
+                }
+            } catch (NumberFormatException ignored) {
+                // Not an id; skipped like the rest.
+            }
+        }
+        return parsed;
+    }
 
-        Set<Integer> parsed = store.parseItemIds(" 9,3,9,0,-5,abc,1 ");
-        assertEquals(new HashSet<>(Arrays.asList(1, 3, 9)), parsed);
-        assertEquals("1,3,9", store.serializeItemIds(parsed));
-        assertEquals("", store.serializeItemIds(new HashSet<>()));
+    /** Sorted, so the same set is always written the same way. */
+    static String join(Set<Integer> itemIds) {
+        return itemIds == null ? "" : itemIds.stream().sorted().map(String::valueOf).collect(Collectors.joining(","));
     }
 }

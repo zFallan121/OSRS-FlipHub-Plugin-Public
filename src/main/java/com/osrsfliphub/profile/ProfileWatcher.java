@@ -30,7 +30,9 @@ import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RequiredArgsConstructor
 final class ProfileWatcher {
     private static final long SCAN_INTERVAL_MS = 2_000L;
@@ -256,7 +258,8 @@ final class ProfileWatcher {
                 }
                 scheduleReload(accountKey, file, false);
             }
-        } catch (IOException ignored) {
+        } catch (IOException ex) {
+            log.warn("FlipHub: could not look for changed profiles in {}", dir, ex);
         }
     }
 
@@ -268,6 +271,7 @@ final class ProfileWatcher {
         try {
             service.close();
         } catch (IOException ignored) {
+            // Closing on the way out; nothing is left waiting on it.
         } finally {
             watchService = null;
         }

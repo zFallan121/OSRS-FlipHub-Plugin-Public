@@ -38,6 +38,14 @@ import okhttp3.*;
 @Slf4j
 @RequiredArgsConstructor
 final class WikiPrice {
+    private static final String WIKI_LATEST_URL = "https://prices.runescape.wiki/api/v1/osrs/latest";
+    // The wiki price API requires a contact route that actually works, and blocks callers whose
+    // contact goes nowhere. The site is listed alongside the mailbox because the mailbox sits on
+    // a different domain from everything else the plugin shows the player.
+    private static final String WIKI_USER_AGENT =
+        "FlipHub OSRS RuneLite plugin (https://www.osrsfliphub.com; contact: support@fliphub.app)";
+    private static final long WIKI_CACHE_TTL_MS = 2 * 60 * 1000;
+    private static final long WIKI_MIN_REFRESH_MS = 60_000L;
 
     interface Fetcher {
         interface Callback {
@@ -61,12 +69,12 @@ final class WikiPrice {
 
     @Inject
     WikiPrice(OkHttpClient httpClient, Gson gson, PluginRuntime runtime) {
-        this(Const.WIKI_CACHE_TTL_MS,
-            Const.WIKI_MIN_REFRESH_MS,
+        this(WIKI_CACHE_TTL_MS,
+            WIKI_MIN_REFRESH_MS,
             runtime,
             httpFetcher(httpClient, gson,
-                Const.WIKI_LATEST_URL,
-                Const.WIKI_USER_AGENT));
+                WIKI_LATEST_URL,
+                WIKI_USER_AGENT));
     }
 
     private static Fetcher httpFetcher(OkHttpClient httpClient, Gson gson, String latestUrl, String userAgent) {
@@ -118,6 +126,7 @@ final class WikiPrice {
                                     next.put(itemId, entry.getValue());
                                 }
                             } catch (NumberFormatException ignored) {
+                                // Not an item id; the rest of the price list is still good.
                             }
                         }
                         callback.onSuccess(next);

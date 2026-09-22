@@ -90,15 +90,16 @@ final class OfferUpdateStampPersistence {
         destination.clear();
 
         String perAccountKey = configStore.perAccountKey(accountKey);
-        String raw = readConfiguration(configGroup, perAccountKey);
+        String raw = configManager.getConfiguration(configGroup, perAccountKey);
         boolean migrated = false;
 
         if (Str.isBlank(raw)) {
-            migrated = tryLoadMatchedLegacy(destination, readConfiguration(configGroup, configStore.legacyGlobalKey()), gson);
+            migrated = tryLoadMatchedLegacy(
+                destination, configManager.getConfiguration(configGroup, configStore.legacyGlobalKey()), gson);
             if (!migrated) {
                 migrated = tryLoadMatchedLegacy(
                     destination,
-                    readConfiguration(legacyDevConfigGroup, configStore.legacyGlobalKey()),
+                    configManager.getConfiguration(legacyDevConfigGroup, configStore.legacyGlobalKey()),
                     gson
                 );
             }
@@ -151,10 +152,6 @@ final class OfferUpdateStampPersistence {
             return accountHash;
         }
         return accountSession.resolveLocalAccountKey();
-    }
-
-    private String readConfiguration(String configGroup, String key) {
-        return configManager.getConfiguration(configGroup, key);
     }
 
 }

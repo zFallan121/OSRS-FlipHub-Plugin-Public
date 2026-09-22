@@ -44,6 +44,13 @@ import lombok.RequiredArgsConstructor;
  * {@code delta_qty} and {@code delta_gp} are the quantity used and the coins that go with it.
  * Deleting a recipe sends a {@code RECIPE_VOID}.
  *
+ * <p>Stock recorded as moved to another of the player's accounts goes the same way, because it is
+ * the same trouble: the website keeps each character's purchases to itself, so the character that
+ * bought held the items for ever and the one that sold them had bought nothing. A move is
+ * {@code RECIPE_IN} parts only, of kind {@code TRANSFER}, each naming in
+ * {@code recipe_to_character_id} the character its purchase went to. There is no
+ * {@code RECIPE_OUT}: the website finds that character's sales itself, as this plugin does.
+ *
  * <p>Every id is derived from the recipe, never random, so sending one again changes nothing
  * on the website. That is what lets the recipes already on disk be sent once a session: a
  * recipe recorded before this existed, or whose upload was lost, still gets there.
@@ -58,18 +65,39 @@ final class RecipeUpload {
     private final UploadBackfillDispatch uploadBackfillDispatch;
     private final Set<String> sent = new HashSet<>();
 
-    /** Every recipe stored for the account that has not been sent this session. */
-    void sendStored(long accountKey) {
-        for (RecipeFlip flip : recipeFlipStore.snapshotForFile(accountKey)) {
-            send(accountKey, flip);
-        }
+    /**
+     * Every record of every account that has not been sent this session.
+     *
+     * <p>Every account's and not only the one just read: a record can name stock another account
+     * moved here, and it cannot be sent until that account's file has been read too.
+     */
+    void sendStored() {
+        recipeFlipStore.snapshotAll().forEach((account, flips) -> flips.forEach(flip -> send(account, flip)));
+    }
+
+    /**
+     * Linked again, or to another website account: whatever was sent before may never have reached
+     * this one. What was sent is forgotten and every record goes again; one the website already has
+     * is a duplicate and changes nothing. Before, a relink sent nothing until the client restarted.
+     */
+    synchronized void relinked() {
+        sent.clear();
+        sendStored();
     }
 
     synchronized void send(long accountKey, RecipeFlip flip) {
-        if (!linked() || !sent.add(recipeId(accountKey, flip))) {
+        String id = recipeId(accountKey, flip);
+        if (!linked() || sent.contains(id) || flip.voided == null && !flip.isUsable()) {
             return;
         }
-        enqueue(parts(accountKey, flip, tradeSession.snapshotLocalTradeDeltas(accountKey)));
+        List<GeEvent> events = flip.voided != null ? Collections.singletonList(deleted(accountKey, flip))
+            : parts(accountKey, flip, tradeSession.snapshotLocalTradeDeltas(accountKey), recipeFlipStore);
+        // Not counted as sent while a trade it names is missing, so the next read of a file tries
+        // again: the purchase may be in the file of an account that has not been read yet.
+        if (!events.isEmpty()) {
+            sent.add(id);
+            enqueue(events);
+        }
     }
 
     synchronized void sendDeleted(long accountKey, RecipeFlip flip) {
@@ -97,9 +125,12 @@ final class RecipeUpload {
      * no longer stored: the ledger does not apply such a recipe either, and half a recipe would
      * sit on the website waiting for parts that are never coming.
      */
-    static List<GeEvent> parts(long accountKey, RecipeFlip flip, List<Delta> deltas) {
+    static List<GeEvent> parts(long accountKey, RecipeFlip flip, List<Delta> deltas, RecipeFlipStore store) {
         Map<TradeKey, Delta> byKey = new HashMap<>();
-        for (Delta delta : deltas) {
+        // Stock another account moved here is named by that account's purchase.
+        List<Delta> trades = new ArrayList<>(deltas);
+        trades.addAll(RecipeFlipLedger.received(store, accountKey, new HashSet<>()));
+        for (Delta delta : trades) {
             byKey.put(TradeKey.of(delta), delta);
         }
         List<RecipeFlip.Part> named = new ArrayList<>(flip.inputParts());
@@ -114,6 +145,9 @@ final class RecipeUpload {
             GeEvent event = event(recipeId, String.valueOf(events.size()),
                 events.size() < flip.inputParts().size() ? "RECIPE_IN" : "RECIPE_OUT", delta.tsClientMs);
             event.character_id = GeEvent.characterId(accountKey);
+            if (flip.toAccount != null) {
+                event.recipe_to_character_id = GeEvent.characterId(flip.toAccount);
+            }
             event.recipe_kind = flip.kind.name();
             event.recipe_parts = named.size();
             event.recipe_fee_gp = flip.feeGp;
@@ -138,7 +172,7 @@ final class RecipeUpload {
      * one it was told to forget.
      */
     static String recipeId(long accountKey, RecipeFlip flip) {
-        return uuid(accountKey + "|" + flip.recordedMs + "|" + flip.trades());
+        return flip.voided != null ? flip.voided : uuid(accountKey + "|" + flip.recordedMs + "|" + flip.trades());
     }
 
     private static GeEvent event(String recipeId, String part, String type, long tsMs) {

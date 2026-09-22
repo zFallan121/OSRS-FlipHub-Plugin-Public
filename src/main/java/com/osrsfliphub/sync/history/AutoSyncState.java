@@ -40,6 +40,11 @@ import lombok.Getter;
  */
 @javax.inject.Singleton
 final class AutoSyncState {
+    /** How long a read of the history list must hold still before it is trusted as complete. */
+    private static final long GE_HISTORY_SYNC_WIDGET_SETTLE_MS = 2_000L;
+    /** How long the list may stay incomplete or keep changing before this login's sync is given up. */
+    private static final long GE_HISTORY_SYNC_READ_GIVE_UP_MS = 20_000L;
+
     enum ReadVerdict {
         /** Not complete yet, or complete but not yet still; read again next tick. */
         WAIT,
@@ -59,12 +64,12 @@ final class AutoSyncState {
 
     @javax.inject.Inject
     AutoSyncState() {
-        this(Const.GE_HISTORY_SYNC_WIDGET_SETTLE_MS,
-            Const.GE_HISTORY_SYNC_READ_GIVE_UP_MS);
+        this(GE_HISTORY_SYNC_WIDGET_SETTLE_MS,
+            GE_HISTORY_SYNC_READ_GIVE_UP_MS);
     }
 
     AutoSyncState(long widgetSettleMs) {
-        this(widgetSettleMs, Const.GE_HISTORY_SYNC_READ_GIVE_UP_MS);
+        this(widgetSettleMs, GE_HISTORY_SYNC_READ_GIVE_UP_MS);
     }
 
     AutoSyncState(long widgetSettleMs, long readGiveUpMs) {

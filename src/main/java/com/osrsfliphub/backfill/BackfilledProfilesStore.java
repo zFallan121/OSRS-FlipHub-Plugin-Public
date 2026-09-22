@@ -33,8 +33,10 @@ import net.runelite.client.config.ConfigManager;
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 final class BackfilledProfilesStore {
+    private static final String BACKFILLED_PROFILES_KEY = "backfilledProfilesV1";
+
     private final String configGroup = FliphubConfigGroups.CONFIG_GROUP;
-    private final String configKey = Const.BACKFILLED_PROFILES_KEY;
+    private final String configKey = BACKFILLED_PROFILES_KEY;
     private final ConfigManager configManager;
 
     Set<Long> load() {
@@ -54,6 +56,7 @@ final class BackfilledProfilesStore {
                     keys.add(key);
                 }
             } catch (NumberFormatException ignored) {
+                // Not an account key; the config is hand-editable, so it is skipped.
             }
         }
         return keys;

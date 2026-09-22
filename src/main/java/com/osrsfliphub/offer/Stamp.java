@@ -25,7 +25,6 @@
 package com.osrsfliphub;
 
 import lombok.AllArgsConstructor;
-import net.runelite.api.GrandExchangeOffer;
 
 @AllArgsConstructor
 final class Stamp {
@@ -77,25 +76,6 @@ final class Stamp {
             snapshot.filledQty,
             snapshot.isBuy,
             snapshot.spentGp,
-            safeTimestamp,
-            safeTimestamp,
-            0L,
-            0L
-        );
-    }
-
-    static Stamp fromOffer(GrandExchangeOffer offer, long timestamp, boolean isBuy) {
-        if (offer == null) {
-            return null;
-        }
-        long safeTimestamp = timestamp > 0 ? timestamp : System.currentTimeMillis();
-        return new Stamp(
-            offer.getItemId(),
-            offer.getPrice(),
-            offer.getTotalQuantity(),
-            offer.getQuantitySold(),
-            isBuy,
-            offer.getSpent(),
             safeTimestamp,
             safeTimestamp,
             0L,

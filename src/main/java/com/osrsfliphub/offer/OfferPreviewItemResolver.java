@@ -34,6 +34,23 @@ import net.runelite.api.widgets.*;
 
 @Singleton
 final class OfferPreviewItemResolver {
+    private static final String[] OFFER_SETUP_BLOCKERS = new String[] {
+        "choose an item",
+        "click the icon",
+        "select an offer slot",
+        "set up or view an offer"
+    };
+    private static final String[] ITEM_NAME_EXCLUDES = new String[] {
+        "offer status",
+        "buy offer",
+        "sell offer",
+        "quantity",
+        "price per item",
+        "coins",
+        "history",
+        "you have"
+    };
+
     @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
     static final class Resolution {
         @Getter
@@ -63,15 +80,8 @@ final class OfferPreviewItemResolver {
         this.itemLookup = itemLookup;
         this.client = client;
         this.facade = facade;
-        this.setupBlockers = Const.OFFER_SETUP_BLOCKERS != null
-            ? Const.OFFER_SETUP_BLOCKERS : new String[0];
-    }
-
-    private String findItemNameCandidate(Widget geRoot) {
-        return facade.findItemNameCandidate(
-            geRoot,
-            Const.ITEM_NAME_EXCLUDES,
-            itemLookup::resolveItemIdFromName);
+        this.setupBlockers = OFFER_SETUP_BLOCKERS != null
+            ? OFFER_SETUP_BLOCKERS : new String[0];
     }
 
     Resolution resolve() {
@@ -178,7 +188,8 @@ final class OfferPreviewItemResolver {
         if (geRoot == null) {
             return null;
         }
-        String candidate = findItemNameCandidate(geRoot);
+        String candidate = facade.findItemNameCandidate(
+            geRoot, ITEM_NAME_EXCLUDES, itemLookup::resolveItemIdFromName);
         if (candidate == null) {
             return null;
         }

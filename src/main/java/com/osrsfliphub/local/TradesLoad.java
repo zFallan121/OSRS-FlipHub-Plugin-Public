@@ -32,6 +32,8 @@ import lombok.RequiredArgsConstructor;
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 final class TradesLoad {
+    private static final long LOCAL_TRADES_LOAD_RETRY_MS = 1000L;
+
     private final TradeSession tradeSession;
     private final LocalTradesRuntime localTradesRuntime;
 
@@ -44,13 +46,13 @@ final class TradesLoad {
         }
     }
 
-    private final long retryMs = Math.max(0L, Const.LOCAL_TRADES_LOAD_RETRY_MS);
+    private final long retryMs = Math.max(0L, LOCAL_TRADES_LOAD_RETRY_MS);
 
     void ensureLocalTradesLoaded(long accountKey) {
         if (accountKey <= 0) {
             return;
         }
-        localTradesRuntime.ensureProfileLoadedBoxed(accountKey);
+        localTradesRuntime.ensureProfileLoaded(accountKey);
         localTradesRuntime.markLocalTradesLoadedForLogin();
     }
 
