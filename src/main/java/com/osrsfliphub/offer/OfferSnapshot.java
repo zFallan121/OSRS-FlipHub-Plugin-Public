@@ -59,10 +59,13 @@ public class OfferSnapshot {
             isBuy = prev.isBuy;
         }
 
+        // RuneLite 1.13 reports the price as a long, for the GE going past max cash. Only the
+        // offer's total can pass 2.147b - one item's price still fits in an int - and the total
+        // is already kept as a long in spentGp.
         return new OfferSnapshot(
             slot,
             offer.getItemId(),
-            offer.getPrice(),
+            (int) Math.min(offer.getPrice(), Integer.MAX_VALUE),
             offer.getTotalQuantity(),
             offer.getQuantitySold(),
             offer.getSpent(),

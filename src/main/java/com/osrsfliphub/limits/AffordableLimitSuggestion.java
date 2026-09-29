@@ -75,10 +75,8 @@ final class AffordableLimitSuggestion {
             return null;
         }
         GrandExchangeOffer offer = facade.getSelectedOffer(client, VarbitID.GE_SELECTEDSLOT);
-        if (offer == null || offer.getPrice() <= 0) {
-            return null;
-        }
-        return offer.getPrice();
+        long price = offer != null ? offer.getPrice() : 0L;
+        return price > 0 ? (int) Math.min(price, Integer.MAX_VALUE) : null;
     }
 
     private long inventoryCoins() {

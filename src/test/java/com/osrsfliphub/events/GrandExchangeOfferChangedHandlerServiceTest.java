@@ -550,13 +550,13 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
                     case "getItemId":
                         return itemId;
                     case "getPrice":
-                        return price;
+                        return (long) price;
                     case "getTotalQuantity":
                         return totalQty;
                     case "getQuantitySold":
                         return filledQty;
                     case "getSpent":
-                        return (int) spentGp;
+                        return spentGp;
                     case "getState":
                         return offerState;
                     case "toString":
