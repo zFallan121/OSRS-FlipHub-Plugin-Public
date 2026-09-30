@@ -25,8 +25,10 @@
 package com.osrsfliphub;
 
 final class WikiPriceEntry {
-    Integer high;
-    Integer low;
+    // Longs because the GE now trades past max cash (the 3rd age axe at 8,351,000,000), and one
+    // price too big for an Integer failed the whole list, leaving every card without prices.
+    Long high;
+    Long low;
     Long highTime;
     Long lowTime;
 }

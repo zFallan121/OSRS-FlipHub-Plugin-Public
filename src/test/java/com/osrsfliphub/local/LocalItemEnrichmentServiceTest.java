@@ -27,6 +27,7 @@ package com.osrsfliphub;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 public class LocalItemEnrichmentServiceTest {
     /**
@@ -63,6 +64,32 @@ public class LocalItemEnrichmentServiceTest {
         new ItemEnrichment().applyMarginInfo(item);
 
         assertEquals(Integer.valueOf(25), item.margin);
+    }
+
+    /**
+     * The 3rd age axe on 30 Sep 2026: bought at max cash, sold at 8,351,000,000. The price that
+     * fits is shown; the one past max cash is left N/A rather than shown wrapped or cut down.
+     */
+    @Test
+    public void aWikiPriceAboveMaxCashIsLeftOutAndTheOtherIsShown() {
+        WikiPriceEntry axe = new WikiPriceEntry();
+        axe.high = 2_147_483_647L;
+        axe.low = 8_351_000_000L;
+        PluginRuntime runtime = new PluginRuntime();
+        runtime.setPanelVisible(true);
+        WikiPrice prices = new WikiPrice(60_000L, 0L, runtime,
+            callback -> callback.onSuccess(java.util.Collections.singletonMap(20014, axe)));
+        prices.refreshPrices();
+        Bridge.set(com.google.inject.Guice.createInjector(binder -> binder.bind(WikiPrice.class).toInstance(prices)));
+        try {
+            FlipHubItem item = new FlipHubItem();
+            new ItemEnrichment().applyGuidePrices(item, 20014, false);
+
+            assertEquals(Integer.valueOf(Integer.MAX_VALUE), item.instasell_price);
+            assertNull(item.instabuy_price);
+        } finally {
+            Bridge.set(null);
+        }
     }
 
     private static FlipHubItem itemPriced(int itemId, int buy, int sell) {

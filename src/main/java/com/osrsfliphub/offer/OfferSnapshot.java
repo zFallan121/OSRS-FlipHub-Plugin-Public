@@ -59,9 +59,10 @@ public class OfferSnapshot {
             isBuy = prev.isBuy;
         }
 
-        // RuneLite 1.13 reports the price as a long, for the GE going past max cash. Only the
-        // offer's total can pass 2.147b - one item's price still fits in an int - and the total
-        // is already kept as a long in spentGp.
+        // RuneLite 1.13 reports the price as a long, for the GE going past max cash. An item
+        // priced above 2,147,483,647 (the 3rd age axe traded at 8.351b on 30 Sep 2026) is held
+        // at that until the stamps, events and website carry a long. The total spent is
+        // already a long in spentGp.
         return new OfferSnapshot(
             slot,
             offer.getItemId(),

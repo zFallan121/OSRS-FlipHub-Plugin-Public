@@ -52,11 +52,12 @@ final class ItemEnrichment {
         if (entry == null) {
             return;
         }
-        if (entry.high != null && entry.high > 0) {
-            item.instasell_price = entry.high;
+        // A price above max cash is left out, so its card shows N/A rather than a wrong number.
+        if (entry.high != null && entry.high > 0 && entry.high <= Integer.MAX_VALUE) {
+            item.instasell_price = entry.high.intValue();
         }
-        if (entry.low != null && entry.low > 0) {
-            item.instabuy_price = entry.low;
+        if (entry.low != null && entry.low > 0 && entry.low <= Integer.MAX_VALUE) {
+            item.instabuy_price = entry.low.intValue();
         }
         if (entry.highTime != null && entry.highTime > 0) {
             item.instasell_ts_ms = entry.highTime * 1000L;

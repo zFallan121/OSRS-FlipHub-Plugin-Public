@@ -24,6 +24,7 @@
  */
 package com.osrsfliphub;
 
+import com.google.gson.Gson;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
@@ -48,7 +49,7 @@ public class WikiPriceServiceTest {
 
         WikiPriceEntry effective = second != null ? second : first;
         assertNotNull(effective);
-        assertEquals(Integer.valueOf(1200), effective.high);
+        assertEquals(Long.valueOf(1200), effective.high);
         assertEquals(1, fetcher.calls);
     }
 
@@ -94,10 +95,26 @@ public class WikiPriceServiceTest {
         assertEquals(1, scheduler.cancelledCount);
     }
 
+    // The wiki's list on 30 Sep 2026, cut to the two items then trading past max cash plus one
+    // ordinary item. Read as Integers, the 8.351b low failed the whole list and every card
+    // lost its prices.
+    @Test
+    public void aPriceAboveMaxCashDoesNotFailTheWholeList() {
+        WikiLatestResponse latest = new Gson().fromJson("{\"data\":{"
+            + "\"20011\":{\"high\":2395000000,\"highTime\":1790771564,\"low\":2147483647,\"lowTime\":1784266838},"
+            + "\"20014\":{\"high\":2147483647,\"highTime\":1782328247,\"low\":8351000000,\"lowTime\":1790771413},"
+            + "\"4151\":{\"high\":1200,\"highTime\":1790771000,\"low\":1000,\"lowTime\":1790771000}}}",
+            WikiLatestResponse.class);
+
+        assertEquals(Long.valueOf(8_351_000_000L), latest.data.get("20014").low);
+        assertEquals(Long.valueOf(2_395_000_000L), latest.data.get("20011").high);
+        assertEquals(Long.valueOf(1200), latest.data.get("4151").high);
+    }
+
     private WikiPriceEntry entry(int high, int low) {
         WikiPriceEntry entry = new WikiPriceEntry();
-        entry.high = high;
-        entry.low = low;
+        entry.high = (long) high;
+        entry.low = (long) low;
         return entry;
     }
 
