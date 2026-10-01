@@ -41,16 +41,32 @@ final class ChatboxDecimalInput {
     // A quantity is one number, optionally scaled, and must carry the decimal point that the game
     // would not have accepted on its own. Anything else is left for the game to parse as it always has.
     private static final Pattern DECIMAL_AMOUNT =
-        Pattern.compile("(\\d*)\\.(\\d*)([kmb]?)", Pattern.CASE_INSENSITIVE);
+        Pattern.compile("(\\d*)\\.(\\d*)([kmbt]?)", Pattern.CASE_INSENSITIVE);
     private static final Pattern DIGITS = Pattern.compile("\\d+");
 
     private static final BigDecimal THOUSAND = BigDecimal.valueOf(1_000L);
     private static final BigDecimal MILLION = BigDecimal.valueOf(1_000_000L);
     private static final BigDecimal BILLION = BigDecimal.valueOf(1_000_000_000L);
-    // The game caps a price or quantity at the largest signed 32-bit value.
+    private static final BigDecimal TRILLION = BigDecimal.valueOf(1_000_000_000_000L);
+    // A quantity, and every amount but a Grand Exchange price, stops at the largest 32-bit value.
     private static final BigDecimal MAX_AMOUNT = BigDecimal.valueOf(Integer.MAX_VALUE);
+    private static final BigDecimal MAX_LONG_AMOUNT = BigDecimal.valueOf(Long.MAX_VALUE);
+
+    // The chatbox input types that ask for an amount. 7 is the one the game has always used:
+    // quantity, bank withdraw-X, trade, coffers. 30 is the Grand Exchange price since 30 Sep 2026,
+    // when one item could first cost more than 2,147,483,647: 19 digits, and T for trillion.
+    private static final int AMOUNT_PROMPT = 7;
+    private static final int LONG_AMOUNT_PROMPT = 30;
 
     private ChatboxDecimalInput() {
+    }
+
+    /** The most the prompt of this input type takes, or null when it does not ask for an amount. */
+    static BigDecimal largestAmount(int inputType) {
+        if (inputType == LONG_AMOUNT_PROMPT) {
+            return MAX_LONG_AMOUNT;
+        }
+        return inputType == AMOUNT_PROMPT ? MAX_AMOUNT : null;
     }
 
     /**
@@ -81,6 +97,11 @@ final class ChatboxDecimalInput {
      * <p>A fraction of a coin cannot be offered, so 2.5325k becomes 2532 rather than rounding up.
      */
     static String toPlainAmount(String inputText) {
+        return toPlainAmount(inputText, MAX_AMOUNT);
+    }
+
+    /** As above, for a prompt that takes at most {@code largest}. */
+    static String toPlainAmount(String inputText, BigDecimal largest) {
         if (inputText == null || inputText.indexOf('.') < 0) {
             // Without a decimal point this is either plain digits or a suffix the game already handles.
             return null;
@@ -98,8 +119,8 @@ final class ChatboxDecimalInput {
         BigDecimal amount = new BigDecimal(
             (whole.isEmpty() ? "0" : whole) + "." + (fraction.isEmpty() ? "0" : fraction));
         BigDecimal scaled = amount.multiply(multiplierFor(matcher.group(3)));
-        if (scaled.compareTo(MAX_AMOUNT) > 0) {
-            scaled = MAX_AMOUNT;
+        if (scaled.compareTo(largest) > 0) {
+            scaled = largest;
         }
         return scaled.setScale(0, RoundingMode.DOWN).toPlainString();
     }
@@ -115,6 +136,8 @@ final class ChatboxDecimalInput {
                 return MILLION;
             case 'b':
                 return BILLION;
+            case 't':
+                return TRILLION;
             default:
                 return BigDecimal.ONE;
         }

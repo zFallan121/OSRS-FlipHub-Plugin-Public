@@ -25,7 +25,8 @@
 package com.osrsfliphub;
 
 import java.awt.event.KeyEvent;
-import java.util.function.UnaryOperator;
+import java.math.BigDecimal;
+import java.util.function.BiFunction;
 import javax.inject.*;
 import lombok.RequiredArgsConstructor;
 import net.runelite.api.*;
@@ -43,10 +44,6 @@ import net.runelite.client.input.KeyListener;
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 final class ChatboxDecimalInputListener implements KeyListener {
-    // MESLAYERMODE is the chatbox input type, and 7 is the one the game uses for every "enter an
-    // amount" prompt: the Grand Exchange price and quantity boxes, bank withdraw-X, trade, coffers.
-    private static final int INPUT_TYPE_AMOUNT_PROMPT = 7;
-
     private final Client client;
     private final ClientThread clientThread;
     private final PluginConfig config;
@@ -60,7 +57,7 @@ final class ChatboxDecimalInputListener implements KeyListener {
         if (keyCode == KeyEvent.VK_ENTER) {
             rewriteInputText(ChatboxDecimalInput::toPlainAmount, false);
         } else if (keyCode == KeyEvent.VK_PERIOD || keyCode == KeyEvent.VK_DECIMAL) {
-            rewriteInputText(ChatboxDecimalInput::withDecimalPoint, true);
+            rewriteInputText((text, largest) -> ChatboxDecimalInput.withDecimalPoint(text), true);
         }
     }
 
@@ -100,12 +97,15 @@ final class ChatboxDecimalInputListener implements KeyListener {
      * @param redraw whether the prompt still has to show the new text. A converted amount is read
      *               by the game and the prompt closes, so only the typed decimal point needs it.
      */
-    private void rewriteInputText(UnaryOperator<String> conversion, boolean redraw) {
+    private void rewriteInputText(BiFunction<String, BigDecimal, String> conversion, boolean redraw) {
         clientThread.invoke(() -> {
-            if (client.getVarcIntValue(VarClientID.MESLAYERMODE) != INPUT_TYPE_AMOUNT_PROMPT) {
+            // MESLAYERMODE is the chatbox input type; only an "enter an amount" prompt has a most.
+            BigDecimal largest = ChatboxDecimalInput.largestAmount(
+                client.getVarcIntValue(VarClientID.MESLAYERMODE));
+            if (largest == null) {
                 return;
             }
-            String converted = conversion.apply(client.getVarcStrValue(VarClientID.MESLAYERINPUT));
+            String converted = conversion.apply(client.getVarcStrValue(VarClientID.MESLAYERINPUT), largest);
             if (converted == null) {
                 return;
             }

@@ -66,6 +66,23 @@ public class ChatboxDecimalInputTest {
     }
 
     @Test
+    public void aPricePromptTakesMoreThanMaxCashAndATrillion() {
+        java.math.BigDecimal price = ChatboxDecimalInput.largestAmount(30);
+        assertEquals("9400000000", ChatboxDecimalInput.toPlainAmount("9.4b", price));
+        assertEquals("1500000000000", ChatboxDecimalInput.toPlainAmount("1.5t", price));
+        assertEquals("1500000000000", ChatboxDecimalInput.toPlainAmount("1.5T", price));
+        assertEquals("9223372036854775807", ChatboxDecimalInput.toPlainAmount("99999999.9t", price));
+    }
+
+    @Test
+    public void onlyAnAmountPromptHasALargestAmount() {
+        assertEquals("2147483647", ChatboxDecimalInput.largestAmount(7).toPlainString());
+        assertEquals("9223372036854775807", ChatboxDecimalInput.largestAmount(30).toPlainString());
+        assertNull(ChatboxDecimalInput.largestAmount(0));
+        assertNull(ChatboxDecimalInput.largestAmount(14));
+    }
+
+    @Test
     public void toPlainAmountTruncatesADecimalCarryingNoUnit() {
         // Only this plugin can put the point there, so it always has to clean it up again.
         assertEquals("1", ChatboxDecimalInput.toPlainAmount("1.5"));
