@@ -36,23 +36,21 @@ import net.runelite.api.widgets.*;
 final class OfferTypeResolver {
     private final Client client;
     private final OfferPreviewRuntime facade;
-    private Integer newOfferTypeBuyValue;
-    private Integer newOfferTypeSellValue;
     private Boolean lastResolvedOfferType;
 
     Boolean resolveOfferType() {
         Boolean fromSetupText = findOfferTypeFromSetupWidgets();
         if (fromSetupText != null) {
-            cacheOfferTypeMapping(fromSetupText);
             return remember(fromSetupText);
         }
         Boolean fromSelectedSlot = findOfferTypeFromSelectedSlot();
         if (fromSelectedSlot != null) {
             return remember(fromSelectedSlot);
         }
-        Boolean fromVarbit = mapNewOfferType(client.getVarbitValue(VarbitID.GE_NEWOFFER_TYPE));
-        if (fromVarbit != null) {
-            return remember(fromVarbit);
+        // One bit: set while a sell offer is being set up. Clear, it is a buy or no offer at all,
+        // and which of the two it cannot say.
+        if (Access.varbit(client, VarbitID.GE_NEWOFFER_TYPE) == 1) {
+            return remember(false);
         }
         Boolean fromGeRoot = findOfferTypeFromGeRoot();
         if (fromGeRoot != null) {
@@ -121,37 +119,6 @@ final class OfferTypeResolver {
         if (state == GrandExchangeOfferState.SELLING
             || state == GrandExchangeOfferState.SOLD
             || state == GrandExchangeOfferState.CANCELLED_SELL) {
-            return false;
-        }
-        return null;
-    }
-
-    private void cacheOfferTypeMapping(boolean isBuy) {
-        int offerType = client.getVarbitValue(VarbitID.GE_NEWOFFER_TYPE);
-        if (offerType <= 0) {
-            return;
-        }
-        if (isBuy) {
-            newOfferTypeBuyValue = offerType;
-        } else {
-            newOfferTypeSellValue = offerType;
-        }
-    }
-
-    private Boolean mapNewOfferType(int offerType) {
-        if (offerType <= 0) {
-            return null;
-        }
-        if (newOfferTypeBuyValue != null && offerType == newOfferTypeBuyValue) {
-            return true;
-        }
-        if (newOfferTypeSellValue != null && offerType == newOfferTypeSellValue) {
-            return false;
-        }
-        if (offerType == 1) {
-            return true;
-        }
-        if (offerType == 2) {
             return false;
         }
         return null;

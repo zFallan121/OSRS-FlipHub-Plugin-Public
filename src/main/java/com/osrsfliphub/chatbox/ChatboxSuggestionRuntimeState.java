@@ -114,15 +114,14 @@ final class ChatboxSuggestionRuntimeState {
         return cachedQuantityPromptWidget;
     }
 
-    // The chatbox input type the client uses for the price and quantity prompts.
-    private static final int INPUT_TYPE_GE_PROMPT = 7;
     // The chatbox input type the client uses for the GE item search.
     private static final int INPUT_TYPE_GE_ITEM_SEARCH = 14;
 
     boolean isGeInputPromptActive() {
         Client client = this.client;
         int inputType = client.getVarcIntValue(VarClientInt.INPUT_TYPE);
-        if (inputType == INPUT_TYPE_GE_PROMPT) {
+        // The price and the quantity prompts are two different "enter an amount" input types.
+        if (ChatboxDecimalInput.largestAmount(inputType) != null) {
             return true;
         }
         if (inputType <= 0) {

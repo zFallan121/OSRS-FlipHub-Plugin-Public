@@ -83,7 +83,7 @@ final class OfferPreviewRuntime {
         if (client == null) {
             return null;
         }
-        int rawSlot = client.getVarbitValue(selectedSlotVarbitId);
+        int rawSlot = Access.varbit(client, selectedSlotVarbitId);
         if (rawSlot <= 0) {
             return null;
         }

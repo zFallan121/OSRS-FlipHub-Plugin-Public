@@ -85,14 +85,17 @@ final class OfferPreviewItemResolver {
     }
 
     Resolution resolve() {
+        if (!Access.loggedIn(client)) {
+            return Resolution.clear();
+        }
         Widget geRoot = facade.getVisibleGeRoot(client, ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
         Widget offerContainer = client.getWidget(ComponentID.GRAND_EXCHANGE_OFFER_CONTAINER);
         boolean offerVisible = offerContainer != null && !offerContainer.isHidden();
         boolean geOpen = geRoot != null;
         boolean offerStatusOpen = geOpen && (facade.isOfferStatusOpen(geRoot, Const.OFFER_STATUS_MARKERS));
         // Some client builds can lag the setup varbit while the setup container is already visible.
-        boolean setupMode = client.getVarbitValue(VarbitID.GE_NEWOFFER_TYPE) > 0 || offerVisible;
-        int selectedSlot = client.getVarbitValue(VarbitID.GE_SELECTEDSLOT);
+        boolean setupMode = Access.varbit(client, VarbitID.GE_NEWOFFER_TYPE) > 0 || offerVisible;
+        int selectedSlot = Access.varbit(client, VarbitID.GE_SELECTEDSLOT);
 
         if (geOpen && !setupMode && !offerStatusOpen && selectedSlot <= 0) {
             return Resolution.clear();

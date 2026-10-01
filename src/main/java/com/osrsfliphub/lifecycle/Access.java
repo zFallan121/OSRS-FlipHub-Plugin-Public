@@ -62,4 +62,19 @@ final class Access {
     static boolean loggedIn(net.runelite.api.Client client) {
         return client != null && client.getGameState() == net.runelite.api.GameState.LOGGED_IN;
     }
+
+    /**
+     * A varbit's value, or 0 when the game no longer has it.
+     *
+     * <p>The client throws for a varbit a game update has deleted, and nothing warns of it: the
+     * plugin still compiles. On 30 Sep 2026 one such read, for a single chat line, stopped every
+     * line the same step draws. Read this way, a deleted varbit costs only what it was read for.
+     */
+    static int varbit(net.runelite.api.Client client, int id) {
+        try {
+            return client.getVarbitValue(id);
+        } catch (RuntimeException ex) {
+            return 0;
+        }
+    }
 }
