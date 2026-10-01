@@ -259,7 +259,7 @@ public class RankUpTesterPlugin extends Plugin {
     private void withFlipHub(java.util.function.Consumer<RankUp> work) {
         RankUp rankUp = Access.pluginOrNull() != null ? Bridge.get(RankUp.class) : null;
         if (rankUp == null) {
-            setStatus("Turn on OSRS FlipHub first.");
+            setStatus("Turn on FlipHub OSRS first.");
             return;
         }
         Access.plugin().executeAsync(() -> work.accept(rankUp));
@@ -269,7 +269,7 @@ public class RankUpTesterPlugin extends Plugin {
     private void withSkillTab(java.util.function.Consumer<SkillTab> work) {
         SkillTab tab = Access.pluginOrNull() != null ? Bridge.get(SkillTab.class) : null;
         if (tab == null) {
-            setStatus("Turn on OSRS FlipHub first.");
+            setStatus("Turn on FlipHub OSRS first.");
             return;
         }
         work.accept(tab);

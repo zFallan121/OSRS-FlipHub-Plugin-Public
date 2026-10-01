@@ -2,7 +2,7 @@
   <img src="docs/01-hero-get-fliphub-on-runelite-large.png" alt="Get FlipHub on RuneLite — make smarter flips" width="100%">
 </p>
 
-# OSRS FlipHub
+# FlipHub OSRS
 
 Track your Grand Exchange flips — margins, buy limits and live Wiki prices, right in the sidebar.
 
