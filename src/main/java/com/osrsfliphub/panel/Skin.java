@@ -39,8 +39,8 @@ import javax.swing.*;
  * which is the one thing the identity forbids.
  */
 final class Skin {
-    static final String DEFAULT_BASE_URL = "https://www.osrsfliphub.com";
-    static final String DISCORD_INVITE_URL = "https://www.osrsfliphub.com/discord";
+    static final String DEFAULT_BASE_URL = "https://www.fliphubosrs.com";
+    static final String DISCORD_INVITE_URL = "https://www.fliphubosrs.com/discord";
 
     /** The room: --page-bg, and the two washes body paints over it. */
     static final Color BG = new Color(0x05, 0x08, 0x14);

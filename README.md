@@ -6,7 +6,7 @@
 
 Track your Grand Exchange flips — margins, buy limits and live Wiki prices, right in the sidebar.
 
-Works entirely offline. Linking a [FlipHub](https://www.osrsfliphub.com) account is optional and
+Works entirely offline. Linking a [FlipHub](https://www.fliphubosrs.com) account is optional and
 **off by default**.
 
 ## New: the Merchant skill
@@ -89,7 +89,7 @@ after GE tax, that margin times what is left of your buy limit, ROI, and how muc
 buy limit is left with a countdown to the reset.
 
 Search the whole Grand Exchange, not only the items you have already flipped, and sort the list by
-completion, profit or ROI, either way round. Click an item's name to open it on osrsfliphub.com.
+completion, profit or ROI, either way round. Click an item's name to open it on fliphubosrs.com.
 
 ![The FlipHub Activity panel in the RuneLite sidebar, showing sell and buy price, last traded prices, margin, margin x limit, ROI and remaining GE buy limit](docs/panel-activity.png)
 
@@ -301,7 +301,7 @@ Install the plugin and open the FlipHub panel from the sidebar. Offer tracking, 
 prices work immediately — no account, no setup.
 
 To sync to the dashboard as well, open the **Link** tab in the FlipHub panel, paste your license
-key from [osrsfliphub.com/my-statistics](https://www.osrsfliphub.com/my-statistics) and click
+key from [fliphubosrs.com/my-statistics](https://www.fliphubosrs.com/my-statistics) and click
 **Link account** while you are logged in to the game. The tab shows whether the device is linked; **Unlink this device** stops it —
 uploads end immediately and the plugin returns to local-only.
 
@@ -320,7 +320,7 @@ Jagex credentials are requested, read, or transmitted.
 - **Without linking (default)** — No trade data leaves your machine. The only network calls are
   read-only price lookups to `prices.runescape.wiki`.
 - **With sync enabled and linked** — Your Grand Exchange offer events (item, quantity, price, offer
-  state, timestamps, and the world you traded on) are uploaded over HTTPS to `osrsfliphub.com` to
+  state, timestamps, and the world you traded on) are uploaded over HTTPS to `fliphubosrs.com` to
   power your dashboard. That includes the trades already stored on this computer for any of your
   characters (up to 16) the website does not have yet, and trades picked up from the GE History
   tab. Linking also sends a random device ID the plugin makes up and the plugin's version, and
@@ -338,7 +338,7 @@ Jagex credentials are requested, read, or transmitted.
 
 ## Support
 
-[Contact support](https://www.osrsfliphub.com/support).
+[Contact support](https://www.fliphubosrs.com/support).
 
 <img src="docs/divider.png" width="100%" alt="">
 

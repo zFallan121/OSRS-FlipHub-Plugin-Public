@@ -43,7 +43,7 @@ final class WikiPrice {
     // contact goes nowhere. The site is listed alongside the mailbox because the mailbox sits on
     // a different domain from everything else the plugin shows the player.
     private static final String WIKI_USER_AGENT =
-        "FlipHub OSRS RuneLite plugin (https://www.osrsfliphub.com; contact: support@fliphub.app)";
+        "FlipHub OSRS RuneLite plugin (https://www.fliphubosrs.com; contact: support@fliphubosrs.com)";
     private static final long WIKI_CACHE_TTL_MS = 2 * 60 * 1000;
     private static final long WIKI_MIN_REFRESH_MS = 60_000L;
 

@@ -59,7 +59,7 @@ final class AccountPanelBuilder {
             + "To do that this plugin will send your GE offers (item, quantity, price, time and "
             + "world), any recipes and moves you record, your profit totals per item, a code for "
             + "each character, a random device ID, the plugin version and your IP address to "
-            + "osrsfliphub.com, a 3rd party not controlled or verified by the RuneLite developers."
+            + "fliphubosrs.com, a 3rd party not controlled or verified by the RuneLite developers."
             + "<br><br>"
             + "Nothing else is sent, and you can unlink at any time."
             + "</div></html>";
@@ -138,7 +138,7 @@ final class AccountPanelBuilder {
         rows.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
 
         JLabel pitch = new JLabel(wrap(
-            "Your completed flips build a private personalised insight page on osrsfliphub.com."));
+            "Your completed flips build a private personalised insight page on fliphubosrs.com."));
         pitch.setFont(uiStyler.font(10.5f));
         pitch.setForeground(MUTED);
         pitch.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -185,7 +185,7 @@ final class AccountPanelBuilder {
         link.addActionListener(e -> submit());
         rows.add(link);
 
-        rows.add(externalLink("Get your key on osrsfliphub.com", 10));
+        rows.add(externalLink("Get your key on fliphubosrs.com", 10));
         return rows;
     }
 
@@ -294,7 +294,7 @@ final class AccountPanelBuilder {
             parent,
             "<html><div width=300>Unlink this device from FlipHub?<br><br>"
                 + "Uploads stop and the panel goes back to local-only stats. Your flip history on "
-                + "this computer is kept, and your insight page stays on osrsfliphub.com."
+                + "this computer is kept, and your insight page stays on fliphubosrs.com."
                 + "</div></html>",
             "Unlink from FlipHub",
             JOptionPane.YES_NO_OPTION,

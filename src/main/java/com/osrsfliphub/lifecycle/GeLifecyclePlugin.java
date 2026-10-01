@@ -48,7 +48,7 @@ import static com.osrsfliphub.Const.*;
 @PluginDescriptor(
     name = "OSRS FlipHub",
     description = "Track Grand Exchange flips locally (offer history, margins, buy limits, wiki prices). "
-        + "Optionally link a FlipHub account to sync flips to the osrsfliphub.com dashboard.",
+        + "Optionally link a FlipHub account to sync flips to the fliphubosrs.com dashboard.",
     configName = FliphubConfigGroups.CONFIG_GROUP,
     tags = {"ge", "flipping", "analytics"},
     hidden = false,

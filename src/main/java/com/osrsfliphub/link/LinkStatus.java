@@ -99,7 +99,7 @@ final class LinkStatus {
             return "That key was rejected. Check it and try again.";
         }
         if (UNREACHABLE.equals(status)) {
-            return "Could not reach osrsfliphub.com. Retrying.";
+            return "Could not reach fliphubosrs.com. Retrying.";
         }
         if (FAILED.equals(status)) {
             return "Linking failed. Check your key and try again.";
@@ -127,7 +127,7 @@ final class LinkStatus {
     void markLinked(String licenseKey) {
         writeHint(hintFor(licenseKey));
         if (write(resolveSettledStatus())) {
-            announce("FlipHub: linked to your account. Your flips now sync to osrsfliphub.com.");
+            announce("FlipHub: linked to your account. Your flips now sync to fliphubosrs.com.");
         }
         pushToPanel();
     }
@@ -198,7 +198,7 @@ final class LinkStatus {
             return "FlipHub: that license key was rejected. Check it and paste it again.";
         }
         if (UNREACHABLE.equals(status)) {
-            return "FlipHub: could not reach osrsfliphub.com. Retrying shortly.";
+            return "FlipHub: could not reach fliphubosrs.com. Retrying shortly.";
         }
         if (FAILED.equals(status)) {
             return "FlipHub: linking failed. Check your license key and try again.";

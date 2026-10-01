@@ -44,7 +44,7 @@ public interface PluginConfig extends Config {
         description = "Uploads your Grand Exchange offers (item, quantity, price,<br>"
             + "time, world), the recipes and moves you record and a code<br>"
             + "for each character to your FlipHub dashboard at<br>"
-            + "osrsfliphub.com, and reads your stats back from it, so they follow<br>"
+            + "fliphubosrs.com, and reads your stats back from it, so they follow<br>"
             + "you between devices. While this is off the plugin never<br>"
             + "connects to FlipHub's servers and every flip stays on this<br>"
             + "computer. Linking is done in the side panel, not here.",
