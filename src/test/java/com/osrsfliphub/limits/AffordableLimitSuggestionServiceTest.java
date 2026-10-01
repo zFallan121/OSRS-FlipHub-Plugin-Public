@@ -24,6 +24,11 @@
  */
 package com.osrsfliphub;
 
+import java.lang.reflect.Proxy;
+import java.util.function.BiFunction;
+import net.runelite.api.Client;
+import net.runelite.api.Item;
+import net.runelite.api.ItemContainer;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -45,18 +50,75 @@ public class AffordableLimitSuggestionServiceTest {
     @Test
     public void computeIgnoresGeLimitAndUsesCashOnly() {
         // 10k coins at 100 gp each affords 100, even when the GE limit would be lower.
-        assertEquals(Integer.valueOf(100), service.computeAffordableLimit(100, null, 10_000L));
+        assertEquals(Integer.valueOf(100), service.computeAffordableLimit(100, 0, 10_000L));
     }
 
     @Test
     public void computeReturnsNullWithoutUsablePriceOrCoins() {
-        assertNull(service.computeAffordableLimit(null, null, 0L));
-        assertNull(service.computeAffordableLimit(100, null, 0L));
+        assertNull(service.computeAffordableLimit(0, 0, 0L));
+        assertNull(service.computeAffordableLimit(0, 0, 10_000L));
+        assertNull(service.computeAffordableLimit(100, 0, 0L));
     }
 
     @Test
     public void computeCapsAtIntegerMaxValue() {
         assertEquals(Integer.valueOf(Integer.MAX_VALUE),
-            service.computeAffordableLimit(1, null, (long) Integer.MAX_VALUE + 1000L));
+            service.computeAffordableLimit(1, 0, (long) Integer.MAX_VALUE + 1000L));
+    }
+
+    @Test
+    public void aPricePastMaxCashIsNotCutDownToIt() {
+        // A full stack of coins buys none of an item at 3 billion each. Held in an int, that
+        // price became 2,147,483,647 and the answer came out as 1.
+        assertNull(service.computeAffordableLimit(3_000_000_000L, 0, Integer.MAX_VALUE));
+        assertEquals(Integer.valueOf(1), service.computeAffordableLimit(0, 2_000_000_000L, Integer.MAX_VALUE));
+    }
+
+    /**
+     * The game as it has been since 30 Sep 2026: the typed price is a 64-bit player variable, and
+     * asking for the varbit that used to hold it throws. That throw took the whole chat line out.
+     */
+    @Test
+    public void readsTheTypedPriceFromTheLongVariable() {
+        AffordableLimitSuggestion live = new AffordableLimitSuggestion(
+            client(5_702L, 57_020), new OfferPreviewRuntime());
+        assertEquals(Integer.valueOf(10), live.computeAffordableLimit());
+    }
+
+    @Test
+    public void aPriceTheGameWillNotGiveLeavesNoCashLimitRatherThanFailing() {
+        AffordableLimitSuggestion live = new AffordableLimitSuggestion(
+            client(null, 57_020), new OfferPreviewRuntime());
+        assertNull(live.computeAffordableLimit());
+    }
+
+    /** A fake game client: {@code typedPrice} null means the price variable is gone too. */
+    private static Client client(Long typedPrice, int coins) {
+        ItemContainer inventory = fake(ItemContainer.class, (method, args) ->
+            method.equals("getItems") ? new Item[] {new Item(995, coins)} : null);
+        return fake(Client.class, (method, args) -> {
+            switch (method) {
+                case "getVarbitValue":
+                    if ((Integer) args[0] == 4398) {
+                        throw new IndexOutOfBoundsException("Varbit 4398 does not exist");
+                    }
+                    return 0;
+                case "getVarpLongValue":
+                    if (typedPrice == null || (Integer) args[0] != 5753) {
+                        throw new IndexOutOfBoundsException("Varp " + args[0] + " does not exist");
+                    }
+                    return typedPrice;
+                case "getItemContainer":
+                    return inventory;
+                default:
+                    return null;
+            }
+        });
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> T fake(Class<T> type, BiFunction<String, Object[], Object> answers) {
+        return (T) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type},
+            (proxy, method, args) -> answers.apply(method.getName(), args));
     }
 }

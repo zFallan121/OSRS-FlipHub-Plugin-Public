@@ -32,7 +32,10 @@ import net.runelite.api.gameval.VarbitID;
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 final class AffordableLimitSuggestion {
-    private static final int GE_OFFER_PRICE_VARBIT = 4398;
+    // The price typed into the offer box. The game moved it here, a 64-bit player variable
+    // RuneLite has no name for yet, when one item could first cost more than 2,147,483,647
+    // (30 Sep 2026). The varbit that held it before, 4398, was deleted in the same update.
+    private static final int GE_OFFER_PRICE_VARP = 5753;
     private static final int COINS_ITEM_ID = 995;
 
     private final Client client;
@@ -45,11 +48,10 @@ final class AffordableLimitSuggestion {
     // Pure computation, split out so it stays unit-testable without a client.
     // Deliberately NOT capped by the remaining GE limit: the cash limit shows how
     // many the player's coins cover, even past the 4-hour buy limit.
-    Integer computeAffordableLimit(Integer enteredPrice, Integer selectedPrice, long coins) {
-        Integer offerPrice = enteredPrice != null && enteredPrice > 0
-            ? enteredPrice
-            : (selectedPrice != null && selectedPrice > 0 ? selectedPrice : null);
-        if (offerPrice == null || offerPrice <= 0) {
+    // A price of zero or less means there is none.
+    Integer computeAffordableLimit(long enteredPrice, long selectedPrice, long coins) {
+        long offerPrice = enteredPrice > 0 ? enteredPrice : selectedPrice;
+        if (offerPrice <= 0) {
             return null;
         }
         if (coins <= 0) {
@@ -62,21 +64,26 @@ final class AffordableLimitSuggestion {
         return affordable > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) affordable;
     }
 
-    private Integer enteredOfferPrice() {
+    private long enteredOfferPrice() {
         if (client == null) {
-            return null;
+            return 0L;
         }
-        int enteredPrice = client.getVarbitValue(GE_OFFER_PRICE_VARBIT);
-        return enteredPrice > 0 ? enteredPrice : null;
+        try {
+            return client.getVarpLongValue(GE_OFFER_PRICE_VARP);
+        } catch (RuntimeException ex) {
+            // The client throws when asked for a variable the game has since deleted. That is
+            // how the cash limit and the remaining limit both vanished from the buy prompt on
+            // 30 Sep 2026. Should this one go the same way, only the cash limit is lost.
+            return 0L;
+        }
     }
 
-    private Integer selectedOfferPrice() {
+    private long selectedOfferPrice() {
         if (client == null || facade == null) {
-            return null;
+            return 0L;
         }
         GrandExchangeOffer offer = facade.getSelectedOffer(client, VarbitID.GE_SELECTEDSLOT);
-        long price = offer != null ? offer.getPrice() : 0L;
-        return price > 0 ? (int) Math.min(price, Integer.MAX_VALUE) : null;
+        return offer != null ? offer.getPrice() : 0L;
     }
 
     private long inventoryCoins() {
