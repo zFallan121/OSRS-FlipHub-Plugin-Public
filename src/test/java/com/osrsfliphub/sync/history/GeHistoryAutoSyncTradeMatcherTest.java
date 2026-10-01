@@ -82,6 +82,20 @@ public class GeHistoryAutoSyncTradeMatcherTest {
     }
 
     @Test
+    public void aRowPricedPastMaxCashIsLeftAloneRatherThanImportedWrong() {
+        // Since 30 Sep 2026 one item can cost more than 2,147,483,647, which a stored price
+        // cannot hold yet. Cut down to 32 bits, 4,500,000,000 reads as 205,032,704 and was
+        // imported at that; 8,351,000,000 reads as a negative and was already skipped.
+        assertTrue(missing(Collections.singletonList(
+            history(20011, true, 1, 4_500_000_000L, 205_032_704)), Collections.emptyList()).isEmpty());
+        assertTrue(missing(Collections.singletonList(
+            history(20014, false, 1, 8_346_000_000L, 1)), Collections.emptyList()).isEmpty());
+        // The most a price can be is still imported.
+        assertEquals(1, missing(Collections.singletonList(
+            history(20011, true, 2, 2L * Integer.MAX_VALUE, Integer.MAX_VALUE)), Collections.emptyList()).size());
+    }
+
+    @Test
     public void aBuyThatFilledUnderItsOfferPriceIsNotImportedAgain() {
         // The trade from the report. The set was listed at 23,401 and filled at
         // 15,000, so the listed price matches nothing in the history - and the

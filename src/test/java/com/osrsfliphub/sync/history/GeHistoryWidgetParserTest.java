@@ -107,6 +107,57 @@ public class GeHistoryWidgetParserTest {
         assertEquals(19_855_000L, trade.totalGp);
     }
 
+    // The three rows below are written the way the game's own history script (1645) writes them:
+    // colour tags, line breaks, and a non-breaking space wherever a number meets a word or sign.
+
+    @Test
+    public void aSaleRowAsTheGameWritesItGivesThePriceInItsBrackets() {
+        Trade trade = WidgetParser.parseTrade(
+            "Sold:",
+            30125,
+            128,
+            "<col=ffb83f>426,240 coins</col><br><col=9f9f9f>(434,816 - 8,696)</col><br>= 3,330 each"
+        );
+
+        assertNotNull(trade);
+        assertEquals(128, trade.quantity);
+        assertEquals(3_397, trade.price);
+        assertEquals(426_240L, trade.totalGp);
+    }
+
+    @Test
+    public void aSaleWhoseTaxIsCappedTakesItsPriceFromTheBracketsNotFromAGuess() {
+        // 300,000,000 less the capped 5,000,000. Worked back from the 295,000,000 received, at 2%,
+        // the price came out as 301,020,389.
+        Trade trade = WidgetParser.parseTrade(
+            "Sold:",
+            13652,
+            1,
+            "<col=ffb83f>295,000,000 coins</col><br><col=9f9f9f>(300,000,000 - 5,000,000)</col>"
+        );
+
+        assertNotNull(trade);
+        assertEquals(300_000_000, trade.price);
+        assertEquals(295_000_000L, trade.totalGp);
+    }
+
+    @Test
+    public void aBulkBuyKeepsTheQuantityOnItsIconNotOneWorkedBackFromEach() {
+        // 10,000 bought for 25,000 shows "= 2 each", rounded down. 25,000 / 2 would be 12,500, and
+        // a wrong quantity also changes the row's signature in the sync's stored place.
+        Trade trade = WidgetParser.parseTrade(
+            "Bought:",
+            314,
+            10_000,
+            "<col=ffb83f>25,000 coins</col><br>= 2 each"
+        );
+
+        assertNotNull(trade);
+        assertEquals(10_000, trade.quantity);
+        assertEquals(2, trade.price);
+        assertEquals(25_000L, trade.totalGp);
+    }
+
     @Test
     public void parseCoinsHandlesNbspBetweenAmountAndCoins() {
         long total = WidgetParser.parseCoins("19,855,000\u00A0coins\n= 1,805 each");

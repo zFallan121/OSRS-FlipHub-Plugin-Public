@@ -32,7 +32,12 @@ final class WidgetParser {
     private static final int WIDGET_GROUP_SIZE = 6;
     private static final Pattern COINS_PATTERN = Pattern.compile("([\\d,]+)[^\\d]*coins", Pattern.CASE_INSENSITIVE);
     private static final Pattern EACH_PATTERN = Pattern.compile("=\\s*([\\d,]+)[^\\d]*each", Pattern.CASE_INSENSITIVE);
-    private static final Pattern GROSS_PATTERN = Pattern.compile("\\(([\\d,]+)\\s*[-+\\u2212]\\s*[\\d,]+\\)");
+    // The game writes "(434,816 - 8,696)" with a non-breaking space after the sign, which \s does
+    // not match. EACH_PATTERN misses the same way and is left to: "= N each" is rounded down, so
+    // a quantity worked back from it can be wrong, and the total over the icon's quantity gives
+    // the same price.
+    private static final Pattern GROSS_PATTERN =
+        Pattern.compile("\\(([\\d,]+)[\\s\\u00A0]*[-+\\u2212][\\s\\u00A0]*[\\d,]+\\)");
     private static final Pattern STATE_QUANTITY_PATTERN = Pattern.compile("\\bx\\s*([\\d,]+)\\b", Pattern.CASE_INSENSITIVE);
 
     private WidgetParser() {

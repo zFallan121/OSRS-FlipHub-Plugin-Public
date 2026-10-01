@@ -478,7 +478,10 @@ final class AutoSyncTradeMatcher {
             return 0;
         }
         if (totalGp > 0L) {
-            return (int) Math.max(1L, totalGp / (long) quantity);
+            // Past 2,147,483,647 each there is no price a record can hold yet. Zero leaves the
+            // row unmatched and unimported: cut down to 32 bits it was imported at a wrong price.
+            long unit = totalGp / (long) quantity;
+            return unit > Integer.MAX_VALUE ? 0 : (int) Math.max(1L, unit);
         }
         // No coins recorded at all - a synthetic or malformed record. The listed
         // price is all there is left to go on.
