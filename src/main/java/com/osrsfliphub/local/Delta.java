@@ -64,6 +64,13 @@ final class Delta {
      * the load-time normalisation knows to leave it alone.
      */
     long endMs;
+    /**
+     * When the website confirmed that it holds this trade ({@link RecordSync}); zero until it
+     * has. Written only by the window logged in as the character whose file this is. A build
+     * from before the field reads the record without it and writes it back without it: the
+     * record is then sent once more and answered as one the website already has.
+     */
+    long uploadedMs;
 
     Delta() {
     }
@@ -71,6 +78,13 @@ final class Delta {
     Delta(long tsClientMs, int slot, int itemId, boolean isBuy, int deltaQty, long deltaGp,
                     String eventType, int price, boolean baselineSynthetic) {
         this(tsClientMs, slot, itemId, isBuy, deltaQty, deltaGp, eventType, price, baselineSynthetic, 0L, 0L);
+    }
+
+    /** A record the website has not confirmed, which is every record as it is made. */
+    Delta(long tsClientMs, int slot, int itemId, boolean isBuy, int deltaQty, long deltaGp,
+                    String eventType, int price, boolean baselineSynthetic, long offerStartMs, long endMs) {
+        this(tsClientMs, slot, itemId, isBuy, deltaQty, deltaGp, eventType, price, baselineSynthetic, offerStartMs,
+            endMs, 0L);
     }
 
     /**

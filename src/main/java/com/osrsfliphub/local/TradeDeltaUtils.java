@@ -281,6 +281,8 @@ final class TradeDeltaUtils {
         }
         long tax = GeTax.forSaleOrTotal(delta.itemId, grossFromPrice, delta.deltaQty, delta.price);
         long netFromPrice = Math.max(0L, grossFromPrice - tax);
+        // With its confirmation: an untaxed sale is copied here unchanged at every load, and a
+        // copy without it would be sent to the website again after every restart.
         return new Delta(
             delta.tsClientMs,
             delta.slot,
@@ -292,7 +294,8 @@ final class TradeDeltaUtils {
             delta.price,
             delta.baselineSynthetic,
             delta.offerStartMs,
-            delta.endMs
+            delta.endMs,
+            delta.uploadedMs
         );
     }
 
