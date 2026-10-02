@@ -24,6 +24,7 @@
  */
 package com.osrsfliphub;
 
+import com.google.gson.Gson;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.*;
@@ -94,6 +95,7 @@ final class RecordSync {
     private final LocalTradesRuntime tradesRuntime;
     private final ProfileSelectionPresentation profiles;
     private final ProfileStorage storage;
+    private final Gson gson;
 
     /** The ids sent in the pass under way: one the website did not confirm is not sent twice in a pass. */
     private final Set<String> sent = new HashSet<>();
@@ -163,8 +165,9 @@ final class RecordSync {
     }
 
     /**
-     * The trades the website has not confirmed whose offers ended over a minute ago, as the records
-     * they are sent as: one character's, or every character's for the all-characters key.
+     * The trades the website has not confirmed that may be sent now (see the class comment, "When"),
+     * as the records they are sent as: one character's, or every character's for the all-characters
+     * key.
      *
      * @param write whether to write down what the website has confirmed since the last look: in the
      *              file for the logged-in character, by moving the mark for any other
@@ -188,14 +191,15 @@ final class RecordSync {
                 long first = Long.MAX_VALUE;
                 long last = 0;
                 boolean marked = false;
-                // Only an offer that has ended is sent. The fills of one still open are folded into
-                // one record when it ends, and sent sooner they would be judged, and perhaps
-                // stored, ahead of the live fills still to come.
-                Set<Delta> open = TradeOfferCollapser.open(entry.getValue());
+                // Each slot's saved position, which says whether an offer is still there: the live
+                // ones for the logged-in character, any other character's as this config last saw them.
+                Map<Integer, Stamp> slots = key == own ? state.getOfferUpdateStamps()
+                    : OfferUpdateStampStore.parse(configManager.getConfiguration(GROUP,
+                        state.getOfferUpdateStampConfigStore().perAccountKey(key)), gson, 0, 7);
                 for (Delta delta : entry.getValue()) {
                     // A record of nothing is no trade, and the website refuses one.
                     if (delta == null || delta.deltaQty <= 0 || delta.deltaGp <= 0 || delta.closedAtMs() < mark
-                        || open.contains(delta)) {
+                        || open(delta, slots.get(delta.slot))) {
                         continue;
                     }
                     long endMs = delta.closedAtMs();
@@ -230,6 +234,25 @@ final class RecordSync {
             }
         }
         return out;
+    }
+
+    /**
+     * Whether a stored trade is a fill of an offer still open, which is never sent: only an offer
+     * that has ended is. While an offer fills its fills are stored one by one, and folded into one
+     * record when it ends; sent as they stand they would be judged, and perhaps stored, ahead of
+     * the fills still to come.
+     *
+     * <p>A record with an end of its own, or a completion, is over. A fill with neither is still
+     * open only while its slot's saved position is that same offer, not finished and not since
+     * seen empty: same item, same side, placed at the same moment. Once the slot holds another
+     * offer or nothing, the offer the fill belonged to is over, whatever became of it.
+     *
+     * @param slot the saved position of the trade's slot, or null when there is none
+     */
+    static boolean open(Delta delta, Stamp slot) {
+        return delta.endMs <= 0 && !TradeOfferCollapser.isCompletion(delta) && slot != null
+            && slot.itemId == delta.itemId && slot.isBuy == delta.isBuy && slot.firstSeenMs == delta.offerStartMs
+            && slot.completedMs <= 0 && slot.lastEmptyMs <= 0;
     }
 
     /**

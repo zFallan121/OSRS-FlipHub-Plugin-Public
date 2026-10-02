@@ -167,14 +167,58 @@ public class RecordSyncTest {
             first - 5_000L, 0L);
         Delta more = new Delta(first + MINUTE, 2, RecordSyncWorld.WHIP, true, 3, 300_000L, "OFFER_UPDATED", 100_000,
             false, first - 5_000L, 0L);
+        Delta theirs = new Delta(first, 5, RecordSyncWorld.WHIP, false, 2, 196_000L, "OFFER_UPDATED", 100_000, false,
+            first - 9_000L, 0L);
         world.store(MAIN, bought(40 * MINUTE, 2, 1), fill, more);
-        world.store(ALT, new Delta(first, 5, RecordSyncWorld.WHIP, false, 2, 196_000L, "OFFER_UPDATED", 100_000, false));
+        world.store(ALT, theirs);
+        world.login(MAIN);
+        // Each slot's saved position is still the offer those fills belong to.
+        world.slotHolds(MAIN, 2, RecordSyncWorld.positionOf(fill));
+        world.slotHolds(ALT, 5, RecordSyncWorld.positionOf(theirs));
 
-        List<GeEvent> sent = records(world.login(MAIN).settle());
+        List<GeEvent> sent = records(world.settle());
 
         assertEquals("the finished offer before them, and nothing of the open ones", 1, sent.size());
         assertEquals(1, sent.get(0).delta_qty);
         assertEquals(0L, world.stored(MAIN).get(1).uploadedMs);
+    }
+
+    /**
+     * An offer that finished or was cancelled while nothing was watching leaves its fills in the
+     * file with no end of their own. What says the offer is over is its slot: once the saved
+     * position is another offer, or the slot has been seen empty, or there is no position at all,
+     * the fills are sent. For the logged-in character that is the live position; for any other,
+     * the one its own window last saved.
+     */
+    @Test
+    public void aFillWhoseSlotHasMovedOnIsSent() {
+        long first = now() - 30 * MINUTE;
+        Delta mine = new Delta(first, 2, RecordSyncWorld.WHIP, true, 4, 400_000L, "OFFER_UPDATED", 100_000, false,
+            first - 5_000L, 0L);
+        Delta emptied = new Delta(first, 3, RecordSyncWorld.WHIP, true, 5, 500_000L, "OFFER_UPDATED", 100_000, false,
+            first - 5_000L, 0L);
+        Delta theirs = new Delta(first, 5, RecordSyncWorld.WHIP, false, 2, 196_000L, "OFFER_UPDATED", 100_000, false,
+            first - 9_000L, 0L);
+        Delta noPosition = new Delta(first, 6, RecordSyncWorld.WHIP, false, 3, 294_000L, "OFFER_UPDATED", 100_000, false,
+            first - 9_000L, 0L);
+        world.store(MAIN, mine, emptied);
+        world.store(ALT, theirs, noPosition);
+        world.login(MAIN);
+        // The slot holds an offer of the same item at the same price, placed later: another offer.
+        Stamp later = RecordSyncWorld.positionOf(mine);
+        later.firstSeenMs = first + 10 * MINUTE;
+        world.slotHolds(MAIN, 2, later);
+        Stamp seenEmpty = RecordSyncWorld.positionOf(emptied);
+        seenEmpty.lastEmptyMs = first + 10 * MINUTE;
+        world.slotHolds(MAIN, 3, seenEmpty);
+        Stamp otherItem = RecordSyncWorld.positionOf(theirs);
+        otherItem.itemId = 385;
+        world.slotHolds(ALT, 5, otherItem);
+
+        List<GeEvent> sent = records(world.settle());
+
+        assertEquals(new HashSet<>(Arrays.asList(id(MAIN, mine), id(MAIN, emptied), id(ALT, theirs), id(ALT, noPosition))),
+            ids(sent));
     }
 
     /** The same offer through the game: nothing while it fills, one record once it has finished. */
@@ -224,6 +268,9 @@ public class RecordSyncTest {
         world.store(MAIN, bought(10 * MINUTE, 1, 10));
         world.login(MAIN);
         world.queueLive("a-live-fill");
+        world.sync().sweep();
+        assertEquals("a fill queued and not yet sent: no record joins it", 1,
+            world.state.getUploadState().getPendingUploadEvents());
         world.website.answer = events -> RecordSyncWorld.Website.status(503);
 
         world.tick();
@@ -363,7 +410,7 @@ public class RecordSyncTest {
     /** At the login screen there is no logged-in character, so nobody's file is this window's to write. */
     @Test
     public void nothingIsSentFromTheLoginScreen() {
-        world.store(MAIN, bought(10 * MINUTE, 1, 10));
+        world.store(MAIN, bought(30 * MINUTE, 1, 10));
         world.login(MAIN).logout();
 
         world.sync().sweep();
@@ -847,15 +894,18 @@ public class RecordSyncTest {
     @Test
     public void theCountIsTheFinishedTradesTheWebsiteHasNotConfirmed() {
         long first = now() - 30 * MINUTE;
+        Delta stillOpen = new Delta(first, 4, RecordSyncWorld.WHIP, true, 4, 400_000L, "OFFER_UPDATED", 100_000, false,
+            first - 5_000L, 0L);
         world.store(MAIN, bought(30 * MINUTE, 1, 10), bought(20 * MINUTE, 2, 5),
             // Not among them: an offer that ended twenty seconds ago, and the fill of one still open.
-            bought(21_000L, 3, 1),
-            new Delta(first, 4, RecordSyncWorld.WHIP, true, 4, 400_000L, "OFFER_UPDATED", 100_000, false));
+            bought(21_000L, 3, 1), stillOpen);
         // Nor another character's trade until a quarter of an hour after it ended.
         world.store(ALT, bought(40 * MINUTE, 1, 3), bought(5 * MINUTE, 2, 7));
         // A website that confirms nothing.
         world.website.answer = events -> world.website.take(events, ids(events));
-        world.login(MAIN).settle();
+        world.login(MAIN);
+        world.slotHolds(MAIN, 4, RecordSyncWorld.positionOf(stillOpen));
+        world.settle();
 
         assertEquals("every character", 3, world.sync().waiting());
         world.state.getProfileSelection().selectManual("hash_" + MAIN);
@@ -930,6 +980,8 @@ public class RecordSyncTest {
         assertTrue(altMark > 0L);
 
         world.injector.getInstance(WebsiteStatsWipe.class).wipeWebsiteStatsAsync();
+        // What the wipe does once the website has answered, it does on the game thread.
+        world.runGameThread();
 
         assertTrue("the website was wiped", world.website.held.isEmpty());
         assertTrue("and nothing is sent back to it", world.settle().isEmpty());

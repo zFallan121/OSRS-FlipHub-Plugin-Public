@@ -79,6 +79,8 @@ final class RecordSyncWorld {
     final Website website = new Website();
     final GeLifecyclePlugin plugin = new GeLifecyclePlugin();
     final Injector injector;
+    /** Queues what it is handed for the game thread; {@link #runGameThread} runs it. */
+    private final ClientThread clientThread = queueOnly();
     /** The account hash the game reports; not positive for a character filed under its name. */
     volatile long accountHash;
     volatile String playerName;
@@ -96,6 +98,7 @@ final class RecordSyncWorld {
         plugin.apiClient = website;
         // Work handed to the IO pool runs where it is handed over, so a test reads on.
         plugin.ioExecutor = MoreExecutors.newDirectExecutorService();
+        plugin.clientThread = clientThread;
         injector = Guice.createInjector(new AbstractModule() {
             @Override
             protected void configure() {
@@ -107,7 +110,7 @@ final class RecordSyncWorld {
                 bind(ProfileStore.class).toInstance(new ProfileStore(gson, "fliphub", "fliphub-dev", dir));
                 bind(ApiClient.class).toInstance(website);
                 bind(ItemManager.class).toInstance(unbuilt(ItemManager.class));
-                bind(ClientThread.class).toInstance(queueOnly());
+                bind(ClientThread.class).toInstance(clientThread);
                 bind(OkHttpClient.class).toInstance(new OkHttpClient.Builder().addInterceptor(chain -> {
                     throw new IOException("a test must not reach the network");
                 }).build());
@@ -226,6 +229,44 @@ final class RecordSyncWorld {
     private static void earlier(Delta trade, long byMs) {
         trade.tsClientMs -= byMs;
         trade.endMs = trade.endMs > 0 ? trade.endMs - byMs : 0L;
+    }
+
+    /** A slot's saved position while it holds the offer a fill belongs to: same item, side and moment of placing. */
+    static Stamp positionOf(Delta fill) {
+        return new Stamp(fill.itemId, fill.price, 10, fill.deltaQty, fill.isBuy, fill.deltaGp, fill.tsClientMs,
+            fill.offerStartMs, 0L, 0L);
+    }
+
+    /**
+     * Sets what a character's slot is saved as holding: in the live positions for the character
+     * this window is logged in as, in RuneLite's config for any other, where its own window left it.
+     */
+    void slotHolds(long key, int slot, Stamp position) {
+        if (key == injector.getInstance(AccountSession.class).localKey) {
+            state.getOfferUpdateStamps().put(slot, position);
+            return;
+        }
+        Map<Integer, Stamp> saved = new HashMap<>();
+        saved.put(slot, position);
+        configManager.setConfiguration(FliphubConfigGroups.CONFIG_GROUP,
+            state.getOfferUpdateStampConfigStore().perAccountKey(key), OfferUpdateStampStore.serialize(saved, new Gson()));
+    }
+
+    /** Runs what the plugin has handed to the game thread since the last time, as the next client tick would. */
+    @SuppressWarnings("unchecked")
+    void runGameThread() {
+        try {
+            Field field = ClientThread.class.getDeclaredField("invokes");
+            field.setAccessible(true);
+            ConcurrentLinkedQueue<java.util.function.BooleanSupplier> queued =
+                (ConcurrentLinkedQueue<java.util.function.BooleanSupplier>) field.get(clientThread);
+            java.util.function.BooleanSupplier work;
+            while ((work = queued.poll()) != null) {
+                work.getAsBoolean();
+            }
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError(ex);
+        }
     }
 
     /** The key a character filed under its name gets: what the plugin itself works out. */
