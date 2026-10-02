@@ -222,9 +222,9 @@ final class RecordSyncWorld {
         store(key, onDisk.toArray(new Delta[0]));
     }
 
+    /** Its fills and its end, not when the offer was placed: that is what names the offer a later fill belongs to. */
     private static void earlier(Delta trade, long byMs) {
         trade.tsClientMs -= byMs;
-        trade.offerStartMs = trade.offerStartMs > 0 ? trade.offerStartMs - byMs : 0L;
         trade.endMs = trade.endMs > 0 ? trade.endMs - byMs : 0L;
     }
 
@@ -357,6 +357,15 @@ final class RecordSyncWorld {
         public EventUploadResponse sendEventsDetailed(String sessionToken, String signingSecret, List<GeEvent> events) {
             batches.add(new ArrayList<>(events));
             return answer.apply(events);
+        }
+
+        /** "Wipe website statistics": everything it holds is gone. */
+        @Override
+        public WipeStatsResponse wipeWebsiteStats(String sessionToken, String signingSecret) {
+            held.clear();
+            WipeStatsResponse response = new WipeStatsResponse();
+            response.status = "ok";
+            return response;
         }
 
         @Override

@@ -77,6 +77,33 @@ final class TradeOfferCollapser {
     }
 
     /**
+     * The fills of the offers still open at the end of a stored list, by identity: on each slot,
+     * the fills after the slot's last finished offer that are all one offer's. Every other
+     * record is an offer that has ended: one with an end of its own, a completion, or a fill
+     * the slot has since moved on from.
+     */
+    static Set<Delta> open(List<Delta> stored) {
+        Map<Integer, List<Delta>> bySlot = new HashMap<>();
+        for (Delta delta : stored) {
+            boolean ended = delta != null && (delta.endMs > 0 || isCompletion(delta));
+            // Coins with no quantity are no offer's fill, as in collapse.
+            if (delta == null || delta.deltaQty <= 0 && !ended) {
+                continue;
+            }
+            List<Delta> run = bySlot.computeIfAbsent(delta.slot, slot -> new ArrayList<>());
+            if (ended || !run.isEmpty() && !sameOffer(run.get(0), delta)) {
+                run.clear();
+            }
+            if (!ended) {
+                run.add(delta);
+            }
+        }
+        Set<Delta> open = Collections.newSetFromMap(new IdentityHashMap<>());
+        bySlot.values().forEach(open::addAll);
+        return open;
+    }
+
+    /**
      * Store one record as it arrives. A fill is simply added. A completion walks back
      * over the list to the fills of its own offer - stopping at the slot's previous
      * completion, or at a fill that is some other offer's - and replaces them with one

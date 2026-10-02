@@ -61,6 +61,9 @@ final class WipeStateStore {
         if (armed) {
             // Armed only by a wipe. When, so that what other accounts moved here before it goes too.
             configManager.setConfiguration(configGroup, "profileWipedMs_" + accountKey, System.currentTimeMillis());
+            // What the website confirmed of this character was of the trades now gone. Left standing,
+            // the mark would pass over a trade stored afresh with a time before it.
+            configManager.unsetConfiguration(configGroup, RecordSync.MARK_KEY + accountKey);
         }
     }
 

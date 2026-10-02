@@ -57,18 +57,28 @@ import net.runelite.client.config.ConfigManager;
  * oldest record not confirmed, so a refused record holds it there and everything after it is sent
  * again next session, where the website answers that it has it.
  *
- * <p><b>When.</b> Only straight after the live queue has been sent, on the same thread, and only
- * if that left it empty; and only a record whose offer ended over a minute ago. The record must
- * never be judged before its own live fills have arrived, or the website would store the record
- * and then the fills beside it. Oldest first, one batch at a time; a batch that confirms nothing
- * ends the pass, and what a pass leaves unconfirmed is tried again after a wait that doubles from
- * a minute to a quarter of an hour.
+ * <p><b>When.</b> A record must never be judged before its own live fills have arrived, or the
+ * website would store the record and then the fills beside it: the trade counted twice. So a
+ * record is sent only when nothing of the live upload is left anywhere ({@link
+ * UploadDiagnosticsState#idle}: nothing queued, no batch on its way, none held back for a retry),
+ * asked straight after the live queue was sent and on that thread; only for an offer that has
+ * ended, never for the fills of one still open; and only once it ended over a minute ago, or a
+ * quarter of an hour for a character this window is not logged in as, whose own window may be
+ * holding its fills where this one cannot see. Oldest first, one batch at a time; a batch that
+ * confirms nothing ends the pass, and what a pass leaves unconfirmed is tried again after a wait
+ * that doubles from a minute to a quarter of an hour.
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 final class RecordSync {
     /** How long after its offer ended a record waits, so its live fills reach the website first. */
     static final long SETTLE_MS = 60_000L;
+    /**
+     * The same wait for a character this window is not logged in as. That character may be logged
+     * in on another window, whose queue this one cannot see: its fills may be waiting there, held
+     * back after a failure, for as long as its retries take.
+     */
+    static final long OTHER_WINDOW_SETTLE_MS = 15 * SETTLE_MS;
     private static final long LONGEST_WAIT_MS = 15 * SETTLE_MS;
     private static final String GROUP = FliphubConfigGroups.CONFIG_GROUP;
     /** Before a character's key: every record of that character that ended before this moment is confirmed. */
@@ -111,8 +121,7 @@ final class RecordSync {
     synchronized void sweep() {
         long now = System.currentTimeMillis();
         UploadDiagnosticsState queue = state.getUploadState();
-        if (now < nextPassMs || accountSession.localKey <= 0 || !profiles.isLinked()
-            || queue.getPendingUploadEvents() > 0) {
+        if (now < nextPassMs || accountSession.localKey <= 0 || !profiles.isLinked() || !queue.idle(now)) {
             return;
         }
         if (now >= nextReadMs) {
@@ -165,9 +174,14 @@ final class RecordSync {
                 long first = Long.MAX_VALUE;
                 long last = 0;
                 boolean marked = false;
+                // Only an offer that has ended is sent. The fills of one still open are folded into
+                // one record when it ends, and sent sooner they would be judged, and perhaps
+                // stored, ahead of the live fills still to come.
+                Set<Delta> open = TradeOfferCollapser.open(entry.getValue());
                 for (Delta delta : entry.getValue()) {
                     // A record of nothing is no trade, and the website refuses one.
-                    if (delta == null || delta.deltaQty <= 0 || delta.deltaGp <= 0 || delta.closedAtMs() < mark) {
+                    if (delta == null || delta.deltaQty <= 0 || delta.deltaGp <= 0 || delta.closedAtMs() < mark
+                        || open.contains(delta)) {
                         continue;
                     }
                     long endMs = delta.closedAtMs();
@@ -188,7 +202,7 @@ final class RecordSync {
                         continue;
                     }
                     oldest = Math.min(oldest, endMs);
-                    if (endMs + SETTLE_MS <= now) {
+                    if (endMs + (key == own ? SETTLE_MS : OTHER_WINDOW_SETTLE_MS) <= now) {
                         event.event_type = "OFFER_RECORD";
                         event.state = delta.isBuy ? "BOUGHT" : "SOLD";
                         event.end_ms = endMs;

@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import net.runelite.api.GrandExchangeOfferState;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -55,6 +56,7 @@ import static org.junit.Assert.assertTrue;
 public class RecordSyncTest {
     private static final long MAIN = 4242L;
     private static final long ALT = 777L;
+    private static final long OTHER_ALT = 888L;
     private static final long MINUTE = 60_000L;
 
     private RecordSyncWorld world;
@@ -129,17 +131,71 @@ public class RecordSyncTest {
         assertEquals("a name-based id can be made again; a random one cannot", 3, UUID.fromString(expected).version());
     }
 
-    /** An older file's record has no end of its own; it is sent ending where it began, which the website reads as "no end". */
+    /**
+     * A fill the slot has since moved on from has no end of its own (an older file is full of
+     * them). It is an offer that is over, so it is sent, ending where it began, which the website
+     * reads as "no end".
+     */
     @Test
-    public void aRecordWithNoEndIsSentEndingWhereItBegan() {
+    public void aFillTheSlotMovedOnFromIsSentEndingWhereItBegan() {
         long first = now() - 30 * MINUTE;
-        world.store(MAIN, new Delta(first, 2, RecordSyncWorld.WHIP, true, 4, 400_000L, "OFFER_UPDATED", 100_000, false));
+        // Then another offer on the same slot, at another price: the first is over.
+        world.store(MAIN,
+            new Delta(first, 2, RecordSyncWorld.WHIP, true, 4, 400_000L, "OFFER_UPDATED", 100_000, false),
+            new Delta(first + 5 * MINUTE, 2, RecordSyncWorld.WHIP, true, 7, 630_000L, "OFFER_COMPLETED", 90_000, false,
+                first + 4 * MINUTE, first + 6 * MINUTE));
 
-        GeEvent event = records(world.login(MAIN).settle()).get(0);
+        List<GeEvent> sent = records(world.login(MAIN).settle());
 
+        assertEquals(2, sent.size());
+        GeEvent event = sent.get(0);
+        assertEquals(4, event.delta_qty);
         assertEquals(Long.valueOf(first), event.end_ms);
         assertEquals(first, event.ts_client_ms);
         assertEquals("BOUGHT", event.state);
+    }
+
+    /**
+     * While an offer is filling its fills are stored one by one, and folded into one record when
+     * it ends. Sent as they stand, a fill would be judged, and perhaps stored, ahead of the live
+     * fills still to come. Only an offer that has ended is sent, however long ago its fills were.
+     */
+    @Test
+    public void theFillsOfAnOfferStillOpenAreNotSent() {
+        long first = now() - 30 * MINUTE;
+        Delta fill = new Delta(first, 2, RecordSyncWorld.WHIP, true, 4, 400_000L, "OFFER_UPDATED", 100_000, false,
+            first - 5_000L, 0L);
+        Delta more = new Delta(first + MINUTE, 2, RecordSyncWorld.WHIP, true, 3, 300_000L, "OFFER_UPDATED", 100_000,
+            false, first - 5_000L, 0L);
+        world.store(MAIN, bought(40 * MINUTE, 2, 1), fill, more);
+        world.store(ALT, new Delta(first, 5, RecordSyncWorld.WHIP, false, 2, 196_000L, "OFFER_UPDATED", 100_000, false));
+
+        List<GeEvent> sent = records(world.login(MAIN).settle());
+
+        assertEquals("the finished offer before them, and nothing of the open ones", 1, sent.size());
+        assertEquals(1, sent.get(0).delta_qty);
+        assertEquals(0L, world.stored(MAIN).get(1).uploadedMs);
+    }
+
+    /** The same offer through the game: nothing while it fills, one record once it has finished. */
+    @Test
+    public void anOfferIsSentOnceItHasFinishedAndNotBefore() {
+        world.login(MAIN);
+        world.offer(2, 0, 0, 0L, GrandExchangeOfferState.EMPTY);
+        world.offer(2, 10, 0, 0L, GrandExchangeOfferState.BUYING);
+        world.offer(2, 10, 4, 400_000L, GrandExchangeOfferState.BUYING);
+        world.settle();
+        world.age(MAIN, 5 * MINUTE);
+
+        assertTrue("its one fill is five minutes old, and the offer is still open", records(world.settle()).isEmpty());
+
+        world.offer(2, 10, 10, 1_000_000L, GrandExchangeOfferState.BOUGHT);
+        world.settle();
+        world.age(MAIN, 5 * MINUTE);
+        List<GeEvent> sent = records(world.settle());
+
+        assertEquals(1, sent.size());
+        assertEquals("the whole offer", 10, sent.get(0).delta_qty);
     }
 
     @Test
@@ -185,6 +241,65 @@ public class RecordSyncTest {
         assertEquals("the live fill first, on its own", "a-live-fill", sent.get(0).get(0).event_id);
         assertEquals(1, sent.get(0).size());
         assertEquals("and only then the record", "OFFER_RECORD", sent.get(1).get(0).event_type);
+    }
+
+    /**
+     * A batch leaves the queue before it is sent, so for as long as the website takes to answer
+     * the queue reads empty with those trades still on their way. Asked at that very moment, no
+     * record is sent.
+     */
+    @Test
+    public void nothingIsSentWhileABatchIsOnItsWay() {
+        world.store(MAIN, bought(10 * MINUTE, 1, 10));
+        world.login(MAIN);
+        world.queueLive("a-live-fill");
+        int[] queuedWhileInFlight = {-1};
+        world.website.answer = events -> {
+            assertEquals("the queue reads empty", 0, world.state.getUploadState().getPendingUploadEvents());
+            world.sync().sweep();
+            queuedWhileInFlight[0] = world.state.getUploadState().getPendingUploadEvents();
+            return world.website.takeAll(events);
+        };
+
+        world.tick();
+
+        assertEquals("nothing joined the queue while the batch was in the air", 0, queuedWhileInFlight[0]);
+        assertEquals(1, world.website.batches.size());
+        assertEquals("answered, the tick that sent it lets the record follow", 1,
+            world.state.getUploadState().getPendingUploadEvents());
+    }
+
+    /** After a failure the upload waits before trying again. While it waits, whatever is queued, no record is sent. */
+    @Test
+    public void nothingIsSentWhileTheUploadIsWaitingToRetry() {
+        world.store(MAIN, bought(10 * MINUTE, 1, 10));
+        world.login(MAIN);
+        world.state.getUploadState().backOff(now(), 5_000L, 5_000L);
+
+        world.sync().sweep();
+        assertEquals(0, world.state.getUploadState().getPendingUploadEvents());
+
+        world.state.getUploadState().clearBackOff();
+        world.sync().sweep();
+        assertEquals(1, world.state.getUploadState().getPendingUploadEvents());
+    }
+
+    /**
+     * Another character may be logged in on another window right now, with its fills waiting in
+     * that window's queue, which this one cannot see. Its trades wait a quarter of an hour; the
+     * logged-in character's, whose queue this is, a minute.
+     */
+    @Test
+    public void anotherCharactersTradeWaitsAQuarterOfAnHour() {
+        Delta fiveMinutes = bought(5 * MINUTE, 1, 5);
+        Delta twentyMinutes = bought(20 * MINUTE, 2, 20);
+        world.store(ALT, twentyMinutes, fiveMinutes);
+        world.store(MAIN, bought(5 * MINUTE, 3, 3));
+
+        List<GeEvent> sent = records(world.login(MAIN).settle());
+
+        assertEquals(new HashSet<>(Arrays.asList(id(ALT, twentyMinutes), id(MAIN, world.stored(MAIN).get(0)))), ids(sent));
+        assertEquals("the mark waits at the trade not yet sent", fiveMinutes.closedAtMs(), world.mark(ALT));
     }
 
     /** A minute for its live fills to land, counted from when the offer ended, not from its first fill. */
@@ -339,6 +454,31 @@ public class RecordSyncTest {
 
         assertEquals(0L, world.stored(MAIN).get(0).uploadedMs);
         assertTrue(world.state.getUploadState().confirmed.isEmpty());
+    }
+
+    /** A success that names a record neither as confirmed nor as rejected has said nothing of it. */
+    @Test
+    public void aRecordTheAnswerDoesNotNameEitherWayIsNotConfirmed() {
+        Delta named = bought(30 * MINUTE, 1, 10);
+        Delta unnamed = bought(20 * MINUTE, 2, 5);
+        world.store(MAIN, named, unnamed);
+        world.website.answer = events -> {
+            ApiClient.EventUploadResponse response = RecordSyncWorld.Website.status(200);
+            response.accepted = 2;
+            response.duplicates = 0;
+            response.rejected = 0;
+            response.records = RecordSyncWorld.named("confirmed", id(MAIN, named));
+            response.records.put("rejected", new java.util.ArrayList<>());
+            return response;
+        };
+
+        world.login(MAIN).settle();
+
+        List<Delta> onDisk = world.stored(MAIN);
+        assertTrue(onDisk.get(0).uploadedMs > 0L);
+        assertEquals(0L, onDisk.get(1).uploadedMs);
+        world.waitOutThePause();
+        assertEquals(Collections.singleton(id(MAIN, unnamed)), ids(records(world.settle())));
     }
 
     /**
@@ -539,8 +679,8 @@ public class RecordSyncTest {
      */
     @Test
     public void anotherCharactersRecordsAreSentAndItsFileIsNeverWritten() throws Exception {
-        Delta last = bought(10 * MINUTE, 3, 1);
-        world.store(ALT, bought(30 * MINUTE, 1, 10), bought(20 * MINUTE, 2, 5), last);
+        Delta last = bought(20 * MINUTE, 3, 1);
+        world.store(ALT, bought(40 * MINUTE, 1, 10), bought(30 * MINUTE, 2, 5), last);
         world.store(MAIN, bought(25 * MINUTE, 1, 2));
         String alt = world.text(ALT);
         long written = java.nio.file.Files.getLastModifiedTime(world.file(ALT)).toMillis();
@@ -574,10 +714,10 @@ public class RecordSyncTest {
      */
     @Test
     public void theMarkStopsAtTheOldestRecordTheWebsiteDidNotConfirm() throws Exception {
-        Delta oldest = bought(40 * MINUTE, 1, 10);
-        Delta refused = bought(30 * MINUTE, 2, 5);
-        Delta newer = bought(20 * MINUTE, 3, 1);
-        Delta newest = bought(10 * MINUTE, 4, 2);
+        Delta oldest = bought(50 * MINUTE, 1, 10);
+        Delta refused = bought(40 * MINUTE, 2, 5);
+        Delta newer = bought(30 * MINUTE, 3, 1);
+        Delta newest = bought(20 * MINUTE, 4, 2);
         world.store(ALT, oldest, refused, newer, newest);
         String alt = world.text(ALT);
         world.website.answer = events -> world.website.take(events, Collections.singleton(id(ALT, refused)));
@@ -695,6 +835,54 @@ public class RecordSyncTest {
         assertTrue("confirmed again, by this link", world.stored(MAIN).get(0).uploadedMs > firstMark);
         assertEquals(alt, world.text(ALT));
         assertTrue(world.again().login(MAIN).settle().isEmpty());
+    }
+
+    // ---- wipes ----
+
+    /**
+     * "Wipe website statistics" empties the website on purpose. Every confirmation stays, in the
+     * files and in the marks, or the trades just wiped would all be sent straight back.
+     */
+    @Test
+    public void aWebsiteWipeKeepsEveryConfirmation() throws Exception {
+        world.store(MAIN, bought(30 * MINUTE, 1, 10));
+        world.store(ALT, bought(20 * MINUTE, 1, 5));
+        world.login(MAIN).settle();
+        long altMark = world.mark(ALT);
+        String main = world.text(MAIN);
+        assertTrue(altMark > 0L);
+
+        world.injector.getInstance(WebsiteStatsWipe.class).wipeWebsiteStatsAsync();
+
+        assertTrue("the website was wiped", world.website.held.isEmpty());
+        assertTrue("and nothing is sent back to it", world.settle().isEmpty());
+        assertEquals(main, world.text(MAIN));
+        assertEquals(altMark, world.mark(ALT));
+        assertTrue("nor after a restart", world.again().login(MAIN).settle().isEmpty());
+    }
+
+    /**
+     * Wiping a character on this computer empties its file. The mark kept for it goes too: it
+     * spoke of the trades now gone, and a trade stored afterwards with an earlier time must not be
+     * taken as confirmed.
+     */
+    @Test
+    public void aLocalWipeForgetsTheMarkOfTheCharacterWipedAndNoOther() {
+        world.store(ALT, bought(40 * MINUTE, 1, 5));
+        world.store(OTHER_ALT, bought(40 * MINUTE, 1, 5));
+        world.login(MAIN).settle();
+        long otherMark = world.mark(OTHER_ALT);
+        assertTrue(world.mark(ALT) > 0L && otherMark > 0L);
+
+        world.injector.getInstance(WipeStateStore.class).setWipeBarrierArmed(ALT, true);
+
+        assertEquals(0L, world.mark(ALT));
+        assertEquals(otherMark, world.mark(OTHER_ALT));
+        // Its history is found again, dated before the old mark, and is sent.
+        Delta found = bought(60 * MINUTE, 2, 9);
+        world.store(ALT, found);
+        RecordSyncWorld restarted = world.again().login(MAIN);
+        assertEquals(Collections.singleton(id(ALT, found)), ids(records(restarted.settle())));
     }
 
     /** A file the other character's own window marked is believed only if it was marked since this link. */

@@ -51,6 +51,17 @@ final class UploadDiagnosticsState {
     final Set<String> confirmed = ConcurrentHashMap.newKeySet();
     /** Whether an answer has added to {@link #confirmed} since {@link RecordSync} last looked. */
     volatile boolean progress;
+    /** Flushes that have taken a batch off the queue and not yet seen it answered, dropped or put back. */
+    final AtomicInteger flushing = new AtomicInteger();
+
+    /**
+     * Whether nothing at all is still to be uploaded: nothing queued, no batch on its way, and
+     * none held back for a retry. The queue alone does not say: a batch leaves it before it is
+     * sent, so it reads empty while that batch's trades are still in the air.
+     */
+    boolean idle(long nowMs) {
+        return pendingUploadEvents.get() <= 0 && flushing.get() <= 0 && !isBackingOff(nowMs);
+    }
 
     /**
      * The website's answer to a batch. Only the ids it names as confirmed are taken: an answer

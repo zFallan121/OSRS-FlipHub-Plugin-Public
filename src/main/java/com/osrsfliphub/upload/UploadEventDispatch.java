@@ -175,28 +175,36 @@ final class UploadEventDispatch {
             return;
         }
 
-        List<GeEvent> batch = dequeueBatch();
-        if (batch.isEmpty()) {
-            updateUploadDiagnosticsUi();
-            return;
-        }
-
-        markAttempt();
+        // Raised before the batch leaves the queue and lowered only once it has been answered,
+        // dropped or put back. In between the queue reads empty while its trades are still on
+        // their way, and a stored trade sent then would be judged without them (RecordSync).
+        uploadState.flushing.incrementAndGet();
         try {
-            ApiClient.EventUploadResponse upload =
-                apiClient.sendEventsDetailed(sessionToken, signingSecret, batch);
-            uploadState.answered(upload);
-            int status = upload != null ? upload.status_code : -1;
-            if (ApiStatusPolicy.isAuthStatus(status)) {
-                handleAuthFailure(apiClient, config, log, batch, sessionToken, status);
+            List<GeEvent> batch = dequeueBatch();
+            if (batch.isEmpty()) {
+                updateUploadDiagnosticsUi();
                 return;
             }
-            handlePrimaryStatus(status, upload, log, batch);
-        } catch (IOException | RuntimeException ex) {
-            requeue(batch);
-            backOff();
-            String message = ex.getMessage() != null ? ex.getMessage() : "Unknown upload exception";
-            markFailure(-1, "Upload exception: " + message + ". Events queued for retry.", false, 0);
+
+            markAttempt();
+            try {
+                ApiClient.EventUploadResponse upload =
+                    apiClient.sendEventsDetailed(sessionToken, signingSecret, batch);
+                uploadState.answered(upload);
+                int status = upload != null ? upload.status_code : -1;
+                if (ApiStatusPolicy.isAuthStatus(status)) {
+                    handleAuthFailure(apiClient, config, log, batch, sessionToken, status);
+                    return;
+                }
+                handlePrimaryStatus(status, upload, log, batch);
+            } catch (IOException | RuntimeException ex) {
+                requeue(batch);
+                backOff();
+                String message = ex.getMessage() != null ? ex.getMessage() : "Unknown upload exception";
+                markFailure(-1, "Upload exception: " + message + ". Events queued for retry.", false, 0);
+            }
+        } finally {
+            uploadState.flushing.decrementAndGet();
         }
     }
 
