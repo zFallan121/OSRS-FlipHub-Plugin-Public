@@ -250,11 +250,17 @@ public class ApiClient {
         public Integer rejected;
         /** Why the website refused the request, when it did and said. */
         public String error;
-        /**
-         * Only when the batch held the record of a finished offer ({@link RecordSync}): under
-         * "confirmed", the ids of the records the website now holds; under "rejected", the ones it refused.
-         */
-        public Map<String, List<String>> records;
+        /** Only when the batch held the record of a finished offer ({@link RecordSync}). */
+        public Records records;
+    }
+
+    /**
+     * What the website says of the records in a batch. It also lists the ones it refused, and may
+     * say more of its own; only what it confirms is read, and whatever else is there is left unread.
+     */
+    public static class Records {
+        /** The ids of the records the website now holds: stored now, or held already. */
+        public List<String> confirmed;
     }
 
     public static class ApiException extends IOException {

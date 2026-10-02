@@ -76,8 +76,9 @@ public class CompletenessFlagPathsTest {
         world.linked = false;
         assertTrue("unlinked, nothing is sent", world.settle().isEmpty());
         world.website.held.clear();
-        world.injector.getInstance(LinkAttempt.class).linkFromPanel("another-accounts-key");
+        // Linking from the panel turns the sync setting on itself; the config standing in here is told.
         world.linked = true;
+        world.injector.getInstance(LinkAttempt.class).linkFromPanel("another-accounts-key");
         Thread.sleep(5L);
 
         List<GeEvent> sent = records(world.settle());

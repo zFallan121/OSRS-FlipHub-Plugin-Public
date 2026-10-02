@@ -446,13 +446,8 @@ public class RecordSyncTest {
     @Test
     public void aSuccessThatNamesNoRecordsConfirmsNothing() {
         world.store(MAIN, bought(30 * MINUTE, 1, 10), bought(20 * MINUTE, 2, 5));
-        world.website.answer = events -> {
-            ApiClient.EventUploadResponse response = RecordSyncWorld.Website.status(200);
-            response.accepted = events.size();
-            response.duplicates = 0;
-            response.rejected = 0;
-            return response;
-        };
+        world.website.answer = events -> RecordSyncWorld.Website.reply(200,
+            "{\"status\":\"ok\",\"accepted\":" + events.size() + ",\"duplicates\":0,\"rejected\":0}");
 
         assertEquals(2, records(world.login(MAIN).settle()).size());
 
@@ -468,13 +463,8 @@ public class RecordSyncTest {
     @Test
     public void aSuccessThatRejectedEveryEventConfirmsNothing() {
         world.store(MAIN, bought(30 * MINUTE, 1, 10));
-        world.website.answer = events -> {
-            ApiClient.EventUploadResponse response = RecordSyncWorld.Website.status(200);
-            response.accepted = 0;
-            response.duplicates = 0;
-            response.rejected = events.size();
-            return response;
-        };
+        world.website.answer = events -> RecordSyncWorld.Website.reply(200,
+            "{\"status\":\"ok\",\"accepted\":0,\"duplicates\":0,\"rejected\":" + events.size() + "}");
 
         world.login(MAIN).settle();
 
@@ -488,14 +478,40 @@ public class RecordSyncTest {
     public void theIdsTheWebsiteRejectedAreNotMarked() {
         Delta refused = bought(30 * MINUTE, 1, 10);
         world.store(MAIN, refused);
-        world.website.answer = events -> {
-            ApiClient.EventUploadResponse response = RecordSyncWorld.Website.status(200);
-            response.accepted = 0;
-            response.duplicates = 1;
-            response.rejected = 1;
-            response.records = RecordSyncWorld.named("rejected", id(MAIN, refused));
-            return response;
-        };
+        world.website.answer = events -> RecordSyncWorld.Website.reply(200,
+            "{\"status\":\"ok\",\"accepted\":0,\"duplicates\":1,\"rejected\":1,"
+                + "\"records\":{\"confirmed\":[],\"rejected\":[\"" + id(MAIN, refused) + "\"]}}");
+
+        world.login(MAIN).settle();
+
+        assertEquals(0L, world.stored(MAIN).get(0).uploadedMs);
+        assertTrue(world.state.getUploadState().confirmed.isEmpty());
+    }
+
+    /**
+     * The website may say more than the plugin reads: a note for its own owner that an account's
+     * book needs rebuilding, whatever it adds next. What it confirms is still read from beside it.
+     */
+    @Test
+    public void whatElseTheAnswerCarriesDoesNotStopAConfirmationBeingRead() {
+        Delta trade = bought(30 * MINUTE, 1, 10);
+        world.store(MAIN, trade);
+        world.website.answer = events -> RecordSyncWorld.Website.reply(200,
+            "{\"status\":\"ok\",\"accepted\":1,\"duplicates\":0,\"rejected\":0,\"ledger_rebuild_needed\":{\"records\":3},"
+                + "\"records\":{\"ledger_rebuild_needed\":true,\"confirmed\":[\"" + id(MAIN, trade) + "\"],"
+                + "\"rejected\":[],\"note\":{\"first_ms\":1}}}");
+
+        world.login(MAIN).settle();
+
+        assertTrue(world.stored(MAIN).get(0).uploadedMs > 0L);
+    }
+
+    /** An answer that is not the website's at all (a proxy's page, a list where ids should be) confirms nothing. */
+    @Test
+    public void anAnswerThatCannotBeReadConfirmsNothing() {
+        world.store(MAIN, bought(30 * MINUTE, 1, 10));
+        world.website.answer = events -> RecordSyncWorld.Website.reply(200,
+            "{\"status\":\"ok\",\"accepted\":1,\"records\":{\"confirmed\":\"all of them\"}}");
 
         world.login(MAIN).settle();
 
@@ -509,15 +525,9 @@ public class RecordSyncTest {
         Delta named = bought(30 * MINUTE, 1, 10);
         Delta unnamed = bought(20 * MINUTE, 2, 5);
         world.store(MAIN, named, unnamed);
-        world.website.answer = events -> {
-            ApiClient.EventUploadResponse response = RecordSyncWorld.Website.status(200);
-            response.accepted = 2;
-            response.duplicates = 0;
-            response.rejected = 0;
-            response.records = RecordSyncWorld.named("confirmed", id(MAIN, named));
-            response.records.put("rejected", new java.util.ArrayList<>());
-            return response;
-        };
+        world.website.answer = events -> RecordSyncWorld.Website.reply(200,
+            "{\"status\":\"ok\",\"accepted\":2,\"duplicates\":0,\"rejected\":0,"
+                + "\"records\":{\"confirmed\":[\"" + id(MAIN, named) + "\"],\"rejected\":[]}}");
 
         world.login(MAIN).settle();
 
@@ -537,12 +547,9 @@ public class RecordSyncTest {
     public void aRefusedRequestConfirmsNothingAndItsRecordsAreSentAgain() {
         for (int status : new int[] {400, 413, 422}) {
             world.store(MAIN, bought(30 * MINUTE, 1, 10), bought(20 * MINUTE, 2, 5));
-            world.website.answer = events -> {
-                ApiClient.EventUploadResponse response = RecordSyncWorld.Website.status(status);
-                // What a careless or hostile answer might claim: a refusal confirms nothing all the same.
-                response.records = RecordSyncWorld.named("confirmed", events.get(0).event_id);
-                return response;
-            };
+            // What a careless or hostile answer might claim: a refusal confirms nothing all the same.
+            world.website.answer = events -> RecordSyncWorld.Website.reply(status,
+                "{\"records\":{\"confirmed\":[\"" + events.get(0).event_id + "\"]}}");
 
             assertEquals(2, records(world.login(MAIN).settle()).size());
 
@@ -565,11 +572,7 @@ public class RecordSyncTest {
     @Test
     public void aClockFiveMinutesOffIsSaidInWords() {
         world.store(MAIN, bought(30 * MINUTE, 1, 10));
-        world.website.answer = events -> {
-            ApiClient.EventUploadResponse response = RecordSyncWorld.Website.status(400);
-            response.error = "Timestamp out of range";
-            return response;
-        };
+        world.website.answer = events -> RecordSyncWorld.Website.reply(400, "{\"error\":\"Timestamp out of range\"}");
 
         world.login(MAIN).settle();
 
@@ -614,7 +617,7 @@ public class RecordSyncTest {
             world.store(MAIN, bought(30 * MINUTE, 1, 10), bought(20 * MINUTE, 2, 5));
             world.website.answer = events -> {
                 if (status < 0) {
-                    throw new IllegalStateException("no route to host");
+                    throw new java.io.UncheckedIOException(new java.io.IOException("no route to host"));
                 }
                 return RecordSyncWorld.Website.status(status);
             };

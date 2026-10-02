@@ -26,10 +26,14 @@ package com.osrsfliphub;
 
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.inject.AbstractModule;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -60,7 +64,13 @@ import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.game.ItemManager;
+import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
+import okio.Buffer;
 
 /**
  * One RuneLite window for the record-confirmation tests: the plugin's real services, built by Guice
@@ -76,7 +86,7 @@ final class RecordSyncWorld {
     final Path dir;
     final ConfigManager configManager;
     final PluginState state = new PluginState();
-    final Website website = new Website();
+    final Website website;
     final GeLifecyclePlugin plugin = new GeLifecyclePlugin();
     final Injector injector;
     /** Queues what it is handed for the game thread; {@link #runGameThread} runs it. */
@@ -92,10 +102,11 @@ final class RecordSyncWorld {
         this.configManager = configManager;
         Client client = client();
         PluginConfig config = config();
+        website = new Website(config);
         Gson gson = new Gson();
         plugin.client = client;
         plugin.config = config;
-        plugin.apiClient = website;
+        plugin.apiClient = website.client;
         // Work handed to the IO pool runs where it is handed over, so a test reads on.
         plugin.ioExecutor = MoreExecutors.newDirectExecutorService();
         plugin.clientThread = clientThread;
@@ -108,7 +119,7 @@ final class RecordSyncWorld {
                 bind(Gson.class).toInstance(gson);
                 bind(ConfigManager.class).toInstance(configManager);
                 bind(ProfileStore.class).toInstance(new ProfileStore(gson, "fliphub", "fliphub-dev", dir));
-                bind(ApiClient.class).toInstance(website);
+                bind(ApiClient.class).toInstance(website.client);
                 bind(ItemManager.class).toInstance(unbuilt(ItemManager.class));
                 bind(ClientThread.class).toInstance(clientThread);
                 bind(OkHttpClient.class).toInstance(new OkHttpClient.Builder().addInterceptor(chain -> {
@@ -382,90 +393,114 @@ final class RecordSyncWorld {
 
     // ---- the website ----
 
-    /** What the website does with a batch. The default takes every event and confirms every record. */
-    static final class Website extends ApiClient {
-        /** Every batch that reached the website, in order. */
+    /** What the website sends back: a status, and the text of its answer. */
+    static final class Reply {
+        final int status;
+        final String body;
+
+        Reply(int status, String body) {
+            this.status = status;
+            this.body = body;
+        }
+    }
+
+    /**
+     * The website, as the plugin's real {@link ApiClient} sees it: the client is the real one, over
+     * an HTTP client that hands each request to {@link #answer} instead of the network. So every
+     * batch here is what the plugin really wrote as JSON, read back, and every answer is JSON the
+     * real client parses. The default takes every event and confirms every record.
+     */
+    static final class Website {
+        /** Every batch that reached the website, in order, as read from the request the plugin wrote. */
         final List<List<GeEvent>> batches = new ArrayList<>();
         /** The ids it holds. */
         final Set<String> held = new HashSet<>();
-        volatile Function<List<GeEvent>, EventUploadResponse> answer = this::takeAll;
+        volatile Function<List<GeEvent>, Reply> answer = this::takeAll;
+        final ApiClient client;
 
-        Website() {
-            super(null, null, null);
-        }
-
-        @Override
-        public EventUploadResponse sendEventsDetailed(String sessionToken, String signingSecret, List<GeEvent> events) {
-            batches.add(new ArrayList<>(events));
-            return answer.apply(events);
-        }
-
-        /** "Wipe website statistics": everything it holds is gone. */
-        @Override
-        public WipeStatsResponse wipeWebsiteStats(String sessionToken, String signingSecret) {
-            held.clear();
-            WipeStatsResponse response = new WipeStatsResponse();
-            response.status = "ok";
-            return response;
-        }
-
-        @Override
-        public LinkResponse linkDevice(String licenseKey, String deviceId, String pluginVersion) {
-            return refreshSession(null, null, deviceId);
-        }
-
-        @Override
-        public LinkResponse refreshSession(String sessionToken, String signingSecret, String deviceId) {
-            LinkResponse response = new LinkResponse();
-            response.session_token = "session-token";
-            response.signing_secret = "signing-secret";
-            return response;
+        Website(PluginConfig config) {
+            Gson gson = new Gson();
+            OkHttpClient http = new OkHttpClient.Builder().addInterceptor(chain -> {
+                Request request = chain.request();
+                Buffer sent = new Buffer();
+                request.body().writeTo(sent);
+                String path = request.url().encodedPath();
+                Reply reply;
+                if (path.endsWith("/events")) {
+                    List<GeEvent> events = new ArrayList<>();
+                    for (JsonElement event : gson.fromJson(sent.readUtf8(), JsonObject.class).getAsJsonArray("events")) {
+                        events.add(gson.fromJson(event, GeEvent.class));
+                    }
+                    batches.add(events);
+                    try {
+                        reply = answer.apply(events);
+                    } catch (UncheckedIOException noAnswer) {
+                        throw noAnswer.getCause();
+                    }
+                } else if (path.endsWith("/stats/wipe")) {
+                    // "Wipe website statistics": everything it holds is gone.
+                    held.clear();
+                    reply = new Reply(200, "{\"status\":\"ok\"}");
+                } else {
+                    // A link or a session refresh: a session to go on with.
+                    reply = new Reply(200, "{\"session_token\":\"session-token\",\"signing_secret\":\"signing-secret\"}");
+                }
+                return new Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(reply.status)
+                    .message("from the website").body(ResponseBody.create(MediaType.parse("application/json"), reply.body))
+                    .build();
+            }).build();
+            client = new ApiClient(http, gson, config);
         }
 
         /** The website as it is: a record it lacks is stored, one it holds is a duplicate, and both are confirmed. */
-        EventUploadResponse takeAll(List<GeEvent> events) {
+        Reply takeAll(List<GeEvent> events) {
             return take(events, new HashSet<>());
         }
 
         /** As {@link #takeAll}, but refusing the records with these ids. */
-        EventUploadResponse take(List<GeEvent> events, Set<String> refused) {
-            EventUploadResponse response = status(200);
-            response.status = "ok";
-            response.accepted = 0;
-            response.duplicates = 0;
-            response.rejected = 0;
-            List<String> confirmed = new ArrayList<>();
-            List<String> rejected = new ArrayList<>();
+        Reply take(List<GeEvent> events, Set<String> refused) {
+            int accepted = 0;
+            int duplicates = 0;
+            JsonArray confirmed = new JsonArray();
+            JsonArray rejected = new JsonArray();
             boolean anyRecord = false;
             for (GeEvent event : events) {
                 boolean record = "OFFER_RECORD".equals(event.event_type);
                 anyRecord |= record;
                 if (record && refused.contains(event.event_id)) {
                     rejected.add(event.event_id);
-                    response.rejected++;
                     continue;
                 }
                 if (held.add(event.event_id)) {
-                    response.accepted++;
+                    accepted++;
                 } else {
-                    response.duplicates++;
+                    duplicates++;
                 }
                 if (record) {
                     confirmed.add(event.event_id);
                 }
             }
+            JsonObject answer = new JsonObject();
+            answer.addProperty("status", "ok");
+            answer.addProperty("accepted", accepted);
+            answer.addProperty("duplicates", duplicates);
+            answer.addProperty("rejected", rejected.size());
             if (anyRecord) {
-                response.records = new HashMap<>();
-                response.records.put("confirmed", confirmed);
-                response.records.put("rejected", rejected);
+                JsonObject records = new JsonObject();
+                records.add("confirmed", confirmed);
+                records.add("rejected", rejected);
+                answer.add("records", records);
             }
-            return response;
+            return new Reply(200, answer.toString());
         }
 
-        static EventUploadResponse status(int code) {
-            EventUploadResponse response = new EventUploadResponse();
-            response.status_code = code;
-            return response;
+        /** An answer with nothing in it but its status. */
+        static Reply status(int code) {
+            return new Reply(code, "");
+        }
+
+        static Reply reply(int code, String json) {
+            return new Reply(code, json);
         }
     }
 
@@ -572,12 +607,5 @@ final class RecordSyncWorld {
         } catch (ReflectiveOperationException ex) {
             throw new AssertionError("could not stand in for " + type.getSimpleName(), ex);
         }
-    }
-
-    /** For a map-shaped answer in a test that builds one by hand. */
-    static Map<String, List<String>> named(String name, String... ids) {
-        Map<String, List<String>> records = new HashMap<>();
-        records.put(name, new ArrayList<>(Arrays.asList(ids)));
-        return records;
     }
 }

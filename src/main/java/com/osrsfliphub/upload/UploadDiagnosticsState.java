@@ -70,7 +70,7 @@ final class UploadDiagnosticsState {
      */
     void answered(ApiClient.EventUploadResponse answer) {
         List<String> ids = answer != null && answer.status_code < 300 && answer.records != null
-            ? answer.records.get("confirmed") : null;
+            ? answer.records.confirmed : null;
         if (ids != null) {
             for (String id : ids) {
                 // A set that refuses a null: one in the list must not fail the upload it came with.
