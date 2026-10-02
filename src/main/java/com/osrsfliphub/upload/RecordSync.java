@@ -24,6 +24,7 @@
  */
 package com.osrsfliphub;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.*;
 import javax.inject.*;
@@ -93,7 +94,6 @@ final class RecordSync {
     private final LocalTradesRuntime tradesRuntime;
     private final ProfileSelectionPresentation profiles;
     private final ProfileStorage storage;
-    private final BackfillUploader uploader;
 
     /** The ids sent in the pass under way: one the website did not confirm is not sent twice in a pass. */
     private final Set<String> sent = new HashSet<>();
@@ -190,7 +190,7 @@ final class RecordSync {
                     if (delta.uploadedMs > linkedMs) {
                         continue;
                     }
-                    GeEvent event = uploader.buildBackfillEvent(key, delta, client.getWorld());
+                    GeEvent event = record(key, delta, client.getWorld());
                     if (event == null) {
                         continue;
                     }
@@ -203,10 +203,6 @@ final class RecordSync {
                     }
                     oldest = Math.min(oldest, endMs);
                     if (endMs + (key == own ? SETTLE_MS : OTHER_WINDOW_SETTLE_MS) <= now) {
-                        event.event_type = "OFFER_RECORD";
-                        event.state = delta.isBuy ? "BOUGHT" : "SOLD";
-                        event.end_ms = endMs;
-                        event.source = "record";
                         out.add(event);
                     }
                 }
@@ -220,6 +216,47 @@ final class RecordSync {
             }
         }
         return out;
+    }
+
+    /**
+     * A stored trade as the record of a finished offer it is sent as, or null for one that names
+     * no trade.
+     *
+     * <p>The id is made from the record and nothing else, so the same record has the same id every
+     * time it is sent, from any window: the website keeps it on what it stores, and a record sent
+     * again after being stored is known by it. It must stay exactly this, for a record already
+     * confirmed under it.
+     */
+    static GeEvent record(long key, Delta delta, Integer world) {
+        if (delta == null || delta.itemId <= 0 || delta.tsClientMs <= 0 || delta.deltaQty <= 0 || delta.deltaGp <= 0) {
+            return null;
+        }
+        GeEvent event = new GeEvent();
+        event.event_id = UUID.nameUUIDFromBytes((key + "|" + delta.tsClientMs + "|" + delta.slot + "|" + delta.itemId
+            + "|" + delta.isBuy + "|" + delta.deltaQty + "|" + delta.deltaGp + "|" + delta.price + "|"
+            + (delta.eventType != null ? delta.eventType : "")).getBytes(StandardCharsets.UTF_8)).toString();
+        event.event_type = "OFFER_RECORD";
+        event.ts_client_ms = delta.tsClientMs;
+        // When the offer ended; where it began, for a fill that has no end of its own.
+        event.end_ms = delta.closedAtMs();
+        event.slot = Math.max(0, delta.slot);
+        event.item_id = delta.itemId;
+        event.is_buy = delta.isBuy;
+        // A long: since the Grand Exchange allows prices past max cash, a unit price can outgrow an int.
+        // A stored price at the cap was cut down to fit (TradeDeltaRecorder); the coins say what it was,
+        // a sale's after tax.
+        long price = Math.max(1L, delta.deltaGp / delta.deltaQty);
+        if (delta.price == Integer.MAX_VALUE && !delta.isBuy) {
+            price += GeTax.perItem(delta.itemId, price);
+        }
+        event.price = delta.price > 0 && delta.price < Integer.MAX_VALUE ? delta.price : price;
+        event.total_qty = event.filled_qty = event.delta_qty = delta.deltaQty;
+        event.spent_gp = event.delta_gp = delta.deltaGp;
+        event.state = delta.isBuy ? "BOUGHT" : "SOLD";
+        event.world = world;
+        event.character_id = GeEvent.characterId(key);
+        event.source = "record";
+        return event;
     }
 
     private long number(String key) {

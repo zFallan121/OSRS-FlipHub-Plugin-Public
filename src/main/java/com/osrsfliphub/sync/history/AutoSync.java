@@ -27,9 +27,9 @@ package com.osrsfliphub;
 import java.util.*;
 import javax.inject.*;
 import lombok.RequiredArgsConstructor;
-import net.runelite.api.Client;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class AutoSync {
     @RequiredArgsConstructor
     static final class SyncResult {
@@ -44,49 +44,8 @@ final class AutoSync {
     private final PanelRefresh panelRefresh;
     private final TradeSession tradeSession;
     private final LocalStatsCacheService localStatsCacheService;
-    private final BackfillUploader backfillUploader;
-    private final UploadEventDispatch uploadEventDispatch;
     private final ItemLookup itemLookup;
-    private final UploadBackfillDispatch uploadBackfillDispatch;
     private final long accountwideKey = Const.ACCOUNTWIDE_KEY;
-    private final Client client;
-
-    @Inject
-    AutoSync(
-        Client client,
-        TradeSession tradeSession,
-        LocalStatsCacheService localStatsCacheService,
-        BackfillUploader backfillUploader,
-        UploadEventDispatch uploadEventDispatch,
-        ItemLookup itemLookup,
-        UploadBackfillDispatch uploadBackfillDispatch,
-        LocalTradesRuntime localTradesRuntime,
-        PanelRefresh panelRefresh
-    ) {
-        this.localTradesRuntime = localTradesRuntime;
-        this.panelRefresh = panelRefresh;
-        this.tradeSession = tradeSession;
-        this.localStatsCacheService = localStatsCacheService;
-        this.backfillUploader = backfillUploader;
-        this.uploadEventDispatch = uploadEventDispatch;
-        this.itemLookup = itemLookup;
-        this.uploadBackfillDispatch = uploadBackfillDispatch;
-        this.client = client;
-    }
-
-    private GeEvent buildUploadEvent(long profileKey, Delta delta) {
-        if (delta == null) {
-            return null;
-        }
-        return backfillUploader.buildBackfillEvent(profileKey, delta, client.getWorld());
-    }
-
-    private void enqueueUploadEvent(GeEvent event) {
-        if (event == null) {
-            return;
-        }
-        uploadEventDispatch.enqueueEvent(event);
-    }
 
     /** @param lastSync the rows are all newer than this; see {@link AutoSyncTradeMatcher#planMissingTrades}. */
     SyncResult sync(long accountKey, List<Trade> historyTrades, AutoSyncTradeMatcher.LastSync lastSync) {
@@ -138,33 +97,14 @@ final class AutoSync {
                 : Math.max(1L, nowMs - ((long) (validTrades.size() - i + 1) * SYNTHETIC_EVENT_SPACING_MS * 2L));
             long completionTsMs = updateTsMs + SYNTHETIC_EVENT_SPACING_MS;
             int slot = SYNTHETIC_SLOT_START + addedTrades;
-            // The website is told about the trade the way the offer pipeline would have:
-            // a fill, then a completion.
-            Delta updateDelta = new Delta(
-                updateTsMs,
-                slot,
-                trade.itemId,
-                trade.isBuy,
-                trade.quantity,
-                trade.totalGp,
-                "OFFER_UPDATED",
-                trade.price,
-                false
-            );
-            Delta completionDelta = new Delta(
-                completionTsMs,
-                slot,
-                trade.itemId,
-                trade.isBuy,
-                0,
-                0L,
-                "OFFER_COMPLETED",
-                trade.price,
-                false
-            );
-            // Locally the history row is a finished offer, and a finished offer is one
-            // record: the fill and its completion, already folded together. The update's
-            // timestamp keeps the row's place in the batch, which is the history's own order.
+            // The history row is a finished offer, and a finished offer is one record: the fill
+            // and its completion, already folded together. The update's timestamp keeps the
+            // row's place in the batch, which is the history's own order.
+            //
+            // Nothing is queued for the website here. It used to be told of the row as a fill and
+            // a completion, under ids of their own, and a trade this computer had also seen live,
+            // or another computer had uploaded, was stored a second time. The stored record is
+            // sent like any other ({@link RecordSync}), and the website answers that it has it.
             Delta storedDelta = new Delta(
                 updateTsMs,
                 slot,
@@ -186,22 +126,11 @@ final class AutoSync {
                     localStatsCacheService.applyDelta(accountwideKey, storedDelta);
                 }
             }
-
-            // Ensure GE-history-synced trades also flow through website event ingestion/flip pairing.
-            GeEvent uploadUpdate = buildUploadEvent(accountKey, updateDelta);
-            if (uploadUpdate != null) {
-                enqueueUploadEvent(uploadUpdate);
-            }
-            GeEvent uploadCompletion = buildUploadEvent(accountKey, completionDelta);
-            if (uploadCompletion != null) {
-                enqueueUploadEvent(uploadCompletion);
-            }
             addedTrades++;
         }
 
         localTradesRuntime.persistLocalTrades(accountKey);
         localTradesRuntime.persistLocalTrades(accountwideKey);
-        uploadBackfillDispatch.requestEventFlush();
         panelRefresh.triggerStatsRefresh(Access.plugin().scheduler);
         panelRefresh.triggerPanelRefresh(Access.plugin().scheduler);
         return new SyncResult(validTrades.size(), addedTrades);

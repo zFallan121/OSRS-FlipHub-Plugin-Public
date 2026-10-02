@@ -70,12 +70,19 @@ public class CharacterTagTest {
         assertFalse(tag.contains(Long.toString(SIPS)));
     }
 
+    /**
+     * A trade imported from the game's history is sent as its stored record, like any other. The
+     * website knows an import by the made-up slot it is filed on, 10,000 and up.
+     */
     @Test
-    public void aTradeImportedFromTheGamesHistorySaysSo() {
+    public void aTradeImportedFromTheGamesHistoryIsSentOnItsMadeUpSlot() {
         Delta imported = new Delta(5_000L, Const.GE_HISTORY_SYNTHETIC_SLOT_START + 3, 31406, false, 4, 2_600_000L,
             "OFFER_COMPLETED", 650_000, false);
 
-        assertEquals("import", new BackfillUploader().buildBackfillEvent(GPOVERXP, imported, 301).source);
+        GeEvent event = RecordSync.record(GPOVERXP, imported, 301);
+
+        assertEquals(Const.GE_HISTORY_SYNTHETIC_SLOT_START + 3, event.slot);
+        assertEquals("record", event.source);
     }
 
     /** Since the Grand Exchange allows prices past max cash, a unit price worked out from the coins can outgrow an int. */
@@ -83,21 +90,21 @@ public class CharacterTagTest {
     public void aUnitPricePastMaxCashIsSentWhole() {
         Delta axe = new Delta(5_000L, 1, 12426, true, 1, 8_351_000_000L, "OFFER_COMPLETED", 0, false);
 
-        GeEvent event = new BackfillUploader().buildBackfillEvent(GPOVERXP, axe, 301);
+        GeEvent event = RecordSync.record(GPOVERXP, axe, 301);
 
         assertEquals(8_351_000_000L, event.price);
         assertEquals(8_351_000_000L, event.delta_gp);
     }
 
     @Test
-    public void aTradeReplayedFromAProfileIsTaggedWithThatProfilesCharacter() {
-        // Backfill and the history sync upload other characters' trades while someone else is logged in.
+    public void aStoredTradeIsTaggedWithTheCharacterWhoseFileItIsIn() {
+        // Other characters' stored trades are sent while someone else is logged in.
         Delta delta = new Delta(5_000L, 3, 31406, true, 182, 2_239_692L, "OFFER_UPDATED", 12_306, false);
 
-        GeEvent event = new BackfillUploader().buildBackfillEvent(GPOVERXP, delta, 301);
+        GeEvent event = RecordSync.record(GPOVERXP, delta, 301);
 
         assertEquals(GeEvent.characterId(GPOVERXP), event.character_id);
-        assertNull("a stored trade sent later: how it was first seen is not known", event.source);
+        assertEquals("a stored trade sent later: how it was first seen is not known", "record", event.source);
     }
 
     @Test

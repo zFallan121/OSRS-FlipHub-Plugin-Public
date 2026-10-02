@@ -24,6 +24,7 @@
  */
 package com.osrsfliphub;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -205,6 +206,43 @@ public class CompletenessPathsTest {
 
         assertEquals("a name-based id", 3, UUID.fromString(record.event_id).version());
         assertEquals("made from the stored trade and nothing else", id(MAIN, world.stored(MAIN).get(0)), record.event_id);
+    }
+
+    /**
+     * The history sync stored an imported row as one record and uploaded it as two events, a fill
+     * and a completion, under ids that were neither the record's nor anything another computer had
+     * sent: a trade the website already held from the computer it was made on was stored again.
+     * The sync now queues nothing. The stored record is sent like any other, once, and the website
+     * judges it against what it holds.
+     */
+    @Test
+    public void anImportedTradeIsNotUploadedAsNewEventsButSentOnceAsItsStoredRecord() {
+        world.login(MAIN);
+        List<Trade> history = new ArrayList<>();
+        history.add(new Trade(RecordSyncWorld.WHIP, true, 8, 5_033_000, 40_264_000L));
+
+        AutoSync.SyncResult result = world.injector.getInstance(AutoSync.class)
+            .sync(MAIN, history, AutoSyncTradeMatcher.LastSync.NONE);
+
+        assertEquals(1, result.addedTrades);
+        assertEquals("the sync itself uploads nothing", 0, world.state.getUploadState().getPendingUploadEvents());
+        Delta stored = world.stored(MAIN).get(0);
+        assertTrue("stored on a made-up slot", stored.slot >= Const.GE_HISTORY_SYNTHETIC_SLOT_START);
+
+        world.age(MAIN, 5 * MINUTE);
+        stored = world.stored(MAIN).get(0);
+        List<List<GeEvent>> sent = world.settle();
+
+        assertEquals(1, sent.size());
+        assertEquals("one event for the row, not two", 1, sent.get(0).size());
+        GeEvent record = sent.get(0).get(0);
+        assertEquals("OFFER_RECORD", record.event_type);
+        assertEquals("under the id of the record that is stored", id(MAIN, stored), record.event_id);
+        assertEquals(stored.slot, record.slot);
+        assertEquals(8, record.delta_qty);
+        assertEquals(40_264_000L, record.delta_gp);
+        assertTrue(world.stored(MAIN).get(0).uploadedMs > 0L);
+        assertTrue("and never again", world.again().login(MAIN).settle().isEmpty());
     }
 
     // ---- Path 4: "already there" was inferred from totals, which cannot see a missing trade ----

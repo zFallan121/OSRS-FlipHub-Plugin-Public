@@ -316,7 +316,7 @@ final class RecordSyncWorld {
 
     /** The id the plugin sends a stored trade under. */
     static String id(long key, Delta trade) {
-        return new BackfillUploader().buildBackfillEvent(key, trade, 301).event_id;
+        return RecordSync.record(key, trade, 301).event_id;
     }
 
     static List<GeEvent> records(List<List<GeEvent>> batches) {

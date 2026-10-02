@@ -116,10 +116,8 @@ public class PricePastMaxCashTest {
     public void aStoredTradePastMaxCashIsSentLaterAtItsPriceNotTheCap() {
         Delta bought = new Delta(5_000L, 1, 12426, true, 1, AXE, "OFFER_COMPLETED", Integer.MAX_VALUE, false);
         Delta sold = new Delta(6_000L, 1, 12426, false, 1, AXE - GeTax.MAX_TAX_PER_ITEM, "OFFER_COMPLETED", Integer.MAX_VALUE, false);
-        BackfillUploader uploader = new BackfillUploader();
-
-        assertEquals(AXE, uploader.buildBackfillEvent(777L, bought, 301).price);
-        GeEvent sale = uploader.buildBackfillEvent(777L, sold, 301);
+        assertEquals(AXE, RecordSync.record(777L, bought, 301).price);
+        GeEvent sale = RecordSync.record(777L, sold, 301);
         assertEquals(AXE, sale.price);
         assertEquals(AXE - GeTax.MAX_TAX_PER_ITEM, sale.delta_gp);
     }
@@ -129,6 +127,6 @@ public class PricePastMaxCashTest {
     public void aStoredPriceBelowTheCapIsSentAsStored() {
         Delta bought = new Delta(5_000L, 1, 4151, true, 10, 9_990L, "OFFER_COMPLETED", 1_000, false);
 
-        assertEquals(1_000L, new BackfillUploader().buildBackfillEvent(777L, bought, 301).price);
+        assertEquals(1_000L, RecordSync.record(777L, bought, 301).price);
     }
 }
