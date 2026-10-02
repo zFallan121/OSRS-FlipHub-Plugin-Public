@@ -58,6 +58,11 @@ public class GeEvent {
      */
     public String source;
     /**
+     * Set only on the record of a finished offer ({@link RecordSync}): when the offer ended. Null
+     * on every other event, and Gson leaves a null out.
+     */
+    public Long end_ms;
+    /**
      * Set only on the parts of a recorded recipe ({@link RecipeUpload}), which ride the trade upload but
      * are not trades. Null on a trade, and Gson leaves a null out, so a trade is sent exactly as before.
      */

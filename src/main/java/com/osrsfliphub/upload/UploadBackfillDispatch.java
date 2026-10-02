@@ -24,7 +24,6 @@
  */
 package com.osrsfliphub;
 
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.*;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +31,7 @@ import lombok.RequiredArgsConstructor;
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 final class UploadBackfillDispatch {
-    private final BackfillRetryScheduler backfillRetryScheduler;
+    private final RecordSync recordSync;
     private final UploadEventDispatch eventDispatch;
     private final PluginConfig pluginConfig;
     private final SummaryUploader summaryUploader;
@@ -41,10 +40,6 @@ final class UploadBackfillDispatch {
 
     private boolean executeIo(Runnable task) {
         return Access.plugin().executeIo(task);
-    }
-
-    private void attemptAccountwideBackfillIfNeeded() {
-        Bridge.get(BackfillExecution.class).attemptIfNeeded();
     }
 
     void requestEventFlush() {
@@ -58,6 +53,10 @@ final class UploadBackfillDispatch {
         if (!executeIo(() -> {
             try {
                 eventDispatch.flushEvents( Access.plugin().apiClient, pluginConfig, GeLifecyclePlugin.log);
+                // Here and nowhere else: only one flush runs at a time, so once this one has
+                // returned nothing of the live queue is on its way, and a stored trade is judged
+                // by the website only after its own live upload has arrived.
+                recordSync.sweep();
             } finally {
                 flushInFlight.set(false);
             }
@@ -79,25 +78,5 @@ final class UploadBackfillDispatch {
         })) {
             accountwideSyncInFlight.set(false);
         }
-    }
-
-    void requestBackfillAttempt(ScheduledExecutorService scheduler, long delaySeconds, boolean resetBackoff) {
-        backfillRetryScheduler.requestAttempt(
-            scheduler,
-            delaySeconds,
-            resetBackoff,
-            () -> executeIo(this::attemptAccountwideBackfillIfNeeded)
-        );
-    }
-
-    void scheduleBackfillRetry(ScheduledExecutorService scheduler) {
-        backfillRetryScheduler.scheduleRetry(
-            scheduler,
-            () -> executeIo(this::attemptAccountwideBackfillIfNeeded)
-        );
-    }
-
-    void resetBackfillRetryState() {
-        backfillRetryScheduler.reset();
     }
 }

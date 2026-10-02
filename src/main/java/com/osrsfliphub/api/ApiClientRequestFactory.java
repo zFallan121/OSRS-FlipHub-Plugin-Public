@@ -51,14 +51,6 @@ final class ApiClientRequestFactory {
         return requestBuilder.build();
     }
 
-    Request newGetRequest(String url, String sessionToken) {
-        return new Request.Builder()
-            .url(url)
-            .get()
-            .addHeader("X-Plugin-Token", sessionToken)
-            .build();
-    }
-
     void addSignedHeaders(Request.Builder requestBuilder, String method, String path, String signingSecret, String jsonBody) {
         byte[] bodyBytes = jsonBody.getBytes(StandardCharsets.UTF_8);
         String nonce = UUID.randomUUID().toString().replace("-", "");
@@ -78,19 +70,5 @@ final class ApiClientRequestFactory {
 
     String apiUrl(String path) {
         return apiBaseUrl + path;
-    }
-
-
-    boolean appendStatsQuery(StringBuilder builder, Long sinceMs, Long untilMs) {
-        boolean hasQuery = false;
-        if (sinceMs != null && sinceMs > 0) {
-            builder.append("?since_ms=").append(sinceMs);
-            hasQuery = true;
-        }
-        if (untilMs != null && untilMs > 0) {
-            builder.append(hasQuery ? "&" : "?").append("until_ms=").append(untilMs);
-            hasQuery = true;
-        }
-        return hasQuery;
     }
 }

@@ -40,7 +40,6 @@ final class LinkAttempt {
     private static final String PLUGIN_VERSION = "1.0.0";
 
     private static final long RETRY_DELAY_SECONDS = 5L;
-    private static final long POST_LINK_BACKFILL_DELAY_SECONDS = 5L;
     private static final long POST_LINK_SYNC_DELAY_SECONDS = 6L;
 
     private final Client client;
@@ -52,18 +51,12 @@ final class LinkAttempt {
     private final LinkStatus linkStatus;
     private final LinkSessionConfigStore sessionConfigStore;
     private final ProfileWorkflow profileWorkflow;
+    private final RecordSync recordSync;
     /** Config writes fan out into several link triggers; only the first should reach the network. */
     private final AtomicBoolean linkInFlight = new AtomicBoolean();
 
     private ApiClient.LinkResponse linkDevice(String licenseKey, String deviceId) throws IOException {
         return apiClient.linkDevice(licenseKey, deviceId, PLUGIN_VERSION);
-    }
-
-    private void requestBackfillAttempt(long delaySeconds, boolean resetBackoff) {
-        ScheduledExecutorService scheduler = Access.plugin().scheduler;
-        if (scheduler != null) {
-            uploadBackfillDispatch.requestBackfillAttempt(scheduler, delaySeconds, resetBackoff);
-        }
     }
 
     private void scheduleAccountwideSync(long delaySeconds) {
@@ -189,11 +182,13 @@ final class LinkAttempt {
             String deviceId = config.deviceId();
             ApiClient.LinkResponse response = linkDevice(licenseKey, deviceId);
             if (response != null && (!Str.isBlank(response.session_token)) && (!Str.isBlank(response.signing_secret))) {
+                // Before the session is stored, which also writes the config out: a link remembered
+                // without this would go on trusting what another website account confirmed.
+                recordSync.linked();
                 sessionConfigStore.persistLinkedSession(response.session_token, response.signing_secret);
                 summaryUploader.resetUploadSnapshot();
                 uploadEventDispatch.resetStatus();
                 uploadEventDispatch.updateUploadDiagnosticsUi();
-                requestBackfillAttempt(POST_LINK_BACKFILL_DELAY_SECONDS, true);
                 scheduleAccountwideSync(POST_LINK_SYNC_DELAY_SECONDS);
                 Access.plugin().refreshPanelData();
                 linkStatus.markLinked(licenseKey);

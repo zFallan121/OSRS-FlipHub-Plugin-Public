@@ -156,8 +156,6 @@ public class ApiClientTest
             () -> client.sendAccountwideSummary("token", "secret", new StatsSummary()));
         assertThrows(IllegalStateException.class,
             () -> client.wipeWebsiteStats("token", "secret"));
-        assertThrows(IllegalStateException.class,
-            () -> client.fetchStatsSummary("token", null, null));
 
         assertEquals(0, callCount.get());
     }

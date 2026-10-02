@@ -108,7 +108,6 @@ final class ProfileWorkflow {
         summaryUploader.markDirty();
         if (selectionPresentation.isLinked()) {
             uploadBackfillDispatch.requestAccountwideSync();
-            uploadBackfillDispatch.requestBackfillAttempt(Access.plugin().scheduler, 10, true);
         }
     }
 

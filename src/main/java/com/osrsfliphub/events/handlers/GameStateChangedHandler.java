@@ -142,12 +142,5 @@ final class GameStateChangedHandler {
                 coordinator.triggerStatsRefresh(plugin.scheduler);
             }
         }
-
-        if (plugin.scheduler != null && selectionFacade != null && selectionFacade.isLinked()) {
-            UploadBackfillDispatch dispatch = Bridge.get(UploadBackfillDispatch.class);
-            if (dispatch != null) {
-                dispatch.requestBackfillAttempt(plugin.scheduler, 8, true);
-            }
-        }
     }
 }

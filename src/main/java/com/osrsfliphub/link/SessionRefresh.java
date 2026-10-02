@@ -125,17 +125,8 @@ final class SessionRefresh {
         if (uploader != null) {
             uploader.resetUploadSnapshot();
         }
-        UploadBackfillDispatch dispatch = Bridge.get(UploadBackfillDispatch.class);
-        if (dispatch != null) {
-            dispatch.resetBackfillRetryState();
-        }
-        // The next link may be to a different website account, where "the first forty of this
-        // profile are already there" is simply untrue and would skip them forever.
-        ProfileBackfill profileBackfill =
-            Bridge.get(ProfileBackfill.class);
-        if (profileBackfill != null) {
-            profileBackfill.clearResumePoints();
-        }
+        // The next link may be to a different website account, which holds nothing this one
+        // confirmed: RecordSync.linked forgets every confirmation when that link is made.
         UploadEventDispatch facade = Bridge.get(UploadEventDispatch.class);
         if (facade != null) {
             facade.markBlocked(SESSION_CLEARED_REASON);

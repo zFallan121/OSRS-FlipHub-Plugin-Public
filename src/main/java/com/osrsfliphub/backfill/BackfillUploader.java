@@ -24,67 +24,16 @@
  */
 package com.osrsfliphub;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import javax.inject.*;
 import net.runelite.api.GrandExchangeOfferState;
 
+/** A stored trade as an upload event. Sending it is {@link RecordSync}'s. */
 @Singleton
 final class BackfillUploader {
-    /**
-     * What became of one batch, and therefore whether trying again can help.
-     *
-     * <p>A boolean could not tell "the server is having a moment" from "the server will never
-     * take this". Both read as failure, so a batch the server had permanently refused was
-     * retried every ninety seconds for as long as the client stayed open, and each cycle
-     * re-sent every batch before it.
-     */
-    enum Outcome {
-        /** Accepted. */
-        SENT,
-        /** Nobody refused it; the server could not be reached or is overloaded. */
-        RETRY,
-        /** The server refused this content. Sending the same events again changes nothing. */
-        TERMINAL,
-        /**
-         * The session is dead and needs a relink. This says nothing about the events, so the
-         * profile must not be written off; it used to be marked backfilled here, and after
-         * the player relinked its remaining trades were never uploaded.
-         */
-        SESSION_DEAD
-    }
-
     @Inject
     BackfillUploader() {
-    }
-
-    private void setUploadBlocked(String reason) {
-        UploadEventDispatch service = Bridge.get(UploadEventDispatch.class);
-        if (service != null) {
-            service.markBlocked(reason);
-        }
-    }
-
-    private void recordUploadAttempt() {
-        UploadEventDispatch service = Bridge.get(UploadEventDispatch.class);
-        if (service != null) {
-            service.markAttempt();
-        }
-    }
-
-    private void recordUploadSuccess(int uploadedCount, int statusCode) {
-        UploadEventDispatch service = Bridge.get(UploadEventDispatch.class);
-        if (service != null) {
-            service.markSuccess(uploadedCount, statusCode);
-        }
-    }
-
-    private void recordUploadFailure(Integer statusCode, String errorMessage, boolean dropped, int droppedCount) {
-        UploadEventDispatch service = Bridge.get(UploadEventDispatch.class);
-        if (service != null) {
-            service.markFailure(statusCode, errorMessage, dropped, droppedCount);
-        }
     }
 
     GeEvent buildBackfillEvent(long profileKey, Delta delta, Integer world) {
@@ -133,107 +82,5 @@ final class BackfillUploader {
         event.character_id = GeEvent.characterId(profileKey);
         event.source = delta.slot >= Const.GE_HISTORY_SYNTHETIC_SLOT_START ? "import" : null;
         return event;
-    }
-
-    Outcome sendBatch(ApiClient apiClient, PluginConfig config, List<GeEvent> batch) {
-        if (batch == null || batch.isEmpty() || apiClient == null || config == null) {
-            return Outcome.RETRY;
-        }
-        if (!config.enableFlipHubSync()) {
-            // Paused rather than refused: turning sync back on should resume where this left off.
-            setUploadBlocked("Backfill paused: FlipHub sync is disabled in the plugin settings.");
-            return Outcome.RETRY;
-        }
-        String sessionToken = config.sessionToken();
-        String signingSecret = config.signingSecret();
-        if (!ApiStatusPolicy.hasCredentials(sessionToken, signingSecret)) {
-            setUploadBlocked("Backfill paused: plugin is not linked.");
-            return Outcome.RETRY;
-        }
-
-        recordUploadAttempt();
-        try {
-            ApiClient.EventUploadResponse upload = apiClient.sendEventsDetailed(sessionToken, signingSecret, batch);
-            int status = upload != null ? upload.status_code : 500;
-            if (status < 400) {
-                if (!ApiStatusPolicy.keptSomething(upload, batch.size())) {
-                    // The server took the request and threw the contents away. Sending the same
-                    // events again would get the same answer.
-                    recordUploadFailure(
-                        status,
-                        "Backfill upload rejected every event in the batch. Not retrying.",
-                        true,
-                        batch.size()
-                    );
-                    return Outcome.TERMINAL;
-                }
-                recordUploadSuccess(resolveBackfillUploadedCount(upload, batch.size()), status);
-                return Outcome.SENT;
-            }
-            if (ApiStatusPolicy.isAuthStatus(status)) {
-                SessionRefresh.Outcome outcome = SessionRefresh.refreshOrUnavailable(sessionToken);
-                if (outcome == SessionRefresh.Outcome.REFRESHED) {
-                    String refreshedToken = config.sessionToken();
-                    String refreshedSecret = config.signingSecret();
-                    if (ApiStatusPolicy.hasCredentials(refreshedToken, refreshedSecret)) {
-                        ApiClient.EventUploadResponse retryUpload =
-                            apiClient.sendEventsDetailed(refreshedToken, refreshedSecret, batch);
-                        int retryStatus = retryUpload != null ? retryUpload.status_code : 500;
-                        if (retryStatus < 400) {
-                            if (!ApiStatusPolicy.keptSomething(retryUpload, batch.size())) {
-                                recordUploadFailure(
-                                    retryStatus,
-                                    "Backfill upload rejected every event in the batch. Not retrying.",
-                                    true,
-                                    batch.size()
-                                );
-                                return Outcome.TERMINAL;
-                            }
-                            recordUploadSuccess(resolveBackfillUploadedCount(retryUpload, batch.size()), retryStatus);
-                            return Outcome.SENT;
-                        }
-                        recordUploadFailure(retryStatus,
-                            "Backfill upload failed with status " + retryStatus + ".", false, 0);
-                        return classify(retryStatus);
-                    }
-                }
-                // clearSession has already run if the server refused the session; a refresh
-                // that simply could not be completed leaves the link intact to try again.
-                recordUploadFailure(status, outcome == SessionRefresh.Outcome.REJECTED
-                    ? "Backfill upload unauthorized. Relink to resume."
-                    : "Backfill upload could not refresh the session. Will retry.", false, 0);
-                // A refused session needs a relink, not another attempt; an unreachable one is
-                // worth coming back to. Neither is a verdict on this profile's events.
-                return outcome == SessionRefresh.Outcome.REJECTED
-                    ? Outcome.SESSION_DEAD : Outcome.RETRY;
-            }
-            recordUploadFailure(status, "Backfill upload failed with status " + status + ".", false, 0);
-            return classify(status);
-        } catch (IOException | RuntimeException ex) {
-            String message = ex != null && ex.getMessage() != null ? ex.getMessage() : "Unknown backfill exception";
-            recordUploadFailure(-1, "Backfill upload exception: " + message, false, 0);
-            return Outcome.RETRY;
-        }
-    }
-
-    /**
-     * A rate limit or a server error is worth waiting out. Any other refusal in the four
-     * hundreds is a statement about the request itself, which will not improve by repeating it.
-     */
-    private static Outcome classify(int status) {
-        return ApiStatusPolicy.isRetryableUploadStatus(status) ? Outcome.RETRY : Outcome.TERMINAL;
-    }
-
-    private int resolveBackfillUploadedCount(ApiClient.EventUploadResponse upload, int batchSize) {
-        if (upload == null || batchSize <= 0) {
-            return Math.max(0, batchSize);
-        }
-        int accepted = upload.accepted != null ? Math.max(0, upload.accepted) : 0;
-        int duplicates = upload.duplicates != null ? Math.max(0, upload.duplicates) : 0;
-        int handled = accepted + duplicates;
-        if (handled > 0) {
-            return handled;
-        }
-        return Math.max(0, batchSize);
     }
 }

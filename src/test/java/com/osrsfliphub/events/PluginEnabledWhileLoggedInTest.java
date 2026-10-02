@@ -143,6 +143,8 @@ public class PluginEnabledWhileLoggedInTest {
                 bind(WikiPrice.class).toProvider(Providers.of(null));
                 bind(PanelRefresh.class).toProvider(Providers.of(null));
                 bind(WipeStateStore.class).toProvider(Providers.of(null));
+                // The upload tick never runs here, and what it sweeps keeps its marks in ConfigManager.
+                bind(UploadBackfillDispatch.class).toInstance(new UploadBackfillDispatch(null, null, config, null));
             }
         });
         Bridge.set(injector);

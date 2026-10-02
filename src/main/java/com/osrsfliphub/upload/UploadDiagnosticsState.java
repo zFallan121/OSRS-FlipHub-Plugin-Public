@@ -27,7 +27,7 @@ package com.osrsfliphub;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 import lombok.Getter;
 
@@ -47,6 +47,28 @@ final class UploadDiagnosticsState {
     private volatile long nextAttemptAllowedMs = 0L;
     @Getter
     private volatile long currentBackoffMs = 0L;
+    /** The ids of the stored trades the website has said, this session, that it holds ({@link RecordSync}). */
+    final Set<String> confirmed = ConcurrentHashMap.newKeySet();
+    /** Whether an answer has added to {@link #confirmed} since {@link RecordSync} last looked. */
+    volatile boolean progress;
+
+    /**
+     * The website's answer to a batch. Only the ids it names as confirmed are taken: an answer
+     * without the list (an older website, which refuses the records by their type) confirms
+     * nothing, and neither does any answer but a success.
+     */
+    void answered(ApiClient.EventUploadResponse answer) {
+        List<String> ids = answer != null && answer.status_code < 300 && answer.records != null
+            ? answer.records.get("confirmed") : null;
+        if (ids != null) {
+            for (String id : ids) {
+                // A set that refuses a null: one in the list must not fail the upload it came with.
+                if (id != null && confirmed.add(id)) {
+                    progress = true;
+                }
+            }
+        }
+    }
 
     /**
      * Holds off the next attempt, doubling the wait each consecutive failure up to the cap. The
@@ -120,10 +142,9 @@ final class UploadDiagnosticsState {
      * <p>These are completed trades that have not reached the server yet. The final flush is
      * handed to the IO pool and finishes after this runs, and it can also decline outright
      * while a backoff is standing or while logged out. Emptying the queue here therefore threw
-     * the events away, and nothing resends them: once a profile is marked backfilled they are
-     * gone for good. They are bounded already, they carry deterministic ids so a resend cannot
-     * double-count, and this object outlives a disable, so holding them costs nothing and a
-     * re-enable can still deliver them.</p>
+     * the events away. The trades among them are sent again from the file ({@link RecordSync}),
+     * but recorded recipes wait for the next session. They are bounded already, and this object
+     * outlives a disable, so holding them costs nothing and a re-enable can still deliver them.</p>
      */
     void resetForPluginStop() {
         clearBackOff();

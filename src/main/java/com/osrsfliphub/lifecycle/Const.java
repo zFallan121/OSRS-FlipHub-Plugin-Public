@@ -26,7 +26,6 @@ package com.osrsfliphub;
 
 final class Const {
     static final int MAX_BATCH_SIZE = 200;
-    static final int MAX_BACKFILL_PROFILE_COUNT = 16;
     static final int DEFAULT_ITEMS_PAGE_SIZE = 10;
     static final long SUGGESTION_UPDATE_INTERVAL_MS = 250L;
     static final long PROFILE_WATCH_DEBOUNCE_MS = 1000L;

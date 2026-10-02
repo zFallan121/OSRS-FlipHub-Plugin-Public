@@ -155,7 +155,6 @@ final class RuntimeSchedulerServices {
         if (profileSelection != null && profileSelection.isLinked()) {
             UploadBackfillDispatch service = Bridge.get(UploadBackfillDispatch.class);
             if (service != null) {
-                service.requestBackfillAttempt(scheduler, 12, true);
                 scheduler.schedule(service::requestAccountwideSync, 10, TimeUnit.SECONDS);
             }
         }
@@ -200,10 +199,6 @@ final class RuntimeSchedulerServices {
             stopProfileWatcher.run();
         }
 
-        UploadBackfillDispatch backfillDispatch = Bridge.get(UploadBackfillDispatch.class);
-        if (backfillDispatch != null) {
-            backfillDispatch.resetBackfillRetryState();
-        }
         if (scheduler != null) {
             scheduler.shutdown();
         }

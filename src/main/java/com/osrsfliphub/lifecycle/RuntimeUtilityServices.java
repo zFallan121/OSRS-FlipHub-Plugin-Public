@@ -24,13 +24,10 @@
  */
 package com.osrsfliphub;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 
-@Slf4j
 final class RuntimeUtilityServices {
     void scheduleRefreshSoon(PanelRefresh coordinator, ScheduledExecutorService scheduler) {
         if (coordinator != null) {
@@ -48,45 +45,6 @@ final class RuntimeUtilityServices {
         if (coordinator != null) {
             coordinator.triggerStatsRefresh(scheduler);
         }
-    }
-
-    ApiClient.StatsSummaryResponse fetchRemoteStatsSummary(
-        ApiClient apiClient,
-        PluginConfig config,
-        SessionRefresh sessionRefreshService,
-        String sessionToken,
-        Long sinceMs,
-        boolean allowRefresh
-    ) {
-        if (apiClient == null || config == null || sessionRefreshService == null) {
-            return null;
-        }
-        try {
-            return apiClient.fetchStatsSummary(sessionToken, sinceMs, null);
-        } catch (ApiClient.ApiException ex) {
-            if (ApiStatusPolicy.isAuthStatus(ex.statusCode) && allowRefresh) {
-                SessionRefresh.Outcome outcome = sessionRefreshService.attemptRefresh(sessionToken);
-                if (outcome == SessionRefresh.Outcome.REFRESHED) {
-                    String refreshedToken = config.sessionToken();
-                    if (Str.hasText(refreshedToken)) {
-                        return fetchRemoteStatsSummary(
-                            apiClient,
-                            config,
-                            sessionRefreshService,
-                            refreshedToken,
-                            sinceMs,
-                            false
-                        );
-                    }
-                }
-                // A refusal already cleared the session inside the refresh; an unreachable
-                // server must not cost the user their link.
-            }
-        } catch (IOException | RuntimeException ex) {
-            // Debug, not warn: an unreachable server is routine and this runs on every refresh.
-            log.debug("FlipHub: the website's stats summary could not be fetched", ex);
-        }
-        return null;
     }
 
     void requeue(UploadEventDispatch dispatchService, List<GeEvent> batch) {

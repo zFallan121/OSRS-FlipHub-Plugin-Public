@@ -32,7 +32,7 @@ import org.slf4j.Logger;
 
 @Singleton
 final class UploadEventDispatch {
-    private static final int MAX_PENDING_UPLOAD_EVENTS = 10_000;
+    static final int MAX_PENDING_UPLOAD_EVENTS = 10_000;
 
     /** First wait after a failure the server might recover from. */
     private static final long UPLOAD_BACKOFF_INITIAL_MS = 5_000L;
@@ -114,9 +114,9 @@ final class UploadEventDispatch {
 
     /**
      * One last drain as the client closes. The queue lives only in memory, so anything still in
-     * it when the process ends is gone: the events are already recorded locally, but the
-     * website never hears about them, and once a profile is marked backfilled nothing will
-     * resend them. Bounded, and stops the moment a pass makes no progress.
+     * it when the process ends is gone from it: the trades are recorded locally and are sent
+     * from the file next session ({@link RecordSync}), but this saves the website the wait.
+     * Bounded, and stops the moment a pass makes no progress.
      */
     void flushPendingBeforeShutdown(ApiClient apiClient, PluginConfig config, Logger log, int maxBatches) {
         // Whatever wait was in force, this is the last chance to use it up.
@@ -138,8 +138,7 @@ final class UploadEventDispatch {
      * @param onlyWhileLoggedIn the routine flush waits for a logged-in client, because the
      *                          events describe the account that is playing. The drain as the
      *                          client closes must not: a player who logs out to the lobby and
-     *                          then quits used to have their queued trades thrown away, and
-     *                          once a profile is marked backfilled nothing resends them.
+     *                          then quits used to have their queued trades thrown away.
      */
     private void flushEvents(ApiClient apiClient, PluginConfig config, Logger log,
                              boolean onlyWhileLoggedIn) {
@@ -186,6 +185,7 @@ final class UploadEventDispatch {
         try {
             ApiClient.EventUploadResponse upload =
                 apiClient.sendEventsDetailed(sessionToken, signingSecret, batch);
+            uploadState.answered(upload);
             int status = upload != null ? upload.status_code : -1;
             if (ApiStatusPolicy.isAuthStatus(status)) {
                 handleAuthFailure(apiClient, config, log, batch, sessionToken, status);
@@ -213,6 +213,7 @@ final class UploadEventDispatch {
             if (ApiStatusPolicy.hasCredentials(refreshedToken, refreshedSecret)) {
                 ApiClient.EventUploadResponse retryUpload =
                     apiClient.sendEventsDetailed(refreshedToken, refreshedSecret, batch);
+                uploadState.answered(retryUpload);
                 handleRetryStatus(retryUpload != null ? retryUpload.status_code : -1,
                     retryUpload, log, batch);
                 return;
@@ -295,9 +296,14 @@ final class UploadEventDispatch {
         }
         if (status >= 400) {
             log.warn("FlipHub event upload failed with status {} (dropping {} events)", status, batch.size());
+            // The website refuses a request stamped more than five minutes from its own time, and
+            // "status 400" told the player nothing they could act on. The trades are not lost:
+            // each is in the file, and is sent from there until the website confirms it.
             markFailure(
                 status,
-                "Upload failed with status " + status + ". Events were dropped.",
+                "Timestamp out of range".equals(upload.error)
+                    ? "Your PC clock is more than five minutes off; trades will be sent when it is right"
+                    : "Upload failed with status " + status + ". Events were dropped.",
                 true,
                 batch.size()
             );

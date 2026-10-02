@@ -46,7 +46,6 @@ public class ApiClient {
     private static final String PATH_EVENTS = "/api/plugin/events";
     private static final String PATH_STATS_ACCOUNTWIDE = "/api/plugin/stats/accountwide";
     private static final String PATH_STATS_WIPE = "/api/plugin/stats/wipe";
-    private static final String PATH_STATS_SUMMARY = "/api/plugin/stats/summary";
 
     private final OkHttpClient httpClient;
     private final Gson gson;
@@ -162,6 +161,8 @@ public class ApiClient {
                         result.accepted = parsed.accepted;
                         result.duplicates = parsed.duplicates;
                         result.rejected = parsed.rejected;
+                        result.error = parsed.error;
+                        result.records = parsed.records;
                     }
                 } catch (JsonParseException ignored) {
                     // The upload went through; only the counts in the reply are unreadable.
@@ -217,23 +218,6 @@ public class ApiClient {
         }
     }
 
-    public StatsSummaryResponse fetchStatsSummary(String sessionToken, Long sinceMs, Long untilMs) throws IOException {
-        ensureSyncEnabled();
-        StringBuilder urlBuilder = new StringBuilder();
-        urlBuilder.append(requestFactory.apiUrl(PATH_STATS_SUMMARY));
-        requestFactory.appendStatsQuery(urlBuilder, sinceMs, untilMs);
-
-        Request request = requestFactory.newGetRequest(urlBuilder.toString(), sessionToken);
-
-        try (Response response = httpClient.newCall(request).execute()) {
-            if (!response.isSuccessful()) {
-                throw new ApiException("Fetch stats summary failed", response.code());
-            }
-            String responseBody = response.body().string();
-            return gson.fromJson(responseBody, StatsSummaryResponse.class);
-        }
-    }
-
     public static class LinkResponse {
         public String session_token;
         public String session_expires_at;
@@ -250,11 +234,6 @@ public class ApiClient {
         public Long price_cache_ms;
     }
 
-    public static class StatsSummaryResponse {
-        public long as_of_ms;
-        public StatsSummary summary;
-    }
-
     public static class WipeStatsResponse {
         public String status;
         public Integer deleted_trade_events;
@@ -269,6 +248,13 @@ public class ApiClient {
         public Integer accepted;
         public Integer duplicates;
         public Integer rejected;
+        /** Why the website refused the request, when it did and said. */
+        public String error;
+        /**
+         * Only when the batch held the record of a finished offer ({@link RecordSync}): under
+         * "confirmed", the ids of the records the website now holds; under "rejected", the ones it refused.
+         */
+        public Map<String, List<String>> records;
     }
 
     public static class ApiException extends IOException {

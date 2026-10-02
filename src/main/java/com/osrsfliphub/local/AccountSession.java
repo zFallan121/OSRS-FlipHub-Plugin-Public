@@ -33,6 +33,12 @@ final class AccountSession {
     private final Client client;
     private long lastMergedAccountHash = -1L;
     private long lastMergedNameKey = -1L;
+    /**
+     * The last answer of {@link #resolveLocalAccountKey}, which is asked on every client tick: the
+     * character this window is logged in as, or -1. For work on another thread, because the key
+     * can be made from the player's name and that is read on the game thread only.
+     */
+    volatile long localKey = -1L;
 
     @Inject
     AccountSession(Client client) {
@@ -40,6 +46,10 @@ final class AccountSession {
     }
 
     long resolveLocalAccountKey() {
+        return localKey = localAccountKey();
+    }
+
+    private long localAccountKey() {
         if (!Access.loggedIn(client)) {
             return -1L;
         }
