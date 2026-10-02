@@ -837,6 +837,83 @@ public class RecordSyncTest {
         assertTrue(world.again().login(MAIN).settle().isEmpty());
     }
 
+    // ---- what the player is told ----
+
+    /**
+     * "N trades not yet on the website" counts what is there to be sent and has not been
+     * confirmed: all characters' together, or the one the Profile tab is showing. It reads 0 only
+     * when the website has said it holds every one of them.
+     */
+    @Test
+    public void theCountIsTheFinishedTradesTheWebsiteHasNotConfirmed() {
+        long first = now() - 30 * MINUTE;
+        world.store(MAIN, bought(30 * MINUTE, 1, 10), bought(20 * MINUTE, 2, 5),
+            // Not among them: an offer that ended twenty seconds ago, and the fill of one still open.
+            bought(21_000L, 3, 1),
+            new Delta(first, 4, RecordSyncWorld.WHIP, true, 4, 400_000L, "OFFER_UPDATED", 100_000, false));
+        // Nor another character's trade until a quarter of an hour after it ended.
+        world.store(ALT, bought(40 * MINUTE, 1, 3), bought(5 * MINUTE, 2, 7));
+        // A website that confirms nothing.
+        world.website.answer = events -> world.website.take(events, ids(events));
+        world.login(MAIN).settle();
+
+        assertEquals("every character", 3, world.sync().waiting());
+        world.state.getProfileSelection().selectManual("hash_" + MAIN);
+        assertEquals("the logged-in character alone", 2, world.sync().waiting());
+        world.state.getProfileSelection().selectManual("hash_" + ALT);
+        assertEquals("the other character alone", 1, world.sync().waiting());
+
+        world.website.answer = world.website::takeAll;
+        world.waitOutThePause();
+        world.settle();
+
+        assertEquals(0, world.sync().waiting());
+        world.state.getProfileSelection().selectManual(Const.ACCOUNTWIDE_KEY_STRING);
+        assertEquals("the website holds every one", 0, world.sync().waiting());
+    }
+
+    /** A trade the website refused keeps the count honest: it is not there, and the count says so. */
+    @Test
+    public void aRefusedTradeStaysInTheCount() {
+        Delta refused = bought(20 * MINUTE, 2, 5);
+        world.store(MAIN, bought(30 * MINUTE, 1, 10), refused);
+        world.website.answer = events -> world.website.take(events, Collections.singleton(id(MAIN, refused)));
+
+        world.login(MAIN).settle();
+
+        assertEquals(1, world.sync().waiting());
+    }
+
+    @Test
+    public void thereIsNoCountForAPlayerWhoIsNotLinked() {
+        world.store(MAIN, bought(30 * MINUTE, 1, 10));
+        world.login(MAIN).settle();
+        world.sync().linked();
+        assertEquals("linked, and nothing confirmed by this link yet", 1, world.sync().waiting());
+
+        world.linked = false;
+
+        assertEquals(0, world.sync().waiting());
+    }
+
+    /** Counting is only looking: it marks no file and moves no mark. */
+    @Test
+    public void countingWritesNothing() throws Exception {
+        world.store(MAIN, bought(30 * MINUTE, 1, 10));
+        world.store(ALT, bought(40 * MINUTE, 1, 3));
+        world.login(MAIN);
+        // Read from their files, and then confirmed by an answer whose sweep has not run yet.
+        world.tick();
+        world.state.getUploadState().confirmed.add(id(MAIN, world.stored(MAIN).get(0)));
+        world.state.getUploadState().confirmed.add(id(ALT, world.stored(ALT).get(0)));
+        String main = world.text(MAIN);
+
+        assertEquals("both are confirmed in memory", 0, world.sync().waiting());
+
+        assertEquals(main, world.text(MAIN));
+        assertEquals(0L, world.mark(ALT));
+    }
+
     // ---- wipes ----
 
     /**

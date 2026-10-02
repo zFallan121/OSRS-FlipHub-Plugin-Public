@@ -62,6 +62,8 @@ final class PanelState {
     int statsPage = 1;
     String statsSearchQuery = "";
     StatsSummary statsSummary;
+    /** How many finished trades the website has not confirmed: the value of a row shown only while there are any. */
+    final javax.swing.JLabel statsWaiting = new javax.swing.JLabel();
     List<StatsItem> statsItems = new ArrayList<>();
     Map<Integer, List<StatsFlipInstance>> statsFlipHistoryByItem = new HashMap<>();
 

@@ -162,6 +162,38 @@ public class PanelControlsTest {
         assertEquals(Arrays.asList("onStatsRangeChanged[ALL_TIME]", "onStatsSortChanged[PROFIT]"), heard);
     }
 
+    /**
+     * The count of trades the website has not confirmed is a row of the Profile card that is there
+     * only while there are any: a player who is not linked, or whose trades have all arrived,
+     * sees the card as it always was (the renders say so to the pixel).
+     */
+    @Test
+    public void theRowForTradesNotYetOnTheWebsiteIsThereOnlyWhileThereAreSome() throws Exception {
+        JLabel value = this.<PanelState>field("panelState").statsWaiting;
+        java.awt.Container row = value.getParent();
+        assertFalse("not there to begin with", row.isVisible());
+        JLabel label = (JLabel) row.getComponent(0);
+        assertEquals("Not yet on website", label.getText());
+        assertEquals("the label stays muted", Skin.MUTED, label.getForeground());
+
+        panel.setWaiting(86);
+        onSwing(() -> {
+        });
+        assertTrue(row.isVisible());
+        assertEquals("86 trades", value.getText());
+        assertEquals("amber, and on the value", Skin.WARNING, value.getForeground());
+
+        panel.setWaiting(1);
+        onSwing(() -> {
+        });
+        assertEquals("1 trade", value.getText());
+
+        panel.setWaiting(0);
+        onSwing(() -> {
+        });
+        assertFalse("gone again once they have all arrived", row.isVisible());
+    }
+
     private void press(String name) {
         this.<AbstractButton>field(name).doClick(0);
     }

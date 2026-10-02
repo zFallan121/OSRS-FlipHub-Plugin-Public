@@ -117,6 +117,16 @@ final class RecordSync {
         nextPassMs = waitMs = 0;
     }
 
+    /**
+     * For the Profile tab: how many finished trades of the character shown there, or of every
+     * character when it shows them all, the website has not confirmed. Counted as they are sent:
+     * an offer still open, or one that ended too lately to be sent yet, is not among them. Nothing
+     * for a player who is not linked.
+     */
+    int waiting() {
+        return profiles.isLinked() ? unconfirmed(profiles.resolveSelectedProfileKey(), false).size() : 0;
+    }
+
     /** See the class comment, "When". Called by the upload tick after it has sent the live queue. */
     synchronized void sweep() {
         long now = System.currentTimeMillis();
@@ -134,6 +144,10 @@ final class RecordSync {
         List<GeEvent> batch = unconfirmed(Const.ACCOUNTWIDE_KEY, true);
         boolean left = batch.removeIf(event -> sent.contains(event.event_id));
         boolean stalled = !sent.isEmpty() && !queue.progress;
+        if (queue.progress) {
+            // The Profile tab says how many are still to be confirmed.
+            Access.plugin().getPanelRefreshCoordinator().triggerStatsRefresh(Access.plugin().scheduler);
+        }
         queue.progress = false;
         if (batch.isEmpty() || stalled) {
             waitMs = left || stalled ? Math.min(Math.max(SETTLE_MS, waitMs * 2), LONGEST_WAIT_MS) : 0;

@@ -40,6 +40,7 @@ final class PanelDataRuntime {
     private final OfferPreviewBuilder offerPreviewBuilder;
     private final Client client;
     private final OfferStampFallbackBuilder offerStampFallbackBuilder;
+    private final RecordSync recordSync;
 
     /**
      * The stamps, or null when there is no state to hold them yet.
@@ -93,6 +94,7 @@ final class PanelDataRuntime {
         }
         StatsView.Result statsView = statsViews.build();
         panel.setStatsData(statsView.summary, statsView.items, statsView.flipHistory, statsView.asOfMs);
+        panel.setWaiting(recordSync.waiting());
         rankUp.refreshPanel();
     }
 

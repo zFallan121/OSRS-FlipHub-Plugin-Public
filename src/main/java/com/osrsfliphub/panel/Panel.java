@@ -298,6 +298,20 @@ public class Panel extends PluginPanel {
         });
     }
 
+    /**
+     * How many finished trades the website has not confirmed that it holds. The row is there only
+     * while there are any, so a player who is not linked, or whose trades have all arrived, sees
+     * the card exactly as it always was.
+     */
+    void setWaiting(int count) {
+        SwingUtilities.invokeLater(() -> {
+            panelState.statsWaiting.setText(count + (count == 1 ? " trade" : " trades"));
+            Container row = panelState.statsWaiting.getParent();
+            row.setVisible(count > 0);
+            row.revalidate();
+        });
+    }
+
     void refreshBookmarks() {
         SwingUtilities.invokeLater(this::renderItems);
     }

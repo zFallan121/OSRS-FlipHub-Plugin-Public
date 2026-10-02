@@ -80,9 +80,15 @@ final class StatsPanelContentBuilder {
             {"Total flips made", statsFlipsValue, TEXT},
             {"Tax paid", statsTaxValue, TEXT},
             {"Session time", statsSessionTimeValue, TEXT},
-            {"Hourly profit", statsHourlyValue, SUCCESS}
+            {"Hourly profit", statsHourlyValue, SUCCESS},
+            // Amber, on the value: a caution, and the one row here that is not a figure of the range.
+            // "the website" would leave a five-figure count touching its label.
+            {"Not yet on website", panelState.statsWaiting, WARNING}
         };
         statsContentPanel.add(buildSummaryCard(statsTotalProfitValue, rows));
+        // There only while a linked player has trades the website has not confirmed (Panel.setWaiting).
+        // Hidden after the card has been measured with it, so the card has room for it when it shows.
+        panelState.statsWaiting.getParent().setVisible(false);
 
         // The search sits under the answer rather than over it. It narrows the list, not the
         // total - putting it above the card read as if the card were showing the search's
