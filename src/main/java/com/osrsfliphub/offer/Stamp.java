@@ -29,6 +29,7 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 final class Stamp {
     int itemId;
+    /** Capped at max cash, as {@link OfferSnapshot#stampPrice}: older builds read this as an int. */
     int price;
     int totalQty;
     int filledQty;
@@ -71,7 +72,7 @@ final class Stamp {
         long safeTimestamp = timestamp > 0 ? timestamp : System.currentTimeMillis();
         return new Stamp(
             snapshot.itemId,
-            snapshot.price,
+            snapshot.stampPrice(),
             snapshot.totalQty,
             snapshot.filledQty,
             snapshot.isBuy,

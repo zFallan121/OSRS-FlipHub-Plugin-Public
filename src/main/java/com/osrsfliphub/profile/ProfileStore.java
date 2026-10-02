@@ -25,7 +25,9 @@
 package com.osrsfliphub;
 
 import com.google.gson.*;
+import com.google.gson.stream.*;
 import java.io.IOException;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
@@ -42,6 +44,15 @@ import net.runelite.client.RuneLite;
 final class ProfileStore {
     private static final String PROFILE_DIR_NAME = "fliphub";
     private static final String LEGACY_PROFILE_DIR_NAME = "fliphub-dev";
+    /**
+     * Another folder under .runelite for the trade files, for the development client only (it
+     * sets this before starting). It runs newer code than the Plugin Hub build, and the two
+     * sharing one folder let the older one rewrite files holding what it could not read: a
+     * recorded move was lost that way on 22 Sep 2026.
+     */
+    static final String DATA_DIR_PROPERTY = "fliphub.dataDir";
+    /** Every member of the document {@link ProfileData} has a field for. */
+    static final Set<String> KNOWN = Set.of("accountHash", "displayName", "deltas", "updatedMs", "recipeFlips");
 
     private final Gson gson;
     private final String profileDirName;
@@ -59,11 +70,26 @@ final class ProfileStore {
      * account with no history at all.
      */
     private final Map<Path, Object> fileLocks = new ConcurrentHashMap<>();
+    /**
+     * What each file held that this build has no field for, from its last read, written back as
+     * it was read. See {@link #keep}.
+     */
+    private final Map<Path, Kept> kept = new ConcurrentHashMap<>();
+
+    private static final class Kept {
+        /** Every record as read, by {@link #recordKey}. */
+        final Map<String, JsonElement> records = new HashMap<>();
+        final JsonObject unknown = new JsonObject();
+    }
 
     @Inject
     ProfileStore(Gson gson) {
-        this(gson, PROFILE_DIR_NAME,
-            LEGACY_PROFILE_DIR_NAME, RuneLite.RUNELITE_DIR.toPath());
+        this(gson, dataDirName(), LEGACY_PROFILE_DIR_NAME, RuneLite.RUNELITE_DIR.toPath());
+    }
+
+    private static String dataDirName() {
+        String name = System.getProperty(DATA_DIR_PROPERTY);
+        return name != null && name.matches("\\w[\\w.-]*") ? name : PROFILE_DIR_NAME;
     }
 
     ProfileStore(Gson gson, String profileDirName, String legacyProfileDirName) {
@@ -142,10 +168,58 @@ final class ProfileStore {
             if (Str.isBlank(json)) {
                 return null;
             }
-            return gson.fromJson(json, ProfileData.class);
+            ProfileData data = gson.fromJson(json, ProfileData.class);
+            keep(file, json);
+            return data;
         } catch (IOException | JsonParseException ignored) {
             return null;
         }
+    }
+
+    /**
+     * Holds on to what a newer build wrote that this one cannot represent - a record of a kind it
+     * does not know, a field it does not know on a record, a member of the document it does not
+     * know - so that {@link #writeDocument} puts it back. Every build used to rebuild the file from
+     * its own fields alone, and an older client beside a newer one erased a recorded move that way.
+     * Only builds from this one on are protected: an older one still rewrites what it cannot read.
+     *
+     * <p>A second pass over the text rather than a tree of the whole document: the trades are most
+     * of it, and only skipped here.
+     */
+    private void keep(Path file, String json) {
+        Path key = file.toAbsolutePath().normalize();
+        try {
+            Kept read = new Kept();
+            JsonReader in = new JsonReader(new StringReader(json));
+            // As the read through the model was, or a file it took would be refused here.
+            in.setLenient(true);
+            in.beginObject();
+            while (in.hasNext()) {
+                String name = in.nextName();
+                if ("recipeFlips".equals(name) && in.peek() == JsonToken.BEGIN_ARRAY) {
+                    for (JsonElement raw : (JsonArray) gson.fromJson(in, JsonArray.class)) {
+                        RecipeFlip flip = raw.isJsonObject() ? gson.fromJson(raw, RecipeFlip.class) : null;
+                        if (flip != null) {
+                            read.records.put(recordKey(flip), raw);
+                        }
+                    }
+                } else if (KNOWN.contains(name)) {
+                    in.skipValue();
+                } else {
+                    read.unknown.add(name, gson.fromJson(in, JsonElement.class));
+                }
+            }
+            kept.put(key, read);
+        } catch (IOException | RuntimeException ex) {
+            // The file read fine through the model, so it stays readable; only what this build
+            // cannot represent is written back as this build sees it, as every build used to.
+            kept.remove(key);
+        }
+    }
+
+    /** A record is never changed once made, so what it names and when it was made identify it. */
+    private static String recordKey(RecipeFlip flip) {
+        return flip.recordedMs + "|" + flip.trades() + "|" + flip.voided + "|" + flip.toAccount;
     }
 
     long writeProfileData(long accountHash, long accountwideKey, String displayName, List<Delta> deltas) {
@@ -173,10 +247,44 @@ final class ProfileStore {
         }
     }
 
+    /**
+     * The document, with what the last read of this file held that this build has no field for:
+     * each record exactly as it was read, and the document's unknown members. A record made since
+     * is written by this build; one removed since is not brought back.
+     */
+    private String withKept(Path file, ProfileData data) {
+        Kept read = kept.get(file.toAbsolutePath().normalize());
+        List<RecipeFlip> flips = data.recipeFlips;
+        if (read == null) {
+            return gson.toJson(data);
+        }
+        data.recipeFlips = null;
+        String json = gson.toJson(data);
+        data.recipeFlips = flips;
+        JsonObject tail = new JsonObject();
+        if (flips != null) {
+            JsonArray array = new JsonArray();
+            for (RecipeFlip flip : flips) {
+                JsonElement raw = read.records.get(recordKey(flip));
+                array.add(raw != null ? raw : gson.toJsonTree(flip));
+            }
+            tail.add("recipeFlips", array);
+        }
+        read.unknown.entrySet().forEach(member -> tail.add(member.getKey(), member.getValue()));
+        // Written first: a member whose value is null is counted but not written, and splicing
+        // nothing on would end the document ",}", which never reads again.
+        String kept = gson.toJson(tail);
+        if (kept.length() <= 2) {
+            return json;
+        }
+        // The model always writes the account hash, so the document is never empty.
+        return json.substring(0, json.lastIndexOf('}')) + "," + kept.substring(1);
+    }
+
     private long writeDocument(Path file, ProfileData data) {
         Path temp = null;
         try {
-            String json = gson.toJson(data);
+            String json = withKept(file, data);
             // Written beside the target and moved into place, so a crash or a full disk
             // mid-write leaves the previous file intact rather than a truncated one. A
             // truncated file reads back as no history at all, which the loader would then

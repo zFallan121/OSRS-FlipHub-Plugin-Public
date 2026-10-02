@@ -51,10 +51,12 @@ final class OfferStampFallbackBuilder {
                     item.item_name = itemName;
                 }
             }
+            // At the cap the price may be anything past max cash; the card says N/A, as for wiki prices.
+            Integer price = stamp.price < Integer.MAX_VALUE ? stamp.price : null;
             if (stamp.isBuy) {
-                item.last_buy_price = stamp.price;
+                item.last_buy_price = price;
             } else {
-                item.last_sell_price = stamp.price;
+                item.last_sell_price = price;
             }
             // The same prices and the same margin every other card gets. These used to be the
             // game's single guide price written into both the buy and the sell slot, so a card

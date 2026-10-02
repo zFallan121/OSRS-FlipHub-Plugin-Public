@@ -52,7 +52,7 @@ final class TradesLoad {
         if (accountKey <= 0) {
             return;
         }
-        localTradesRuntime.ensureProfileLoaded(accountKey);
+        localTradesRuntime.ensureProfileLoaded(accountKey, true);
         localTradesRuntime.markLocalTradesLoadedForLogin();
     }
 

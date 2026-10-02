@@ -121,6 +121,7 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
         assertEquals("OFFER_COMPLETED", event.event_type);
         assertEquals(6, event.delta_qty);
         assertEquals(600L, event.delta_gp);
+        assertEquals("counted at login from the saved position: its time is approximate", "login", event.source);
 
         List<Delta> recorded = recorded();
         assertEquals(1, recorded.size());
@@ -176,6 +177,7 @@ public class GrandExchangeOfferChangedHandlerServiceTest {
         assertEquals(1, sent.size());
         assertEquals(30, sent.get(0).delta_qty);
         assertEquals(3_000L, sent.get(0).delta_gp);
+        assertEquals("seen as it happened", "live", sent.get(0).source);
     }
 
     @Test

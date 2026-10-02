@@ -25,12 +25,16 @@
 package com.osrsfliphub;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -119,6 +123,163 @@ public class ProfileStoreTest {
         } finally {
             deleteRecursively(baseDir);
         }
+    }
+
+    /**
+     * 22 Sep 2026: the Plugin Hub build, running beside a newer development build, read a file
+     * holding a recorded move it did not understand and wrote it back without it. This is the save
+     * and reload that the first fix for it never tested.
+     */
+    @Test
+    public void aRecordFromANewerVersionSurvivesASaveExactlyAsItWasWritten() throws Exception {
+        Path baseDir = Files.createTempDirectory("profile-store-newer");
+        try {
+            Gson gson = new Gson();
+            ProfileStore store = new ProfileStore(gson, "fliphub", "fliphub-dev", baseDir);
+            Path file = store.getProfileFile(123L, 0L);
+            String future = "{\"kind\":\"SOME_FUTURE_KIND\",\"name\":\"a future record\","
+                + "\"inputs\":[{\"trade\":{\"tsMs\":1000,\"slot\":1,\"itemId\":4151},\"quantity\":5,\"gp\":500,\"futurePart\":7}],"
+                + "\"feeGp\":0,\"recordedMs\":9000,\"toAccount\":456,\"futureField\":\"keep me\"}";
+            Files.writeString(file, "{\"accountHash\":123,\"displayName\":\"Zezima\",\"deltas\":["
+                + "{\"tsClientMs\":1000,\"slot\":1,\"itemId\":4151,\"isBuy\":true,\"deltaQty\":5,\"deltaGp\":500,"
+                + "\"eventType\":\"OFFER_COMPLETED\",\"price\":100,\"baselineSynthetic\":false}],"
+                + "\"updatedMs\":1,\"recipeFlips\":[" + future + "],\"futureMember\":{\"a\":1}}", StandardCharsets.UTF_8);
+
+            ProfileData read = store.readProfileData(file);
+            RecipeFlipStore records = new RecipeFlipStore();
+            records.replace(123L, read.recipeFlips);
+            store.writeProfileData(123L, 0L, read.displayName, read.deltas, records.snapshotForFile(123L));
+
+            JsonObject saved = new JsonParser().parse(Files.readString(file, StandardCharsets.UTF_8)).getAsJsonObject();
+            assertEquals(new JsonParser().parse(future), saved.getAsJsonArray("recipeFlips").get(0));
+            assertEquals(new JsonParser().parse("{\"a\":1}"), saved.get("futureMember"));
+            assertEquals(1, saved.getAsJsonArray("deltas").size());
+            assertEquals(1, store.readProfileData(file).recipeFlips.size());
+        } finally {
+            deleteRecursively(baseDir);
+        }
+    }
+
+    private static final String ONE_TRADE = "{\"tsClientMs\":1000,\"slot\":1,\"itemId\":4151,\"isBuy\":true,"
+        + "\"deltaQty\":5,\"deltaGp\":500,\"eventType\":\"OFFER_COMPLETED\",\"price\":100,\"baselineSynthetic\":false}";
+
+    /**
+     * A member this build does not know whose value is null (a repair script's, a hand edit's). It is
+     * counted among what was kept but written as nothing, and what was kept is joined on by hand: the
+     * file ended ",}", never read again, and every trade after it was lost when RuneLite closed.
+     */
+    @Test
+    public void aFileHoldingAnUnknownMemberOfNullStillReadsAfterASave() throws Exception {
+        Path baseDir = Files.createTempDirectory("profile-store-null-member");
+        try {
+            ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
+            Path file = store.getProfileFile(123L, 0L);
+            Files.writeString(file, "{\"accountHash\":123,\"displayName\":\"Zezima\",\"deltas\":[" + ONE_TRADE + "],"
+                + "\"updatedMs\":1,\"futureMember\":null}", StandardCharsets.UTF_8);
+
+            ProfileData read = store.readProfileData(file);
+            store.writeProfileData(123L, 0L, read.displayName, read.deltas, null);
+
+            ProfileData again = store.readProfileData(file);
+            assertNotNull("the file as saved: " + Files.readString(file, StandardCharsets.UTF_8), again);
+            assertEquals(1, again.deltas.size());
+        } finally {
+            deleteRecursively(baseDir);
+        }
+    }
+
+    /**
+     * The model reads a file leniently (a comment a person left in it is allowed), so the second read
+     * that holds on to what this build does not know must be as forgiving, or the save drops it.
+     */
+    @Test
+    public void aFileWithACommentInItStillKeepsWhatANewerVersionSaved() throws Exception {
+        Path baseDir = Files.createTempDirectory("profile-store-lenient");
+        try {
+            ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
+            Path file = store.getProfileFile(123L, 0L);
+            Files.writeString(file, "{\"accountHash\":123, /* edited by hand */ \"deltas\":[" + ONE_TRADE + "],"
+                + "\"updatedMs\":1,\"futureMember\":{\"a\":1}}", StandardCharsets.UTF_8);
+
+            ProfileData read = store.readProfileData(file);
+            assertNotNull(read);
+            store.writeProfileData(123L, 0L, read.displayName, read.deltas, null);
+
+            JsonObject saved = new JsonParser().parse(Files.readString(file, StandardCharsets.UTF_8)).getAsJsonObject();
+            assertEquals(new JsonParser().parse("{\"a\":1}"), saved.get("futureMember"));
+        } finally {
+            deleteRecursively(baseDir);
+        }
+    }
+
+    /** Two moves of one purchase, made in the same millisecond to two different alts, are two records. */
+    @Test
+    public void twoMovesOfOnePurchaseToTwoAltsBothSurviveASave() throws Exception {
+        Path baseDir = Files.createTempDirectory("profile-store-two-moves");
+        try {
+            ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
+            Delta bought = new Delta(1_000L, 1, 385, true, 10, 8_000L, "OFFER_COMPLETED", 800, false);
+            RecipeFlip toFirstAlt = new RecipeFlip(ConversionKind.TRANSFER, "Shark to A",
+                new ArrayList<>(List.of(new RecipeFlip.Part(TradeKey.of(bought), 4, 3_200L))), null, 0L, 5_000L, 456L, null);
+            RecipeFlip toSecondAlt = new RecipeFlip(ConversionKind.TRANSFER, "Shark to B",
+                new ArrayList<>(List.of(new RecipeFlip.Part(TradeKey.of(bought), 6, 4_800L))), null, 0L, 5_000L, 789L, null);
+            store.writeProfileData(123L, 0L, "Zezima", new ArrayList<>(List.of(bought)), List.of(toFirstAlt, toSecondAlt));
+            ProfileData read = store.readProfileData(store.getProfileFile(123L, 0L));
+
+            store.writeProfileData(123L, 0L, "Zezima", read.deltas, read.recipeFlips);
+
+            Set<Long> alts = new HashSet<>();
+            for (RecipeFlip flip : store.readProfileData(store.getProfileFile(123L, 0L)).recipeFlips) {
+                alts.add(flip.toAccount);
+            }
+            assertEquals(Set.of(456L, 789L), alts);
+        } finally {
+            deleteRecursively(baseDir);
+        }
+    }
+
+    @Test
+    public void aRecordMadeSinceIsWrittenByThisBuildAndOneForgottenIsNotBroughtBack() throws Exception {
+        Path baseDir = Files.createTempDirectory("profile-store-records");
+        try {
+            ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
+            Delta bought = new Delta(1_000L, 1, 385, true, 10, 8_000L, "OFFER_COMPLETED", 800, false);
+            RecipeFlip kept = move(bought, 1_000L);
+            RecipeFlip forgotten = move(bought, 2_000L);
+            List<Delta> deltas = new ArrayList<>(List.of(bought));
+            store.writeProfileData(123L, 0L, "Zezima", deltas, List.of(kept, forgotten));
+            ProfileData read = store.readProfileData(store.getProfileFile(123L, 0L));
+
+            RecipeFlip made = move(bought, 3_000L);
+            store.writeProfileData(123L, 0L, "Zezima", read.deltas, List.of(read.recipeFlips.get(0), made));
+
+            List<RecipeFlip> now = store.readProfileData(store.getProfileFile(123L, 0L)).recipeFlips;
+            assertEquals(2, now.size());
+            assertEquals(1_000L, now.get(0).recordedMs);
+            assertEquals(3_000L, now.get(1).recordedMs);
+        } finally {
+            deleteRecursively(baseDir);
+        }
+    }
+
+    /** A member the model has but this list lacks would be written twice. */
+    @Test
+    public void theKnownMembersAreExactlyTheModelsFields() {
+        java.util.Set<String> fields = new java.util.HashSet<>();
+        for (java.lang.reflect.Field field : ProfileData.class.getDeclaredFields()) {
+            int modifiers = field.getModifiers();
+            if (!java.lang.reflect.Modifier.isStatic(modifiers) && !java.lang.reflect.Modifier.isTransient(modifiers)
+                && !field.isSynthetic()) {
+                fields.add(field.getName());
+            }
+        }
+        assertEquals(fields, ProfileStore.KNOWN);
+    }
+
+    private static RecipeFlip move(Delta purchase, long recordedMs) {
+        return new RecipeFlip(ConversionKind.TRANSFER, "Shark to Alt",
+            new ArrayList<>(List.of(new RecipeFlip.Part(TradeKey.of(purchase), purchase.deltaQty, purchase.deltaGp))),
+            null, 0L, recordedMs, 456L, null);
     }
 
     private static void deleteRecursively(Path root) throws IOException {

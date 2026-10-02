@@ -207,11 +207,21 @@ final class LocalTradesRuntime {
     }
 
     void ensureProfileLoaded(long accountKey) {
+        ensureProfileLoaded(accountKey, accountKey == Const.ACCOUNTWIDE_KEY);
+    }
+
+    /**
+     * @param persist whether to write the file back after reading it: only for the character this
+     *        client is logged in as, and the accountwide pool. Another character's file may be being
+     *        written by the client that character is logged into, and writing back what was read here
+     *        would erase whatever that client added in between.
+     */
+    void ensureProfileLoaded(long accountKey, boolean persist) {
         Set<Long> loaded = state.getLoadedProfiles();
         if (accountKey < 0 || loaded.contains(accountKey)) {
             return;
         }
-        loadLocalTradesForAccount(accountKey, true);
+        loadLocalTradesForAccount(accountKey, persist);
         loaded.add(accountKey);
         ProfileUi ui = profileUi.get();
         ui.updateProfileOptionsUi();

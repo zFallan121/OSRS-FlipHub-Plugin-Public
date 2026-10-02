@@ -109,8 +109,14 @@ final class BackfillUploader {
         event.is_buy = delta.isBuy;
         int qty = Math.max(0, delta.deltaQty);
         long deltaGp = Math.max(0L, delta.deltaGp);
-        int fallbackPrice = qty > 0 ? (int) Math.max(1L, deltaGp / Math.max(1, qty)) : 1;
-        event.price = delta.price > 0 ? delta.price : fallbackPrice;
+        // A long: since the Grand Exchange allows prices past max cash, a unit price can outgrow an int.
+        long fallbackPrice = qty > 0 ? Math.max(1L, deltaGp / Math.max(1, qty)) : 1L;
+        // A stored price at the cap was cut down to fit (TradeDeltaRecorder); the coins say what it was,
+        // a sale's after tax.
+        if (delta.price == Integer.MAX_VALUE && !delta.isBuy) {
+            fallbackPrice += GeTax.perItem(delta.itemId, fallbackPrice);
+        }
+        event.price = delta.price > 0 && delta.price < Integer.MAX_VALUE ? delta.price : fallbackPrice;
         event.total_qty = qty;
         event.filled_qty = qty;
         event.spent_gp = deltaGp;
@@ -125,6 +131,7 @@ final class BackfillUploader {
         event.world = world;
         event.schema_version = 1;
         event.character_id = GeEvent.characterId(profileKey);
+        event.source = delta.slot >= Const.GE_HISTORY_SYNTHETIC_SLOT_START ? "import" : null;
         return event;
     }
 

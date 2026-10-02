@@ -34,7 +34,7 @@ public class GeEvent {
     public int slot;
     public int item_id;
     public boolean is_buy;
-    public int price;
+    public long price;
     public int total_qty;
     public int filled_qty;
     public long spent_gp;
@@ -51,6 +51,12 @@ public class GeEvent {
      * 12,306 and sold at 12,544 were booked against a different character's 20,055 as a 1.37m loss.
      */
     public String character_id;
+    /**
+     * How the trade was seen: "live" as it happened, "login" counted at login from a saved slot
+     * position (time approximate), "import" from the game's trade history (time approximate).
+     * Null when not known, as for stored trades sent later.
+     */
+    public String source;
     /**
      * Set only on the parts of a recorded recipe ({@link RecipeUpload}), which ride the trade upload but
      * are not trades. Null on a trade, and Gson leaves a null out, so a trade is sent exactly as before.

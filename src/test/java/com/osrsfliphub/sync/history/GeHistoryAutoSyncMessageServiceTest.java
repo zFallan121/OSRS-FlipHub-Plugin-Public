@@ -34,11 +34,11 @@ public class GeHistoryAutoSyncMessageServiceTest {
         AutoSyncMessage service = new AutoSyncMessage();
 
         assertEquals(
-            "FlipHub GE history sync: wipe baseline set (3 trades).",
+            "FlipHub GE history sync: started afresh after a wipe, so the 3 trades in your history were not imported.",
             service.baselineSetMessage(3)
         );
         assertEquals(
-            "FlipHub GE history sync: wipe baseline set (0 trades).",
+            "FlipHub GE history sync: started afresh after a wipe, so the 0 trades in your history were not imported.",
             service.baselineSetMessage(-1)
         );
     }
@@ -76,11 +76,13 @@ public class GeHistoryAutoSyncMessageServiceTest {
         AutoSyncMessage service = new AutoSyncMessage();
 
         assertEquals(
-            "FlipHub GE history sync: stored cursor was from an older version, baseline reset (42 trades, nothing imported).",
+            "FlipHub GE history sync: started afresh after an update, so the 42 trades in your history were not imported."
+                + " Any made outside RuneLite are missing.",
             service.cursorFormatResetMessage(42)
         );
         assertEquals(
-            "FlipHub GE history sync: stored cursor was from an older version, baseline reset (0 trades, nothing imported).",
+            "FlipHub GE history sync: started afresh after an update, so the 0 trades in your history were not imported."
+                + " Any made outside RuneLite are missing.",
             service.cursorFormatResetMessage(-3)
         );
     }

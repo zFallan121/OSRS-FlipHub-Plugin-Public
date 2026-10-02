@@ -330,6 +330,8 @@ Jagex credentials are requested, read, or transmitted.
   another of your accounts (which purchases, how many, and that account's fixed code), so the
   dashboard counts them where they were sold. Each event carries a fixed code for the
   character that made the trade, so one character's sale is never matched with another's purchase.
+  Each also says how the plugin saw the trade: as it happened, counted when you logged in, or
+  picked up from the GE History tab.
   The code is not your character's name, but it is worked out from your account's ID or, failing
   that, from the name, so someone who already knew the name could match the two. As with any
   request to a third-party server, this exposes your IP address to it.

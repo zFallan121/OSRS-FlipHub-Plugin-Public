@@ -181,6 +181,7 @@ final class OfferEventBuild {
         geEvent.world = input.world;
         geEvent.delta_qty = deltaQty;
         geEvent.delta_gp = deltaGp;
+        geEvent.source = usedBaseline ? "login" : "live";
         boolean shouldScheduleRefresh = geEvent.delta_qty > 0 || "OFFER_COMPLETED".equals(eventType);
         return Result.accepted(geEvent, false, nextIsEmpty, shouldScheduleRefresh);
     }

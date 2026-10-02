@@ -96,7 +96,8 @@ final class TradeDeltaRecorder {
             event.delta_qty,
             event.delta_gp,
             type,
-            event.price,
+            // The stored trade keeps an int display price; its coins are exact in deltaGp.
+            (int) Math.min(event.price, Integer.MAX_VALUE),
             baselineSynthetic,
             Math.max(0L, offerStartMs),
             0L

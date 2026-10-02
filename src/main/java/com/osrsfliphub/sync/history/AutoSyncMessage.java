@@ -32,7 +32,8 @@ final class AutoSyncMessage {
 
     String baselineSetMessage(int cursorSize) {
         int safeCursorSize = Math.max(0, cursorSize);
-        return "FlipHub GE history sync: wipe baseline set (" + safeCursorSize + " trades).";
+        return "FlipHub GE history sync: started afresh after a wipe, so the " + safeCursorSize
+            + " trades in your history were not imported.";
     }
 
     String baselineMismatchMessage() {
@@ -55,8 +56,8 @@ final class AutoSyncMessage {
 
     String cursorFormatResetMessage(int cursorSize) {
         int safeCursorSize = Math.max(0, cursorSize);
-        return "FlipHub GE history sync: stored cursor was from an older version, baseline reset ("
-            + safeCursorSize + " trades, nothing imported).";
+        return "FlipHub GE history sync: started afresh after an update, so the " + safeCursorSize
+            + " trades in your history were not imported. Any made outside RuneLite are missing.";
     }
 
     String syncResultMessage(int addedTrades) {

@@ -54,7 +54,7 @@ final class OfferUpdateStampRuleEvaluator {
         if (snapshot.price <= 0 || snapshot.totalQty <= 0) {
             return true;
         }
-        if (!isMetadataCompatible(stamp, snapshot.price, snapshot.totalQty)) {
+        if (!isMetadataCompatible(stamp, snapshot.stampPrice(), snapshot.totalQty)) {
             return false;
         }
         boolean candidateHasProgress = snapshot.filledQty > 0 || snapshot.spentGp > 0;
@@ -70,7 +70,7 @@ final class OfferUpdateStampRuleEvaluator {
             return false;
         }
         boolean metadataIncomplete = next.price <= 0 || next.totalQty <= 0;
-        if (!metadataIncomplete && !isMetadataCompatible(stamp, next.price, next.totalQty)) {
+        if (!metadataIncomplete && !isMetadataCompatible(stamp, next.stampPrice(), next.totalQty)) {
             return false;
         }
         return stamp.isBuy == next.isBuy;
@@ -80,7 +80,7 @@ final class OfferUpdateStampRuleEvaluator {
         if (stamp.itemId != snapshot.itemId || stamp.isBuy != snapshot.isBuy) {
             return false;
         }
-        if (snapshot.price > 0 && stamp.price > 0 && stamp.price != snapshot.price) {
+        if (snapshot.price > 0 && stamp.price > 0 && stamp.price != snapshot.stampPrice()) {
             return false;
         }
         // A different quantity is the same offer only if something has filled against it.
@@ -97,8 +97,8 @@ final class OfferUpdateStampRuleEvaluator {
             stamp.itemId = snapshot.itemId;
             changed = true;
         }
-        if (snapshot.price > 0 && stamp.price != snapshot.price) {
-            stamp.price = snapshot.price;
+        if (snapshot.price > 0 && stamp.price != snapshot.stampPrice()) {
+            stamp.price = snapshot.stampPrice();
             changed = true;
         }
         if (snapshot.totalQty > 0 && stamp.totalQty != snapshot.totalQty) {
@@ -136,7 +136,7 @@ final class OfferUpdateStampRuleEvaluator {
             return false;
         }
         boolean metadataIncomplete = snapshot.price <= 0 || snapshot.totalQty <= 0;
-        if (!metadataIncomplete && !isMetadataCompatible(stamp, snapshot.price, snapshot.totalQty)) {
+        if (!metadataIncomplete && !isMetadataCompatible(stamp, snapshot.stampPrice(), snapshot.totalQty)) {
             return false;
         }
         if (!hasProgress(stamp)) {

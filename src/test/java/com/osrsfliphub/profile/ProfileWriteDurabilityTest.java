@@ -59,6 +59,7 @@ import static org.junit.Assert.fail;
 public class ProfileWriteDurabilityTest {
     private static final long ACCOUNT = 123L;
     private static final long ACCOUNTWIDE = 0L;
+    private static final long OTHER = 456L;
 
     /**
      * Four threads writing the same profile at once. Whatever order they land in, the file has
@@ -133,26 +134,7 @@ public class ProfileWriteDurabilityTest {
             ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
             PluginState state = new PluginState();
             RecipeFlipStore recipes = new RecipeFlipStore();
-            Bridge.set(Guice.createInjector(binder -> {
-                binder.bind(ProfileStore.class).toInstance(store);
-                binder.bind(PluginState.class).toInstance(state);
-                binder.bind(Gson.class).toInstance(new Gson());
-                binder.bind(RecipeFlipStore.class).toInstance(recipes);
-                binder.bind(net.runelite.api.Client.class).toInstance((net.runelite.api.Client) java.lang.reflect.Proxy
-                    .newProxyInstance(getClass().getClassLoader(), new Class<?>[] {net.runelite.api.Client.class},
-                        (proxy, method, args) -> method.getReturnType() == boolean.class ? false : null));
-                binder.bind(net.runelite.client.game.ItemManager.class)
-                    .toInstance(unbuilt(net.runelite.client.game.ItemManager.class));
-                binder.bind(net.runelite.client.callback.ClientThread.class).toInstance(queueOnly());
-                binder.bind(net.runelite.client.config.ConfigManager.class)
-                    .toInstance(unbuilt(net.runelite.client.config.ConfigManager.class));
-                binder.bind(okhttp3.OkHttpClient.class).toInstance(new okhttp3.OkHttpClient());
-                binder.bind(WipeStateStore.class).toProvider(com.google.inject.util.Providers.of(null));
-                // Not linked, so a file that reads again sends nothing anywhere.
-                binder.bind(PluginConfig.class).toInstance((PluginConfig) java.lang.reflect.Proxy.newProxyInstance(
-                    getClass().getClassLoader(), new Class<?>[] {PluginConfig.class},
-                    (proxy, method, args) -> method.getReturnType() == boolean.class ? false : null));
-            }));
+            bindTheGame(store, state, recipes);
             Path file = store.getProfileFile(ACCOUNT, ACCOUNTWIDE);
             Files.createDirectories(file.getParent());
             String broken = "{\"deltas\":[{\"itemId\"";
@@ -184,6 +166,73 @@ public class ProfileWriteDurabilityTest {
             Bridge.set(null);
             deleteRecursively(baseDir);
         }
+    }
+
+    /**
+     * Stats for another character read its file; only the client logged in as that character writes it.
+     * Writing back what was read here would erase a trade that client saved in between (audit 7, 30 Sep 2026).
+     */
+    @Test
+    public void anotherCharactersFileIsReadForStatsButOnlyItsOwnClientWritesIt() throws Exception {
+        Path baseDir = Files.createTempDirectory("profile-store-other-character");
+        try {
+            ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
+            PluginState state = new PluginState();
+            RecipeFlipStore recipes = new RecipeFlipStore();
+            bindTheGame(store, state, recipes);
+            Access.set(new GeLifecyclePlugin());
+            ProfileTradesLoad[] load = new ProfileTradesLoad[1];
+            LocalTradesRuntime runtime = new LocalTradesRuntime(state, () -> null, () -> load[0],
+                () -> new ProfileStorage(state), () -> null, () -> null, () -> null, () -> unbuilt(ProfileUi.class));
+            load[0] = new ProfileTradesLoad(state, new Gson(), Bridge.get(ProfileTradesLoader.class), recipes,
+                Bridge.get(LocalStatsCacheService.class), Bridge.get(ItemLookup.class), runtime);
+            String asWritten = "{\"accountHash\": %d, \"deltas\": [{\"tsClientMs\":1000,\"slot\":1,\"itemId\":4151,"
+                + "\"isBuy\":true,\"deltaQty\":5,\"deltaGp\":500,\"eventType\":\"OFFER_COMPLETED\",\"price\":100}]}";
+            Path other = store.getProfileFile(OTHER, ACCOUNTWIDE);
+            Path own = store.getProfileFile(ACCOUNT, ACCOUNTWIDE);
+            Files.createDirectories(other.getParent());
+            Files.writeString(other, String.format(asWritten, OTHER), java.nio.charset.StandardCharsets.UTF_8);
+            Files.writeString(own, String.format(asWritten, ACCOUNT), java.nio.charset.StandardCharsets.UTF_8);
+
+            runtime.ensureProfileLoaded(OTHER);
+            new TradesLoad(null, runtime).ensureLocalTradesLoaded(ACCOUNT);
+
+            assertEquals(1, state.getLocalTradeDeltasByAccount().get(OTHER).size());
+            assertEquals("read, never written", String.format(asWritten, OTHER),
+                Files.readString(other, java.nio.charset.StandardCharsets.UTF_8));
+            assertFalse("the logged-in character's file is saved as before",
+                String.format(asWritten, ACCOUNT).equals(Files.readString(own, java.nio.charset.StandardCharsets.UTF_8)));
+            assertEquals(1, store.readProfileData(ACCOUNT, ACCOUNTWIDE).deltas.size());
+        } finally {
+            Access.set(null);
+            Bridge.set(null);
+            deleteRecursively(baseDir);
+        }
+    }
+
+    /** The game's services, faked just far enough to load a profile file. */
+    private static void bindTheGame(ProfileStore store, PluginState state, RecipeFlipStore recipes) {
+        ClassLoader loader = ProfileWriteDurabilityTest.class.getClassLoader();
+        Bridge.set(Guice.createInjector(binder -> {
+            binder.bind(ProfileStore.class).toInstance(store);
+            binder.bind(PluginState.class).toInstance(state);
+            binder.bind(Gson.class).toInstance(new Gson());
+            binder.bind(RecipeFlipStore.class).toInstance(recipes);
+            binder.bind(net.runelite.api.Client.class).toInstance((net.runelite.api.Client) java.lang.reflect.Proxy
+                .newProxyInstance(loader, new Class<?>[] {net.runelite.api.Client.class},
+                    (proxy, method, args) -> method.getReturnType() == boolean.class ? false : null));
+            binder.bind(net.runelite.client.game.ItemManager.class)
+                .toInstance(unbuilt(net.runelite.client.game.ItemManager.class));
+            binder.bind(net.runelite.client.callback.ClientThread.class).toInstance(queueOnly());
+            binder.bind(net.runelite.client.config.ConfigManager.class)
+                .toInstance(unbuilt(net.runelite.client.config.ConfigManager.class));
+            binder.bind(okhttp3.OkHttpClient.class).toInstance(new okhttp3.OkHttpClient());
+            binder.bind(WipeStateStore.class).toProvider(com.google.inject.util.Providers.of(null));
+            // Not linked, so a file that reads again sends nothing anywhere.
+            binder.bind(PluginConfig.class).toInstance((PluginConfig) java.lang.reflect.Proxy.newProxyInstance(
+                loader, new Class<?>[] {PluginConfig.class},
+                (proxy, method, args) -> method.getReturnType() == boolean.class ? false : null));
+        }));
     }
 
     /** A client thread that only queues what it is handed: nothing here needs it to run. */

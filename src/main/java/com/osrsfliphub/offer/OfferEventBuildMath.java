@@ -112,7 +112,7 @@ final class OfferEventBuildMath {
         return deltaGp;
     }
 
-    private long normalizeSellDeltaGp(int itemId, long deltaGp, int deltaQty, int listedPrice) {
+    private long normalizeSellDeltaGp(int itemId, long deltaGp, int deltaQty, long listedPrice) {
         long observedTotal = Math.max(0L, deltaGp);
         if (deltaQty <= 0 || observedTotal <= 0L) {
             return 0L;

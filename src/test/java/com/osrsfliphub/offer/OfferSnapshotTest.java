@@ -44,14 +44,32 @@ public class OfferSnapshotTest {
     }
 
     @Test
-    public void aPriceBeyondAnIntIsHeldAtMaxCashRatherThanWrappingNegative() {
+    public void aPricePastMaxCashIsKeptWhole() {
         OfferSnapshot snap = OfferSnapshot.fromOffer(0,
             offer(3_000_000_000L, 1, 0, 0L), null);
 
-        assertEquals(Integer.MAX_VALUE, snap.price);
+        assertEquals(3_000_000_000L, snap.price);
+    }
+
+    /** 30 Sep 2026: a 3rd age axe sold at 8.351b. Tax is capped at 5m an item, whichever total the game shows. */
+    @Test
+    public void aSalePastMaxCashNetsTheCappedTaxWhetherTheGameShowsGrossOrNet() {
+        OfferSnapshot listed = OfferSnapshot.fromOffer(0,
+            offer(8_351_000_000L, 1, 0, 0L, GrandExchangeOfferState.SELLING), null);
+        for (long shown : new long[] {8_351_000_000L, 8_346_000_000L}) {
+            OfferSnapshot sold = OfferSnapshot.fromOffer(0,
+                offer(8_351_000_000L, 1, 1, shown, GrandExchangeOfferState.SOLD), listed);
+
+            assertEquals(8_346_000_000L, new OfferEventBuildMath().computeDeltaGp(sold, listed, 1));
+        }
     }
 
     private static GrandExchangeOffer offer(long price, int totalQty, int filledQty, long spent) {
+        return offer(price, totalQty, filledQty, spent, GrandExchangeOfferState.BUYING);
+    }
+
+    private static GrandExchangeOffer offer(long price, int totalQty, int filledQty, long spent,
+                                            GrandExchangeOfferState state) {
         return (GrandExchangeOffer) Proxy.newProxyInstance(
             GrandExchangeOffer.class.getClassLoader(),
             new Class<?>[] {GrandExchangeOffer.class},
@@ -68,7 +86,7 @@ public class OfferSnapshotTest {
                     case "getSpent":
                         return spent;
                     case "getState":
-                        return GrandExchangeOfferState.BUYING;
+                        return state;
                     default:
                         return null;
                 }

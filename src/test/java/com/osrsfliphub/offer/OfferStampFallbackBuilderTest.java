@@ -59,6 +59,20 @@ public class OfferStampFallbackBuilderTest {
         assertNull(item.last_buy_price);
     }
 
+    /**
+     * Past max cash there is no int to show, and a wrapped one would read as a negative price. The
+     * saved position holds such a price at the cap, so the cap is what says "not available".
+     */
+    @Test
+    public void aPricePastMaxCashShowsAsNotAvailable() {
+        Stamp axe = Stamp.fromSnapshot(new OfferSnapshot(3, 12426, 8_351_000_000L, 1, 0, 0L, "SELLING", false), 1_000L);
+
+        List<FlipHubItem> items = new OfferStampFallbackBuilder().buildItems(List.of(axe));
+
+        assertEquals(Integer.MAX_VALUE, axe.price);
+        assertNull(items.get(0).last_sell_price);
+    }
+
     private static Stamp stamp(int itemId, int price, boolean isBuy) {
         Stamp stamp = new Stamp();
         stamp.itemId = itemId;

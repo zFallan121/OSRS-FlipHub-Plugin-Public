@@ -26,6 +26,7 @@ package com.osrsfliphub;
 
 import java.util.*;
 import javax.inject.*;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * The conversions each account has recorded, held in memory and written into that account's
@@ -36,6 +37,7 @@ import javax.inject.*;
  * it replays every account's trades.</p>
  */
 @Singleton
+@Slf4j
 final class RecipeFlipStore {
     private final long accountwideKey = Const.ACCOUNTWIDE_KEY;
     private final Map<Long, List<RecipeFlip>> byAccount = new HashMap<>();
@@ -149,11 +151,14 @@ final class RecipeFlipStore {
     /**
      * Take what a profile file held. Kept whole, though only what makes sense is used: a record of a
      * kind this build does not know - written by a newer one - used to be dropped here, and the file
-     * then written back without it.
+     * then written back without it. ProfileStore now also writes such a record back exactly as it was
+     * read, kind and unknown fields included.
      *
      * @return whether a move is among what was held before or what is held now. A move changes
      *         another account's totals, so whoever loaded this has every account's to drop.
      */
+    private boolean warnedNewer;
+
     synchronized boolean replace(long accountKey, List<RecipeFlip> flips) {
         List<RecipeFlip> kept = new ArrayList<>();
         boolean moves = false;
@@ -165,6 +170,11 @@ final class RecipeFlipStore {
                 if (flip != null) {
                     kept.add(flip);
                     moves |= flip.toAccount != null;
+                    if (flip.voided == null && !flip.isUsable() && !warnedNewer) {
+                        warnedNewer = true;
+                        log.warn("FlipHub: a record written by a newer version of the plugin is kept but not used."
+                            + " Update FlipHub in every RuneLite window.");
+                    }
                 }
             }
         }

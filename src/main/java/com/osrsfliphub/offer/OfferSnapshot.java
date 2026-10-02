@@ -31,12 +31,22 @@ import net.runelite.api.*;
 public class OfferSnapshot {
     public final int slot;
     public final int itemId;
-    public final int price;
+    public final long price;
     public final int totalQty;
     public final int filledQty;
     public final long spentGp;
     public final String state;
     public final boolean isBuy;
+
+    /**
+     * The price as a saved slot position holds it: capped at max cash. The position is saved in
+     * RuneLite's config, which an older build on the same PC reads as an int; one price it could
+     * not read cost it all eight positions. It only tells one offer from another, so the cap loses
+     * nothing: the price is uploaded whole from {@link #price}.
+     */
+    int stampPrice() {
+        return (int) Math.min(price, Integer.MAX_VALUE);
+    }
 
     public static OfferSnapshot fromOffer(int slot, GrandExchangeOffer offer, OfferSnapshot prev) {
         GrandExchangeOfferState offerState = offer.getState();
@@ -59,14 +69,13 @@ public class OfferSnapshot {
             isBuy = prev.isBuy;
         }
 
-        // RuneLite 1.13 reports the price as a long, for the GE going past max cash. An item
-        // priced above 2,147,483,647 (the 3rd age axe traded at 8.351b on 30 Sep 2026) is held
-        // at that until the stamps, events and website carry a long. The total spent is
-        // already a long in spentGp.
+        // RuneLite 1.13 reports the price as a long: since 30 Sep 2026 one item can trade past max
+        // cash (the 3rd age axe at 8.351b). Kept whole here and in the uploaded event; the stored
+        // trade's display price and the saved slot position hold it capped (stampPrice).
         return new OfferSnapshot(
             slot,
             offer.getItemId(),
-            (int) Math.min(offer.getPrice(), Integer.MAX_VALUE),
+            offer.getPrice(),
             offer.getTotalQuantity(),
             offer.getQuantitySold(),
             offer.getSpent(),
