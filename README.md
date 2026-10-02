@@ -259,8 +259,10 @@ Linking ticks **Sync flips to my FlipHub account** in the plugin's settings for 
 pause uploads without unlinking.
 
 The trades already on this computer go up too, for each of your characters, so the dashboard
-starts complete. While you are linked the name above the tabs is green; hover it to see how
-uploads are going.
+starts complete, and each one is sent again until the website confirms it has it: a trade whose
+upload failed is not left behind. While any are still waiting, the Profile tab says how many in a
+**Not yet on website** row. While you are linked the name above the tabs is green; hover it to
+see how uploads are going.
 
 <img src="docs/setting-sync.png" width="232" alt="The FlipHub account section of the settings, with Sync flips to my FlipHub account ticked">
 
@@ -321,9 +323,12 @@ Jagex credentials are requested, read, or transmitted.
   read-only price lookups to `prices.runescape.wiki`.
 - **With sync enabled and linked** — Your Grand Exchange offer events (item, quantity, price, offer
   state, timestamps, and the world you traded on) are uploaded over HTTPS to `fliphubosrs.com` to
-  power your dashboard. That includes the trades already stored on this computer for any of your
-  characters (up to 16) the website does not have yet, and trades picked up from the GE History
-  tab. Linking also sends a random device ID the plugin makes up and the plugin's version, and
+  power your dashboard. The same trades are also sent as one summary per finished offer (the same
+  details, with when the offer began and when it ended), for every one of your characters with
+  trades stored on this computer, trades picked up from the GE History tab included. A summary is
+  sent again until the website confirms it has that trade. What is read back is the website's
+  answer to each upload: how many events it took, and which of those summaries it now holds.
+  Linking also sends a random device ID the plugin makes up and the plugin's version, and
   while you stay linked a summary of your account-wide totals per item is sent from time to time.
   Also sent: any recipes you record (which of those trades went into which, and the fee you entered), so
   the dashboard stops showing the parts as still held, and any purchases you record as moved to
@@ -331,7 +336,7 @@ Jagex credentials are requested, read, or transmitted.
   dashboard counts them where they were sold. Each event carries a fixed code for the
   character that made the trade, so one character's sale is never matched with another's purchase.
   Each also says how the plugin saw the trade: as it happened, counted when you logged in, or
-  picked up from the GE History tab.
+  sent later as the summary of a finished offer.
   The code is not your character's name, but it is worked out from your account's ID or, failing
   that, from the name, so someone who already knew the name could match the two. As with any
   request to a third-party server, this exposes your IP address to it.
