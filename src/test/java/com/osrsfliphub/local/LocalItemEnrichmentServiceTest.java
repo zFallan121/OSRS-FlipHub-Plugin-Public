@@ -108,6 +108,16 @@ public class LocalItemEnrichmentServiceTest {
         assertEquals(2.9741d, item.roi_percent, 0.0001d);
     }
 
+    /** The axe bought far under its price: a margin that is itself past max cash. */
+    @Test
+    public void aMarginPastMaxCashIsShownWhole() {
+        FlipHubItem item = itemPriced(20014, 2_000_000_000L, 9_199_000_000L);
+
+        new ItemEnrichment().applyMarginInfo(item);
+
+        assertEquals(Long.valueOf(7_194_000_000L), item.margin);
+    }
+
     /** With only one live price, the other side is the player's own last trade, in full. */
     @Test
     public void marginOnAnItemPastMaxCashCanUseTheLastPurchase() {

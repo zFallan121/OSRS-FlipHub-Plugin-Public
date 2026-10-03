@@ -267,7 +267,9 @@ final class RecipeFlipLedger {
     }
 
     private static Delta gift(TradeKey trade, int qty, long gp) {
-        return new Delta(trade.tsMs, trade.slot, trade.itemId, true, qty, gp, "OFFER_COMPLETED", (int) (gp / qty), false);
+        return new Delta(trade.tsMs, trade.slot, trade.itemId, true, qty, gp, "OFFER_COMPLETED",
+            // Capped, as a stored purchase is: cut to 32 bits, 2,394,000,000 came out negative.
+            (int) Math.min(gp / qty, Integer.MAX_VALUE), false);
     }
 
     private static boolean canApply(RecipeFlip flip, Map<TradeKey, Delta> byKey,

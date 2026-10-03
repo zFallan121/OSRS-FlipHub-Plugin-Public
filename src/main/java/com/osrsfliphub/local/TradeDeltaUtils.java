@@ -271,7 +271,11 @@ final class TradeDeltaUtils {
     }
 
     private static Delta normalizeSellDeltaIfGross(Delta delta) {
-        if (delta == null || delta.isBuy || delta.deltaQty <= 0 || delta.price <= 0) {
+        // Since one item could pass max cash (30 Sep 2026, 12:30 UTC) a price at the cap is not
+        // the price, and coins equal to it are no sign of a sale stored before tax: sold at
+        // 2,152,483,647, they are what was left after it, and would be taxed a second time.
+        if (delta == null || delta.isBuy || delta.deltaQty <= 0 || delta.price <= 0
+            || delta.price == Integer.MAX_VALUE && delta.tsClientMs >= 1_790_771_400_000L) {
             return delta;
         }
         long grossFromPrice = (long) delta.price * (long) delta.deltaQty;

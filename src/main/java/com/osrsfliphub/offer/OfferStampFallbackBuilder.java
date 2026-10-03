@@ -33,13 +33,15 @@ final class OfferStampFallbackBuilder {
     OfferStampFallbackBuilder() {
     }
 
-    List<FlipHubItem> buildItems(Iterable<Stamp> stamps) {
+    /** @param offers the offers in the slots now, by slot, as last read from the game */
+    List<FlipHubItem> buildItems(Map<Integer, Stamp> stamps, Map<Integer, OfferSnapshot> offers) {
         List<FlipHubItem> items = new ArrayList<>();
         if (stamps == null) {
             return items;
         }
         ItemLookup lookup = Bridge.get(ItemLookup.class);
-        for (Stamp stamp : stamps) {
+        for (Map.Entry<Integer, Stamp> slot : stamps.entrySet()) {
+            Stamp stamp = slot.getValue();
             if (stamp == null || stamp.itemId <= 0) {
                 continue;
             }
@@ -51,9 +53,16 @@ final class OfferStampFallbackBuilder {
                     item.item_name = itemName;
                 }
             }
-            // At the cap the price may be anything past max cash, and a saved slot position holds
-            // no more than that: the card says N/A until a trade is stored to tell it by.
-            Long price = stamp.price < Integer.MAX_VALUE ? (long) stamp.price : null;
+            // A saved slot position holds its price up to max cash and no further. Past that
+            // the offer still in the slot says it; before the game has been asked, nothing does,
+            // and the card says N/A.
+            Long price = null;
+            OfferSnapshot offer = offers.get(slot.getKey());
+            if (stamp.price < Integer.MAX_VALUE) {
+                price = (long) stamp.price;
+            } else if (offer != null && offer.itemId == stamp.itemId) {
+                price = offer.price;
+            }
             if (stamp.isBuy) {
                 item.last_buy_price = price;
             } else {

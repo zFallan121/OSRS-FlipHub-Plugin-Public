@@ -27,6 +27,7 @@ package com.osrsfliphub;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -40,7 +41,7 @@ public class OfferStampFallbackBuilderTest {
         Stamp invalid = new Stamp();
         invalid.itemId = 0;
 
-        List<FlipHubItem> items = builder.buildItems(Collections.singletonList(invalid));
+        List<FlipHubItem> items = builder.buildItems(Map.of(0, invalid), Map.of());
 
         assertTrue(items.isEmpty());
     }
@@ -50,7 +51,7 @@ public class OfferStampFallbackBuilderTest {
         OfferStampFallbackBuilder builder = new OfferStampFallbackBuilder();
         Stamp sell = stamp(11286, 5_100_000, false);
 
-        List<FlipHubItem> items = builder.buildItems(Arrays.asList(sell));
+        List<FlipHubItem> items = builder.buildItems(Map.of(0, sell), Map.of());
 
         assertEquals(1, items.size());
         FlipHubItem item = items.get(0);
@@ -60,17 +61,47 @@ public class OfferStampFallbackBuilderTest {
     }
 
     /**
-     * Past max cash there is no int to show, and a wrapped one would read as a negative price. The
-     * saved position holds such a price at the cap, so the cap is what says "not available".
+     * An axe on sale at 8,351,000,000 and nothing traded yet. The saved slot position holds the
+     * price at the cap; the offer still in the slot holds it whole, and the card shows that.
      */
     @Test
-    public void aPricePastMaxCashShowsAsNotAvailable() {
-        Stamp axe = Stamp.fromSnapshot(new OfferSnapshot(3, 12426, 8_351_000_000L, 1, 0, 0L, "SELLING", false), 1_000L);
+    public void anOpenOfferPastMaxCashShowsItsRealPrice() {
+        OfferSnapshot offer = new OfferSnapshot(3, 12426, 8_351_000_000L, 1, 0, 0L, "SELLING", false);
+        Stamp axe = Stamp.fromSnapshot(offer, 1_000L);
 
-        List<FlipHubItem> items = new OfferStampFallbackBuilder().buildItems(List.of(axe));
+        List<FlipHubItem> items = new OfferStampFallbackBuilder().buildItems(Map.of(3, axe), Map.of(3, offer));
 
         assertEquals(Integer.MAX_VALUE, axe.price);
-        assertNull(items.get(0).last_sell_price);
+        assertEquals(Long.valueOf(8_351_000_000L), items.get(0).last_sell_price);
+        assertNull(items.get(0).last_buy_price);
+    }
+
+    /**
+     * Before the game has reported the slot - straight after a start - only the capped position
+     * is known, and the cap is no price: the card says N/A. So does a slot that now holds another
+     * item, or a position in another slot.
+     */
+    @Test
+    public void aPricePastMaxCashShowsAsNotAvailableUntilTheOfferIsRead() {
+        OfferSnapshot offer = new OfferSnapshot(3, 12426, 8_351_000_000L, 1, 0, 0L, "SELLING", false);
+        Stamp axe = Stamp.fromSnapshot(offer, 1_000L);
+        OfferSnapshot another = new OfferSnapshot(3, 20011, 2_394_000_000L, 1, 0, 0L, "SELLING", false);
+        OfferStampFallbackBuilder builder = new OfferStampFallbackBuilder();
+
+        assertNull(builder.buildItems(Map.of(3, axe), Map.of()).get(0).last_sell_price);
+        assertNull(builder.buildItems(Map.of(3, axe), Map.of(3, another)).get(0).last_sell_price);
+        assertNull(builder.buildItems(Map.of(3, axe), Map.of(4, offer)).get(0).last_sell_price);
+    }
+
+    /** Under max cash the saved position is the price, whatever the slot holds now. */
+    @Test
+    public void aPriceUnderMaxCashComesFromTheSavedPosition() {
+        OfferSnapshot offer = new OfferSnapshot(0, 11286, 5_250_000L, 1, 0, 0L, "SELLING", false);
+
+        List<FlipHubItem> items = new OfferStampFallbackBuilder()
+            .buildItems(Map.of(0, stamp(11286, 5_100_000, false)), Map.of(0, offer));
+
+        assertEquals(Long.valueOf(5_100_000L), items.get(0).last_sell_price);
     }
 
     private static Stamp stamp(int itemId, int price, boolean isBuy) {

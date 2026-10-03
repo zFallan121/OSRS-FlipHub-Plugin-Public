@@ -32,11 +32,11 @@ public class FlipHubPanelValueFormatServiceTest {
     private final PanelValueFormat service = new PanelValueFormat();
 
     @Test
-    public void formatGpSupportsIntegerAndLong() {
-        assertEquals("N/A", service.formatGp((Integer) null));
-        assertEquals("N/A", service.formatGp((Long) null));
-        assertEquals("12,345 gp", service.formatGp(Integer.valueOf(12_345)));
-        assertEquals("12,345 gp", service.formatGp(Long.valueOf(12_345L)));
+    public void formatGpWritesTheWholeNumberHoweverLarge() {
+        assertEquals("N/A", service.formatGp(null));
+        assertEquals("12,345 gp", service.formatGp(12_345L));
+        assertEquals("2,394,000,000 gp", service.formatGp(2_394_000_000L));
+        assertEquals("-177,516,353 gp", service.formatGp(-177_516_353L));
     }
 
     @Test

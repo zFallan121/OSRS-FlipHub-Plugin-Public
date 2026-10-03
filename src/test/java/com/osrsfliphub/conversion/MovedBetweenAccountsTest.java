@@ -211,6 +211,24 @@ public class MovedBetweenAccountsTest {
         assertTrue(RecipeFlipLedger.received(store, Const.ACCOUNTWIDE_KEY, new java.util.HashSet<>()).isEmpty());
     }
 
+    /**
+     * A 3rd age pickaxe bought for 2,394,000,000 and handed to the alt. The price field stops at
+     * max cash, as the main's own record of it does; cut to 32 bits it came out as -1,900,967,296.
+     */
+    @Test
+    public void aPurchasePastMaxCashIsReceivedAtItsRealPrice() {
+        Delta pickaxe = new Delta(1_000L, 1, 20011, true, 1, 2_394_000_000L, "OFFER_COMPLETED",
+            Integer.MAX_VALUE, false);
+        RecipeFlipStore store = new RecipeFlipStore();
+        store.add(MAIN, move(pickaxe, 1, ALT, 9_000L));
+
+        Delta received = RecipeFlipLedger.received(store, ALT, new java.util.HashSet<>()).get(0);
+
+        assertEquals(Integer.MAX_VALUE, received.price);
+        assertEquals(2_394_000_000L, received.deltaGp);
+        assertEquals(2_394_000_000L, received.unitPrice());
+    }
+
     @Test
     public void beforeTheMoveTheAltsSalesEarnNothing() {
         RecipeFlipStore store = new RecipeFlipStore();

@@ -136,8 +136,8 @@ public class FlipHubItemListContentRendererTest {
 
         PanelValueFormat format = new PanelValueFormat();
         assertEquals("the row the pointer is on should be showing the new price",
-            format.formatGp(121), sellPriceOf(afterRefresh[0]));
-        assertEquals(format.formatGp(1_750_000), sellPriceOf(afterRefresh[2]));
+            format.formatGp(121L), sellPriceOf(afterRefresh[0]));
+        assertEquals(format.formatGp(1_750_000L), sellPriceOf(afterRefresh[2]));
     }
 
     /** The value beside the "Sell price" label on a card, wherever the row sits in it. */

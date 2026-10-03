@@ -87,6 +87,34 @@ public class LocalTradeDeltaUtilsTest {
         assertEquals(1_000, result.get(1).deltaQty);
     }
 
+    /**
+     * A sale stored as a loose fill whose coins equal its price times its quantity is read as
+     * one stored before tax, and the tax is taken off. Past max cash the price field stops at
+     * 2,147,483,647, and a pickaxe sold at 2,152,483,647 leaves exactly that after tax: it would
+     * have been taxed a second time, 5,000,000 gone at every load.
+     */
+    @Test
+    public void aSalePastMaxCashWhoseCoinsEqualTheCappedPriceIsNotTaxedAgain() {
+        long afterTheUpdate = 1_790_771_400_000L;
+        Delta sale = new Delta(afterTheUpdate, 1, 20011, false, 1, 2_147_483_647L, "OFFER_UPDATED",
+            Integer.MAX_VALUE, false);
+
+        List<Delta> result = TradeDeltaUtils.dedupeLocalTrades(Arrays.asList(sale), 600L, 2_000L);
+
+        assertEquals(2_147_483_647L, result.get(0).deltaGp);
+    }
+
+    /** Before that day nothing could sell past max cash: a sale at exactly it, stored before tax, still is. */
+    @Test
+    public void aSaleAtExactlyMaxCashFromBeforePricesCouldPassItIsStillBroughtToNet() {
+        Delta sale = new Delta(1_790_771_399_999L, 1, 20011, false, 1, 2_147_483_647L, "OFFER_UPDATED",
+            Integer.MAX_VALUE, false);
+
+        List<Delta> result = TradeDeltaUtils.dedupeLocalTrades(Arrays.asList(sale), 600L, 2_000L);
+
+        assertEquals(2_142_483_647L, result.get(0).deltaGp);
+    }
+
     @Test
     public void dedupeLocalTradesConvertsGrossSellDeltaToNet() {
         Delta sell = new Delta(10_000L, 1, 1513, false, 100, 110_000L, "OFFER_UPDATED", 1100, false);

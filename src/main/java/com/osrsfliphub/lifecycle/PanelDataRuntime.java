@@ -132,7 +132,7 @@ final class PanelDataRuntime {
             return emptyItemsResponse(System.currentTimeMillis(), null);
         }
 
-        List<FlipHubItem> items = offerStampFallbackBuilder.buildItems(offerUpdateStamps.values());
+        List<FlipHubItem> items = offerStampFallbackBuilder.buildItems(offerUpdateStamps, pluginState.getSnapshots());
         if (items.isEmpty()) {
             return emptyItemsResponse(System.currentTimeMillis(), null);
         }

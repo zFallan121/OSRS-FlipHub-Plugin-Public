@@ -28,13 +28,6 @@ import java.text.NumberFormat;
 import java.util.Locale;
 
 final class PanelValueFormat {
-    String formatGp(Integer value) {
-        if (value == null) {
-            return "N/A";
-        }
-        return formatGpValue(value.longValue());
-    }
-
     String formatGp(Long value) {
         if (value == null) {
             return "N/A";
