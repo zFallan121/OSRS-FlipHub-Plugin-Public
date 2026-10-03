@@ -109,17 +109,23 @@ public class PricePastMaxCashTest {
     }
 
     /**
-     * A stored trade holds its price as an int, capped. Sent later from the file, the coins say
-     * what it was: a purchase exactly, a sale once the tax taken from it is put back.
+     * A stored trade holds its price as an int, capped, and is sent later from the file at the cap,
+     * which the website reads as a price it does not know. A price worked out from the coins would
+     * have to match the offer's live fills exactly, and does not for a purchase that filled under
+     * its price: 2,100,000,000 paid on a 2,200,000,000 listing, whose live fills carry 2,200,000,000.
      */
     @Test
-    public void aStoredTradePastMaxCashIsSentLaterAtItsPriceNotTheCap() {
+    public void aStoredTradePastMaxCashIsSentLaterAtTheCap() {
+        Delta underItsPrice = new Delta(5_000L, 1, 12426, true, 1, 2_100_000_000L, "OFFER_COMPLETED", Integer.MAX_VALUE,
+            false);
         Delta bought = new Delta(5_000L, 1, 12426, true, 1, AXE, "OFFER_COMPLETED", Integer.MAX_VALUE, false);
         Delta sold = new Delta(6_000L, 1, 12426, false, 1, AXE - GeTax.MAX_TAX_PER_ITEM, "OFFER_COMPLETED", Integer.MAX_VALUE, false);
-        assertEquals(AXE, RecordSync.record(777L, bought, 301).price);
+
+        assertEquals(Integer.MAX_VALUE, RecordSync.record(777L, underItsPrice, 301).price);
+        assertEquals(Integer.MAX_VALUE, RecordSync.record(777L, bought, 301).price);
         GeEvent sale = RecordSync.record(777L, sold, 301);
-        assertEquals(AXE, sale.price);
-        assertEquals(AXE - GeTax.MAX_TAX_PER_ITEM, sale.delta_gp);
+        assertEquals(Integer.MAX_VALUE, sale.price);
+        assertEquals("the coins as stored, whole", AXE - GeTax.MAX_TAX_PER_ITEM, sale.delta_gp);
     }
 
     /** A stored price below the cap is the price, whatever the coins say (a buy can fill under its price). */

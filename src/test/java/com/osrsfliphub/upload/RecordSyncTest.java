@@ -106,6 +106,27 @@ public class RecordSyncTest {
     }
 
     /**
+     * The world is game state, read on the game thread only. Records are built on the upload's
+     * thread, so they carry the world as the game thread last saw it and never ask the game.
+     */
+    @Test
+    public void theWorldIsTheOneTheGameThreadLastSaw() {
+        world.store(MAIN, bought(30 * MINUTE, 1, 10), bought(20 * MINUTE, 2, 5));
+        world.store(ALT, bought(40 * MINUTE, 1, 3));
+        world.login(MAIN);
+        world.worldAsked.set(0);
+
+        List<GeEvent> sent = records(world.settle());
+        world.sync().waiting();
+
+        assertEquals(3, sent.size());
+        for (GeEvent event : sent) {
+            assertEquals(Integer.valueOf(301), event.world);
+        }
+        assertEquals("the game was not asked off its own thread", 0, world.worldAsked.get());
+    }
+
+    /**
      * The id is made from the record and from nothing else, so the same record is the same id every
      * time it is sent, from any window, after any restart: the website keeps it on what it stores.
      */
@@ -418,6 +439,37 @@ public class RecordSyncTest {
         assertEquals(0, world.state.getUploadState().getPendingUploadEvents());
     }
 
+    /**
+     * The player logs out with three records on their way, and the answer lands after. This
+     * window is logged in as nobody now, and another may already be logged in as that character
+     * and writing its file: the file is left alone, and what was confirmed is written when this
+     * window is logged in as that character again.
+     */
+    @Test
+    public void anAnswerThatLandsAfterALogoutWritesNoFile() throws Exception {
+        world.store(MAIN, bought(30 * MINUTE, 1, 10), bought(20 * MINUTE, 2, 5), bought(10 * MINUTE, 3, 1));
+        String main = world.text(MAIN);
+        world.login(MAIN).tick();
+        assertEquals("the three are queued", 3, world.state.getUploadState().getPendingUploadEvents());
+        world.website.answer = events -> {
+            world.logout();
+            return world.website.takeAll(events);
+        };
+
+        world.tick();
+        world.tick();
+
+        assertEquals("the website confirmed all three", 3, world.state.getUploadState().confirmed.size());
+        assertEquals(main, world.text(MAIN));
+        assertEquals("and nothing is queued at the login screen", 0, world.state.getUploadState().getPendingUploadEvents());
+
+        world.website.answer = world.website::takeAll;
+        assertTrue("logged in again, nothing needs sending", world.login(MAIN).settle().isEmpty());
+        for (Delta trade : world.stored(MAIN)) {
+            assertTrue(trade.uploadedMs > 0L);
+        }
+    }
+
     // ---- what each answer does ----
 
     @Test
@@ -675,6 +727,46 @@ public class RecordSyncTest {
         assertTrue("and nothing waits any longer", world.sync().nextPassMs <= now());
     }
 
+    /**
+     * 250 old records the website refuses every time (their ids sit on another website account),
+     * and 3 newer ones whose live upload was lost. A batch the website judged is no reason to stop,
+     * whatever it refused: the 3 go in the same pass, and only the 250 wait to be sent again.
+     */
+    @Test
+    public void recordsTheWebsiteRefusesDoNotHoldBackTheOnesAfterThem() {
+        Delta[] trades = new Delta[253];
+        Set<String> refused = new HashSet<>();
+        for (int i = 0; i < 250; i++) {
+            trades[i] = bought((300 + i) * MINUTE, i % 8, 1);
+            refused.add(id(MAIN, trades[i]));
+        }
+        for (int i = 250; i < 253; i++) {
+            trades[i] = bought((253 - i) * 10 * MINUTE, i % 8, 2);
+        }
+        world.store(MAIN, trades);
+        world.website.answer = events -> world.website.take(events, refused);
+
+        List<List<GeEvent>> sent = world.login(MAIN).settle();
+
+        assertEquals("all 253 in one pass, in two batches", 2, sent.size());
+        assertEquals(253, records(sent).size());
+        int confirmed = 0;
+        for (Delta trade : world.stored(MAIN)) {
+            confirmed += trade.uploadedMs > 0L ? 1 : 0;
+            assertEquals(refused.contains(id(MAIN, trade)), trade.uploadedMs == 0L);
+        }
+        assertEquals("the 3 are confirmed", 3, confirmed);
+        assertEquals(250, world.sync().waiting());
+
+        assertTrue("not on every tick", world.settle().isEmpty());
+        long wait = world.sync().nextPassMs - now();
+        assertTrue("after about a minute: " + wait, wait > 55_000L && wait <= 60_000L);
+        world.waitOutThePause();
+        assertEquals("the 250 again, and only they", refused, ids(records(world.settle())));
+        wait = world.sync().nextPassMs - now();
+        assertTrue("then after about two: " + wait, wait > 115_000L && wait <= 120_000L);
+    }
+
     // ---- where a confirmation is written down ----
 
     /** Saved, read back from the disk, compared: every trade as it was, each now with its confirmation. */
@@ -887,6 +979,36 @@ public class RecordSyncTest {
         assertTrue(world.again().login(MAIN).settle().isEmpty());
     }
 
+    /**
+     * A new link is made while a batch is on its way, perhaps to another website account. The answer
+     * speaks for the account the batch went to: nothing it confirms is taken, or those trades would
+     * never reach the new one. They go again, under the new link.
+     */
+    @Test
+    public void anAnswerToABatchSentBeforeANewLinkConfirmsNothing() throws Exception {
+        world.store(MAIN, bought(30 * MINUTE, 1, 10));
+        world.store(ALT, bought(40 * MINUTE, 1, 5));
+        String main = world.text(MAIN);
+        world.login(MAIN).tick();
+        assertEquals(2, world.state.getUploadState().getPendingUploadEvents());
+        world.website.answer = events -> {
+            world.sync().linked();
+            world.session = "another-session";
+            return world.website.takeAll(events);
+        };
+
+        world.tick();
+
+        assertTrue(world.state.getUploadState().confirmed.isEmpty());
+        assertEquals(main, world.text(MAIN));
+        assertEquals(0L, world.mark(ALT));
+
+        world.website.answer = world.website::takeAll;
+        assertEquals("both go to the new link", 2, records(world.settle()).size());
+        assertTrue(world.stored(MAIN).get(0).uploadedMs > 0L);
+        assertTrue(world.mark(ALT) > 0L);
+    }
+
     // ---- what the player is told ----
 
     /**
@@ -947,6 +1069,31 @@ public class RecordSyncTest {
         world.linked = false;
 
         assertEquals(0, world.sync().waiting());
+    }
+
+    /**
+     * An id is worked out for every record the website has not confirmed: tens of milliseconds for
+     * tens of thousands, while a trade being stored waits for the stats lock. So the records are
+     * copied and the lock let go first, and what is read while they are gone through (here the
+     * other character's mark, read beside its records) is read without it.
+     */
+    @Test
+    public void theRecordsAreGoneThroughWithoutHoldingTheStatsLock() {
+        world.store(MAIN, bought(30 * MINUTE, 1, 10));
+        world.store(ALT, bought(40 * MINUTE, 1, 3));
+        world.login(MAIN);
+        List<Boolean> lockHeld = new java.util.ArrayList<>();
+        RecordSyncWorld.configRead = key -> {
+            if (String.valueOf(key).endsWith(RecordSync.MARK_KEY + ALT)) {
+                lockHeld.add(Thread.holdsLock(world.state.getLocalStatsLock()));
+            }
+        };
+
+        world.sync().sweep();
+        world.sync().waiting();
+
+        assertEquals("read once by the sweep and once by the count", 2, lockHeld.size());
+        assertFalse(lockHeld.contains(true));
     }
 
     /** Counting is only looking: it marks no file and moves no mark. */

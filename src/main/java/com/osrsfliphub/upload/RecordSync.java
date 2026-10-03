@@ -30,7 +30,6 @@ import java.nio.file.Path;
 import java.util.*;
 import javax.inject.*;
 import lombok.RequiredArgsConstructor;
-import net.runelite.api.Client;
 import net.runelite.client.config.ConfigManager;
 
 /**
@@ -66,9 +65,10 @@ import net.runelite.client.config.ConfigManager;
  * asked straight after the live queue was sent and on that thread; only for an offer that has
  * ended, never for the fills of one still open; and only once it ended over a minute ago, or a
  * quarter of an hour for a character this window is not logged in as, whose own window may be
- * holding its fills where this one cannot see. Oldest first, one batch at a time; a batch that
- * confirms nothing ends the pass, and what a pass leaves unconfirmed is tried again after a wait
- * that doubles from a minute to a quarter of an hour.
+ * holding its fills where this one cannot see. Oldest first, one batch at a time; a batch the
+ * website did not judge (a refused request, an older website) ends the pass, one it judged does
+ * not, whatever it refused, and what a pass leaves unconfirmed is tried again after a wait that
+ * doubles from a minute to a quarter of an hour.
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
@@ -89,7 +89,6 @@ final class RecordSync {
     static final String LINKED_KEY = "recordsLinkedMsV1";
 
     private final PluginState state;
-    private final Client client;
     private final ConfigManager configManager;
     private final AccountSession accountSession;
     private final LocalTradesRuntime tradesRuntime;
@@ -176,61 +175,70 @@ final class RecordSync {
         List<GeEvent> out = new ArrayList<>();
         long now = System.currentTimeMillis();
         long own = accountSession.localKey;
+        int world = accountSession.world;
         long linkedMs = number(LINKED_KEY);
         Set<String> held = state.getUploadState().confirmed;
-        synchronized (state.getLocalStatsLock()) {
-            for (Map.Entry<Long, List<Delta>> entry : state.getLocalTradeDeltasByAccount().entrySet()) {
-                long key = entry.getKey();
-                if (key <= 0 || shown != key && shown != Const.ACCOUNTWIDE_KEY) {
+        Object lock = state.getLocalStatsLock();
+        // Copied, and the lock let go: an id is worked out for every record, which takes tens of
+        // milliseconds for tens of thousands, and a trade being stored waits for the lock. What a
+        // record's id is made of is never changed once it is stored.
+        Map<Long, List<Delta>> all = new HashMap<>();
+        synchronized (lock) {
+            state.getLocalTradeDeltasByAccount().forEach((key, trades) -> all.put(key, new ArrayList<>(trades)));
+        }
+        for (Map.Entry<Long, List<Delta>> entry : all.entrySet()) {
+            long key = entry.getKey();
+            if (key <= 0 || shown != key && shown != Const.ACCOUNTWIDE_KEY) {
+                continue;
+            }
+            long mark = key == own ? 0 : number(MARK_KEY + key);
+            // The end of the oldest record not confirmed: every record before it is.
+            long oldest = Long.MAX_VALUE;
+            // Of the records the mark does not cover yet, when the first and the last ended.
+            long first = Long.MAX_VALUE;
+            long last = 0;
+            boolean marked = false;
+            // Each slot's saved position, which says whether an offer is still there: the live
+            // ones for the logged-in character, any other character's as this config last saw them.
+            Map<Integer, Stamp> slots = key == own ? state.getOfferUpdateStamps()
+                : OfferUpdateStampStore.parse(configManager.getConfiguration(GROUP,
+                    state.getOfferUpdateStampConfigStore().perAccountKey(key)), gson, 0, 7);
+            for (Delta delta : entry.getValue()) {
+                // A record of nothing is no trade, and the website refuses one.
+                if (delta == null || delta.deltaQty <= 0 || delta.deltaGp <= 0 || delta.closedAtMs() < mark
+                    || open(delta, slots.get(delta.slot))) {
                     continue;
                 }
-                long mark = key == own ? 0 : number(MARK_KEY + key);
-                // The end of the oldest record not confirmed: every record before it is.
-                long oldest = Long.MAX_VALUE;
-                // Of the records the mark does not cover yet, when the first and the last ended.
-                long first = Long.MAX_VALUE;
-                long last = 0;
-                boolean marked = false;
-                // Each slot's saved position, which says whether an offer is still there: the live
-                // ones for the logged-in character, any other character's as this config last saw them.
-                Map<Integer, Stamp> slots = key == own ? state.getOfferUpdateStamps()
-                    : OfferUpdateStampStore.parse(configManager.getConfiguration(GROUP,
-                        state.getOfferUpdateStampConfigStore().perAccountKey(key)), gson, 0, 7);
-                for (Delta delta : entry.getValue()) {
-                    // A record of nothing is no trade, and the website refuses one.
-                    if (delta == null || delta.deltaQty <= 0 || delta.deltaGp <= 0 || delta.closedAtMs() < mark
-                        || open(delta, slots.get(delta.slot))) {
-                        continue;
-                    }
-                    long endMs = delta.closedAtMs();
-                    first = Math.min(first, endMs);
-                    last = Math.max(last, endMs);
-                    if (delta.uploadedMs > linkedMs) {
-                        continue;
-                    }
-                    GeEvent event = record(key, delta, client.getWorld());
-                    if (event == null) {
-                        continue;
-                    }
-                    if (held.contains(event.event_id)) {
-                        if (write && key == own) {
+                long endMs = delta.closedAtMs();
+                first = Math.min(first, endMs);
+                last = Math.max(last, endMs);
+                if (delta.uploadedMs > linkedMs) {
+                    continue;
+                }
+                GeEvent event = record(key, delta, world);
+                if (event == null) {
+                    continue;
+                }
+                if (held.contains(event.event_id)) {
+                    if (write && key == own) {
+                        synchronized (lock) {
                             delta.uploadedMs = now;
-                            marked = true;
                         }
-                        continue;
+                        marked = true;
                     }
-                    oldest = Math.min(oldest, endMs);
-                    if (endMs + (key == own ? SETTLE_MS : OTHER_WINDOW_SETTLE_MS) <= now) {
-                        out.add(event);
-                    }
+                    continue;
                 }
-                if (marked) {
-                    tradesRuntime.persistLocalTrades(key);
-                } else if (write && key != own && first < Math.min(oldest, last + 1)) {
-                    // It moves only over records that are confirmed, never up to one that is not
-                    // from nothing: a record that ends where the mark would stand is not behind it.
-                    configManager.setConfiguration(GROUP, MARK_KEY + key, Math.min(oldest, last + 1));
+                oldest = Math.min(oldest, endMs);
+                if (endMs + (key == own ? SETTLE_MS : OTHER_WINDOW_SETTLE_MS) <= now) {
+                    out.add(event);
                 }
+            }
+            if (marked) {
+                tradesRuntime.persistLocalTrades(key);
+            } else if (write && key != own && first < Math.min(oldest, last + 1)) {
+                // It moves only over records that are confirmed, never up to one that is not
+                // from nothing: a record that ends where the mark would stand is not behind it.
+                configManager.setConfiguration(GROUP, MARK_KEY + key, Math.min(oldest, last + 1));
             }
         }
         return out;
@@ -279,14 +287,11 @@ final class RecordSync {
         event.slot = Math.max(0, delta.slot);
         event.item_id = delta.itemId;
         event.is_buy = delta.isBuy;
-        // A long: since the Grand Exchange allows prices past max cash, a unit price can outgrow an int.
-        // A stored price at the cap was cut down to fit (TradeDeltaRecorder); the coins say what it was,
-        // a sale's after tax.
-        long price = Math.max(1L, delta.deltaGp / delta.deltaQty);
-        if (delta.price == Integer.MAX_VALUE && !delta.isBuy) {
-            price += GeTax.perItem(delta.itemId, price);
-        }
-        event.price = delta.price > 0 && delta.price < Integer.MAX_VALUE ? delta.price : price;
+        // The listed price as stored: at the cap for one past max cash (TradeDeltaRecorder), which the
+        // website reads as not known. Worked out from the coins it would have to match the live fills
+        // exactly, and a purchase that filled under its price would not. From the coins only when no
+        // price was stored; a long, as a unit price can outgrow an int.
+        event.price = delta.price > 0 ? delta.price : Math.max(1L, delta.deltaGp / delta.deltaQty);
         event.total_qty = event.filled_qty = event.delta_qty = delta.deltaQty;
         event.spent_gp = event.delta_gp = delta.deltaGp;
         event.state = delta.isBuy ? "BOUGHT" : "SOLD";

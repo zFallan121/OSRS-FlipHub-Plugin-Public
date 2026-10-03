@@ -52,6 +52,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import net.runelite.api.Client;
@@ -96,6 +98,12 @@ final class RecordSyncWorld {
     volatile String playerName;
     volatile GameState gameState = GameState.LOGIN_SCREEN;
     volatile boolean linked = true;
+    /** The session the link gave: a new link gives another. */
+    volatile String session = "session-token";
+    /** How many times anything has asked the game which world it is on. */
+    final AtomicInteger worldAsked = new AtomicInteger();
+    /** Told every key read from RuneLite's config, on the thread that reads it. */
+    static volatile Consumer<Object> configRead = key -> { };
 
     RecordSyncWorld(Path dir, ConfigManager configManager) {
         this.dir = dir;
@@ -150,6 +158,7 @@ final class RecordSyncWorld {
     static void close(RecordSyncWorld world) throws IOException {
         Access.set(null);
         Bridge.set(null);
+        configRead = key -> { };
         if (world != null && Files.exists(world.dir)) {
             try (Stream<Path> paths = Files.walk(world.dir)) {
                 for (Path path : paths.sorted(Comparator.reverseOrder()).toArray(Path[]::new)) {
@@ -174,9 +183,13 @@ final class RecordSyncWorld {
         return this;
     }
 
+    /**
+     * Logs out as the client does: the game state changes and the plugin hears of it. No client
+     * tick in the game follows, so nothing asks again who is logged in.
+     */
     void logout() {
         gameState = GameState.LOGIN_SCREEN;
-        injector.getInstance(AccountSession.class).resolveLocalAccountKey();
+        injector.getInstance(GameStateChangedHandler.class).handle(GameState.LOGIN_SCREEN);
     }
 
     /** The game reporting one of this character's Grand Exchange offers, as it does on every change to it. */
@@ -519,6 +532,7 @@ final class RecordSyncWorld {
                     case "getLocalPlayer":
                         return playerName != null ? player : null;
                     case "getWorld":
+                        worldAsked.incrementAndGet();
                         return 301;
                     default:
                         return nothing(method);
@@ -533,7 +547,7 @@ final class RecordSyncWorld {
                     case "enableFlipHubSync":
                         return linked;
                     case "sessionToken":
-                        return linked ? "session-token" : "";
+                        return linked ? session : "";
                     case "signingSecret":
                         return linked ? "signing-secret" : "";
                     default:
@@ -578,7 +592,13 @@ final class RecordSyncWorld {
         ConfigManager manager = unbuilt(ConfigManager.class);
         Class<?> dataType = Class.forName("net.runelite.client.config.ConfigData");
         Object data = unbuilt(dataType);
-        set(dataType, data, "properties", new ConcurrentHashMap<String, String>());
+        set(dataType, data, "properties", new ConcurrentHashMap<String, String>() {
+            @Override
+            public String get(Object key) {
+                configRead.accept(key);
+                return super.get(key);
+            }
+        });
         set(dataType, data, "patchChanges", new HashMap<String, String>());
         set(ConfigManager.class, manager, "configProfile", data);
         Constructor<?> handler = Class.forName("net.runelite.client.config.ConfigInvocationHandler")

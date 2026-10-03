@@ -190,7 +190,8 @@ final class UploadEventDispatch {
             try {
                 ApiClient.EventUploadResponse upload =
                     apiClient.sendEventsDetailed(sessionToken, signingSecret, batch);
-                uploadState.answered(upload);
+                // Not if a new link was made while it was on its way (RecordSync.linked).
+                uploadState.answered(upload, sessionToken.equals(config.sessionToken()));
                 int status = upload != null ? upload.status_code : -1;
                 if (ApiStatusPolicy.isAuthStatus(status)) {
                     handleAuthFailure(apiClient, config, log, batch, sessionToken, status);
@@ -221,7 +222,7 @@ final class UploadEventDispatch {
             if (ApiStatusPolicy.hasCredentials(refreshedToken, refreshedSecret)) {
                 ApiClient.EventUploadResponse retryUpload =
                     apiClient.sendEventsDetailed(refreshedToken, refreshedSecret, batch);
-                uploadState.answered(retryUpload);
+                uploadState.answered(retryUpload, refreshedToken.equals(config.sessionToken()));
                 handleRetryStatus(retryUpload != null ? retryUpload.status_code : -1,
                     retryUpload, log, batch);
                 return;

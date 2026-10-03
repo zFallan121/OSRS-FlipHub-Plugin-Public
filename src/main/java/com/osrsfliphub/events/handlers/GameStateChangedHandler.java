@@ -63,6 +63,10 @@ final class GameStateChangedHandler {
         GeLifecyclePlugin plugin = Access.plugin();
 
         if (gameState != GameState.LOGGED_IN) {
+            // Logged in as nobody until a tick in the game says who again: an answer that lands
+            // after a logout must not write the file of the character who left (RecordSync).
+            // A hop or a loading screen only skips the upload tick or two it lasts.
+            Bridge.get(AccountSession.class).localKey = -1L;
             // Only a real logout ends the session. LOADING and HOPPING also land here, and
             // resetting on those would restart the clock every world hop.
             if (gameState == GameState.LOGIN_SCREEN) {

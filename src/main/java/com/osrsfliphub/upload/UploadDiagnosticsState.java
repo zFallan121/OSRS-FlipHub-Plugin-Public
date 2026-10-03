@@ -49,7 +49,10 @@ final class UploadDiagnosticsState {
     private volatile long currentBackoffMs = 0L;
     /** The ids of the stored trades the website has said, this session, that it holds ({@link RecordSync}). */
     final Set<String> confirmed = ConcurrentHashMap.newKeySet();
-    /** Whether an answer has added to {@link #confirmed} since {@link RecordSync} last looked. */
+    /**
+     * Whether an answer has judged records since {@link RecordSync} last looked, whatever it
+     * confirmed: refused records must not hold back the ones behind them.
+     */
     volatile boolean progress;
     /** Flushes that have taken a batch off the queue and not yet seen it answered, dropped or put back. */
     final AtomicInteger flushing = new AtomicInteger();
@@ -66,16 +69,20 @@ final class UploadDiagnosticsState {
     /**
      * The website's answer to a batch. Only the ids it names as confirmed are taken: an answer
      * without the list (an older website, which refuses the records by their type) confirms
-     * nothing, and neither does any answer but a success.
+     * nothing, and neither does any answer but a success, nor one to a batch sent before a new
+     * link: that may be to another website account, which holds none of it.
+     *
+     * @param current whether the batch was sent under the link still in use
      */
-    void answered(ApiClient.EventUploadResponse answer) {
-        List<String> ids = answer != null && answer.status_code < 300 && answer.records != null
+    void answered(ApiClient.EventUploadResponse answer, boolean current) {
+        List<String> ids = current && answer != null && answer.status_code < 300 && answer.records != null
             ? answer.records.confirmed : null;
         if (ids != null) {
+            progress = true;
             for (String id : ids) {
                 // A set that refuses a null: one in the list must not fail the upload it came with.
-                if (id != null && confirmed.add(id)) {
-                    progress = true;
+                if (id != null) {
+                    confirmed.add(id);
                 }
             }
         }

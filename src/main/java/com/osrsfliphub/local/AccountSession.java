@@ -36,9 +36,12 @@ final class AccountSession {
     /**
      * The last answer of {@link #resolveLocalAccountKey}, which is asked on every client tick: the
      * character this window is logged in as, or -1. For work on another thread, because the key
-     * can be made from the player's name and that is read on the game thread only.
+     * can be made from the player's name and that is read on the game thread only. Set to -1 as
+     * soon as the game leaves the logged-in state ({@link GameStateChangedHandler}).
      */
     volatile long localKey = -1L;
+    /** The world this window was last logged in to, read beside {@link #localKey} and for the same reason. */
+    volatile int world;
 
     @Inject
     AccountSession(Client client) {
@@ -53,6 +56,7 @@ final class AccountSession {
         if (!Access.loggedIn(client)) {
             return -1L;
         }
+        world = client.getWorld();
         long accountHash = resolveAccountHash();
         long nameKey = resolveNameAccountKey();
         maybeMergeLocalAccounts(accountHash, nameKey);
