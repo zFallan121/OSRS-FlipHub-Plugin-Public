@@ -131,10 +131,13 @@ final class TradeDeltaRecorder {
             }
         }
         // Every live sale passes through here and nothing else does, which is what keeps
-        // imports, recorded recipes and wipes from setting off a rank-up.
+        // imports, recorded recipes and wipes from setting off a rank-up. It is told the time on
+        // the sale's event and not the time now: the event was queued for upload before any of
+        // the filing above, and the upload may have taken it since.
         RankUp rankUp = Bridge.get(RankUp.class);
         if (rankUp != null) {
-            rankUp.onSale(accountKey, profitBefore, RankUp.lifetimeProfit(accountKey));
+            rankUp.onSale(accountKey, profitBefore, RankUp.lifetimeProfit(accountKey), !event.is_buy,
+                event.ts_client_ms);
         }
         tradesRuntime.persistLocalTrades(accountKey);
         // The accountwide file is not written here. Its stored deltas are never read: the

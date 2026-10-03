@@ -42,6 +42,11 @@ final class UploadEventDispatch {
     private final UploadDiagnosticsState uploadState;
     private final int maxPendingUploadEvents = MAX_PENDING_UPLOAD_EVENTS;
     private final int maxBatchSize = Const.MAX_BATCH_SIZE;
+    /**
+     * When the batch now on its way left the queue ({@link SiteFigures#uploaded}), by the clock
+     * every trade's own time is told by ({@link GeEvent#createBase}).
+     */
+    private volatile long takenMs;
 
     @Inject
     UploadEventDispatch(PluginState pluginState, Client client) {
@@ -90,6 +95,16 @@ final class UploadEventDispatch {
     void markSuccess(int uploadedCount, int statusCode) {
         uploadState.markSuccess(uploadedCount, statusCode);
         updateUploadDiagnosticsUi();
+        // What the website has just taken has moved its figures, and a linked plugin shows those.
+        SiteFigures figures = Bridge.get(SiteFigures.class);
+        if (figures != null) {
+            try {
+                figures.uploaded(takenMs);
+            } catch (RuntimeException ex) {
+                // The website has the batch. Whatever went wrong in asking for its figures must
+                // not reach the flush, which would queue the batch again and send it twice.
+            }
+        }
     }
 
     void markFailure(Integer statusCode, String errorMessage, boolean dropped, int droppedCount) {
@@ -180,6 +195,10 @@ final class UploadEventDispatch {
         // their way, and a stored trade sent then would be judged without them (RecordSync).
         uploadState.flushing.incrementAndGet();
         try {
+            // Noted before the batch is taken, so that a sale whose event was made by then is in
+            // it: an event is queued as soon as it is made, well before its trade is filed. Only one
+            // flush runs at a time (UploadBackfillDispatch), but for the last ones as the client closes.
+            takenMs = System.currentTimeMillis();
             List<GeEvent> batch = dequeueBatch();
             if (batch.isEmpty()) {
                 updateUploadDiagnosticsUi();

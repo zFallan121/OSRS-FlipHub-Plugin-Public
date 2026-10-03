@@ -35,21 +35,26 @@ final class StatsView {
     private final TradeSession tradeSession;
     private final LocalStatsSnapshotService localStatsSnapshotService;
     private final LocalTradesRuntime localTradesRuntime;
+    private final SiteFigures siteFigures;
 
     static final class Result {
         final StatsSummary summary;
         final List<StatsItem> items;
         final Map<Integer, List<StatsFlipInstance>> flipHistory;
         final long asOfMs;
+        /** Whose figures these are: the website's view of them, or null for this computer's own sums. */
+        final SiteFigures.View site;
 
         private Result(StatsSummary summary,
                        List<StatsItem> items,
                        Map<Integer, List<StatsFlipInstance>> flipHistory,
-                       long asOfMs) {
+                       long asOfMs,
+                       SiteFigures.View site) {
             this.summary = summary;
             this.items = items;
             this.flipHistory = flipHistory;
             this.asOfMs = asOfMs;
+            this.site = site;
         }
     }
 
@@ -63,11 +68,50 @@ final class StatsView {
         StatsItemSort effectiveSort = sort != null ? sort : StatsItemSort.COMPLETION;
         long accountKey = profileSelectionPresentation.resolveSelectedProfileKey();
         if (accountKey < 0) {
-            return new Result(new StatsSummary(), new ArrayList<>(), new HashMap<>(), nowMs);
+            return new Result(new StatsSummary(), new ArrayList<>(), new HashMap<>(), nowMs, null);
         }
 
         long sessionStartMs = tradeSession.resolveStatsSessionStartMs(accountKey, nowMs);
-        return view(accountKey, effectiveRange.getSinceMs(sessionStartMs, nowMs), effectiveSort, nowMs);
+        Long sinceMs = effectiveRange.getSinceMs(sessionStartMs, nowMs);
+        Result own = view(accountKey, sinceMs, effectiveSort, nowMs);
+        SiteFigures.View site = siteFigures.shown(accountKey, effectiveRange, sinceMs);
+        if (site == null) {
+            return own;
+        }
+        ApiClient.FiguresResponse answer = site.answer;
+        Map<Integer, List<StatsFlipInstance>> flips = new HashMap<>();
+        if (answer == null) {
+            // Live, and not answered for this view yet: no figure at all, never this computer's own.
+            return new Result(null, new ArrayList<>(), flips, nowMs, site);
+        }
+        // The website's money and counts, under the game's names. How long a flip takes is not
+        // the website's to say: each computer keeps its own clock.
+        Map<Integer, StatsItem> mine = new HashMap<>();
+        for (StatsItem item : own.items) {
+            mine.put(item.item_id, item);
+        }
+        localStatsSnapshotService.hydrateItemNames(answer.items);
+        for (StatsItem item : answer.items) {
+            StatsItem traded = mine.get(item.item_id);
+            // The card divides the time by the count it shows, which is the website's: the time
+            // is this computer's own average, times that count. None for an item it never traded.
+            item.active_ms = traded != null && traded.active_ms != null && item.fill_count != null
+                && traded.fill_count != null && traded.fill_count > 0
+                ? traded.active_ms / traded.fill_count * item.fill_count : null;
+            // One item's flips are sent only when its list is opened. A list for every item,
+            // empty until then, so that an open one stays open while it is fetched.
+            List<StatsFlipInstance> list = new ArrayList<>();
+            ApiClient.FlipsResponse fetched = site.flips.get(item.item_id);
+            if (fetched != null) {
+                for (ApiClient.FigureFlip flip : fetched.flips) {
+                    list.add(new StatsFlipInstance(item.item_id, flip.buy_price_gp, flip.sell_price_gp,
+                        flip.buy_cost_gp, flip.sell_revenue_gp, flip.profit_gp, flip.qty, flip.completed_ms,
+                        false, flip.tax_gp, SiteFigures.kind(flip.kind), flip.name));
+                }
+            }
+            flips.put(item.item_id, list);
+        }
+        return new Result(answer.summary, answer.items, flips, nowMs, site);
     }
 
     /**
@@ -84,7 +128,7 @@ final class StatsView {
         List<StatsItem> items = snapshot != null && snapshot.items != null ? snapshot.items : new ArrayList<>();
         Map<Integer, List<StatsFlipInstance>> flipHistory = history != null ? history : new HashMap<>();
         reconcileWithFlipHistory(summary, items, flipHistory);
-        return new Result(summary, items, flipHistory, nowMs);
+        return new Result(summary, items, flipHistory, nowMs, null);
     }
 
     static void reconcileWithFlipHistory(StatsSummary summary,

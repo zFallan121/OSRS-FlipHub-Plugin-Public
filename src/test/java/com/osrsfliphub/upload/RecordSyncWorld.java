@@ -52,9 +52,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
@@ -102,6 +104,12 @@ final class RecordSyncWorld {
     volatile String session = "session-token";
     /** How many times anything has asked the game which world it is on. */
     final AtomicInteger worldAsked = new AtomicInteger();
+    /** The Merchant level setting; unset, the plugin reads it as every character's. */
+    volatile PluginConfig.MerchantLevelScope levelScope;
+    /** The Celebrate level-ups setting. */
+    volatile boolean celebrating;
+    /** Every line the plugin has put in the game's chat. */
+    final List<String> chat = new CopyOnWriteArrayList<>();
     /** Told every key read from RuneLite's config, on the thread that reads it. */
     static volatile Consumer<Object> configRead = key -> { };
 
@@ -410,10 +418,28 @@ final class RecordSyncWorld {
     static final class Reply {
         final int status;
         final String body;
+        /** The Retry-After header, when the website sends one. */
+        final String retryAfter;
 
         Reply(int status, String body) {
+            this(status, body, null);
+        }
+
+        Reply(int status, String body, String retryAfter) {
             this.status = status;
             this.body = body;
+            this.retryAfter = retryAfter;
+        }
+    }
+
+    /** One question about figures, as the plugin wrote it, and the thread it was asked on. */
+    static final class Asked {
+        final Request request;
+        final Thread thread;
+
+        Asked(Request request, Thread thread) {
+            this.request = request;
+            this.thread = thread;
         }
     }
 
@@ -421,7 +447,8 @@ final class RecordSyncWorld {
      * The website, as the plugin's real {@link ApiClient} sees it: the client is the real one, over
      * an HTTP client that hands each request to {@link #answer} instead of the network. So every
      * batch here is what the plugin really wrote as JSON, read back, and every answer is JSON the
-     * real client parses. The default takes every event and confirms every record.
+     * real client parses. The default takes every event and confirms every record, and says of its
+     * figures what the website says before the switch: {@code {"live": false}}.
      */
     static final class Website {
         /** Every batch that reached the website, in order, as read from the request the plugin wrote. */
@@ -429,6 +456,14 @@ final class RecordSyncWorld {
         /** The ids it holds. */
         final Set<String> held = new HashSet<>();
         volatile Function<List<GeEvent>, Reply> answer = this::takeAll;
+        /** Every question about figures that reached the website, in order. */
+        final List<Asked> asked = new CopyOnWriteArrayList<>();
+        /** What the website says of its figures, and of one item's flips. */
+        volatile Function<Request, Reply> figures = request -> new Reply(200, "{\"live\": false}");
+        /** The path of every other request: a link, a session refresh, the totals. */
+        final List<String> other = new CopyOnWriteArrayList<>();
+        /** The session a link or a session refresh hands out: the same one each time, until a test says otherwise. */
+        volatile Supplier<String> issued = () -> "session-token";
         final ApiClient client;
 
         Website(PluginConfig config) {
@@ -436,10 +471,20 @@ final class RecordSyncWorld {
             OkHttpClient http = new OkHttpClient.Builder().addInterceptor(chain -> {
                 Request request = chain.request();
                 Buffer sent = new Buffer();
-                request.body().writeTo(sent);
+                // A question about figures is a GET: it has no body.
+                if (request.body() != null) {
+                    request.body().writeTo(sent);
+                }
                 String path = request.url().encodedPath();
                 Reply reply;
-                if (path.endsWith("/events")) {
+                if (path.contains("/figures")) {
+                    asked.add(new Asked(request, Thread.currentThread()));
+                    try {
+                        reply = figures.apply(request);
+                    } catch (UncheckedIOException noAnswer) {
+                        throw noAnswer.getCause();
+                    }
+                } else if (path.endsWith("/events")) {
                     List<GeEvent> events = new ArrayList<>();
                     for (JsonElement event : gson.fromJson(sent.readUtf8(), JsonObject.class).getAsJsonArray("events")) {
                         events.add(gson.fromJson(event, GeEvent.class));
@@ -455,12 +500,18 @@ final class RecordSyncWorld {
                     held.clear();
                     reply = new Reply(200, "{\"status\":\"ok\"}");
                 } else {
+                    other.add(path);
                     // A link or a session refresh: a session to go on with.
-                    reply = new Reply(200, "{\"session_token\":\"session-token\",\"signing_secret\":\"signing-secret\"}");
+                    reply = new Reply(200,
+                        "{\"session_token\":\"" + issued.get() + "\",\"signing_secret\":\"signing-secret\"}");
                 }
-                return new Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(reply.status)
-                    .message("from the website").body(ResponseBody.create(MediaType.parse("application/json"), reply.body))
-                    .build();
+                Response.Builder response = new Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
+                    .code(reply.status).message("from the website")
+                    .body(ResponseBody.create(MediaType.parse("application/json"), reply.body));
+                if (reply.retryAfter != null) {
+                    response.header("Retry-After", reply.retryAfter);
+                }
+                return response.build();
             }).build();
             client = new ApiClient(http, gson, config);
         }
@@ -534,6 +585,9 @@ final class RecordSyncWorld {
                     case "getWorld":
                         worldAsked.incrementAndGet();
                         return 301;
+                    case "addChatMessage":
+                        chat.add((String) args[2]);
+                        return null;
                     default:
                         return nothing(method);
                 }
@@ -550,6 +604,10 @@ final class RecordSyncWorld {
                         return linked ? session : "";
                     case "signingSecret":
                         return linked ? "signing-secret" : "";
+                    case "merchantLevelScope":
+                        return levelScope;
+                    case "celebrateRankUps":
+                        return celebrating;
                     default:
                         return nothing(method);
                 }

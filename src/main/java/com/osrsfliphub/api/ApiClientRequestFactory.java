@@ -51,6 +51,18 @@ final class ApiClientRequestFactory {
         return requestBuilder.build();
     }
 
+    Request newGetRequest(String url, String sessionToken) {
+        return new Request.Builder()
+            .url(url)
+            .get()
+            .addHeader("X-Plugin-Token", sessionToken)
+            // Never kept by the HTTP client, nor answered from what it kept: it files an answer
+            // under the address alone, which is the same for every account, and the session is
+            // not part of it. A new link would be shown the last link's figures.
+            .addHeader("Cache-Control", "no-store")
+            .build();
+    }
+
     void addSignedHeaders(Request.Builder requestBuilder, String method, String path, String signingSecret, String jsonBody) {
         byte[] bodyBytes = jsonBody.getBytes(StandardCharsets.UTF_8);
         String nonce = UUID.randomUUID().toString().replace("-", "");

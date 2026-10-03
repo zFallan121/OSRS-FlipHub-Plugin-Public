@@ -45,6 +45,12 @@ public class StatsItem {
     public Long active_ms;
 
     /**
+     * Every kind among this item's flips, as the website names them ("FLIP", "ASSEMBLE"). Only in
+     * the website's figures ({@link SiteFigures}); null in this computer's own.
+     */
+    public List<String> kinds;
+
+    /**
      * Which activity kinds produced these totals. Local only - the API neither
      * sends nor receives it - and empty for an item that was only ever flipped.
      */

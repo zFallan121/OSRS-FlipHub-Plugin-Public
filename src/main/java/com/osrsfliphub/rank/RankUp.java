@@ -59,6 +59,10 @@ import net.runelite.client.util.ImageUtil;
  * total too, but they never pass through {@link TradeDeltaRecorder}, which is the only caller of
  * {@link #onSale}. The best level ever celebrated is remembered, so a level is celebrated once,
  * however the total wanders below it and back.
+ *
+ * <p>For a linked player whose website figures are live ({@link SiteFigures}) the lifetime profit
+ * is the website's, the same on every computer of the account, and a sale is judged when the
+ * website's answer to its upload arrives ({@link #onFigures}) rather than as it is filed.
  */
 @Singleton
 final class RankUp {
@@ -190,10 +194,21 @@ final class RankUp {
 
     /** The same, as it stands for one character: the one a sale was filed under, say. */
     long levelProfit(long who) {
-        // Nobody has logged in yet this session, so there is no one character to read.
-        long key = perCharacter() && who > 0 ? who : Const.ACCOUNTWIDE_KEY;
+        long key = levelKey(who);
+        // A linked player's level is the website's to say, once its figures are live: its lifetime
+        // profit for every character, or for this one's own tagged trades.
+        Long site = Bridge.get(SiteFigures.class).lifetime(key);
+        if (site != null) {
+            return site;
+        }
         Long total = Bridge.get(StatsView.class).view(key, null, StatsItemSort.COMPLETION, 0L).summary.total_profit_gp;
         return total != null ? total : 0L;
+    }
+
+    /** The key a character's level figures are read under: its own when levelled alone, else every character's. */
+    private static long levelKey(long who) {
+        // Nobody has logged in yet this session, so there is no one character to read.
+        return perCharacter() && who > 0 ? who : Const.ACCOUNTWIDE_KEY;
     }
 
     private static boolean perCharacter() {
@@ -257,11 +272,28 @@ final class RankUp {
      * <p>The character is the seller's, never the one {@link #tick} last noted. That is noted a
      * tick late, and the fills a login finds waiting are filed in the very tick of the login,
      * so they were judged against the previous character's total and best.
+     *
+     * @param sale whether the trade filed was a sale at all: purchases are filed here too
+     * @param madeMs the time on the trade's own event, given it before it was queued for upload
      */
-    void onSale(long key, long before, long after) {
+    void onSale(long key, long before, long after, boolean sale, long madeMs) {
         GeLifecyclePlugin plugin = Access.plugin();
         long from = sold;
         sold = from + after - before;
+        if (after == before && !sale) {
+            return;
+        }
+        SiteFigures figures = Bridge.get(SiteFigures.class);
+        if (figures.live()) {
+            // The level is the website's figure now, and this sale is not in it until its upload
+            // is accepted: it is judged on the answer asked for then (onFigures). Whether or not
+            // this computer's own total moved: stock bought on the account's other computer and
+            // sold here is paired only on the website.
+            if (sale) {
+                figures.sold(levelKey(key), madeMs);
+            }
+            return;
+        }
         if (after == before || !plugin.config.celebrateRankUps()) {
             return;
         }
@@ -284,22 +316,58 @@ final class RankUp {
             long moved = sold - from;
             long now = levelProfit(key);
             profit = now;
-            long was = now - moved;
-            int best = best(bestKey(BEST_KEY, key));
-            int level = earned(was, now, best);
-            if (level > 0) {
-                plugin.configManager.setConfiguration(FliphubConfigGroups.CONFIG_GROUP, bestKey(BEST_KEY, key), level);
+            judge(key, now - moved, now, false);
+        });
+    }
+
+    /**
+     * The website has given a lifetime profit ({@link SiteFigures}), for one character or, under
+     * the accountwide key, for every character. Called on the IO pool.
+     *
+     * <p>A rise is celebrated only when a sale made on this computer since the last answer is
+     * what moved it. Any other is somebody else's doing: the other computer's sale, a repair, the
+     * day the website's figures went live. That one is silent, and measured from nothing rather
+     * than from the last answer, so that the level it lands on is still written down as the best
+     * and no later sale is congratulated for reaching it.
+     *
+     * @param ownSale whether this is the answer a sale made here was waiting for
+     */
+    void onFigures(long key, long was, long now, boolean ownSale) {
+        // Judged only when it is a figure the level is read from: not one character's while
+        // every character's is, or the other way.
+        if (perCharacter() == key > 0) {
+            boolean said = ownSale && Access.plugin().config.celebrateRankUps();
+            judge(key, said ? was : 0L, now, !said);
+        }
+        // Whichever it was, the level is looked at again. The first answer to say the website
+        // is live may be of another scope than the level's, and the look asks for the level's own.
+        refreshPanel();
+    }
+
+    /**
+     * Whether a character's level figure moving from {@code was} to {@code now} earned a level or
+     * a prestige tier: written down as the best, and celebrated unless it is to be silent.
+     */
+    private void judge(long key, long was, long now, boolean silent) {
+        GeLifecyclePlugin plugin = Access.plugin();
+        int best = best(bestKey(BEST_KEY, key));
+        int level = earned(was, now, best);
+        if (level > 0) {
+            plugin.configManager.setConfiguration(FliphubConfigGroups.CONFIG_GROUP, bestKey(BEST_KEY, key), level);
+            if (!silent) {
                 celebrate(level, Math.max(FlipLevel.levelFor(was), best));
             }
-            // Checked after the level, so a sale that somehow crossed both leaves the prestige
-            // on screen -- it is the further of the two.
-            int tier = earnedPrestige(was, now, best(bestKey(BEST_PRESTIGE_KEY, key)));
-            if (tier > 0) {
-                plugin.configManager.setConfiguration(FliphubConfigGroups.CONFIG_GROUP,
-                    bestKey(BEST_PRESTIGE_KEY, key), tier);
+        }
+        // Checked after the level, so a sale that somehow crossed both leaves the prestige
+        // on screen -- it is the further of the two.
+        int tier = earnedPrestige(was, now, best(bestKey(BEST_PRESTIGE_KEY, key)));
+        if (tier > 0) {
+            plugin.configManager.setConfiguration(FliphubConfigGroups.CONFIG_GROUP,
+                bestKey(BEST_PRESTIGE_KEY, key), tier);
+            if (!silent) {
                 celebratePrestige(tier);
             }
-        });
+        }
     }
 
     /**

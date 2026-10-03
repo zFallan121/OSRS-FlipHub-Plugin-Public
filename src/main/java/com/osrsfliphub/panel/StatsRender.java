@@ -44,6 +44,11 @@ final class StatsRender {
     private JLabel sessionTimeLabel;
     private JLabel sessionHourlyLabel;
     private long sessionTotalProfit;
+    /**
+     * Whether the figures are the website's and it has not answered with them yet. They are then
+     * dashes: not this computer's own sum, and not a zero either, which is a figure.
+     */
+    boolean unanswered;
 
     void updateSummary(StatsSummary statsSummary,
                        StatsProfitSlice slice,
@@ -58,10 +63,10 @@ final class StatsRender {
             return;
         }
         if (statsSummary == null) {
-            setLabel(statsTotalProfitValue, "0 gp", SUCCESS);
-            setLabel(statsRoiValue, "0.00%", TEXT);
-            setLabel(statsFlipsValue, "0", null);
-            setLabel(statsTaxValue, "0 gp", null);
+            setLabel(statsTotalProfitValue, unanswered ? "--" : "0 gp", unanswered ? MUTED : SUCCESS);
+            setLabel(statsRoiValue, unanswered ? "--" : "0.00%", TEXT);
+            setLabel(statsFlipsValue, unanswered ? "--" : "0", null);
+            setLabel(statsTaxValue, unanswered ? "--" : "0 gp", null);
             applySessionRows(valueFormatService, statsSessionTimeValue, statsHourlyValue, 0L);
             return;
         }
@@ -127,6 +132,10 @@ final class StatsRender {
         long sessionElapsedMs = resolveSessionElapsedMs();
         setLabel(sessionTimeLabel, sessionFormatService.formatDuration(sessionElapsedMs), null);
         if (sessionHourlyLabel == null) {
+            return;
+        }
+        if (unanswered) {
+            setLabel(sessionHourlyLabel, "--", MUTED);
             return;
         }
         if (sessionElapsedMs <= 0L) {
@@ -361,6 +370,22 @@ final class StatsRender {
                     slice.count += 1;
                 }
             }
+        }
+        return slice;
+    }
+
+    /** The same of the website's figures, which come already split by kind. Nothing while it has not answered. */
+    static StatsProfitSlice sliceKinds(ApiClient.FiguresResponse answer, StatsRecipeFilter filter) {
+        StatsProfitSlice slice = new StatsProfitSlice();
+        if (answer != null && answer.by_kind != null) {
+            answer.by_kind.forEach((kind, part) -> {
+                if (filter.matchesKind(SiteFigures.kind(kind))) {
+                    slice.profitGp += part.profit_gp;
+                    slice.costGp += part.cost_gp;
+                    slice.quantity += part.qty;
+                    slice.count += part.count;
+                }
+            });
         }
         return slice;
     }

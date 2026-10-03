@@ -64,6 +64,15 @@ final class PanelState {
     StatsSummary statsSummary;
     /** How many finished trades the website has not confirmed: the value of a row shown only while there are any. */
     final javax.swing.JLabel statsWaiting = new javax.swing.JLabel();
+    /**
+     * Whose figures the tab shows: the website's view of them once it has said they are live, or
+     * null for this computer's own sums, which is all a player who is not linked ever sees.
+     */
+    SiteFigures.View statsSite;
+    /** One character's sales that carry no character's tag: a row there only beside the website's figures for one. */
+    final javax.swing.JLabel statsUntagged = new javax.swing.JLabel();
+    /** What there is to say of the website's figures (asking; from when), on a row there only while there is anything. */
+    final javax.swing.JLabel statsStatus = new javax.swing.JLabel();
     List<StatsItem> statsItems = new ArrayList<>();
     Map<Integer, List<StatsFlipInstance>> statsFlipHistoryByItem = new HashMap<>();
 

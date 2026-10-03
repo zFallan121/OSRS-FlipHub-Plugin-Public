@@ -81,14 +81,22 @@ final class StatsPanelContentBuilder {
             {"Tax paid", statsTaxValue, TEXT},
             {"Session time", statsSessionTimeValue, TEXT},
             {"Hourly profit", statsHourlyValue, SUCCESS},
+            // The sales no character can be given, beside one character's figures from the website:
+            // most were uploaded before trades carried a character's tag.
+            {"Before 22 Sep 2026", panelState.statsUntagged, SUCCESS},
             // Amber, on the value: a caution, and the one row here that is not a figure of the range.
             // "the website" would leave a five-figure count touching its label.
-            {"Not yet on website", panelState.statsWaiting, WARNING}
+            {"Not yet on website", panelState.statsWaiting, WARNING},
+            // No label: the value is the whole line, "Asking fliphubosrs.com" or "Figures from 14:05".
+            {"", panelState.statsStatus, MUTED}
         };
         statsContentPanel.add(buildSummaryCard(statsTotalProfitValue, rows));
-        // There only while a linked player has trades the website has not confirmed (Panel.setWaiting).
-        // Hidden after the card has been measured with it, so the card has room for it when it shows.
+        // There only while a linked player has trades the website has not confirmed (Panel.setWaiting),
+        // or is shown the website's figures (Panel.setSite). Hidden after the card has been measured
+        // with them, so the card has room for them when they show.
         panelState.statsWaiting.getParent().setVisible(false);
+        panelState.statsUntagged.getParent().setVisible(false);
+        panelState.statsStatus.getParent().setVisible(false);
 
         // The search sits under the answer rather than over it. It narrows the list, not the
         // total - putting it above the card read as if the card were showing the search's

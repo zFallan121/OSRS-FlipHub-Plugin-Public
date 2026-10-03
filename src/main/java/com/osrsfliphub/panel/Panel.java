@@ -304,12 +304,47 @@ public class Panel extends PluginPanel {
      * the card exactly as it always was.
      */
     void setWaiting(int count) {
+        SwingUtilities.invokeLater(() -> row(panelState.statsWaiting,
+            count > 0 ? count + (count == 1 ? " trade" : " trades") : null, WARNING));
+    }
+
+    /**
+     * Whose figures the tab is about to be given ({@link #setStatsData}): the website's view of
+     * them, or null for this computer's own sums. Two rows come with the website's figures and
+     * with nothing else. One says what there is to say of them: that the website has not answered
+     * for this view yet, a note, or that its last answer is from an earlier time because the
+     * question since failed, a caution. The other is beside one character's figures: the profit
+     * of the sales no character can be given, which are in the account's total and in no character's.
+     */
+    void setSite(SiteFigures.View site) {
         SwingUtilities.invokeLater(() -> {
-            panelState.statsWaiting.setText(count + (count == 1 ? " trade" : " trades"));
-            Container row = panelState.statsWaiting.getParent();
-            row.setVisible(count > 0);
-            row.revalidate();
+            panelState.statsSite = site;
+            ApiClient.FiguresResponse answer = site != null ? site.answer : null;
+            String status = site == null ? null
+                : answer == null ? "Asking fliphubosrs.com"
+                : site.stale ? "Figures from "
+                    + REFRESH_TIME_FORMATTER.format(Instant.ofEpochMilli(answer.as_of_ms)).substring(0, 5)
+                : null;
+            row(panelState.statsStatus, status, answer == null ? MUTED : WARNING);
+            StatsSummary untagged = answer != null ? answer.untagged : null;
+            Long profit = untagged != null && untagged.fill_count != null && untagged.fill_count > 0
+                ? untagged.total_profit_gp : null;
+            // Seven figures in full would run into the row's label: from a million up it is abbreviated.
+            row(panelState.statsUntagged,
+                profit == null ? null
+                    : Math.abs(profit) < 1_000_000L ? valueFormatService.formatGp(profit)
+                    : valueFormatService.formatGpCompact(profit),
+                profit != null && profit < 0 ? DANGER : SUCCESS);
         });
+    }
+
+    /** A row of the Profile card that is there only while it has something to say: null is nothing. */
+    private static void row(JLabel value, String text, Color color) {
+        value.setText(text);
+        value.setForeground(color);
+        Container row = value.getParent();
+        row.setVisible(text != null);
+        row.revalidate();
     }
 
     void refreshBookmarks() {
@@ -385,21 +420,32 @@ public class Panel extends PluginPanel {
     private void updateStatsSummary() {
         // ALL is the default and means the card reports the range as a whole,
         // exactly as it always has - no slice is computed at all.
+        SiteFigures.View site = panelState.statsSite;
         StatsRender.StatsProfitSlice slice =
             panelState.statsProfitFilter == null || panelState.statsProfitFilter == StatsRecipeFilter.ALL
                 ? null
+                // The website sends its figures split by kind; this computer adds its own flips up.
+                : site != null ? StatsRender.sliceKinds(site.answer, panelState.statsProfitFilter)
                 : StatsRender.sliceActivities(
                     panelState.statsFlipHistoryByItem, panelState.statsProfitFilter);
+        statsRenderCoordinator.unanswered = unanswered();
         statsRenderCoordinator.updateSummary(panelState.statsSummary, slice, valueFormatService,
             statsTotalProfitValue, statsRoiValue, statsFlipsValue, statsTaxValue,
             statsSessionTimeValue, statsHourlyValue);
     }
 
     private void renderStatsItems() {
+        // No "No stats yet" under figures the website has not answered with: that would be an answer.
         panelState.statsPage = statsRenderCoordinator.renderItems(statsItemsListPanel, panelState.statsItems,
             panelState.statsSearchQuery, panelState.statsSort, panelState.statsRecipeFilter,
             panelState.statsSortAscending, panelState.statsPage, statsItemCardBuilder::buildStatsItemCard,
-            statsItemCardBuilder::visibleItem, uiStyler::emptyCard, statsPagerBuilder, this::goToStatsPage);
+            statsItemCardBuilder::visibleItem, unanswered() ? null : uiStyler::emptyCard, statsPagerBuilder,
+            this::goToStatsPage);
+    }
+
+    /** Whether the tab's figures are the website's and it has not answered with them yet: they are dashes. */
+    private boolean unanswered() {
+        return panelState.statsSite != null && panelState.statsSummary == null;
     }
 
     /**

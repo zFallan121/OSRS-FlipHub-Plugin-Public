@@ -46,6 +46,7 @@ public class ApiClient {
     private static final String PATH_EVENTS = "/api/plugin/events";
     private static final String PATH_STATS_ACCOUNTWIDE = "/api/plugin/stats/accountwide";
     private static final String PATH_STATS_WIPE = "/api/plugin/stats/wipe";
+    private static final String PATH_FIGURES = "/api/plugin/figures";
 
     private final OkHttpClient httpClient;
     private final Gson gson;
@@ -218,6 +219,98 @@ public class ApiClient {
         }
     }
 
+    /**
+     * The website's own figures for one scope and range: the whole account ("account") or one
+     * character, by the tag its uploads carry ({@link GeEvent#characterId}). A linked plugin shows
+     * these and never a sum of its own, once the website says they are live ({@link SiteFigures}).
+     * Nothing is sent but the question.
+     *
+     * @param sinceMs the range's start, or null for all time
+     */
+    public FiguresResponse fetchFigures(String sessionToken, String scope, Long sinceMs) throws IOException {
+        return get(PATH_FIGURES, sessionToken, scope, null, sinceMs, FiguresResponse.class);
+    }
+
+    /** One item's flips in a scope and range, newest first: asked for when its list is opened. */
+    public FlipsResponse fetchFigureFlips(String sessionToken, String scope, int itemId, Long sinceMs)
+        throws IOException {
+        return get(PATH_FIGURES + "/flips", sessionToken, scope, itemId, sinceMs, FlipsResponse.class);
+    }
+
+    private <T> T get(String path, String sessionToken, String scope, Integer itemId, Long sinceMs, Class<T> type)
+        throws IOException {
+        ensureSyncEnabled();
+        HttpUrl.Builder url = HttpUrl.get(requestFactory.apiUrl(path)).newBuilder().addQueryParameter("scope", scope);
+        if (itemId != null) {
+            url.addQueryParameter("item_id", itemId.toString());
+        }
+        if (sinceMs != null) {
+            url.addQueryParameter("since_ms", sinceMs.toString());
+        }
+        Request request = requestFactory.newGetRequest(url.toString(), sessionToken);
+        try (Response response = httpClient.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                ApiException refused = new ApiException("Fetch figures failed", response.code());
+                // A 429 says how long to wait in a header, and again in its body: read there
+                // when the header did not come through.
+                String wait = response.header("Retry-After");
+                try {
+                    refused.retryAfterSeconds = wait != null ? Long.parseLong(wait)
+                        : gson.fromJson(response.peekBody(2_000_000L).string(), JsonObject.class)
+                            .get("retry_after").getAsLong();
+                } catch (IOException | RuntimeException ignored) {
+                    // Neither says, or not in seconds: 0, and the caller picks a wait of its own.
+                }
+                throw refused;
+            }
+            // No more of it than this is read, as of a refusal above: the largest answer there is
+            // comes to under a megabyte, and one cut short here cannot be read, which the caller
+            // takes as none.
+            return gson.fromJson(response.peekBody(2_000_000L).string(), type);
+        }
+    }
+
+    /** {@code {"live": false}} and nothing else until the website's switch is on. */
+    public static class FiguresResponse {
+        public boolean live;
+        public long as_of_ms;
+        public StatsSummary summary;
+        /** The scope's profit all time, whatever the range: the Merchant level reads this. */
+        public long lifetime_profit_gp;
+        public Map<String, KindSlice> by_kind;
+        /** Only beside one character: the range's sales no character can be given. */
+        public StatsSummary untagged;
+        public List<StatsItem> items;
+    }
+
+    public static class KindSlice {
+        public long profit_gp;
+        public long cost_gp;
+        public long qty;
+        public int count;
+    }
+
+    public static class FlipsResponse {
+        public boolean live;
+        /** Whether there were more than the thousand sent. */
+        public boolean more;
+        public List<FigureFlip> flips;
+    }
+
+    /** One sell offer, which is one flip. The prices are per item; the revenue is what was kept after tax. */
+    public static class FigureFlip {
+        public long buy_price_gp;
+        public long sell_price_gp;
+        public long buy_cost_gp;
+        public long sell_revenue_gp;
+        public long profit_gp;
+        public int qty;
+        public long completed_ms;
+        public long tax_gp;
+        public String kind;
+        public String name;
+    }
+
     public static class LinkResponse {
         public String session_token;
         public String session_expires_at;
@@ -265,6 +358,8 @@ public class ApiClient {
 
     public static class ApiException extends IOException {
         public final int statusCode;
+        /** How long a 429 says to wait before asking again, or 0. */
+        public long retryAfterSeconds;
 
         public ApiException(String message, int statusCode) {
             super(message + ": " + statusCode);

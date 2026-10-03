@@ -1,0 +1,432 @@
+{
+  "_tags": {
+    "ALT": "9f8e7d6c-alt",
+    "MAIN": "0a1b2c3d-main",
+    "WHIP": 4151
+  },
+  "account_all_time": {
+    "as_of_ms": 1791001154364,
+    "by_kind": {
+      "ASSEMBLE": {
+        "cost_gp": 4500000,
+        "count": 1,
+        "profit_gp": 400000,
+        "qty": 1
+      },
+      "FLIP": {
+        "cost_gp": 26602,
+        "count": 4,
+        "profit_gp": 1988,
+        "qty": 116
+      },
+      "REPAIR": {
+        "cost_gp": 900,
+        "count": 1,
+        "profit_gp": 90,
+        "qty": 1
+      }
+    },
+    "items": [
+      {
+        "fill_count": 1,
+        "item_id": 12877,
+        "kinds": [
+          "ASSEMBLE"
+        ],
+        "last_sell_ts_ms": 60000,
+        "roi_percent": 8.89,
+        "total_cost_gp": 4500000,
+        "total_profit_gp": 400000,
+        "total_qty": 1
+      },
+      {
+        "fill_count": 2,
+        "item_id": 4151,
+        "kinds": [
+          "FLIP"
+        ],
+        "last_sell_ts_ms": 50000,
+        "roi_percent": 19.48,
+        "total_cost_gp": 6202,
+        "total_profit_gp": 1208,
+        "total_qty": 6
+      },
+      {
+        "fill_count": 1,
+        "item_id": 536,
+        "kinds": [
+          "FLIP"
+        ],
+        "last_sell_ts_ms": 40000,
+        "roi_percent": 3.4,
+        "total_cost_gp": 20000,
+        "total_profit_gp": 680,
+        "total_qty": 10
+      },
+      {
+        "fill_count": 1,
+        "item_id": 561,
+        "kinds": [
+          "FLIP"
+        ],
+        "last_sell_ts_ms": 2000,
+        "roi_percent": 25.0,
+        "total_cost_gp": 400,
+        "total_profit_gp": 100,
+        "total_qty": 100
+      },
+      {
+        "fill_count": 1,
+        "item_id": 385,
+        "kinds": [
+          "REPAIR"
+        ],
+        "last_sell_ts_ms": 36000,
+        "roi_percent": 10.0,
+        "total_cost_gp": 900,
+        "total_profit_gp": 90,
+        "total_qty": 1
+      }
+    ],
+    "lifetime_profit_gp": 402078,
+    "live": true,
+    "summary": {
+      "fill_count": 6,
+      "first_buy_ts_ms": 1000,
+      "last_sell_ts_ms": 60000,
+      "roi_percent": 8.88,
+      "tax_paid_gp": 100589,
+      "total_cost_gp": 4527502,
+      "total_profit_gp": 402078,
+      "total_qty": 118
+    }
+  },
+  "account_since_40000": {
+    "as_of_ms": 1791001154366,
+    "by_kind": {
+      "ASSEMBLE": {
+        "cost_gp": 4500000,
+        "count": 1,
+        "profit_gp": 400000,
+        "qty": 1
+      },
+      "FLIP": {
+        "cost_gp": 26202,
+        "count": 3,
+        "profit_gp": 1888,
+        "qty": 16
+      }
+    },
+    "items": [
+      {
+        "fill_count": 1,
+        "item_id": 12877,
+        "kinds": [
+          "ASSEMBLE"
+        ],
+        "last_sell_ts_ms": 60000,
+        "roi_percent": 8.89,
+        "total_cost_gp": 4500000,
+        "total_profit_gp": 400000,
+        "total_qty": 1
+      },
+      {
+        "fill_count": 2,
+        "item_id": 4151,
+        "kinds": [
+          "FLIP"
+        ],
+        "last_sell_ts_ms": 50000,
+        "roi_percent": 19.48,
+        "total_cost_gp": 6202,
+        "total_profit_gp": 1208,
+        "total_qty": 6
+      },
+      {
+        "fill_count": 1,
+        "item_id": 536,
+        "kinds": [
+          "FLIP"
+        ],
+        "last_sell_ts_ms": 40000,
+        "roi_percent": 3.4,
+        "total_cost_gp": 20000,
+        "total_profit_gp": 680,
+        "total_qty": 10
+      }
+    ],
+    "lifetime_profit_gp": 402078,
+    "live": true,
+    "summary": {
+      "fill_count": 4,
+      "first_buy_ts_ms": 10000,
+      "last_sell_ts_ms": 60000,
+      "roi_percent": 8.88,
+      "tax_paid_gp": 100569,
+      "total_cost_gp": 4526202,
+      "total_profit_gp": 401888,
+      "total_qty": 17
+    }
+  },
+  "alt_all_time": {
+    "as_of_ms": 1791001154365,
+    "by_kind": {
+      "FLIP": {
+        "cost_gp": 1000,
+        "count": 1,
+        "profit_gp": 235,
+        "qty": 1
+      }
+    },
+    "items": [
+      {
+        "fill_count": 1,
+        "item_id": 4151,
+        "kinds": [
+          "FLIP"
+        ],
+        "last_sell_ts_ms": 45000,
+        "roi_percent": 23.5,
+        "total_cost_gp": 1000,
+        "total_profit_gp": 235,
+        "total_qty": 1
+      }
+    ],
+    "lifetime_profit_gp": 235,
+    "live": true,
+    "summary": {
+      "fill_count": 1,
+      "first_buy_ts_ms": 31000,
+      "last_sell_ts_ms": 45000,
+      "roi_percent": 23.5,
+      "tax_paid_gp": 25,
+      "total_cost_gp": 1000,
+      "total_profit_gp": 235,
+      "total_qty": 1
+    },
+    "untagged": {
+      "fill_count": 2,
+      "first_buy_ts_ms": 1000,
+      "last_sell_ts_ms": 36000,
+      "roi_percent": 14.62,
+      "tax_paid_gp": 20,
+      "total_cost_gp": 1300,
+      "total_profit_gp": 190,
+      "total_qty": 101
+    }
+  },
+  "bad_since": {
+    "body": {
+      "error": "Invalid since_ms"
+    },
+    "status": 400
+  },
+  "flips_whip_account": {
+    "flips": [
+      {
+        "buy_cost_gp": 5202,
+        "buy_price_gp": 1040,
+        "completed_ms": 50000,
+        "kind": "FLIP",
+        "name": null,
+        "profit_gp": 973,
+        "qty": 5,
+        "sell_price_gp": 1235,
+        "sell_revenue_gp": 6175,
+        "tax_gp": 125
+      },
+      {
+        "buy_cost_gp": 1000,
+        "buy_price_gp": 1000,
+        "completed_ms": 45000,
+        "kind": "FLIP",
+        "name": null,
+        "profit_gp": 235,
+        "qty": 1,
+        "sell_price_gp": 1235,
+        "sell_revenue_gp": 1235,
+        "tax_gp": 25
+      }
+    ],
+    "live": true,
+    "more": false
+  },
+  "flips_whip_main": {
+    "flips": [
+      {
+        "buy_cost_gp": 5202,
+        "buy_price_gp": 1040,
+        "completed_ms": 50000,
+        "kind": "FLIP",
+        "name": null,
+        "profit_gp": 973,
+        "qty": 5,
+        "sell_price_gp": 1235,
+        "sell_revenue_gp": 6175,
+        "tax_gp": 125
+      }
+    ],
+    "live": true,
+    "more": false
+  },
+  "main_all_time": {
+    "as_of_ms": 1791001154364,
+    "by_kind": {
+      "ASSEMBLE": {
+        "cost_gp": 4500000,
+        "count": 1,
+        "profit_gp": 400000,
+        "qty": 1
+      },
+      "FLIP": {
+        "cost_gp": 25202,
+        "count": 2,
+        "profit_gp": 1653,
+        "qty": 15
+      }
+    },
+    "items": [
+      {
+        "fill_count": 1,
+        "item_id": 12877,
+        "kinds": [
+          "ASSEMBLE"
+        ],
+        "last_sell_ts_ms": 60000,
+        "roi_percent": 8.89,
+        "total_cost_gp": 4500000,
+        "total_profit_gp": 400000,
+        "total_qty": 1
+      },
+      {
+        "fill_count": 1,
+        "item_id": 4151,
+        "kinds": [
+          "FLIP"
+        ],
+        "last_sell_ts_ms": 50000,
+        "roi_percent": 18.7,
+        "total_cost_gp": 5202,
+        "total_profit_gp": 973,
+        "total_qty": 5
+      },
+      {
+        "fill_count": 1,
+        "item_id": 536,
+        "kinds": [
+          "FLIP"
+        ],
+        "last_sell_ts_ms": 40000,
+        "roi_percent": 3.4,
+        "total_cost_gp": 20000,
+        "total_profit_gp": 680,
+        "total_qty": 10
+      }
+    ],
+    "lifetime_profit_gp": 401653,
+    "live": true,
+    "summary": {
+      "fill_count": 3,
+      "first_buy_ts_ms": 5000,
+      "last_sell_ts_ms": 60000,
+      "roi_percent": 8.88,
+      "tax_paid_gp": 100544,
+      "total_cost_gp": 4525202,
+      "total_profit_gp": 401653,
+      "total_qty": 16
+    },
+    "untagged": {
+      "fill_count": 2,
+      "first_buy_ts_ms": 1000,
+      "last_sell_ts_ms": 36000,
+      "roi_percent": 14.62,
+      "tax_paid_gp": 20,
+      "total_cost_gp": 1300,
+      "total_profit_gp": 190,
+      "total_qty": 101
+    }
+  },
+  "main_since_40000": {
+    "as_of_ms": 1791001154367,
+    "by_kind": {
+      "ASSEMBLE": {
+        "cost_gp": 4500000,
+        "count": 1,
+        "profit_gp": 400000,
+        "qty": 1
+      },
+      "FLIP": {
+        "cost_gp": 25202,
+        "count": 2,
+        "profit_gp": 1653,
+        "qty": 15
+      }
+    },
+    "items": [
+      {
+        "fill_count": 1,
+        "item_id": 12877,
+        "kinds": [
+          "ASSEMBLE"
+        ],
+        "last_sell_ts_ms": 60000,
+        "roi_percent": 8.89,
+        "total_cost_gp": 4500000,
+        "total_profit_gp": 400000,
+        "total_qty": 1
+      },
+      {
+        "fill_count": 1,
+        "item_id": 4151,
+        "kinds": [
+          "FLIP"
+        ],
+        "last_sell_ts_ms": 50000,
+        "roi_percent": 18.7,
+        "total_cost_gp": 5202,
+        "total_profit_gp": 973,
+        "total_qty": 5
+      },
+      {
+        "fill_count": 1,
+        "item_id": 536,
+        "kinds": [
+          "FLIP"
+        ],
+        "last_sell_ts_ms": 40000,
+        "roi_percent": 3.4,
+        "total_cost_gp": 20000,
+        "total_profit_gp": 680,
+        "total_qty": 10
+      }
+    ],
+    "lifetime_profit_gp": 401653,
+    "live": true,
+    "summary": {
+      "fill_count": 3,
+      "first_buy_ts_ms": 10000,
+      "last_sell_ts_ms": 60000,
+      "roi_percent": 8.88,
+      "tax_paid_gp": 100544,
+      "total_cost_gp": 4525202,
+      "total_profit_gp": 401653,
+      "total_qty": 16
+    },
+    "untagged": {
+      "fill_count": 0,
+      "first_buy_ts_ms": null,
+      "last_sell_ts_ms": null,
+      "roi_percent": 0.0,
+      "tax_paid_gp": 0,
+      "total_cost_gp": 0,
+      "total_profit_gp": 0,
+      "total_qty": 0
+    }
+  },
+  "no_token": {
+    "body": {
+      "error": "Missing token"
+    },
+    "status": 401
+  }
+}

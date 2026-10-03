@@ -35,7 +35,7 @@ final class WebsiteStatsWipe {
     private final ProfileSelectionPresentation profileSelectionPresentation;
     private final ProfileWorkflow profileWorkflow;
     private final Client client;
-    private final PanelRefresh panelRefresh;
+    private final SiteFigures siteFigures;
 
     private void runOnClientThread(Runnable task) {
         if (task != null) {
@@ -79,7 +79,10 @@ final class WebsiteStatsWipe {
                             "FlipHub website wipe: deleted " + events + " events, " + lots + " lots, "
                                 + fills + " fills, " + summaries + " summaries."
                         );
-                        panelRefresh.triggerStatsRefresh(Access.plugin().scheduler);
+                        // What the website said before the wipe is no longer true. Forgetting it
+                        // draws the Profile tab again, which asks at once. Not on this thread, the
+                        // game's: it writes the config.
+                        Access.plugin().executeAsync(siteFigures::forget);
                     } else {
                         pushGameMessage("FlipHub website wipe failed: unexpected response.");
                     }

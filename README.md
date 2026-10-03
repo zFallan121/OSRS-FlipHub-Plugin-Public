@@ -183,6 +183,17 @@ took to fill — and every flip behind them, listed one by one.
 
 ![An opened item showing total profit, total cost, average sell and buy, ROI, flips, quantity and average time to complete, over a flip history listing each flip's quantity, buy, sell and profit](docs/panel-profile-item.png)
 
+**If you are linked**, these figures are the website's once FlipHub turns that on: the total, the
+per-item totals, each item's flips and your Merchant level are then the same on every computer you
+play on, and the same as on fliphubosrs.com, instead of each computer adding up only the trades
+made on it. For example, if one computer's trades come to 11.5M and another's to 10.1M, both show
+the website's 21.6M. A figure the website has not answered with yet shows as `--`; if the website
+cannot be reached, the tab keeps the last figures and says what time they are from. With one
+character picked, a **Before 22 Sep 2026** row shows the profit of the sales the website cannot
+give to any one character, most of them uploaded before trades carried a character's code; they
+are counted in the total for all your characters. How long a flip took to fill stays this
+computer's own. If you are not linked, nothing changes: the figures are this computer's own.
+
 <img src="docs/divider.png" width="100%" alt="">
 
 #### Recipes
@@ -328,6 +339,18 @@ Jagex credentials are requested, read, or transmitted.
   trades stored on this computer, trades picked up from the GE History tab included. A summary is
   sent again until the website confirms it has that trade. What is read back is the website's
   answer to each upload: how many events it took, and which of those summaries it now holds.
+  From this version a linked plugin also asks the website for your profit figures: about once a
+  minute while the Profile tab is showing, and at most once a minute when your Merchant level is
+  looked at (at login, and when the skills tab or the Profile tab shows it). With the Profile tab
+  open for ten minutes, that is about ten questions, or about twenty when the tab is not showing
+  the figures your level is read from. The website's answer says whether its figures are
+  turned on. Until FlipHub turns them on, that is all the answer says, and the panel goes on
+  showing this computer's own sums. Once they are on, the answer holds your figures as the
+  website works them out from those uploads: your totals, your totals per item, and one item's
+  flips when you open its list, so that the panel and the website show one figure; they are then
+  asked for again shortly after an upload is accepted, since that is when they move. Nothing new
+  is sent to get them: the question only says which figures are wanted (all your characters or
+  one, by its fixed code described below; from when; and for an item's flips, which item).
   Linking also sends a random device ID the plugin makes up and the plugin's version, and
   while you stay linked a summary of your account-wide totals per item is sent from time to time.
   Also sent: any recipes you record (which of those trades went into which, and the fee you entered), so

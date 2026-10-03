@@ -52,6 +52,7 @@ final class LinkAttempt {
     private final LinkSessionConfigStore sessionConfigStore;
     private final ProfileWorkflow profileWorkflow;
     private final RecordSync recordSync;
+    private final SiteFigures siteFigures;
     /** Config writes fan out into several link triggers; only the first should reach the network. */
     private final AtomicBoolean linkInFlight = new AtomicBoolean();
 
@@ -132,6 +133,8 @@ final class LinkAttempt {
     void performUnlink() {
         sessionConfigStore.clearLinkState();
         sessionConfigStore.disableSync();
+        // The website's figures were this link's: the Profile tab is this computer's own again.
+        siteFigures.forget();
         sessionConfigStore.flush();
         summaryUploader.resetUploadSnapshot();
         uploadEventDispatch.markBlocked("Unlinked. Event uploads paused until relinked.");
@@ -183,14 +186,20 @@ final class LinkAttempt {
             ApiClient.LinkResponse response = linkDevice(licenseKey, deviceId);
             if (response != null && (!Str.isBlank(response.session_token)) && (!Str.isBlank(response.signing_secret))) {
                 // Before the session is stored, which also writes the config out: a link remembered
-                // without this would go on trusting what another website account confirmed.
+                // without this would go on trusting what another website account confirmed, and
+                // showing that account's figures.
                 recordSync.linked();
+                siteFigures.forget();
                 sessionConfigStore.persistLinkedSession(response.session_token, response.signing_secret);
+                // And again now it is: an answer that came in between was the last link's.
+                siteFigures.forget();
                 summaryUploader.resetUploadSnapshot();
                 uploadEventDispatch.resetStatus();
                 uploadEventDispatch.updateUploadDiagnosticsUi();
                 scheduleAccountwideSync(POST_LINK_SYNC_DELAY_SECONDS);
                 Access.plugin().refreshPanelData();
+                // The Profile tab asks the website for its figures as it is drawn.
+                Access.plugin().refreshStatsData();
                 linkStatus.markLinked(licenseKey);
             } else {
                 // The call went through and FlipHub declined it, so the key itself is the problem.

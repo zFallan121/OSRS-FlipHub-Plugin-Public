@@ -65,6 +65,12 @@ final class PanelRefresh {
     private final AtomicBoolean refreshQueued = new AtomicBoolean(false);
     private final AtomicBoolean refreshPending = new AtomicBoolean(false);
     private final AtomicBoolean statsRefreshInFlight = new AtomicBoolean(false);
+    /**
+     * A Profile tab refresh that has been asked for and not yet begun. One that arrived while
+     * another was running used to be thrown away, and the website's answer lands whenever it
+     * lands: the tab stayed on what it showed before the answer.
+     */
+    private final AtomicBoolean statsRefreshWanted = new AtomicBoolean(false);
 
     /**
      * Reads the readiness flag the client thread photographs each tick, because refreshes run on
@@ -153,6 +159,7 @@ final class PanelRefresh {
         renderedSincePanelShown = false;
         renderedStatsSinceShown = false;
         statsRefreshInFlight.set(false);
+        statsRefreshWanted.set(false);
     }
 
     /** Whether the Profile tab is on screen and still waiting to be filled in. */
@@ -240,19 +247,21 @@ final class PanelRefresh {
         if (!isPanelVisible() || !hasPanel() || !isStatsTabSelected()) {
             return;
         }
-        if (statsRefreshInFlight.getAndSet(true)) {
-            return;
-        }
-
-        try {
-            dataRuntime.renderLocalStats();
-            renderedStatsSinceShown = true;
-        } catch (RuntimeException ex) {
-            // Without this the exception lands in a future nobody reads: no log line, and the
-            // Profile tab quietly keeps showing stale numbers.
-            logWarn("FlipHub local stats refresh failed", ex);
-        } finally {
-            statsRefreshInFlight.set(false);
+        // Wanted first, then whoever can take the refresh runs it until nobody wants one: the
+        // thread already running one sees this ask when it ends, and runs again.
+        statsRefreshWanted.set(true);
+        while (statsRefreshWanted.get() && statsRefreshInFlight.compareAndSet(false, true)) {
+            try {
+                statsRefreshWanted.set(false);
+                dataRuntime.renderLocalStats();
+                renderedStatsSinceShown = true;
+            } catch (RuntimeException ex) {
+                // Without this the exception lands in a future nobody reads: no log line, and the
+                // Profile tab quietly keeps showing stale numbers.
+                logWarn("FlipHub local stats refresh failed", ex);
+            } finally {
+                statsRefreshInFlight.set(false);
+            }
         }
     }
 

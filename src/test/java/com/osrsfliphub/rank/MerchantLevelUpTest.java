@@ -305,7 +305,7 @@ public class MerchantLevelUpTest {
     private void sell(long character, int item, long gain) {
         file(character, new Delta(tick(), item, 560 + item, false, 1, 1_000_000L + gain, "OFFER_COMPLETED",
             (int) (1_000_000L + gain), false));
-        rankUp.onSale(character, 0L, gain);
+        rankUp.onSale(character, 0L, gain, true, clock);
     }
 
     private void file(long character, Delta delta) {

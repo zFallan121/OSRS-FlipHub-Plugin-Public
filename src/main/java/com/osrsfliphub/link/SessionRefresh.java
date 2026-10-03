@@ -93,6 +93,11 @@ final class SessionRefresh {
                         setConfiguration(DEFAULT_CONFIG_GROUP, SIGNING_SECRET_KEY, response.signing_secret);
                     }
                     setConfiguration(DEFAULT_CONFIG_GROUP, SESSION_TOKEN_KEY, response.session_token);
+                    // The same link under a new session: the website's figures stay on show.
+                    SiteFigures figures = Bridge.get(SiteFigures.class);
+                    if (figures != null) {
+                        figures.token = response.session_token;
+                    }
                     return Outcome.REFRESHED;
                 }
                 // A 2xx with no token in it. Not a refusal, so hold on to what we have.
@@ -112,6 +117,11 @@ final class SessionRefresh {
     void clearSession() {
         setConfiguration(DEFAULT_CONFIG_GROUP, SESSION_TOKEN_KEY, "");
         setConfiguration(DEFAULT_CONFIG_GROUP, SIGNING_SECRET_KEY, "");
+        // The website's figures were this session's account's; the next link may be to another.
+        SiteFigures figures = Bridge.get(SiteFigures.class);
+        if (figures != null) {
+            figures.forget();
+        }
         // Otherwise the account card keeps claiming "Linked" until something else repaints it.
         LinkStatus linkStatus = Bridge.get(LinkStatus.class);
         if (linkStatus != null) {

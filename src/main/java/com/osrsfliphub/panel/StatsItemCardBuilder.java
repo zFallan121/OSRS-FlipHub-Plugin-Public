@@ -112,9 +112,19 @@ final class StatsItemCardBuilder {
      * is real but rare, and three icons would cost the name more room than a
      * third mark is worth. The tooltip on each names it in full.
      */
-    private List<ConversionKind> visibleKinds(int itemId) {
+    private List<ConversionKind> visibleKinds(StatsItem item) {
         Map<ConversionKind, Long> profitByKind = new HashMap<>();
-        for (StatsFlipInstance instance : getStatsFlipHistory(itemId)) {
+        if (panelState.statsSite != null) {
+            // The website says which kinds an item's flips were, not what each kind made, and
+            // sends the flips themselves only when their list is opened.
+            for (ConversionKind kind : item.conversionKinds) {
+                profitByKind.put(kind, 0L);
+            }
+            if (item.hasPlainFlip) {
+                profitByKind.put(null, 0L);
+            }
+        }
+        for (StatsFlipInstance instance : getStatsFlipHistory(item.item_id)) {
             if (instance == null) {
                 continue;
             }
@@ -135,10 +145,11 @@ final class StatsItemCardBuilder {
     /**
      * The item as the filter leaves it: totals rebuilt from the activities still
      * on show, so the headline figure and the entries under it are the same
-     * answer. Unfiltered, this is the item exactly as it arrived.
+     * answer. Unfiltered, this is the item exactly as it arrived. So is one of the website's:
+     * it sends an item's totals whole, and the item is listed when any of its flips is of the kind.
      */
     StatsItem visibleItem(StatsItem item) {
-        if (item == null || activeFilter() == StatsRecipeFilter.ALL) {
+        if (item == null || activeFilter() == StatsRecipeFilter.ALL || panelState.statsSite != null) {
             return item;
         }
         List<StatsFlipInstance> visible = getStatsFlipHistory(item.item_id);
@@ -225,7 +236,7 @@ final class StatsItemCardBuilder {
         JPanel trailing = new JPanel();
         trailing.setOpaque(false);
         trailing.setLayout(new BoxLayout(trailing, BoxLayout.X_AXIS));
-        for (ConversionKind kind : visibleKinds(item.item_id)) {
+        for (ConversionKind kind : visibleKinds(item)) {
             JLabel typeMark = new TipLabel(new ActivityIcon(kind, TYPE_ICON_SIZE, ACCENT));
             typeMark.setToolTipText(ActivityIcon.singularLabel(kind));
             trailing.add(typeMark);
@@ -279,7 +290,7 @@ final class StatsItemCardBuilder {
             )
         );
         figures.add(buildStatsItemDetailLine(
-            activityCountLabel(item.item_id),
+            activityCountLabel(item),
             String.valueOf(item.fill_count != null ? item.fill_count : 0),
             TEXT));
         figures.add(buildStatsItemDetailLine("Quantity", String.valueOf(item.total_qty != null ? item.total_qty : 0), TEXT));
@@ -306,8 +317,8 @@ final class StatsItemCardBuilder {
      * because calling them flips is simply wrong - and a card holding both says
      * "Activities", because there is no one word for the mixture.
      */
-    private String activityCountLabel(int itemId) {
-        List<ConversionKind> kinds = visibleKinds(itemId);
+    private String activityCountLabel(StatsItem item) {
+        List<ConversionKind> kinds = visibleKinds(item);
         if (kinds.size() != 1) {
             return kinds.isEmpty() ? "Flips" : "Activities";
         }
@@ -322,10 +333,19 @@ final class StatsItemCardBuilder {
             history = new ArrayList<>();
         }
         boolean expanded = isStatsHistoryExpanded(itemId);
+        // The website sends one item's flips only when asked: asked for as the list is drawn
+        // open, so it is asked for again once an answer has changed the item's row.
+        // Until they arrive there is no count to put in the heading.
+        SiteFigures.View site = panelState.statsSite;
+        if (site != null && expanded) {
+            Bridge.get(SiteFigures.class).flips(site, itemId);
+        }
 
         JPanel header = plain(new BorderLayout(6, 0));
         wide(header, 18);
-        JLabel title = styled(new JLabel(historySectionTitle(history)), MUTED, uiStyler.fontSemiBold(10f));
+        JLabel title = styled(
+            new JLabel(site != null && history.isEmpty() ? "Flip history" : historySectionTitle(history)),
+            MUTED, uiStyler.fontSemiBold(10f));
         JLabel chevron = new JLabel(expanded ? "\u25B2" : "\u25BC", SwingConstants.RIGHT);
         chevron.setForeground(MUTED_2);
         chevron.setFont(font(10f));
@@ -333,7 +353,7 @@ final class StatsItemCardBuilder {
         header.add(chevron, BorderLayout.EAST);
         section.add(header);
 
-        if (!history.isEmpty()) {
+        if (site != null || !history.isEmpty()) {
             interactionInstaller.installStatsHistoryToggle(header, itemId);
             interactionInstaller.installStatsHistoryHoverFeedback(header, title, chevron);
             header.setCursor(HAND);
@@ -365,6 +385,14 @@ final class StatsItemCardBuilder {
             entries.add(buildStatsFlipHistoryEntry(
                 instance, historyEntryLabel(instance, numbered), anyAdded));
             anyAdded = true;
+        }
+        ApiClient.FlipsResponse fetched = site != null ? site.flips.get(itemId) : null;
+        if (fetched != null && fetched.more) {
+            // The website sends a thousand of an item's flips at most.
+            JPanel more = plain(new BorderLayout());
+            wide(more, 14);
+            more.add(styled(new JLabel("Newest 1,000 shown"), MUTED_2, font(9.5f)), BorderLayout.WEST);
+            entries.add(more);
         }
         section.add(Box.createVerticalStrut(4));
         section.add(CardSection.of(entries));

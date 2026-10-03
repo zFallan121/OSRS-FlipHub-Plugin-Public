@@ -1,0 +1,8 @@
+{
+  "body": {
+    "error": "Rate limit exceeded",
+    "retry_after": 37
+  },
+  "retry_after_header": "37",
+  "status": 429
+}

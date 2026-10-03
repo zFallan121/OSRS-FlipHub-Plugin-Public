@@ -93,6 +93,7 @@ final class PanelDataRuntime {
             return;
         }
         StatsView.Result statsView = statsViews.build();
+        panel.setSite(statsView.site);
         panel.setStatsData(statsView.summary, statsView.items, statsView.flipHistory, statsView.asOfMs);
         panel.setWaiting(recordSync.waiting());
         rankUp.refreshPanel();
