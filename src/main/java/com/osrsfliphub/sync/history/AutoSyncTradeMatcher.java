@@ -107,12 +107,12 @@ final class AutoSyncTradeMatcher {
         // GE history UI order is newest-first; process oldest->newest for stable matching.
         for (int i = size - 1; i >= 0; i--) {
             Trade trade = historyTrades.get(i);
-            int unitPrice = resolveUnitPrice(trade);
+            long unitPrice = resolveUnitPrice(trade);
             if (trade == null || !trade.isValid() || unitPrice <= 0) {
                 continue;
             }
             List<OfferLot> lots = lotsByItemSide.get(new ItemSide(trade.itemId, trade.isBuy));
-            if (claimExact(lots, trade, unitPrice) || claimWithinTolerance(lots, trade)) {
+            if (claimExact(lots, trade, unitPrice) || claimWithinTolerance(lots, trade, false)) {
                 continue;
             }
             unexplained[i] = true;
@@ -125,7 +125,8 @@ final class AutoSyncTradeMatcher {
             }
             Trade trade = historyTrades.get(i);
             List<OfferLot> lots = lotsByItemSide.get(new ItemSide(trade.itemId, trade.isBuy));
-            if (claimCoveredWithinOneOffer(lots, trade, resolveUnitPrice(trade))) {
+            if (claimWithinTolerance(lots, trade, true)
+                || claimCoveredWithinOneOffer(lots, trade, resolveUnitPrice(trade))) {
                 continue;
             }
             int covered = consumeAtUnitPrice(lots, resolveUnitPrice(trade), trade.quantity);
@@ -233,7 +234,7 @@ final class AutoSyncTradeMatcher {
 
     // ---- the tiers ----
 
-    private static boolean claimExact(List<OfferLot> lots, Trade trade, int unitPrice) {
+    private static boolean claimExact(List<OfferLot> lots, Trade trade, long unitPrice) {
         if (lots == null) {
             return false;
         }
@@ -256,7 +257,7 @@ final class AutoSyncTradeMatcher {
      * lot at the price let two genuinely separate offers cover a third, larger row that was
      * never recorded at all, and that row was then dropped instead of imported.
      */
-    private static boolean claimCoveredWithinOneOffer(List<OfferLot> lots, Trade trade, int unitPrice) {
+    private static boolean claimCoveredWithinOneOffer(List<OfferLot> lots, Trade trade, long unitPrice) {
         if (lots == null || unitPrice <= 0) {
             return false;
         }
@@ -282,7 +283,7 @@ final class AutoSyncTradeMatcher {
         return false;
     }
 
-    private static void consumeAtUnitPriceInSlot(List<OfferLot> lots, int unitPrice, int slot, int quantity) {
+    private static void consumeAtUnitPriceInSlot(List<OfferLot> lots, long unitPrice, int slot, int quantity) {
         int remaining = Math.max(0, quantity);
         Iterator<OfferLot> it = lots.iterator();
         while (it.hasNext() && remaining > 0) {
@@ -299,7 +300,13 @@ final class AutoSyncTradeMatcher {
         }
     }
 
-    private static boolean claimWithinTolerance(List<OfferLot> lots, Trade trade) {
+    /**
+     * @param shortStored whether a sale stored one capped tax short may be claimed too. Only once
+     *                    every row has had the chance to claim the record that is its own: two
+     *                    pickaxes sold 5,000,000 apart look exactly like one of them stored short,
+     *                    and the allowance taken first handed one row the other's record.
+     */
+    private static boolean claimWithinTolerance(List<OfferLot> lots, Trade trade, boolean shortStored) {
         if (lots == null) {
             return false;
         }
@@ -311,7 +318,13 @@ final class AutoSyncTradeMatcher {
                 continue;
             }
             long distance = Math.abs(lot.gp - trade.totalGp);
-            if (distance <= tolerance && distance < bestDistance) {
+            // The build before this one refereed a sale's coins against its listed price, and
+            // held that price cut down to max cash. Past it, the sale could be stored one capped
+            // tax an item short: 2,390,000,000 for a pickaxe that made 2,395,000,000. It is the
+            // row's sale all the same, and importing the row would count it twice.
+            boolean taxedTwice = shortStored && !trade.isBuy && lot.first.price == Integer.MAX_VALUE
+                && trade.totalGp - lot.gp == GeTax.MAX_TAX_PER_ITEM * lot.qty;
+            if ((distance <= tolerance || taxedTwice) && distance < bestDistance) {
                 best = lot;
                 bestDistance = distance;
             }
@@ -324,7 +337,7 @@ final class AutoSyncTradeMatcher {
     }
 
     /** Takes up to {@code wanted} units off the lots at this unit price, oldest first, and says how many it got. */
-    private static int consumeAtUnitPrice(List<OfferLot> lots, int unitPrice, int wanted) {
+    private static int consumeAtUnitPrice(List<OfferLot> lots, long unitPrice, int wanted) {
         if (lots == null || unitPrice <= 0 || wanted <= 0) {
             return 0;
         }
@@ -337,7 +350,7 @@ final class AutoSyncTradeMatcher {
             }
             int take = Math.min(lot.qty, wanted - taken);
             lot.qty -= take;
-            lot.gp = Math.max(0L, lot.gp - (long) take * (long) unitPrice);
+            lot.gp = Math.max(0L, lot.gp - take * unitPrice);
             taken += take;
             if (lot.qty <= 0) {
                 it.remove();
@@ -371,7 +384,7 @@ final class AutoSyncTradeMatcher {
         if (scaled > 0L) {
             return scaled;
         }
-        return Math.max(1L, (long) trade.price * (long) quantity);
+        return Math.max(1L, trade.price * quantity);
     }
 
     // ---- the stored side ----
@@ -458,7 +471,7 @@ final class AutoSyncTradeMatcher {
      * and got imported a second time. The coins are the one figure both sides
      * state the same way, tax and all.
      */
-    private static int resolveUnitPrice(Delta delta) {
+    private static long resolveUnitPrice(Delta delta) {
         if (delta == null || delta.deltaQty <= 0) {
             return 0;
         }
@@ -466,22 +479,21 @@ final class AutoSyncTradeMatcher {
     }
 
     /** The realised unit price again, read off a history row the same way. */
-    private static int resolveUnitPrice(Trade trade) {
+    private static long resolveUnitPrice(Trade trade) {
         if (trade == null || trade.quantity <= 0) {
             return 0;
         }
         return resolveUnitPrice(trade.totalGp, trade.quantity, trade.price);
     }
 
-    private static int resolveUnitPrice(long totalGp, int quantity, int listedPrice) {
+    private static long resolveUnitPrice(long totalGp, int quantity, long listedPrice) {
         if (quantity <= 0) {
             return 0;
         }
         if (totalGp > 0L) {
-            // Past 2,147,483,647 each there is no price a record can hold yet. Zero leaves the
-            // row unmatched and unimported: cut down to 32 bits it was imported at a wrong price.
-            long unit = totalGp / (long) quantity;
-            return unit > Integer.MAX_VALUE ? 0 : (int) Math.max(1L, unit);
+            // A long: one item can come to more than 2,147,483,647 (30 Sep 2026). Cut down to
+            // 32 bits such a row matched nothing, and was imported at a wrong price or not at all.
+            return Math.max(1L, totalGp / quantity);
         }
         // No coins recorded at all - a synthetic or malformed record. The listed
         // price is all there is left to go on.
@@ -492,7 +504,7 @@ final class AutoSyncTradeMatcher {
         if (trade == null || !trade.isValid()) {
             return null;
         }
-        int unitPrice = resolveUnitPrice(trade);
+        long unitPrice = resolveUnitPrice(trade);
         if (unitPrice <= 0) {
             return null;
         }
@@ -503,7 +515,7 @@ final class AutoSyncTradeMatcher {
         if (delta == null || delta.itemId <= 0 || delta.deltaQty <= 0) {
             return null;
         }
-        int unitPrice = resolveUnitPrice(delta);
+        long unitPrice = resolveUnitPrice(delta);
         if (unitPrice <= 0) {
             return null;
         }
@@ -523,7 +535,7 @@ final class AutoSyncTradeMatcher {
         private long offerStartMs;
         int qty;
         long gp;
-        int unitPrice;
+        long unitPrice;
 
         OfferLot(Delta first) {
             this.first = first;
@@ -555,7 +567,7 @@ final class AutoSyncTradeMatcher {
         }
 
         /** Fixes the unit price once the fills are all in; returns it. */
-        int seal() {
+        long seal() {
             unitPrice = resolveUnitPrice(gp, qty, first.price);
             return unitPrice;
         }
@@ -574,7 +586,7 @@ final class AutoSyncTradeMatcher {
         private final int itemId;
         private final boolean isBuy;
         private final int quantity;
-        private final int unitPrice;
+        private final long unitPrice;
     }
 
     static final class SelectionPlan {

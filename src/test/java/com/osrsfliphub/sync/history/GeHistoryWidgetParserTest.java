@@ -171,4 +171,80 @@ public class GeHistoryWidgetParserTest {
 
         assertEquals(20_142_000L, gross);
     }
+
+    // Past max cash. Since 30 Sep 2026 one item can cost more than 2,147,483,647, and the rows
+    // below are written as the game writes any other.
+
+    /** Held in an int, 2,394,000,000 came out negative and the row was thrown away. */
+    @Test
+    public void aPurchasePastMaxCashIsReadWhole() {
+        Trade trade = WidgetParser.parseTrade(
+            "Bought:",
+            20011,
+            1,
+            "<col=ffb83f>2,394,000,000\u00A0coins</col><br>=\u00A02,394,000,000\u00A0each"
+        );
+
+        assertNotNull(trade);
+        assertEquals(true, trade.isValid());
+        assertEquals(1, trade.quantity);
+        assertEquals(2_394_000_000L, trade.price);
+        assertEquals(2_394_000_000L, trade.totalGp);
+    }
+
+    /** Held in an int, 9,199,000,000 came out as 609,065,408: a real-looking wrong price. */
+    @Test
+    public void aPurchaseFarPastMaxCashIsReadWhole() {
+        Trade trade = WidgetParser.parseTrade("Bought:", 20014, 1, "<col=ffb83f>9,199,000,000\u00A0coins</col>");
+
+        assertNotNull(trade);
+        assertEquals(9_199_000_000L, trade.price);
+        assertEquals(9_199_000_000L, trade.totalGp);
+    }
+
+    @Test
+    public void aSalePastMaxCashTakesItsPriceFromTheBrackets() {
+        Trade trade = WidgetParser.parseTrade(
+            "Sold:",
+            20011,
+            1,
+            "<col=ffb83f>2,389,000,000\u00A0coins</col><br><col=9f9f9f>(2,394,000,000\u00A0-\u00A05,000,000)</col>"
+        );
+
+        assertNotNull(trade);
+        assertEquals(2_394_000_000L, trade.price);
+        assertEquals(2_389_000_000L, trade.totalGp);
+    }
+
+    /** Two sold in one offer: the brackets hold the total, and the price is one item's. */
+    @Test
+    public void aSaleOfSeveralPastMaxCashGivesThePriceOfOne() {
+        Trade trade = WidgetParser.parseTrade(
+            "Sold:",
+            20011,
+            2,
+            "<col=ffb83f>4,778,000,000\u00A0coins</col><br><col=9f9f9f>(4,788,000,000\u00A0-\u00A010,000,000)</col>"
+        );
+
+        assertNotNull(trade);
+        assertEquals(2, trade.quantity);
+        assertEquals(2_394_000_000L, trade.price);
+        assertEquals(4_778_000_000L, trade.totalGp);
+    }
+
+    /**
+     * With no brackets to read, the price is worked back from what was received. From
+     * 250,000,000 the tax is its 5,000,000 cap, not 2%: worked back at 2%, 295,000,000 gave
+     * 301,020,389 and 2,389,000,000 gave 2,437,755,103.
+     */
+    @Test
+    public void aSaleWithNoBracketsAddsTheCappedTaxBack() {
+        assertEquals(300_000_000L,
+            WidgetParser.parseTrade("Sold:", 13652, 1, "<col=ffb83f>295,000,000\u00A0coins</col>").price);
+        assertEquals(2_394_000_000L,
+            WidgetParser.parseTrade("Sold:", 20011, 1, "<col=ffb83f>2,389,000,000\u00A0coins</col>").price);
+        // Just under the cap the old working still applies: 240,100,000 is 245,000,000 less 2%.
+        assertEquals(245_000_000L,
+            WidgetParser.parseTrade("Sold:", 13652, 1, "<col=ffb83f>240,100,000\u00A0coins</col>").price);
+    }
 }

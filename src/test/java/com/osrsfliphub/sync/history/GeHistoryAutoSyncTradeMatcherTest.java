@@ -58,7 +58,7 @@ public class GeHistoryAutoSyncTradeMatcherTest {
     }
 
     /** The same trade as the history widget reports it: coins net, price gross. */
-    private static Trade history(int itemId, boolean isBuy, int qty, long netGp, int grossPrice) {
+    private static Trade history(int itemId, boolean isBuy, int qty, long netGp, long grossPrice) {
         return new Trade(itemId, isBuy, qty, grossPrice, netGp);
     }
 
@@ -81,18 +81,143 @@ public class GeHistoryAutoSyncTradeMatcherTest {
             .missingTrades;
     }
 
+    // Past max cash. Since 30 Sep 2026 one item can cost more than 2,147,483,647: a 3rd age
+    // pickaxe (20011) bought at 2,394,000,000 and sold at 2,400,000,000, which leaves
+    // 2,395,000,000 after its 5,000,000 tax. A stored trade keeps its price capped and its
+    // coins whole, and it is the coins that are compared.
+
     @Test
-    public void aRowPricedPastMaxCashIsLeftAloneRatherThanImportedWrong() {
-        // Since 30 Sep 2026 one item can cost more than 2,147,483,647, which a stored price
-        // cannot hold yet. Cut down to 32 bits, 4,500,000,000 reads as 205,032,704 and was
-        // imported at that; 8,351,000,000 reads as a negative and was already skipped.
+    public void aRowPastMaxCashThatWasNeverRecordedIsImportedAtItsRealPrice() {
+        List<Trade> purchase = missing(Collections.singletonList(
+            history(20011, true, 1, 2_394_000_000L, 2_394_000_000L)), Collections.emptyList());
+        List<Trade> sale = missing(Collections.singletonList(
+            history(20014, false, 1, 9_194_000_000L, 9_199_000_000L)), Collections.emptyList());
+
+        assertEquals(1, purchase.size());
+        assertEquals(2_394_000_000L, purchase.get(0).price);
+        assertEquals(2_394_000_000L, purchase.get(0).totalGp);
+        assertEquals(1, sale.size());
+        assertEquals(9_199_000_000L, sale.get(0).price);
+        assertEquals(9_194_000_000L, sale.get(0).totalGp);
+    }
+
+    @Test
+    public void aTradePastMaxCashWatchedLiveIsNotImportedAgain() {
+        assertTrue(missing(
+            Collections.singletonList(history(20011, true, 1, 2_394_000_000L, 2_394_000_000L)),
+            Collections.singletonList(live(20011, true, 1, 2_394_000_000L, Integer.MAX_VALUE))).isEmpty());
+        assertTrue(missing(
+            Collections.singletonList(history(20011, false, 1, 2_395_000_000L, 2_400_000_000L)),
+            Collections.singletonList(live(20011, false, 1, 2_395_000_000L, Integer.MAX_VALUE))).isEmpty());
+    }
+
+    /** Two pickaxes bought in one offer and watched live as two fills: one row, already recorded. */
+    @Test
+    public void anOfferPastMaxCashWatchedFillByFillIsNotImportedAgain() {
+        List<Delta> deltas = Arrays.asList(
+            fill(1_000L, 3, 900L, 20011, true, 1, 2_394_000_000L, Integer.MAX_VALUE),
+            fill(2_000L, 3, 900L, 20011, true, 1, 2_394_000_000L, Integer.MAX_VALUE));
+
         assertTrue(missing(Collections.singletonList(
-            history(20011, true, 1, 4_500_000_000L, 205_032_704)), Collections.emptyList()).isEmpty());
-        assertTrue(missing(Collections.singletonList(
-            history(20014, false, 1, 8_346_000_000L, 1)), Collections.emptyList()).isEmpty());
-        // The most a price can be is still imported.
-        assertEquals(1, missing(Collections.singletonList(
-            history(20011, true, 2, 2L * Integer.MAX_VALUE, Integer.MAX_VALUE)), Collections.emptyList()).size());
+            history(20011, true, 2, 4_788_000_000L, 2_394_000_000L)), deltas).isEmpty());
+    }
+
+    /** A second pickaxe sold elsewhere for 2,000,000 more is another sale, and is imported. */
+    @Test
+    public void aSecondSalePastMaxCashAtAnotherPriceIsImported() {
+        List<Trade> rows = Arrays.asList(
+            history(20011, false, 1, 2_397_000_000L, 2_402_000_000L),
+            history(20011, false, 1, 2_395_000_000L, 2_400_000_000L));
+
+        List<Trade> imported = missing(rows,
+            Collections.singletonList(live(20011, false, 1, 2_395_000_000L, Integer.MAX_VALUE)));
+
+        assertEquals(1, imported.size());
+        assertEquals(2_397_000_000L, imported.get(0).totalGp);
+    }
+
+    /**
+     * The build before this one could store a sale past max cash one capped tax short:
+     * 2,390,000,000 for the pickaxe that made 2,395,000,000. The history has the right figure,
+     * so the two no longer look alike, and the sale would be imported beside its own record:
+     * 2,395,000,000 of revenue counted twice.
+     */
+    @Test
+    public void aSalePastMaxCashStoredOneCappedTaxShortIsNotImportedAgain() {
+        assertTrue(missing(
+            Collections.singletonList(history(20011, false, 1, 2_395_000_000L, 2_400_000_000L)),
+            Collections.singletonList(live(20011, false, 1, 2_390_000_000L, Integer.MAX_VALUE))).isEmpty());
+        // Two sold in one offer were short by two taxes.
+        assertTrue(missing(
+            Collections.singletonList(history(20011, false, 2, 4_790_000_000L, 2_400_000_000L)),
+            Collections.singletonList(live(20011, false, 2, 4_780_000_000L, Integer.MAX_VALUE))).isEmpty());
+    }
+
+    /**
+     * What an imported row past max cash is stored as: the price field at the cap, as a trade
+     * watched live has it, and the coins whole. The card reads the real price back from those,
+     * and the next sync knows the row by them.
+     */
+    @Test
+    public void aRowPastMaxCashIsStoredWithItsCoinsWholeAndIsNotImportedTwice() {
+        Trade purchase = history(20011, true, 1, 2_394_000_000L, 2_394_000_000L);
+        Trade sale = history(20011, false, 1, 2_395_000_000L, 2_400_000_000L);
+
+        Delta bought = AutoSync.record(purchase, 10_000, 5_000L);
+        Delta sold = AutoSync.record(sale, 10_001, 6_000L);
+
+        assertEquals(Integer.MAX_VALUE, bought.price);
+        assertEquals(2_394_000_000L, bought.deltaGp);
+        assertEquals(2_394_000_000L, bought.unitPrice());
+        assertEquals(Integer.MAX_VALUE, sold.price);
+        assertEquals(2_395_000_000L, sold.deltaGp);
+        assertEquals(2_400_000_000L, sold.unitPrice());
+        assertEquals("OFFER_COMPLETED", sold.eventType);
+        assertEquals(10_001, sold.slot);
+        assertEquals(6_000L, sold.tsClientMs);
+        assertEquals(6_000L, sold.offerStartMs);
+        assertTrue(sold.endMs > sold.tsClientMs);
+        assertTrue(missing(Arrays.asList(sale, purchase), Arrays.asList(bought, sold)).isEmpty());
+    }
+
+    /**
+     * The allowance waits until every row has had the chance to claim its own record. Two
+     * pickaxes sold 5,000,000 apart, one watched live and one sold elsewhere, look exactly like
+     * one of them stored short. The row of the one sold elsewhere is the older, so it is tried
+     * first: by the allowance it took the live sale's record, the live sale's own row then
+     * matched nothing, and that sale was imported beside its own record.
+     */
+    @Test
+    public void theAllowanceNeverTakesARecordAnotherRowMatchesOutright() {
+        List<Trade> rows = Arrays.asList(
+            history(20011, false, 1, 2_390_000_000L, 2_395_000_000L),
+            history(20011, false, 1, 2_395_000_000L, 2_400_000_000L));
+
+        List<Trade> imported = missing(rows,
+            Collections.singletonList(live(20011, false, 1, 2_390_000_000L, Integer.MAX_VALUE)));
+
+        assertEquals(1, imported.size());
+        assertEquals(2_395_000_000L, imported.get(0).totalGp);
+    }
+
+    /** That allowance is for exactly that fault, and for nothing that only resembles it. */
+    @Test
+    public void theAllowanceForAShortStoredSaleCoversNothingElse() {
+        // A purchase 5,000,000 apart: purchases are not taxed, so these are two purchases.
+        assertEquals(1, missing(
+            Collections.singletonList(history(20011, true, 1, 2_394_000_000L, 2_394_000_000L)),
+            Collections.singletonList(live(20011, true, 1, 2_389_000_000L, Integer.MAX_VALUE))).size());
+        // A sale under max cash was never stored short: 5,000,000 apart is two sales.
+        assertEquals(1, missing(
+            Collections.singletonList(history(13652, false, 1, 295_000_000L, 300_000_000L)),
+            Collections.singletonList(live(13652, false, 1, 290_000_000L, 300_000_000))).size());
+        // Short by anything but the tax, or over by it, is another sale.
+        assertEquals(1, missing(
+            Collections.singletonList(history(20011, false, 1, 2_395_000_000L, 2_400_000_000L)),
+            Collections.singletonList(live(20011, false, 1, 2_390_000_001L, Integer.MAX_VALUE))).size());
+        assertEquals(1, missing(
+            Collections.singletonList(history(20011, false, 1, 2_395_000_000L, 2_400_000_000L)),
+            Collections.singletonList(live(20011, false, 1, 2_400_000_000L, Integer.MAX_VALUE))).size());
     }
 
     @Test

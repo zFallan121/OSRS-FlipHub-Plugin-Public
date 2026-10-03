@@ -30,7 +30,7 @@ final class Trade {
     final int itemId;
     final boolean isBuy;
     final int quantity;
-    final int price;
+    final long price;
     final long totalGp;
 
     boolean isValid() {

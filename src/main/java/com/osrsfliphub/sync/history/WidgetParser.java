@@ -83,10 +83,14 @@ final class WidgetParser {
      *
      * <p>The quantity and coins this returns are what the sync's cursor signatures are
      * built from ({@link GeHistoryCursorService#buildSignature}). A change to how either
-     * is read makes every stored cursor stop matching, and a cursor that matches nothing
-     * is read as a history that rolled over. Bump
+     * is read, or to which rows are read at all, makes every stored cursor stop matching,
+     * and a cursor that matches nothing is read as a history that rolled over. Bump
      * {@link GeHistoryCursorService#FORMAT_VERSION} with any such change, so stored
      * cursors are retired instead.
+     *
+     * <p>The price is a long: since 30 Sep 2026 one item can cost more than 2,147,483,647.
+     * Held in an int, a purchase at 2,394,000,000 came out negative and the row was dropped;
+     * one at 9,199,000,000 came out as 609,065,408.
      */
     static Trade parseTrade(String stateText, int itemId, int quantity, String detailsText) {
         if (itemId <= 0) {
@@ -108,44 +112,26 @@ final class WidgetParser {
 
         String details = OfferPreviewWidgetParser.normalizeText(detailsText);
         long totalCoins = parseCoins(details);
-        int eachPrice = parseEachPrice(details);
+        long eachPrice = parseEachPrice(details);
         int resolvedQuantity = resolveQuantity(quantity, state, totalCoins, eachPrice);
         if (resolvedQuantity <= 0) {
             return null;
         }
-        if (isBuy) {
-            long totalGp = totalCoins > 0L
-                ? totalCoins
-                : (eachPrice > 0 ? (long) eachPrice * (long) resolvedQuantity : 0L);
-            int unitPrice = eachPrice > 0
-                ? eachPrice
-                : (resolvedQuantity > 0 && totalGp > 0L ? (int) Math.max(1L, totalGp / resolvedQuantity) : 0);
-            if (totalGp <= 0L || unitPrice <= 0) {
-                return null;
-            }
-            return new Trade(itemId, true, resolvedQuantity, unitPrice, totalGp);
-        }
-
-        long netTotal = totalCoins > 0L
-            ? totalCoins
-            : (eachPrice > 0 ? (long) eachPrice * (long) resolvedQuantity : 0L);
-        if (netTotal <= 0L) {
+        // What the row came to, and what one item came to, are read the same way on both sides.
+        // A sale's are what was left after tax: its price before tax is in the brackets, or is
+        // worked back from them.
+        long totalGp = totalCoins > 0L ? totalCoins : eachPrice * resolvedQuantity;
+        if (totalGp <= 0L) {
             return null;
         }
-        int netUnit = eachPrice > 0
-            ? eachPrice
-            : (int) Math.max(1L, netTotal / resolvedQuantity);
-        long grossFromBreakdown = parseGrossCoins(details);
-        int grossUnitPrice;
-        if (grossFromBreakdown > 0L && resolvedQuantity > 0) {
-            grossUnitPrice = (int) Math.max(1L, Math.round((double) grossFromBreakdown / (double) resolvedQuantity));
-        } else {
-            grossUnitPrice = inferGrossUnitPrice(itemId, netUnit, resolvedQuantity, netTotal);
+        long unitPrice = eachPrice > 0 ? eachPrice : Math.max(1L, totalGp / resolvedQuantity);
+        if (!isBuy) {
+            long grossFromBreakdown = parseGrossCoins(details);
+            unitPrice = grossFromBreakdown > 0L
+                ? Math.max(1L, Math.round((double) grossFromBreakdown / (double) resolvedQuantity))
+                : inferGrossUnitPrice(itemId, unitPrice, resolvedQuantity, totalGp);
         }
-        if (grossUnitPrice <= 0) {
-            grossUnitPrice = Math.max(1, netUnit);
-        }
-        return new Trade(itemId, false, resolvedQuantity, grossUnitPrice, netTotal);
+        return new Trade(itemId, isBuy, resolvedQuantity, unitPrice, totalGp);
     }
 
     static long parseCoins(String text) {
@@ -159,7 +145,7 @@ final class WidgetParser {
         return parseLongDigits(matcher.group(1));
     }
 
-    static int parseEachPrice(String text) {
+    static long parseEachPrice(String text) {
         if (Str.isBlank(text)) {
             return 0;
         }
@@ -167,11 +153,7 @@ final class WidgetParser {
         if (!matcher.find()) {
             return 0;
         }
-        long parsed = parseLongDigits(matcher.group(1));
-        if (parsed <= 0L) {
-            return 0;
-        }
-        return (int) Math.min(Integer.MAX_VALUE, parsed);
+        return parseLongDigits(matcher.group(1));
     }
 
     static long parseGrossCoins(String text) {
@@ -200,7 +182,7 @@ final class WidgetParser {
         return (int) Math.min(Integer.MAX_VALUE, parsed);
     }
 
-    static int inferGrossUnitPrice(int itemId, int netUnitPrice, int quantity, long netTotal) {
+    static long inferGrossUnitPrice(int itemId, long netUnitPrice, int quantity, long netTotal) {
         if (netUnitPrice <= 0 || quantity <= 0) {
             return 0;
         }
@@ -209,19 +191,24 @@ final class WidgetParser {
         if (netUnitPrice < 50 || GeTax.isExempt(itemId)) {
             return netUnitPrice;
         }
-        int approx = (int) Math.ceil((double) netUnitPrice * 50.0d / 49.0d);
-        int start = Math.max(netUnitPrice, approx - 20);
-        int end = Math.max(start, approx + 200);
-        int best = approx;
+        // From 250,000,000 the tax is its cap and no longer 2%: 2,389,000,000 received was sold
+        // at 2,394,000,000, and worked back at 2% it came out 44 million too high.
+        if (netUnitPrice >= 49 * GeTax.MAX_TAX_PER_ITEM) {
+            return netUnitPrice + GeTax.MAX_TAX_PER_ITEM;
+        }
+        long approx = (long) Math.ceil(netUnitPrice * 50.0d / 49.0d);
+        long start = Math.max(netUnitPrice, approx - 20);
+        long end = Math.max(start, approx + 200);
+        long best = approx;
         long bestError = Long.MAX_VALUE;
-        int bestDistance = Integer.MAX_VALUE;
-        for (int candidate = start; candidate <= end; candidate++) {
+        long bestDistance = Long.MAX_VALUE;
+        for (long candidate = start; candidate <= end; candidate++) {
             long netPerItem = candidate - GeTax.perItem(itemId, candidate);
-            long impliedNetTotal = netPerItem * (long) quantity;
+            long impliedNetTotal = netPerItem * quantity;
             long error = netTotal > 0L
                 ? Math.abs(impliedNetTotal - netTotal)
-                : Math.abs(netPerItem - (long) netUnitPrice);
-            int distance = Math.abs(candidate - approx);
+                : Math.abs(netPerItem - netUnitPrice);
+            long distance = Math.abs(candidate - approx);
             if (error < bestError
                 || (error == bestError && distance < bestDistance)
                 || (error == bestError && distance == bestDistance && candidate > best)) {
@@ -260,7 +247,7 @@ final class WidgetParser {
     private static int resolveQuantity(int widgetQuantity,
                                        String normalizedStateText,
                                        long totalCoins,
-                                       int eachPrice) {
+                                       long eachPrice) {
         int stateQuantity = parseStateQuantity(normalizedStateText);
         if (stateQuantity > 0) {
             return stateQuantity;
@@ -272,7 +259,7 @@ final class WidgetParser {
         return Math.max(0, widgetQuantity);
     }
 
-    private static int inferQuantityFromDetails(long totalCoins, int eachPrice) {
+    private static int inferQuantityFromDetails(long totalCoins, long eachPrice) {
         if (totalCoins <= 0L || eachPrice <= 0) {
             return 0;
         }

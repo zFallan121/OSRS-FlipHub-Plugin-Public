@@ -133,7 +133,7 @@ final class AutoSyncCoordinator {
             return;
         }
 
-        GeHistoryCursorService.StoredCursor stored = wipeStateStore.loadCursor(accountKey);
+        GeHistoryCursorService.StoredCursor stored = wipeStateStore.loadCursor(accountKey, historyTrades);
         List<String> storedCursor = stored.signatures;
         int overlap = geHistoryCursorService.computeOverlap(currentCursor, storedCursor);
         boolean wipeBarrierArmed = wipeStateStore.isWipeBarrierArmed(accountKey);

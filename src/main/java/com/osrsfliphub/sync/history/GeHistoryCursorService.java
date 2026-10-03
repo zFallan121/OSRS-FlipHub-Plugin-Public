@@ -49,7 +49,7 @@ final class GeHistoryCursorService {
      * cursor stored under an older version is then ignored, and the account's next
      * sync sets a fresh baseline rather than reading the mismatch as a rollover.
      */
-    static final int FORMAT_VERSION = 2;
+    static final int FORMAT_VERSION = 3;
     static final String FORMAT_TAG = "v" + FORMAT_VERSION;
     private static final String ROW_SEPARATOR = ",";
 
@@ -116,13 +116,29 @@ final class GeHistoryCursorService {
         return FORMAT_TAG + ROW_SEPARATOR + String.join(ROW_SEPARATOR, signatures);
     }
 
-    /** A stored cursor read back. Anything not written under {@link #FORMAT_TAG} is stale. */
-    static StoredCursor decode(String raw) {
+    /**
+     * A purchase version 2 could not read, and so left out of its cursors: its price, cut to 32
+     * bits, came out as nothing or less. 2,394,000,000 does; 9,199,000,000 does not, and a sale
+     * never did.
+     */
+    static boolean unreadBefore(Trade trade) {
+        return trade.isBuy && (int) trade.price <= 0;
+    }
+
+    /**
+     * A stored cursor read back. Anything not written under {@link #FORMAT_TAG} is stale, but for
+     * one written under version 2 while the list holds no row that version left out: the two
+     * versions then write the same thing, and nobody's place is lost to the update. With such a
+     * row in the list the old cursor has a gap where the new read has a row, and is retired.
+     */
+    static StoredCursor decode(String raw, List<Trade> trades) {
         if (Str.isBlank(raw)) {
             return StoredCursor.NONE;
         }
         String[] parts = raw.split(ROW_SEPARATOR);
-        if (parts.length == 0 || !FORMAT_TAG.equals(parts[0].trim())) {
+        String tag = parts.length > 0 ? parts[0].trim() : "";
+        if (!FORMAT_TAG.equals(tag)
+            && !("v2".equals(tag) && trades.stream().noneMatch(GeHistoryCursorService::unreadBefore))) {
             return StoredCursor.STALE;
         }
         List<String> signatures = new ArrayList<>();

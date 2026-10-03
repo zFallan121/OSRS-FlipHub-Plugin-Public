@@ -80,12 +80,12 @@ final class WipeStateStore {
      * empty and marked stale: the sync then re-baselines instead of comparing against
      * signatures that could never match.
      */
-    GeHistoryCursorService.StoredCursor loadCursor(long accountKey) {
+    GeHistoryCursorService.StoredCursor loadCursor(long accountKey, List<Trade> trades) {
         if (accountKey <= 0) {
             return GeHistoryCursorService.StoredCursor.NONE;
         }
         String raw = configManager.getConfiguration(configGroup, cursorKeyPrefix + accountKey);
-        GeHistoryCursorService.StoredCursor cursor = GeHistoryCursorService.decode(raw);
+        GeHistoryCursorService.StoredCursor cursor = GeHistoryCursorService.decode(raw, trades);
         if (cursor.staleFormat) {
             log.info("GE history cursor for account {} was written by another format version; treating as no cursor",
                 accountKey);

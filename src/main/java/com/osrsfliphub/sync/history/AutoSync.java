@@ -95,29 +95,7 @@ final class AutoSync {
             long updateTsMs = plannedUpdateTs[i] > 0L
                 ? plannedUpdateTs[i]
                 : Math.max(1L, nowMs - ((long) (validTrades.size() - i + 1) * SYNTHETIC_EVENT_SPACING_MS * 2L));
-            long completionTsMs = updateTsMs + SYNTHETIC_EVENT_SPACING_MS;
-            int slot = SYNTHETIC_SLOT_START + addedTrades;
-            // The history row is a finished offer, and a finished offer is one record: the fill
-            // and its completion, already folded together. The update's timestamp keeps the
-            // row's place in the batch, which is the history's own order.
-            //
-            // Nothing is queued for the website here. It used to be told of the row as a fill and
-            // a completion, under ids of their own, and a trade this computer had also seen live,
-            // or another computer had uploaded, was stored a second time. The stored record is
-            // sent like any other ({@link RecordSync}), and the website answers that it has it.
-            Delta storedDelta = new Delta(
-                updateTsMs,
-                slot,
-                trade.itemId,
-                trade.isBuy,
-                trade.quantity,
-                trade.totalGp,
-                "OFFER_COMPLETED",
-                trade.price,
-                false,
-                updateTsMs,
-                completionTsMs
-            );
+            Delta storedDelta = record(trade, SYNTHETIC_SLOT_START + addedTrades, updateTsMs);
             itemLookup.cacheItemName(trade.itemId);
             if ((localTradesRuntime.appendTradeDeltaPair(accountKey, accountwideKey, storedDelta))
                 != TradeOfferCollapser.Outcome.DROPPED) {
@@ -134,6 +112,35 @@ final class AutoSync {
         panelRefresh.triggerStatsRefresh(Access.plugin().scheduler);
         panelRefresh.triggerPanelRefresh(Access.plugin().scheduler);
         return new SyncResult(validTrades.size(), addedTrades);
+    }
+
+    /**
+     * A history row as the record it is stored as.
+     *
+     * <p>The row is a finished offer, and a finished offer is one record: the fill and its
+     * completion, already folded together. The update's timestamp keeps the row's place in the
+     * batch, which is the history's own order.
+     *
+     * <p>Nothing is queued for the website here. It used to be told of the row as a fill and a
+     * completion, under ids of their own, and a trade this computer had also seen live, or another
+     * computer had uploaded, was stored a second time. The stored record is sent like any other
+     * ({@link RecordSync}), and the website answers that it has it.
+     */
+    static Delta record(Trade trade, int slot, long updateTsMs) {
+        return new Delta(
+            updateTsMs,
+            slot,
+            trade.itemId,
+            trade.isBuy,
+            trade.quantity,
+            trade.totalGp,
+            "OFFER_COMPLETED",
+            // Capped as a live trade's is (TradeDeltaRecorder); the coins say the rest.
+            (int) Math.min(trade.price, Integer.MAX_VALUE),
+            false,
+            updateTsMs,
+            updateTsMs + SYNTHETIC_EVENT_SPACING_MS
+        );
     }
 
     private long findFirstSyntheticTs(List<Trade> validTrades,
