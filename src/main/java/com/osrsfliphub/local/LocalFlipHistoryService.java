@@ -90,7 +90,7 @@ final class LocalFlipHistoryService {
         snapshot.sort(TradeDeltaUtils.replayOrder());
         appendRecordedConversions(byItem, recorded, sinceMs, accountKey);
 
-        Map<Integer, InventoryState> inventoryByItem = new HashMap<>();
+        Map<Integer, Lots> inventoryByItem = new HashMap<>();
         Map<Integer, PendingSellFlip> pendingSellBySlot = new HashMap<>();
         for (Delta delta : snapshot) {
             if (delta == null || delta.itemId <= 0) {
@@ -100,31 +100,32 @@ final class LocalFlipHistoryService {
             if (delta.deltaQty <= 0 && !isCompletion) {
                 continue;
             }
-            // A slot holds one offer at a time, so another item turning up in it means the sale
-            // waiting there is over -- cancelled part-sold, most often, with no completion ever
-            // seen. What it sold is still sold: dropping it here took a real sale out of TOTAL
-            // PROFIT while the stats cache kept it, 362,490 gp on one player's single item.
+            // One flip per sell offer, however many pieces it sold in (the owner's rule, 2 Oct 2026).
+            // A slot holds one offer at a time, so anything on it that is not this offer's next piece
+            // means the sale waiting there is over -- cancelled part-sold, most often, with no
+            // completion ever seen. What it sold is still sold: dropping it here took a real sale out
+            // of TOTAL PROFIT while the stats cache kept it, 362,490 gp on one player's single item.
+            // Folding it into the next sale of the same item on that slot counted two offers as one.
             PendingSellFlip abandoned = pendingSellBySlot.get(resolveSlotKey(delta));
-            if (abandoned != null && abandoned.itemId != delta.itemId && abandoned.matchedQty > 0) {
+            if (abandoned != null && !TradeOfferCollapser.sameOffer(abandoned.first, delta)) {
                 pendingSellBySlot.remove(resolveSlotKey(delta));
                 if (sinceMs == null || abandoned.lastSellTsMs >= sinceMs) {
-                    recordPendingFlip(byItem, abandoned, abandoned.itemId, abandoned.lastSellTsMs, 0, false);
+                    recordPendingFlip(byItem, abandoned, abandoned.first.itemId, abandoned.lastSellTsMs, 0, false);
                 }
             }
 
-            InventoryState inventory = inventoryByItem.computeIfAbsent(delta.itemId, ignored -> new InventoryState());
+            Lots inventory = inventoryByItem.computeIfAbsent(delta.itemId, ignored -> new Lots());
             if (delta.isBuy) {
-                if (delta.deltaQty <= 0) {
-                    continue;
-                }
-                inventory.qty += delta.deltaQty;
-                inventory.cost += Math.max(0L, delta.deltaGp);
+                inventory.buy(delta.deltaQty, delta.deltaGp);
                 continue;
             }
+            // A record that ended is a whole offer: one the slot moved on from is as finished as one
+            // that completed.
+            boolean ended = isCompletion || delta.endMs > 0;
 
             long matchQty = Math.max(0L, Math.min((long) delta.deltaQty, inventory.qty));
-            if (inventory.qty <= 0 || delta.deltaQty <= 0 || matchQty <= 0) {
-                if (isCompletion) {
+            if (matchQty <= 0) {
+                if (ended) {
                     finalizePendingFlip(byItem, pendingSellBySlot, delta, sinceMs);
                 }
                 continue;
@@ -135,25 +136,9 @@ final class LocalFlipHistoryService {
                 matchRevenue = (matchRevenue * matchQty) / delta.deltaQty;
             }
 
-            long matchCost;
-            if (matchQty >= inventory.qty) {
-                matchCost = inventory.cost;
-                inventory.qty = 0L;
-                inventory.cost = 0L;
-            } else {
-                matchCost = (inventory.cost * matchQty) / inventory.qty;
-                inventory.qty -= matchQty;
-                inventory.cost = Math.max(0L, inventory.cost - matchCost);
-            }
-
-            int slotKey = resolveSlotKey(delta);
-            PendingSellFlip pending = pendingSellBySlot.computeIfAbsent(slotKey, ignored -> new PendingSellFlip(delta.itemId));
-            if (pending.itemId != delta.itemId) {
-                pending = new PendingSellFlip(delta.itemId);
-                pendingSellBySlot.put(slotKey, pending);
-            }
+            PendingSellFlip pending = pendingSellBySlot.computeIfAbsent(resolveSlotKey(delta), ignored -> new PendingSellFlip(delta));
             pending.matchedQty += matchQty;
-            pending.matchedCost += matchCost;
+            pending.matchedCost += inventory.take(matchQty);
             pending.matchedRevenue += matchRevenue;
             // Per fill, on the units matched here, exactly as the stats cache
             // books it - so the two ledgers name the same tax for the same offer.
@@ -163,7 +148,7 @@ final class LocalFlipHistoryService {
                 pending.lastSellPriceGp = delta.price;
             }
 
-            if (isCompletion) {
+            if (ended) {
                 finalizePendingFlip(byItem, pendingSellBySlot, delta, sinceMs);
             }
         }
@@ -195,7 +180,7 @@ final class LocalFlipHistoryService {
         }
         int slotKey = resolveSlotKey(completion);
         PendingSellFlip pending = pendingSellBySlot.remove(slotKey);
-        if (pending == null || pending.itemId != completion.itemId || pending.matchedQty <= 0) {
+        if (pending == null || pending.matchedQty <= 0) {
             return;
         }
 
@@ -226,14 +211,14 @@ final class LocalFlipHistoryService {
             return;
         }
         for (PendingSellFlip pending : pendingSellBySlot.values()) {
-            if (pending == null || pending.itemId <= 0 || pending.matchedQty <= 0) {
+            if (pending == null || pending.matchedQty <= 0) {
                 continue;
             }
             long tsMs = Math.max(0L, pending.lastSellTsMs);
             if (sinceMs != null && tsMs < sinceMs) {
                 continue;
             }
-            recordPendingFlip(byItem, pending, pending.itemId, tsMs, 0, true);
+            recordPendingFlip(byItem, pending, pending.first.itemId, tsMs, 0, true);
         }
         pendingSellBySlot.clear();
     }
@@ -273,14 +258,10 @@ final class LocalFlipHistoryService {
         byItem.computeIfAbsent(itemId, ignored -> new ArrayList<>()).add(instance);
     }
 
-    private static final class InventoryState {
-        private long qty;
-        private long cost;
-    }
-
     @RequiredArgsConstructor
     private static final class PendingSellFlip {
-        private final int itemId;
+        /** The offer's first piece: what tells its next piece from another offer on the slot. */
+        private final Delta first;
         private long matchedQty;
         private long matchedCost;
         private long matchedRevenue;

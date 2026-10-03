@@ -150,6 +150,11 @@ public class MerchantLevelScopeTest {
      * A real item's trades, with a sell offer cancelled after 872 sold. The level is read from
      * the same figure TOTAL PROFIT shows, so the skills tab hover never names a number the player
      * can find nowhere else -- and that figure keeps the cancelled offer's sale.
+     *
+     * <p>Each sale takes the newest purchase before it: the 872 the 1,562 imported just before
+     * (488,317); the 659 part of the 1,869 (301,389); the 1,809 the rest of those, the 131, the
+     * 438 and 30 of the 1,562 (879,615); the 1,051 the last 660 of those and 391 of the 2,000
+     * (7,769). 1,677,090 in all; the average of everything held made it 1,060,937.
      */
     @Test
     public void theLevelCountsWhatTotalProfitShows() throws Exception {
@@ -172,10 +177,10 @@ public class MerchantLevelScopeTest {
 
         logIn(sips);
 
-        assertEquals(1_060_937L, rankUp.levelProfit());
-        assertEquals("the stats cache agrees", 1_060_937L, RankUp.lifetimeProfit(sips));
+        assertEquals(1_677_090L, rankUp.levelProfit());
+        assertEquals("the stats cache agrees", 1_677_090L, RankUp.lifetimeProfit(sips));
         scope = PluginConfig.MerchantLevelScope.ACCOUNTWIDE;
-        assertEquals(350_000_000L + 1_060_937L, rankUp.levelProfit());
+        assertEquals(350_000_000L + 1_677_090L, rankUp.levelProfit());
     }
 
     /** Nothing else has to ask: logging in on another character moves the level by itself. */

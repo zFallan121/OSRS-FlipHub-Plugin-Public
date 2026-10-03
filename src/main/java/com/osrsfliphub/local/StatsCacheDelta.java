@@ -60,8 +60,7 @@ final class StatsCacheDelta {
             if (delta.deltaQty <= 0) {
                 return;
             }
-            state.qty += delta.deltaQty;
-            state.cost += Math.max(0L, delta.deltaGp);
+            state.buy(delta.deltaQty, delta.deltaGp);
             state.positionQty += delta.deltaQty;
             if (state.firstBuyTs == null || delta.tsClientMs < state.firstBuyTs) {
                 state.firstBuyTs = delta.tsClientMs;
@@ -75,60 +74,22 @@ final class StatsCacheDelta {
             return;
         }
 
-        long remainingQty = delta.deltaQty;
-        long remainingGp = delta.deltaGp;
-
-        long matchQty = 0L;
+        // Paired as the flip-history ledger pairs it (Lots): the newest purchase first.
+        long matchQty = Math.max(0L, Math.min((long) delta.deltaQty, state.qty));
         long matchCost = 0L;
         long matchRevenue = 0L;
         Long matchedBuyTs = state.firstBuyTs;
         long positionQty = state.positionQty;
-        // Same as the flip-history ledger: only stock bought outright is matched
-        // here. What is left of a break's pieces belongs to a break that is
-        // still open, and matching it would invent a flip with no cost.
-        long boughtAvailable = Math.max(0L, state.qty - state.breakQty);
-        if (remainingQty > 0 && boughtAvailable > 0) {
-            matchQty = Math.min(remainingQty, boughtAvailable);
-            if (matchQty > 0) {
-                matchRevenue = remainingGp;
-                if (matchQty < remainingQty) {
-                    matchRevenue = (remainingGp * matchQty) / remainingQty;
-                }
-                if (matchQty >= state.qty) {
-                    // Only reachable with no break stock in the bucket, so no
-                    // open break loses its count here.
-                    matchCost = state.cost;
-                    state.qty = 0L;
-                    state.cost = 0L;
-                    state.convertedQty = 0L;
-                    state.positionQty = 0L;
-                    state.firstBuyTs = null;
-                } else if (matchQty >= boughtAvailable) {
-                    // Every bought unit is going. The whole remaining cost was
-                    // theirs, so none of it may be left behind on the break
-                    // pieces that stay: they carry no cost, and a residue on an
-                    // empty bucket is silently inherited by the next purchase.
-                    matchCost = state.cost;
-                    state.qty -= matchQty;
-                    state.cost = 0L;
-                    state.convertedQty = Math.min(state.convertedQty, state.qty);
-                    state.breakQty = Math.min(state.breakQty, state.qty);
-                    state.positionQty = 0L;
-                } else {
-                    // Divided across bought units only. Dividing across the whole
-                    // bucket handed part of the cost to zero-cost break pieces,
-                    // so the unit actually sold carried less than it cost.
-                    matchCost = (state.cost * matchQty) / boughtAvailable;
-                    state.qty -= matchQty;
-                    state.cost = Math.max(0L, state.cost - matchCost);
-                    state.convertedQty = Math.min(state.convertedQty, state.qty);
-                    state.breakQty = Math.min(state.breakQty, state.qty);
-                    if (state.qty <= state.breakQty) {
-                        // Only a break's pieces are left, and they are not a
-                        // position of their own: the next purchase opens a new one.
-                        state.positionQty = 0L;
-                    }
-                }
+        if (matchQty > 0) {
+            matchRevenue = delta.deltaGp;
+            if (matchQty < delta.deltaQty) {
+                matchRevenue = (delta.deltaGp * matchQty) / delta.deltaQty;
+            }
+            matchCost = state.take(matchQty);
+            if (state.qty <= 0) {
+                // Sold out: the next purchase opens a new position.
+                state.positionQty = 0L;
+                state.firstBuyTs = null;
             }
         }
 
@@ -295,17 +256,7 @@ final class StatsCacheDelta {
         }
     }
 
-    static final class LocalInventoryState {
-        private long qty;
-        private long cost;
-        /**
-         * How much of the quantity was made rather than bought. A deferred sale
-         * covered by a sibling's conversion has no shortfall left to ask about,
-         * so this is what tells it apart from stock simply bought afterwards.
-         */
-        private long convertedQty;
-        /** How much of the quantity belongs to a break that is still open. */
-        private long breakQty;
+    static final class LocalInventoryState extends Lots {
         /**
          * Everything that has entered the pool since it was last empty: the
          * size of the open position, which is what a sale closes a share of.
