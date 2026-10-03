@@ -92,10 +92,51 @@ public class AffordableLimitSuggestionServiceTest {
         assertNull(live.computeAffordableLimit());
     }
 
+    /**
+     * A 3rd age pickaxe at 2,394,000,000 costs more than a stack of coins can hold. The game takes
+     * the payment in coins and platinum tokens together, a token being 1,000 coins: 1,000,000,000
+     * coins and 4,000,000 tokens are 5,000,000,000, which buys two. Counting coins alone, the line
+     * said nothing at all for such an item.
+     */
+    @Test
+    public void platinumTokensCountTowardsTheCashLimitAtAThousandCoinsEach() {
+        AffordableLimitSuggestion live = new AffordableLimitSuggestion(
+            client(2_394_000_000L, new Item(995, 1_000_000_000), new Item(13204, 4_000_000)),
+            new OfferPreviewRuntime());
+
+        assertEquals(Integer.valueOf(2), live.computeAffordableLimit());
+    }
+
+    /** Tokens on their own pay too, and two full stacks together do not overflow. */
+    @Test
+    public void platinumTokensAloneAreCashAndFullStacksAddUp() {
+        assertEquals(Integer.valueOf(30), new AffordableLimitSuggestion(
+            client(100L, new Item(13204, 3)), new OfferPreviewRuntime()).computeAffordableLimit());
+        // 2,147,483,647 coins and 2,147,483,647 tokens: 2,149,631,130,647 in all, the most an
+        // offer can come to. At 2,394,000,000 each that is 897.
+        assertEquals(Integer.valueOf(897), new AffordableLimitSuggestion(
+            client(2_394_000_000L, new Item(995, Integer.MAX_VALUE), new Item(13204, Integer.MAX_VALUE)),
+            new OfferPreviewRuntime()).computeAffordableLimit());
+    }
+
+    /** Nothing else in the inventory is money, whatever it is worth, and an empty space is nothing. */
+    @Test
+    public void onlyCoinsAndPlatinumTokensAreCash() {
+        AffordableLimitSuggestion live = new AffordableLimitSuggestion(
+            client(100L, new Item(4151, 5_000), null, new Item(13205, 9_000), new Item(995, 250)),
+            new OfferPreviewRuntime());
+
+        assertEquals(Integer.valueOf(2), live.computeAffordableLimit());
+    }
+
     /** A fake game client: {@code typedPrice} null means the price variable is gone too. */
     private static Client client(Long typedPrice, int coins) {
+        return client(typedPrice, new Item(995, coins));
+    }
+
+    private static Client client(Long typedPrice, Item... items) {
         ItemContainer inventory = fake(ItemContainer.class, (method, args) ->
-            method.equals("getItems") ? new Item[] {new Item(995, coins)} : null);
+            method.equals("getItems") ? items : null);
         return fake(Client.class, (method, args) -> {
             switch (method) {
                 case "getVarbitValue":

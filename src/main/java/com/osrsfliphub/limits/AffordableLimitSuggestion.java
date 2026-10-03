@@ -37,6 +37,9 @@ final class AffordableLimitSuggestion {
     // (30 Sep 2026). The varbit that held it before, 4398, was deleted in the same update.
     private static final int GE_OFFER_PRICE_VARP = 5753;
     private static final int COINS_ITEM_ID = 995;
+    // Since that update a purchase is paid for in coins and platinum tokens together, in whatever
+    // mix works: one item can cost more than a stack of coins holds. A token is 1,000 coins.
+    private static final int PLATINUM_TOKEN_ITEM_ID = 13204;
 
     private final Client client;
     private final OfferPreviewRuntime facade;
@@ -47,7 +50,7 @@ final class AffordableLimitSuggestion {
 
     // Pure computation, split out so it stays unit-testable without a client.
     // Deliberately NOT capped by the remaining GE limit: the cash limit shows how
-    // many the player's coins cover, even past the 4-hour buy limit.
+    // many the player's coins and platinum tokens cover, even past the 4-hour buy limit.
     // A price of zero or less means there is none.
     Integer computeAffordableLimit(long enteredPrice, long selectedPrice, long coins) {
         long offerPrice = enteredPrice > 0 ? enteredPrice : selectedPrice;
@@ -100,10 +103,11 @@ final class AffordableLimitSuggestion {
         }
         long totalCoins = 0L;
         for (Item item : items) {
-            if (item == null || item.getId() != COINS_ITEM_ID) {
+            if (item == null) {
                 continue;
             }
-            totalCoins += Math.max(0, item.getQuantity());
+            long worth = item.getId() == COINS_ITEM_ID ? 1 : item.getId() == PLATINUM_TOKEN_ITEM_ID ? 1000 : 0;
+            totalCoins += worth * Math.max(0, item.getQuantity());
         }
         return totalCoins;
     }
