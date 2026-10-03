@@ -37,7 +37,7 @@ import java.util.*;
  * wipe means importing every row the player just wiped.
  *
  * <p>For the same reason the stored form carries {@link #FORMAT_VERSION}. A cursor
- * this code did not write is no cursor at all, and no cursor re-baselines without
+ * this code cannot read is no cursor at all, and no cursor re-baselines without
  * importing anything. The config key it is stored under does not change with it;
  * the value says what it is.
  */
@@ -45,9 +45,13 @@ import java.util.*;
 final class GeHistoryCursorService {
     /**
      * The format of a stored cursor. Bump it whenever {@link #buildSignature} changes
-     * what it writes, or the parser changes what a row's numbers come out as. Every
-     * cursor stored under an older version is then ignored, and the account's next
-     * sync sets a fresh baseline rather than reading the mismatch as a rollover.
+     * what it writes, or the parser changes what a row's numbers come out as. A cursor
+     * stored under an older version is then ignored, and the account's next sync sets a
+     * fresh baseline rather than reading the mismatch as a rollover.
+     *
+     * <p>The one older version still read is 2, which {@link #decode} admits beside 3 because
+     * the two differ only in the rows version 2 left out ({@link #unreadBefore}). That is true
+     * of 3 and of no later version: the bump to 4 takes the exception out of {@link #decode}.
      */
     static final int FORMAT_VERSION = 3;
     static final String FORMAT_TAG = "v" + FORMAT_VERSION;
@@ -55,16 +59,32 @@ final class GeHistoryCursorService {
 
     /** A stored cursor as read back: its signatures, and whether one was refused for its format. */
     static final class StoredCursor {
-        static final StoredCursor NONE = new StoredCursor(Collections.emptyList(), false);
-        static final StoredCursor STALE = new StoredCursor(Collections.emptyList(), true);
+        static final StoredCursor NONE = new StoredCursor(Collections.emptyList(), false, false);
+        static final StoredCursor STALE = new StoredCursor(Collections.emptyList(), true, false);
 
         final List<String> signatures;
         /** True when something was stored, but in a format this code does not read. */
         final boolean staleFormat;
+        /** True when version 2 wrote it: its rows are the list's without those in {@link #unreadBefore}. */
+        final boolean version2;
 
-        private StoredCursor(List<String> signatures, boolean staleFormat) {
+        private StoredCursor(List<String> signatures, boolean staleFormat, boolean version2) {
             this.signatures = Collections.unmodifiableList(signatures);
             this.staleFormat = staleFormat;
+            this.version2 = version2;
+        }
+
+        /**
+         * The list as this cursor's version read it, which is what the cursor lines up against.
+         * Version 2's has a gap wherever the list holds a purchase it could not read; lined up
+         * against the whole list the two match in the wrong place, or nowhere.
+         */
+        List<Trade> listed(List<Trade> trades) {
+            List<Trade> listed = new ArrayList<>(trades);
+            if (version2) {
+                listed.removeIf(GeHistoryCursorService::unreadBefore);
+            }
+            return listed;
         }
 
         boolean isEmpty() {
@@ -120,6 +140,11 @@ final class GeHistoryCursorService {
      * A purchase version 2 could not read, and so left out of its cursors: its price, cut to 32
      * bits, came out as nothing or less. 2,394,000,000 does; 9,199,000,000 does not, and a sale
      * never did.
+     *
+     * <p>The price meant is the one worked out from the row's coins, which is the only one
+     * either version has for a purchase: the game writes "=&nbsp;N&nbsp;each" with non-breaking
+     * spaces (script 1645), and the parser's pattern for it has never matched them. Should that
+     * pattern ever be made to match, this stops being what version 2 did.
      */
     static boolean unreadBefore(Trade trade) {
         return trade.isBuy && (int) trade.price <= 0;
@@ -127,18 +152,21 @@ final class GeHistoryCursorService {
 
     /**
      * A stored cursor read back. Anything not written under {@link #FORMAT_TAG} is stale, but for
-     * one written under version 2 while the list holds no row that version left out: the two
-     * versions then write the same thing, and nobody's place is lost to the update. With such a
-     * row in the list the old cursor has a gap where the new read has a row, and is retired.
+     * one written under version 2: the two versions write the same thing for every row both
+     * list, so it is kept, marked, and lined up against the list as version 2 read it
+     * ({@link StoredCursor#listed}). Nobody's place is lost to the update. It used to be retired
+     * whenever the list held a purchase version 2 had left out, wherever that purchase sat: a
+     * pickaxe bought on a phone since the last sync cost the player that purchase and every
+     * other trade made since, all of them below the fresh baseline for good.
      */
-    static StoredCursor decode(String raw, List<Trade> trades) {
+    static StoredCursor decode(String raw) {
         if (Str.isBlank(raw)) {
             return StoredCursor.NONE;
         }
         String[] parts = raw.split(ROW_SEPARATOR);
         String tag = parts.length > 0 ? parts[0].trim() : "";
-        if (!FORMAT_TAG.equals(tag)
-            && !("v2".equals(tag) && trades.stream().noneMatch(GeHistoryCursorService::unreadBefore))) {
+        boolean version2 = "v2".equals(tag);
+        if (!FORMAT_TAG.equals(tag) && !version2) {
             return StoredCursor.STALE;
         }
         List<String> signatures = new ArrayList<>();
@@ -148,7 +176,7 @@ final class GeHistoryCursorService {
                 signatures.add(trimmed);
             }
         }
-        return new StoredCursor(signatures, false);
+        return new StoredCursor(signatures, false, version2);
     }
 
     int computeOverlap(List<String> currentCursor, List<String> storedCursor) {

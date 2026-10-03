@@ -76,16 +76,16 @@ final class WipeStateStore {
     }
 
     /**
-     * The account's stored cursor. One written by another format version comes back
-     * empty and marked stale: the sync then re-baselines instead of comparing against
-     * signatures that could never match.
+     * The account's stored cursor. One written by a format version this one cannot read
+     * comes back empty and marked stale: the sync then re-baselines instead of comparing
+     * against signatures that could never match.
      */
-    GeHistoryCursorService.StoredCursor loadCursor(long accountKey, List<Trade> trades) {
+    GeHistoryCursorService.StoredCursor loadCursor(long accountKey) {
         if (accountKey <= 0) {
             return GeHistoryCursorService.StoredCursor.NONE;
         }
         String raw = configManager.getConfiguration(configGroup, cursorKeyPrefix + accountKey);
-        GeHistoryCursorService.StoredCursor cursor = GeHistoryCursorService.decode(raw, trades);
+        GeHistoryCursorService.StoredCursor cursor = GeHistoryCursorService.decode(raw);
         if (cursor.staleFormat) {
             log.info("GE history cursor for account {} was written by another format version; treating as no cursor",
                 accountKey);

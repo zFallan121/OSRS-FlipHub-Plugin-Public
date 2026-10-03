@@ -133,12 +133,16 @@ final class AutoSyncCoordinator {
             return;
         }
 
-        GeHistoryCursorService.StoredCursor stored = wipeStateStore.loadCursor(accountKey, historyTrades);
+        GeHistoryCursorService.StoredCursor stored = wipeStateStore.loadCursor(accountKey);
         List<String> storedCursor = stored.signatures;
-        int overlap = geHistoryCursorService.computeOverlap(currentCursor, storedCursor);
+        // The stored cursor is found in the list as its own version read it. What becomes the
+        // next cursor is the list as this version reads it.
+        List<Trade> listed = stored.listed(historyTrades);
+        List<String> linedUp = geHistoryCursorService.buildCursorSignatures(listed);
+        int overlap = geHistoryCursorService.computeOverlap(linedUp, storedCursor);
         boolean wipeBarrierArmed = wipeStateStore.isWipeBarrierArmed(accountKey);
         WipeBaselineDecision.Decision decision = wipeBaselineDecision.decide(
-            wipeBarrierArmed, currentCursor, storedCursor, historyTrades.size(), overlap);
+            wipeBarrierArmed, linedUp, storedCursor, listed.size(), overlap);
 
         switch (decision.outcome) {
             case SET_BASELINE:
@@ -154,15 +158,15 @@ final class AutoSyncCoordinator {
                 return;
             case SKIP_SHORT_READ:
                 autoSyncState.disarm();
-                pushGameMessage(autoSyncMessage.shortReadMessage(currentCursor.size(), storedCursor.size()));
+                pushGameMessage(autoSyncMessage.shortReadMessage(linedUp.size(), storedCursor.size()));
                 log.warn("GE history auto-sync skipped for account {}: read {} trades but the last sync saw {}",
-                    accountKey, currentCursor.size(), storedCursor.size());
+                    accountKey, linedUp.size(), storedCursor.size());
                 return;
             default:
                 break;
         }
 
-        List<Trade> eligibleTrades = eligibleTrades(historyTrades, decision.eligibleTradeCount);
+        List<Trade> eligibleTrades = eligibleTrades(historyTrades, listed, decision.eligibleTradeCount);
         AutoSyncTradeMatcher.LastSync lastSync = sinceFor(wipeBarrierArmed, historyTrades.size(),
             currentCursor.size(), wipeStateStore.loadLastSync(accountKey, nowMs));
         AutoSync.SyncResult result = sync.sync(accountKey, eligibleTrades, lastSync);
@@ -190,14 +194,28 @@ final class AutoSyncCoordinator {
         }
     }
 
-    /** The newest {@code count} rows: the ones above the overlap with the last sync. */
-    private static List<Trade> eligibleTrades(List<Trade> historyTrades, int count) {
+    /**
+     * The rows above the overlap with the last sync: the newest {@code count} of the rows the
+     * stored cursor was lined up against, and every row of the list above the oldest of them.
+     *
+     * <p>The two differ only for a cursor version 2 wrote, by the purchases that version could
+     * not read. One above a row known to be new is new itself, and is taken. One with nothing
+     * new beneath it is left: it may have been in the list, unread, when the cursor was
+     * written, and its record, made before that sync, would not be compared - so a purchase
+     * watched live would be imported beside itself. (Where every stored trade is compared -
+     * after a wipe, or with a list longer than a cursor - the count reaches further down, as
+     * it always has, and such a purchase is known by its record or imported for want of one.)
+     *
+     * <p>A row is found by being that row, not by looking like it: {@link Trade} has no
+     * {@code equals}, and must not gain one while this stands.
+     */
+    static List<Trade> eligibleTrades(List<Trade> historyTrades, List<Trade> listed, int count) {
         if (count <= 0) {
             return new ArrayList<>();
         }
-        if (count >= historyTrades.size()) {
+        if (count >= listed.size()) {
             return historyTrades;
         }
-        return new ArrayList<>(historyTrades.subList(0, count));
+        return new ArrayList<>(historyTrades.subList(0, historyTrades.indexOf(listed.get(count - 1)) + 1));
     }
 }

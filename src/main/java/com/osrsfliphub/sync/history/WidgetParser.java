@@ -86,7 +86,7 @@ final class WidgetParser {
      * is read, or to which rows are read at all, makes every stored cursor stop matching,
      * and a cursor that matches nothing is read as a history that rolled over. Bump
      * {@link GeHistoryCursorService#FORMAT_VERSION} with any such change, so stored
-     * cursors are retired instead.
+     * cursors are retired instead, and see there for the one older version still read.
      *
      * <p>The price is a long: since 30 Sep 2026 one item can cost more than 2,147,483,647.
      * Held in an int, a purchase at 2,394,000,000 came out negative and the row was dropped;

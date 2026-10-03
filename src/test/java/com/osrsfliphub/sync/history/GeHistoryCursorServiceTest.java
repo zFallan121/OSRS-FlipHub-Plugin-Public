@@ -35,60 +35,41 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class GeHistoryCursorServiceTest {
-    /** A history with nothing past max cash in it, which is nearly every history. */
-    private static final List<Trade> ORDINARY_ROWS = Arrays.asList(
-        new Trade(1513, false, 70_000, 1_100, 77_000_000L),
-        new Trade(561, true, 1_000, 118, 118_000L));
-
     // Version 2 held a row's price in an int. A purchase past max cash came out as nothing or
-    // less and was left out of the list, so it was never in a cursor. Version 3 reads it. Where
-    // the list holds no such purchase the two versions write the same cursor, and one stored
-    // under version 2 is still good: nobody's place is lost to the update.
+    // less and was left out of the list, so it was never in a cursor. Version 3 reads it. For
+    // every row both list they write the same thing, so a cursor stored under version 2 is
+    // still good, lined up against the list as version 2 read it: nobody's place is lost to
+    // the update. What that sync then hands over is in GeHistoryFirstSyncAfterUpdateTest.
 
     @Test
-    public void aVersionTwoCursorIsStillReadWhenTheListHoldsNothingItLeftOut() {
+    public void aVersionTwoCursorIsStillReadAndIsMarkedAsOne() {
         GeHistoryCursorService.StoredCursor cursor =
-            GeHistoryCursorService.decode("v2,1513|S|70000|77000000,561|B|1000|118000", ORDINARY_ROWS);
+            GeHistoryCursorService.decode("v2,1513|S|70000|77000000,561|B|1000|118000");
 
         assertEquals(Arrays.asList("1513|S|70000|77000000", "561|B|1000|118000"), cursor.signatures);
         assertFalse(cursor.staleFormat);
+        assertTrue(cursor.version2);
+        assertFalse(GeHistoryCursorService.decode("v3,1513|S|70000|77000000").version2);
     }
 
     /**
-     * A sale past max cash, and a purchase whose price came out wrong but positive, were both in
-     * version 2's lists with the same quantity and coins, so its cursors still line up.
+     * What version 2 listed: every row but a purchase it could not read. A sale past max cash,
+     * and a purchase whose price came out wrong but positive, were in its lists with the same
+     * quantity and coins as now. Any other cursor lines up against the whole list.
      */
     @Test
-    public void aVersionTwoCursorIsStillReadBesideRowsPastMaxCashThatItDidList() {
-        List<Trade> rows = Arrays.asList(
-            new Trade(20011, false, 1, 2_400_000_000L, 2_395_000_000L),
-            new Trade(20014, true, 1, 9_199_000_000L, 9_199_000_000L),
-            new Trade(561, true, 1_000, 118, 118_000L));
+    public void aVersionTwoCursorLinesUpAgainstTheListWithoutThePurchasesItLeftOut() {
+        Trade sale = new Trade(20011, false, 1, 2_400_000_000L, 2_395_000_000L);
+        Trade leftOut = new Trade(20011, true, 1, 2_394_000_000L, 2_394_000_000L);
+        Trade wrapped = new Trade(20014, true, 1, 9_199_000_000L, 9_199_000_000L);
+        Trade runes = new Trade(561, true, 1_000, 118, 118_000L);
+        List<Trade> rows = Arrays.asList(sale, leftOut, wrapped, runes);
 
-        assertFalse(GeHistoryCursorService.decode("v2,561|B|1000|118000", rows).staleFormat);
-        assertEquals(1, GeHistoryCursorService.decode("v2,561|B|1000|118000", rows).signatures.size());
-    }
-
-    /**
-     * With a pickaxe bought at 2,394,000,000 in the list, the old cursor has a gap where the new
-     * read has a row. Lined up against each other they can match in the wrong place, and rows
-     * recorded long ago would be handed over as new. The old cursor is retired instead: this one
-     * sync imports nothing and starts afresh.
-     */
-    @Test
-    public void aVersionTwoCursorIsRetiredWhenTheListHoldsAPurchaseItLeftOut() {
-        List<Trade> rows = Arrays.asList(
-            new Trade(561, true, 1_000, 118, 118_000L),
-            new Trade(20011, true, 1, 2_394_000_000L, 2_394_000_000L),
-            new Trade(1513, false, 70_000, 1_100, 77_000_000L));
-
-        GeHistoryCursorService.StoredCursor cursor =
-            GeHistoryCursorService.decode("v2,1513|S|70000|77000000", rows);
-
-        assertTrue(cursor.isEmpty());
-        assertTrue(cursor.staleFormat);
-        // Its own version reads the same list without a second thought.
-        assertFalse(GeHistoryCursorService.decode("v3,1513|S|70000|77000000", rows).staleFormat);
+        assertEquals(Arrays.asList(sale, wrapped, runes),
+            GeHistoryCursorService.decode("v2,561|B|1000|118000").listed(rows));
+        assertEquals(rows, GeHistoryCursorService.decode("v3,561|B|1000|118000").listed(rows));
+        assertEquals(rows, GeHistoryCursorService.StoredCursor.NONE.listed(rows));
+        assertEquals(rows, GeHistoryCursorService.StoredCursor.STALE.listed(rows));
     }
 
     @Test
@@ -133,7 +114,7 @@ public class GeHistoryCursorServiceTest {
         List<String> signatures = Arrays.asList("1513|S|70000|77000000", "561|B|1000|118000");
 
         String raw = GeHistoryCursorService.encode(signatures);
-        GeHistoryCursorService.StoredCursor cursor = GeHistoryCursorService.decode(raw, ORDINARY_ROWS);
+        GeHistoryCursorService.StoredCursor cursor = GeHistoryCursorService.decode(raw);
 
         assertEquals("v3,1513|S|70000|77000000,561|B|1000|118000", raw);
         assertEquals(signatures, cursor.signatures);
@@ -147,7 +128,7 @@ public class GeHistoryCursorServiceTest {
         // matches nothing is taken for a history that rolled over - importing every
         // row the player just wiped. It has to come back as no cursor at all.
         GeHistoryCursorService.StoredCursor cursor =
-            GeHistoryCursorService.decode("1513|S|70000|1100|77000000,561|B|1000|118|118000", ORDINARY_ROWS);
+            GeHistoryCursorService.decode("1513|S|70000|1100|77000000,561|B|1000|118|118000");
 
         assertTrue(cursor.isEmpty());
         assertTrue(cursor.staleFormat);
@@ -155,14 +136,14 @@ public class GeHistoryCursorServiceTest {
 
     @Test
     public void nothingStoredIsNoCursorAndNotStale() {
-        assertTrue(GeHistoryCursorService.decode(null, ORDINARY_ROWS).isEmpty());
-        assertFalse(GeHistoryCursorService.decode(null, ORDINARY_ROWS).staleFormat);
-        assertTrue(GeHistoryCursorService.decode("   ", ORDINARY_ROWS).isEmpty());
-        assertFalse(GeHistoryCursorService.decode("   ", ORDINARY_ROWS).staleFormat);
-        assertTrue(GeHistoryCursorService.decode("v3", ORDINARY_ROWS).isEmpty());
-        assertFalse(GeHistoryCursorService.decode("v3", ORDINARY_ROWS).staleFormat);
+        assertTrue(GeHistoryCursorService.decode(null).isEmpty());
+        assertFalse(GeHistoryCursorService.decode(null).staleFormat);
+        assertTrue(GeHistoryCursorService.decode("   ").isEmpty());
+        assertFalse(GeHistoryCursorService.decode("   ").staleFormat);
+        assertTrue(GeHistoryCursorService.decode("v3").isEmpty());
+        assertFalse(GeHistoryCursorService.decode("v3").staleFormat);
         // A separator and nothing else is no version this code wrote.
-        assertTrue(GeHistoryCursorService.decode(",", ORDINARY_ROWS).staleFormat);
+        assertTrue(GeHistoryCursorService.decode(",").staleFormat);
         assertEquals("", GeHistoryCursorService.encode(new ArrayList<>()));
     }
 
