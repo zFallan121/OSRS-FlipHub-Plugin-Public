@@ -112,7 +112,7 @@ final class AutoSyncTradeMatcher {
                 continue;
             }
             List<OfferLot> lots = lotsByItemSide.get(new ItemSide(trade.itemId, trade.isBuy));
-            if (claimExact(lots, trade, unitPrice) || claimWithinTolerance(lots, trade, false)) {
+            if (claimExact(lots, trade, unitPrice) || claimWithinTolerance(lots, trade)) {
                 continue;
             }
             unexplained[i] = true;
@@ -125,8 +125,7 @@ final class AutoSyncTradeMatcher {
             }
             Trade trade = historyTrades.get(i);
             List<OfferLot> lots = lotsByItemSide.get(new ItemSide(trade.itemId, trade.isBuy));
-            if (claimWithinTolerance(lots, trade, true)
-                || claimCoveredWithinOneOffer(lots, trade, resolveUnitPrice(trade))) {
+            if (claimCoveredWithinOneOffer(lots, trade, resolveUnitPrice(trade))) {
                 continue;
             }
             int covered = consumeAtUnitPrice(lots, resolveUnitPrice(trade), trade.quantity);
@@ -301,12 +300,14 @@ final class AutoSyncTradeMatcher {
     }
 
     /**
-     * @param shortStored whether a sale stored one capped tax short may be claimed too. Only once
-     *                    every row has had the chance to claim the record that is its own: two
-     *                    pickaxes sold 5,000,000 apart look exactly like one of them stored short,
-     *                    and the allowance taken first handed one row the other's record.
+     * Past max cash as under it, the rounding is all the two sides may differ by. A stored sale
+     * was once also taken for a row one capped tax higher - 2,390,000,000 stored for a pickaxe
+     * the history has at 2,395,000,000 - in case the build before had taxed it twice. It had
+     * not: RuneLite reports a sale before tax, and that build took the tax off once. So the
+     * allowance covered no record, and a sale made elsewhere for 5,000,000 more than one
+     * already stored was taken for the stored one and never imported.
      */
-    private static boolean claimWithinTolerance(List<OfferLot> lots, Trade trade, boolean shortStored) {
+    private static boolean claimWithinTolerance(List<OfferLot> lots, Trade trade) {
         if (lots == null) {
             return false;
         }
@@ -318,13 +319,7 @@ final class AutoSyncTradeMatcher {
                 continue;
             }
             long distance = Math.abs(lot.gp - trade.totalGp);
-            // The build before this one refereed a sale's coins against its listed price, and
-            // held that price cut down to max cash. Past it, the sale could be stored one capped
-            // tax an item short: 2,390,000,000 for a pickaxe that made 2,395,000,000. It is the
-            // row's sale all the same, and importing the row would count it twice.
-            boolean taxedTwice = shortStored && !trade.isBuy && lot.first.price == Integer.MAX_VALUE
-                && trade.totalGp - lot.gp == GeTax.MAX_TAX_PER_ITEM * lot.qty;
-            if ((distance <= tolerance || taxedTwice) && distance < bestDistance) {
+            if (distance <= tolerance && distance < bestDistance) {
                 best = lot;
                 bestDistance = distance;
             }

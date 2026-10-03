@@ -137,20 +137,49 @@ public class GeHistoryAutoSyncTradeMatcherTest {
     }
 
     /**
-     * The build before this one could store a sale past max cash one capped tax short:
-     * 2,390,000,000 for the pickaxe that made 2,395,000,000. The history has the right figure,
-     * so the two no longer look alike, and the sale would be imported beside its own record:
-     * 2,395,000,000 of revenue counted twice.
+     * A sale stored at 2,390,000,000 is the sale that made 2,390,000,000 and no other. It was
+     * once also taken for a row one capped tax higher, in case the build before had stored it
+     * short. That build never did, and what the allowance caught instead was a second pickaxe
+     * sold on a phone for 5,000,000 more: taken for the first, never imported, and the pickaxe
+     * went on showing as held.
      */
     @Test
-    public void aSalePastMaxCashStoredOneCappedTaxShortIsNotImportedAgain() {
-        assertTrue(missing(
+    public void aStoredSalePastMaxCashIsNotTakenForOneFiveMillionHigher() {
+        List<Trade> imported = missing(
             Collections.singletonList(history(20011, false, 1, 2_395_000_000L, 2_400_000_000L)),
-            Collections.singletonList(live(20011, false, 1, 2_390_000_000L, Integer.MAX_VALUE))).isEmpty());
-        // Two sold in one offer were short by two taxes.
-        assertTrue(missing(
+            Collections.singletonList(live(20011, false, 1, 2_390_000_000L, Integer.MAX_VALUE)));
+
+        assertEquals(1, imported.size());
+        assertEquals(2_395_000_000L, imported.get(0).totalGp);
+        // Two sold in one offer, 5,000,000 apiece above two stored.
+        assertEquals(1, missing(
             Collections.singletonList(history(20011, false, 2, 4_790_000_000L, 2_400_000_000L)),
-            Collections.singletonList(live(20011, false, 2, 4_780_000_000L, Integer.MAX_VALUE))).isEmpty());
+            Collections.singletonList(live(20011, false, 2, 4_780_000_000L, Integer.MAX_VALUE))).size());
+    }
+
+    /**
+     * Three sales in a row 5,000,000 apart, the lower two stored: each stored sale is its own
+     * row's, and the third is imported once. The allowance made the answer depend on which row
+     * was tried first.
+     */
+    @Test
+    public void storedSalesFiveMillionApartEachExplainTheirOwnRowOnly() {
+        List<Trade> rows = Arrays.asList(
+            history(20011, false, 1, 2_395_000_000L, 2_400_000_000L),
+            history(20011, false, 1, 2_390_000_000L, 2_395_000_000L),
+            history(20011, false, 1, 2_385_000_000L, 2_390_000_000L));
+        List<Delta> stored = Arrays.asList(
+            completed(1_000L, 3, 900L, 20011, false, 1, 2_385_000_000L, Integer.MAX_VALUE),
+            completed(2_000L, 4, 1_900L, 20011, false, 1, 2_390_000_000L, Integer.MAX_VALUE));
+
+        List<Trade> imported = missing(rows, stored);
+        List<Trade> reversed = new ArrayList<>(rows);
+        Collections.reverse(reversed);
+
+        assertEquals(1, imported.size());
+        assertEquals(2_395_000_000L, imported.get(0).totalGp);
+        assertEquals(1, missing(reversed, stored).size());
+        assertEquals(2_395_000_000L, missing(reversed, stored).get(0).totalGp);
     }
 
     /**
@@ -181,14 +210,11 @@ public class GeHistoryAutoSyncTradeMatcherTest {
     }
 
     /**
-     * The allowance waits until every row has had the chance to claim its own record. Two
-     * pickaxes sold 5,000,000 apart, one watched live and one sold elsewhere, look exactly like
-     * one of them stored short. The row of the one sold elsewhere is the older, so it is tried
-     * first: by the allowance it took the live sale's record, the live sale's own row then
-     * matched nothing, and that sale was imported beside its own record.
+     * Two pickaxes sold 5,000,000 apart, one watched live and one sold elsewhere. The stored
+     * sale is the row that came to the same coins, and the other row is imported.
      */
     @Test
-    public void theAllowanceNeverTakesARecordAnotherRowMatchesOutright() {
+    public void ofTwoSalesFiveMillionApartTheStoredOneIsTheRowWithItsCoins() {
         List<Trade> rows = Arrays.asList(
             history(20011, false, 1, 2_390_000_000L, 2_395_000_000L),
             history(20011, false, 1, 2_395_000_000L, 2_400_000_000L));
@@ -200,18 +226,18 @@ public class GeHistoryAutoSyncTradeMatcherTest {
         assertEquals(2_395_000_000L, imported.get(0).totalGp);
     }
 
-    /** That allowance is for exactly that fault, and for nothing that only resembles it. */
+    /** Whatever the item and whichever the side, a trade 5,000,000 from a stored one is another trade. */
     @Test
-    public void theAllowanceForAShortStoredSaleCoversNothingElse() {
+    public void aTradeFiveMillionFromAStoredOneIsAnotherTrade() {
         // A purchase 5,000,000 apart: purchases are not taxed, so these are two purchases.
         assertEquals(1, missing(
             Collections.singletonList(history(20011, true, 1, 2_394_000_000L, 2_394_000_000L)),
             Collections.singletonList(live(20011, true, 1, 2_389_000_000L, Integer.MAX_VALUE))).size());
-        // A sale under max cash was never stored short: 5,000,000 apart is two sales.
+        // A sale under max cash, 5,000,000 apart: two sales.
         assertEquals(1, missing(
             Collections.singletonList(history(13652, false, 1, 295_000_000L, 300_000_000L)),
             Collections.singletonList(live(13652, false, 1, 290_000_000L, 300_000_000))).size());
-        // Short by anything but the tax, or over by it, is another sale.
+        // Past max cash, short by a coin more than the tax, or over by the tax.
         assertEquals(1, missing(
             Collections.singletonList(history(20011, false, 1, 2_395_000_000L, 2_400_000_000L)),
             Collections.singletonList(live(20011, false, 1, 2_390_000_001L, Integer.MAX_VALUE))).size());
@@ -395,6 +421,27 @@ public class GeHistoryAutoSyncTradeMatcherTest {
         assertEquals(1, imported.size());
         assertEquals(400, imported.get(0).quantity);
         assertEquals(47_200L, imported.get(0).totalGp);
+    }
+
+    /**
+     * 100 nature runes bought in one offer for 10,000 and stored as one record. The history has
+     * 40 for 4,000 and, at a dearer price, 60 for 10,020. The 40 are covered by part of the
+     * record. What is left of it is 60 runes at 100 each, which is not the dearer row: that row
+     * is another purchase and is imported whole. A second look at the leftover by size alone
+     * once judged it the row's own offer, 20 coins out, and the purchase was dropped.
+     */
+    @Test
+    public void whatIsLeftOfAnOfferDoesNotExplainARowOfThatSizeAtAnotherPrice() {
+        List<Trade> rows = Arrays.asList(
+            history(NATURE_RUNE, true, 60, 10_020L, 167),
+            history(NATURE_RUNE, true, 40, 4_000L, 100));
+
+        List<Trade> imported = missing(rows,
+            Collections.singletonList(live(NATURE_RUNE, true, 100, 10_000L, 100)));
+
+        assertEquals(1, imported.size());
+        assertEquals(60, imported.get(0).quantity);
+        assertEquals(10_020L, imported.get(0).totalGp);
     }
 
     /**
