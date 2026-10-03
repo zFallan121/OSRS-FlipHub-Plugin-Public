@@ -88,6 +88,19 @@ final class Delta {
     }
 
     /**
+     * What one item went for. {@link #price} says so up to max cash and stops there, for the
+     * builds that read it as an int. Past that the coins say it, which are exact: a purchase's
+     * total, or a sale's with its tax put back. Zero when nothing was traded to tell it by.
+     */
+    long unitPrice() {
+        if (price < Integer.MAX_VALUE) {
+            return price;
+        }
+        long each = deltaQty > 0 ? deltaGp / deltaQty : 0;
+        return isBuy || each <= 0 ? each : each + GeTax.perItem(itemId, each + GeTax.MAX_TAX_PER_ITEM);
+    }
+
+    /**
      * When the offer ended: {@link #endMs} when it has one, else the record's own time.
      *
      * <p>A sale is booked at this moment - replayed against the stock held by then,

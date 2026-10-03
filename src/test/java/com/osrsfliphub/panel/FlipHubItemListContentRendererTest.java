@@ -99,8 +99,8 @@ public class FlipHubItemListContentRendererTest {
         FlipHubItem item = new FlipHubItem();
         item.item_id = itemId;
         item.item_name = name;
-        item.instasell_price = sellPrice;
-        item.instabuy_price = sellPrice - 7;
+        item.instasell_price = (long) sellPrice;
+        item.instabuy_price = sellPrice - 7L;
         return item;
     }
 

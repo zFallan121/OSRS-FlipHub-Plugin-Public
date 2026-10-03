@@ -51,8 +51,9 @@ final class OfferStampFallbackBuilder {
                     item.item_name = itemName;
                 }
             }
-            // At the cap the price may be anything past max cash; the card says N/A, as for wiki prices.
-            Integer price = stamp.price < Integer.MAX_VALUE ? stamp.price : null;
+            // At the cap the price may be anything past max cash, and a saved slot position holds
+            // no more than that: the card says N/A until a trade is stored to tell it by.
+            Long price = stamp.price < Integer.MAX_VALUE ? (long) stamp.price : null;
             if (stamp.isBuy) {
                 item.last_buy_price = price;
             } else {

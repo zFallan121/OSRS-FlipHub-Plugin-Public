@@ -61,6 +61,11 @@ final class ChatboxDecimalInput {
     private ChatboxDecimalInput() {
     }
 
+    /** Whether the prompt of this input type can hold {@code amount}: past max cash, only a price prompt. */
+    static boolean fits(int inputType, long amount) {
+        return amount <= Integer.MAX_VALUE || inputType == LONG_AMOUNT_PROMPT;
+    }
+
     /** The most the prompt of this input type takes, or null when it does not ask for an amount. */
     static BigDecimal largestAmount(int inputType) {
         if (inputType == LONG_AMOUNT_PROMPT) {

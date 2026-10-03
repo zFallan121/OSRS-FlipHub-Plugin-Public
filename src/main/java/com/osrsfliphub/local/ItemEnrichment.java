@@ -52,12 +52,11 @@ final class ItemEnrichment {
         if (entry == null) {
             return;
         }
-        // A price above max cash is left out, so its card shows N/A rather than a wrong number.
-        if (entry.high != null && entry.high > 0 && entry.high <= Integer.MAX_VALUE) {
-            item.instasell_price = entry.high.intValue();
+        if (entry.high != null && entry.high > 0) {
+            item.instasell_price = entry.high;
         }
-        if (entry.low != null && entry.low > 0 && entry.low <= Integer.MAX_VALUE) {
-            item.instabuy_price = entry.low.intValue();
+        if (entry.low != null && entry.low > 0) {
+            item.instabuy_price = entry.low;
         }
         if (entry.highTime != null && entry.highTime > 0) {
             item.instasell_ts_ms = entry.highTime * 1000L;
@@ -112,8 +111,8 @@ final class ItemEnrichment {
         if (item == null) {
             return;
         }
-        Integer buy = null;
-        Integer sell = null;
+        long buy;
+        long sell;
         boolean hasLastBuy = item.last_buy_price != null && item.last_buy_price > 0;
         boolean hasLastSell = item.last_sell_price != null && item.last_sell_price > 0;
         boolean hasInstaBuy = item.instabuy_price != null && item.instabuy_price > 0;
@@ -130,8 +129,7 @@ final class ItemEnrichment {
         } else if (hasLastBuy && hasInstaSell) {
             buy = item.last_buy_price;
             sell = item.instasell_price;
-        }
-        if (buy == null || sell == null) {
+        } else {
             return;
         }
         // One margin, taxed the way the ledgers tax it, so what the card promises matches the
@@ -139,14 +137,13 @@ final class ItemEnrichment {
         // is whole coins and margin x limit is a plain multiple of it. The previous version
         // took an exact two percent here and a floored two percent for ROI, and neither
         // capped, which overstated the margin on anything selling above 250M.
-        long taxPerItem = GeTax.perItem(item.item_id, sell);
-        long marginPerItem = (long) sell - taxPerItem - (long) buy;
-        item.margin = (int) marginPerItem;
-        item.roi_percent = buy > 0 ? (marginPerItem * 100.0) / buy : null;
+        long marginPerItem = sell - GeTax.perItem(item.item_id, sell) - buy;
+        item.margin = marginPerItem;
+        item.roi_percent = marginPerItem * 100.0 / buy;
         if (item.ge_limit_remaining != null) {
-            item.margin_x_limit = marginPerItem * (long) item.ge_limit_remaining;
+            item.margin_x_limit = marginPerItem * item.ge_limit_remaining;
         } else if (item.ge_limit_total != null) {
-            item.margin_x_limit = marginPerItem * (long) item.ge_limit_total;
+            item.margin_x_limit = marginPerItem * item.ge_limit_total;
         }
     }
 }

@@ -42,7 +42,7 @@ public class LocalItemEnrichmentServiceTest {
 
         new ItemEnrichment().applyMarginInfo(item);
 
-        assertEquals(Integer.valueOf(45_000_000), item.margin);
+        assertEquals(Long.valueOf(45_000_000L), item.margin);
         assertEquals(Long.valueOf(360_000_000L), item.margin_x_limit);
     }
 
@@ -52,7 +52,7 @@ public class LocalItemEnrichmentServiceTest {
 
         new ItemEnrichment().applyMarginInfo(item);
 
-        assertEquals(Integer.valueOf(29), item.margin);
+        assertEquals(Long.valueOf(29L), item.margin);
         assertEquals(2.9d, item.roi_percent, 0.0001d);
     }
 
@@ -63,18 +63,18 @@ public class LocalItemEnrichmentServiceTest {
 
         new ItemEnrichment().applyMarginInfo(item);
 
-        assertEquals(Integer.valueOf(25), item.margin);
+        assertEquals(Long.valueOf(25L), item.margin);
     }
 
     /**
-     * The 3rd age axe on 30 Sep 2026: bought at max cash, sold at 8,351,000,000. The price that
-     * fits is shown; the one past max cash is left N/A rather than shown wrapped or cut down.
+     * The 3rd age axe on 3 Oct 2026: 9,002,000,003 to buy, 9,199,000,000 to sell. Both used to
+     * be left N/A for being past max cash, which left the whole card with nothing on it.
      */
     @Test
-    public void aWikiPriceAboveMaxCashIsLeftOutAndTheOtherIsShown() {
+    public void aWikiPriceAboveMaxCashIsShownWhole() {
         WikiPriceEntry axe = new WikiPriceEntry();
-        axe.high = 2_147_483_647L;
-        axe.low = 8_351_000_000L;
+        axe.high = 9_199_000_000L;
+        axe.low = 9_002_000_003L;
         PluginRuntime runtime = new PluginRuntime();
         runtime.setPanelVisible(true);
         WikiPrice prices = new WikiPrice(60_000L, 0L, runtime,
@@ -85,14 +85,71 @@ public class LocalItemEnrichmentServiceTest {
             FlipHubItem item = new FlipHubItem();
             new ItemEnrichment().applyGuidePrices(item, 20014, false);
 
-            assertEquals(Integer.valueOf(Integer.MAX_VALUE), item.instasell_price);
-            assertNull(item.instabuy_price);
+            assertEquals(Long.valueOf(9_199_000_000L), item.instasell_price);
+            assertEquals(Long.valueOf(9_002_000_003L), item.instabuy_price);
         } finally {
             Bridge.set(null);
         }
     }
 
-    private static FlipHubItem itemPriced(int itemId, int buy, int sell) {
+    /**
+     * The 3rd age pickaxe, 2,320,000,000 to 2,394,000,000 with 40 left to buy: the margin is the
+     * difference less the capped tax, and forty of them is itself past max cash.
+     */
+    @Test
+    public void marginOnAnItemPastMaxCashIsWorkedOutInFull() {
+        FlipHubItem item = itemPriced(20011, 2_320_000_000L, 2_394_000_000L);
+        item.ge_limit_remaining = 40;
+
+        new ItemEnrichment().applyMarginInfo(item);
+
+        assertEquals(Long.valueOf(69_000_000L), item.margin);
+        assertEquals(Long.valueOf(2_760_000_000L), item.margin_x_limit);
+        assertEquals(2.9741d, item.roi_percent, 0.0001d);
+    }
+
+    /** With only one live price, the other side is the player's own last trade, in full. */
+    @Test
+    public void marginOnAnItemPastMaxCashCanUseTheLastPurchase() {
+        FlipHubItem item = new FlipHubItem();
+        item.item_id = 20011;
+        item.instasell_price = 2_394_000_000L;
+        item.last_buy_price = 2_100_000_000L;
+
+        new ItemEnrichment().applyMarginInfo(item);
+
+        assertEquals(Long.valueOf(289_000_000L), item.margin);
+    }
+
+    /** With no live prices at all, the margin is the player's own last purchase and sale. */
+    @Test
+    public void marginOnAnItemPastMaxCashCanUseTheLastTradesAlone() {
+        FlipHubItem item = new FlipHubItem();
+        item.item_id = 20011;
+        item.last_buy_price = 2_320_000_000L;
+        item.last_sell_price = 2_394_000_000L;
+
+        new ItemEnrichment().applyMarginInfo(item);
+
+        assertEquals(Long.valueOf(69_000_000L), item.margin);
+    }
+
+    /** A last price the trade file could not tell is left empty, and no margin is made up from it. */
+    @Test
+    public void noMarginIsShownFromALastPriceThatIsNotKnown() {
+        FlipHubItem item = new FlipHubItem();
+        item.item_id = 20011;
+        item.instabuy_price = 2_320_000_000L;
+        item.ge_limit_remaining = 40;
+
+        new ItemEnrichment().applyMarginInfo(item);
+
+        assertNull(item.margin);
+        assertNull(item.margin_x_limit);
+        assertNull(item.roi_percent);
+    }
+
+    private static FlipHubItem itemPriced(int itemId, long buy, long sell) {
         FlipHubItem item = new FlipHubItem();
         item.item_id = itemId;
         item.instabuy_price = buy;

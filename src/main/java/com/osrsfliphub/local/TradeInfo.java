@@ -28,8 +28,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 final class TradeInfo {
     final int itemId;
-    Integer lastBuyPrice;
-    Integer lastSellPrice;
+    Long lastBuyPrice;
+    Long lastSellPrice;
     Long lastBuyTs;
     Long lastSellTs;
 }

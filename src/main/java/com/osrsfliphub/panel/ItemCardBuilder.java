@@ -293,7 +293,7 @@ final class ItemCardBuilder {
      * They say how long it has been since anybody acted on it, which is worth knowing before it
      * goes into an offer. A price with no timestamp cannot be judged, so it is not.
      */
-    private Color livePriceColor(Integer price, Long tradeTimeMs, long now) {
+    private Color livePriceColor(Long price, Long tradeTimeMs, long now) {
         if (price == null || price <= 0) {
             return TEXT;
         }

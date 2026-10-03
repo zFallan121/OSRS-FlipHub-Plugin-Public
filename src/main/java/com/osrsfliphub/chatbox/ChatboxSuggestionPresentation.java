@@ -40,7 +40,7 @@ final class ChatboxSuggestionPresentation {
     private final ChatboxSuggestionRuntimeState runtimeState;
     private final RemainingLimitSuggestion remainingLimitSuggestion;
     private final AffordableLimitSuggestion affordableLimitSuggestion;
-    private Integer lastSuggestedPrice;
+    private Long lastSuggestedPrice;
     private Boolean lastSuggestedIsBuy;
     private Integer lastSuggestedLimit;
     private Integer lastSuggestedAffordableLimit;
@@ -70,7 +70,7 @@ final class ChatboxSuggestionPresentation {
             return;
         }
 
-        Integer price = isBuy ? previewItem.instabuy_price : previewItem.instasell_price;
+        Long price = isBuy ? previewItem.instabuy_price : previewItem.instasell_price;
         if (price == null || price <= 0) {
             clearPriceSuggestion();
             return;

@@ -27,7 +27,9 @@ package com.osrsfliphub;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 public class ChatboxDecimalInputTest {
     @Test
@@ -128,6 +130,16 @@ public class ChatboxDecimalInputTest {
     public void withDecimalPointRefusesASecondPoint() {
         assertNull(ChatboxDecimalInput.withDecimalPoint("1."));
         assertNull(ChatboxDecimalInput.withDecimalPoint("1.2"));
+    }
+
+    /** The price line types its price on a click. Past max cash, only the price prompt (30) holds it. */
+    @Test
+    public void aPricePastMaxCashFitsOnlyThePricePrompt() {
+        assertTrue(ChatboxDecimalInput.fits(30, 2_394_000_000L));
+        assertFalse(ChatboxDecimalInput.fits(7, 2_394_000_000L));
+        assertTrue(ChatboxDecimalInput.fits(7, 2_147_483_647L));
+        // A prompt the plugin knows by its title alone still takes an ordinary price.
+        assertTrue(ChatboxDecimalInput.fits(0, 1_500_000L));
     }
 
     @Test

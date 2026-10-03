@@ -61,21 +61,22 @@ final class TradeAnalytics {
             if (delta.deltaQty <= 0 && !isCompletion) {
                 continue;
             }
-            if (delta.price <= 0) {
+            long price = delta.unitPrice();
+            if (price <= 0) {
                 continue;
             }
             TradeInfo info = infoMap.computeIfAbsent(delta.itemId, TradeInfo::new);
             if (delta.isBuy) {
                 if (info.lastBuyTs == null || delta.tsClientMs >= info.lastBuyTs) {
                     info.lastBuyTs = delta.tsClientMs;
-                    info.lastBuyPrice = delta.price;
+                    info.lastBuyPrice = price;
                 }
             } else {
                 // A sale is booked when it ended; the latest to end is the latest sale.
                 long soldAtMs = delta.closedAtMs();
                 if (info.lastSellTs == null || soldAtMs >= info.lastSellTs) {
                     info.lastSellTs = soldAtMs;
-                    info.lastSellPrice = delta.price;
+                    info.lastSellPrice = price;
                 }
             }
         }

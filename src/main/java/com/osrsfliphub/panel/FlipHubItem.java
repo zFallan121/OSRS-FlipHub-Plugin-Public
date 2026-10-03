@@ -27,15 +27,17 @@ package com.osrsfliphub;
 public class FlipHubItem {
     public int item_id;
     public String item_name;
-    public Integer instabuy_price;
-    public Integer instasell_price;
+    // Longs: since 30 Sep 2026 one item can cost more than 2,147,483,647 (the 3rd age pickaxe
+    // at 2,394,000,000), and a card that could not hold such a price showed N/A in its place.
+    public Long instabuy_price;
+    public Long instasell_price;
     public Long instabuy_ts_ms;
     public Long instasell_ts_ms;
-    public Integer last_buy_price;
-    public Integer last_sell_price;
+    public Long last_buy_price;
+    public Long last_sell_price;
     public Long last_buy_ts_ms;
     public Long last_sell_ts_ms;
-    public Integer margin;
+    public Long margin;
     public Long margin_x_limit;
     public Double roi_percent;
     public Integer ge_limit_total;

@@ -57,10 +57,110 @@ public class LocalTradeAnalyticsServiceTest {
         Map<Integer, TradeInfo> infoMap = service.buildLocalTradeInfo(snapshot);
 
         TradeInfo info = infoMap.get(560);
-        assertEquals(Integer.valueOf(120), info.lastBuyPrice);
+        assertEquals(Long.valueOf(120L), info.lastBuyPrice);
         assertEquals(Long.valueOf(1_500L), info.lastBuyTs);
-        assertEquals(Integer.valueOf(140), info.lastSellPrice);
+        assertEquals(Long.valueOf(140L), info.lastSellPrice);
         assertEquals(Long.valueOf(1_900L), info.lastSellTs);
+    }
+
+    /**
+     * A 3rd age pickaxe bought for 2,394,000,000 and sold for 2,400,000,000. The trade file holds
+     * a price up to max cash and no further, so both are saved at 2,147,483,647; the coins that
+     * changed hands are saved whole, and the price is read back from those. The sale's coins are
+     * what was left after its 5,000,000 tax.
+     */
+    @Test
+    public void aTradePastMaxCashShowsItsRealPrice() {
+        TradeInfo info = lastPrices(
+            delta(1_000L, 1, 20011, true, 1, 2_394_000_000L, "OFFER_COMPLETED", Integer.MAX_VALUE, false),
+            delta(2_000L, 1, 20011, false, 1, 2_395_000_000L, "OFFER_COMPLETED", Integer.MAX_VALUE, false));
+
+        assertEquals(Long.valueOf(2_394_000_000L), info.lastBuyPrice);
+        assertEquals(Long.valueOf(2_400_000_000L), info.lastSellPrice);
+    }
+
+    /** Two bought in one offer for 4,790,000,000: each cost half of it. */
+    @Test
+    public void aTradePastMaxCashOfSeveralItemsShowsThePriceOfOne() {
+        TradeInfo info = lastPrices(
+            delta(1_000L, 1, 20011, true, 2, 4_790_000_000L, "OFFER_COMPLETED", Integer.MAX_VALUE, false),
+            delta(2_000L, 1, 20011, false, 2, 4_780_000_000L, "OFFER_COMPLETED", Integer.MAX_VALUE, false));
+
+        assertEquals(Long.valueOf(2_395_000_000L), info.lastBuyPrice);
+        assertEquals(Long.valueOf(2_395_000_000L), info.lastSellPrice);
+    }
+
+    /** Offers at exactly max cash were common before prices could pass it, and read back the same. */
+    @Test
+    public void aTradeAtExactlyMaxCashShowsMaxCash() {
+        TradeInfo info = lastPrices(
+            delta(1_000L, 1, 20011, true, 1, 2_147_483_647L, "OFFER_COMPLETED", Integer.MAX_VALUE, false),
+            delta(2_000L, 1, 20011, false, 1, 2_142_483_647L, "OFFER_COMPLETED", Integer.MAX_VALUE, false));
+
+        assertEquals(Long.valueOf(2_147_483_647L), info.lastBuyPrice);
+        assertEquals(Long.valueOf(2_147_483_647L), info.lastSellPrice);
+    }
+
+    /** An item the game does not tax has no tax to put back (13190 is the bond). */
+    @Test
+    public void anUntaxedSalePastMaxCashShowsItsCoinsAsThePrice() {
+        TradeInfo info = lastPrices(
+            delta(2_000L, 1, 13190, false, 1, 2_400_000_000L, "OFFER_COMPLETED", Integer.MAX_VALUE, false));
+
+        assertEquals(Long.valueOf(2_400_000_000L), info.lastSellPrice);
+    }
+
+    /**
+     * An offer past max cash that was cancelled before anything filled is saved with its capped
+     * price and no coins. There is nothing to read a price from, so the last real one stays.
+     */
+    @Test
+    public void anOfferPastMaxCashThatFilledNothingLeavesTheLastPriceAlone() {
+        TradeInfo info = lastPrices(
+            delta(1_000L, 1, 20011, true, 1, 2_394_000_000L, "OFFER_COMPLETED", Integer.MAX_VALUE, false),
+            delta(2_000L, 1, 20011, true, 0, 0L, "OFFER_COMPLETED", Integer.MAX_VALUE, false));
+
+        assertEquals(Long.valueOf(2_394_000_000L), info.lastBuyPrice);
+        assertEquals(Long.valueOf(1_000L), info.lastBuyTs);
+    }
+
+    /** Under max cash nothing changes: the price shown is the one the offer was listed at. */
+    @Test
+    public void aTradeUnderMaxCashKeepsItsListedPrice() {
+        TradeInfo info = lastPrices(
+            delta(1_000L, 1, 560, true, 10, 1_000L, "OFFER_COMPLETED", 105, false));
+
+        assertEquals(Long.valueOf(105L), info.lastBuyPrice);
+    }
+
+    /**
+     * What the card shows has to survive the trade file, which is where the price is cut down:
+     * saved, read back, and still 2,394,000,000 and 2,400,000,000.
+     */
+    @Test
+    public void aTradePastMaxCashStillShowsItsRealPriceAfterAReload() throws Exception {
+        java.nio.file.Path baseDir = java.nio.file.Files.createTempDirectory("last-price-past-max-cash");
+        try {
+            ProfileStore store = new ProfileStore(new com.google.gson.Gson(), "fliphub", "fliphub-dev", baseDir);
+            store.writeProfileData(123L, 0L, "Zezima", Arrays.asList(
+                delta(1_000L, 1, 20011, true, 1, 2_394_000_000L, "OFFER_COMPLETED", Integer.MAX_VALUE, false),
+                delta(2_000L, 1, 20011, false, 1, 2_395_000_000L, "OFFER_COMPLETED", Integer.MAX_VALUE, false)));
+
+            List<Delta> reloaded = store.readProfileData(123L, 0L).deltas;
+            TradeInfo info = lastPrices(reloaded.toArray(new Delta[0]));
+
+            assertEquals(Long.valueOf(2_394_000_000L), info.lastBuyPrice);
+            assertEquals(Long.valueOf(2_400_000_000L), info.lastSellPrice);
+        } finally {
+            try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.walk(baseDir)) {
+                files.sorted(java.util.Comparator.reverseOrder()).forEach(path -> path.toFile().delete());
+            }
+        }
+    }
+
+    private static TradeInfo lastPrices(Delta... deltas) {
+        TradeAnalytics service = new TradeAnalytics(LIMIT_WINDOW_MS, FUTURE_TOLERANCE_MS, BUCKET_MS);
+        return service.buildLocalTradeInfo(Arrays.asList(deltas)).get(deltas[0].itemId);
     }
 
     @Test

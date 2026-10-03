@@ -224,7 +224,7 @@ final class ChatboxSuggestionRuntimeState {
         return ChatboxSuggestionWidgets.isAttached(container, affordableLimitSuggestionWidget);
     }
 
-    String formatPrice(int price) {
+    String formatPrice(long price) {
         return NumberFormat.getIntegerInstance(Locale.US).format(price);
     }
 }

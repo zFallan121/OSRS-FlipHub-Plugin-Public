@@ -42,8 +42,11 @@ final class ChatboxSuggestionApply {
         if (isBuy == null || previewItem == null) {
             return;
         }
-        Integer price = isBuy ? previewItem.instabuy_price : previewItem.instasell_price;
-        if (price == null || price <= 0) {
+        Long price = isBuy ? previewItem.instabuy_price : previewItem.instasell_price;
+        // The line is taken down a moment after its prompt closes. A click in that moment must
+        // not leave a price past max cash in a quantity prompt, which stops there.
+        if (price == null || price <= 0
+            || !ChatboxDecimalInput.fits(client.getVarcIntValue(VarClientID.MESLAYERMODE), price)) {
             return;
         }
         applySuggestedQuantityToChat(price);
@@ -75,10 +78,7 @@ final class ChatboxSuggestionApply {
         applySuggestedQuantityToChat(affordable);
     }
 
-    private void applySuggestedQuantityToChat(int quantity) {
-        if (quantity <= 0) {
-            return;
-        }
+    private void applySuggestedQuantityToChat(long quantity) {
         client.setVarcStrValue(VarClientID.MESLAYERINPUT, String.valueOf(quantity));
         client.runScript(ScriptID.CHAT_TEXT_INPUT_REBUILD, "");
     }

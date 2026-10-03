@@ -55,7 +55,7 @@ public class OfferStampFallbackBuilderTest {
         assertEquals(1, items.size());
         FlipHubItem item = items.get(0);
         assertEquals(11286, item.item_id);
-        assertEquals(Integer.valueOf(5_100_000), item.last_sell_price);
+        assertEquals(Long.valueOf(5_100_000L), item.last_sell_price);
         assertNull(item.last_buy_price);
     }
 
