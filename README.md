@@ -139,8 +139,8 @@ type it in.
 
 ![The GE price prompt showing "Current Sell Price: 183,211 gp"](docs/ge-suggestion-sell-price.png)
 
-On a buy, the quantity prompt adds your remaining limit and how many the coins in your inventory
-buy at the price you entered.
+On a buy, the quantity prompt adds your remaining limit and how many the coins and platinum tokens
+in your inventory buy at the price you entered.
 
 ![The GE quantity prompt showing "Remaining GE limit: 3,000" and "Cash limit: 5,585"](docs/ge-suggestion-buy-limit.png)
 
