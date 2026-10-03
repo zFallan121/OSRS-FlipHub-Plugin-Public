@@ -51,6 +51,7 @@ public class LocalStatsCacheTest {
     @Test
     public void rebuildReplaysASyncedBatchInTheOrderTheLiveCacheSawIt() {
         List<Delta> deltas = Arrays.asList(
+            delta(1_000L, 0, 560, true, 1, 50L, "OFFER_COMPLETED", 50),
             delta(5_000L, SYNCED, 560, false, 1, 130L, "OFFER_UPDATED", 130),
             delta(5_004L, SYNCED, 560, false, 0, 0L, "OFFER_COMPLETED", 130),
             delta(5_008L, SYNCED + 1, 560, true, 1, 100L, "OFFER_UPDATED", 100),
@@ -63,9 +64,9 @@ public class LocalStatsCacheTest {
         StatsCache rebuilt = new StatsCache();
         rebuilt.rebuild(deltas);
 
-        // The history said the sale came first, so it was not a sale of this stock.
-        assertEquals(Integer.valueOf(0), live.getSummary().fill_count);
-        assertEquals(Long.valueOf(0L), live.getSummary().total_profit_gp);
+        // The history said the sale came first, so it took the 50 held before it, not the 100.
+        assertEquals(Integer.valueOf(1), live.getSummary().fill_count);
+        assertEquals(Long.valueOf(80L), live.getSummary().total_profit_gp);
         assertEquals(live.getSummary().fill_count, rebuilt.getSummary().fill_count);
         assertEquals(live.getSummary().total_profit_gp, rebuilt.getSummary().total_profit_gp);
     }

@@ -183,8 +183,10 @@ took to fill — and every flip behind them, listed one by one.
 
 Each sale is matched with that character's newest purchase of the item made before it, then the one
 before that, the same way the website matches it. Bought 2,000 at 3,800 that are still listed, then
-130 at 3,050, and sold 2 at 3,590? Those 2 came out of the 130. One sell offer is one flip, however
-many pieces it sold in.
+130 at 3,050, and sold 2 at 3,590? Those 2 came out of the 130. A sale with too little stock behind
+it is completed by a purchase of the item made up to two minutes after it, as on the website: the
+in-game history can date a purchase just after the sale it paid for. One sell offer is one flip,
+however many pieces it sold in.
 
 ![An opened item showing total profit, total cost, average sell and buy, ROI, flips, quantity and average time to complete, over a flip history listing each flip's quantity, buy, sell and profit](docs/panel-profile-item.png)
 

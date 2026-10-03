@@ -117,7 +117,7 @@ public class NewestPurchaseFirstTest {
     @Test
     public void aPurchaseSoldInPiecesCostsExactlyWhatItCost() {
         Lots lots = new Lots();
-        lots.buy(3, 100L);
+        lots.buy(3, 100L, 0L);
 
         assertEquals(33L, lots.take(1));
         assertEquals(33L, lots.take(1));

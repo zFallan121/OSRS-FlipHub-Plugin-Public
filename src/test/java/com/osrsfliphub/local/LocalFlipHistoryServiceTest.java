@@ -275,20 +275,26 @@ public class LocalFlipHistoryServiceTest {
      * from the in-game history are stamped 8 ms apart by the sync, so a whole
      * batch shares a bucket - and there the invented order is the history's
      * own order, which is the evidence. A sale the history puts before the buy
-     * was not a sale of that stock.
+     * takes the stock held before it; only a sale that finds none waits for
+     * that buy (the 2-minute rule, Lots).
      */
     @Test
     public void aSyncedBatchIsReplayedInItsOwnOrderNotBuysFirst() {
         LocalFlipHistoryService service = new LocalFlipHistoryService();
         int synced = Const.GE_HISTORY_SYNTHETIC_SLOT_START;
         List<Delta> deltas = Arrays.asList(
+            delta(1_000L, 0, 560, true, 1, 50L, "OFFER_COMPLETED", 50, false),
             delta(5_000L, synced, 560, false, 1, 130L, "OFFER_UPDATED", 130, false),
             delta(5_004L, synced, 560, false, 0, 0L, "OFFER_COMPLETED", 130, false),
             delta(5_008L, synced + 1, 560, true, 1, 100L, "OFFER_UPDATED", 100, false),
             delta(5_012L, synced + 1, 560, true, 0, 0L, "OFFER_COMPLETED", 100, false)
         );
 
-        assertTrue(service.buildHistory(deltas, null).isEmpty());
+        List<StatsFlipInstance> flips = service.buildHistory(deltas, null).get(560);
+        assertEquals(1, flips.size());
+        // The 50 held before it, not the 100 the history lists after it.
+        assertEquals(50L, flips.get(0).buyCostGp);
+        assertEquals(80L, flips.get(0).profitGp);
     }
 
     @Test

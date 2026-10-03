@@ -24,7 +24,8 @@
  */
 package com.osrsfliphub;
 
-import java.util.ArrayDeque;
+import java.util.*;
+import lombok.AllArgsConstructor;
 
 /**
  * One item's stock as one character holds it, purchase by purchase.
@@ -38,16 +39,72 @@ import java.util.ArrayDeque;
  *
  * <p>Both ledgers replay in time order, so whatever is held when a sale comes was bought before
  * it, and the newest is the last one added.
+ *
+ * <p>A sale that finds too little waits two minutes for the rest, as on the website (the owner's
+ * choice, 3 Oct 2026): the history sync dates what it imports as late as it can, so a purchase
+ * can land just after the sale it paid for. 1 June, Sips Potion sold 11,341 longbows at 539 with
+ * 11,000 held; the sync's 11,341 at 502 came 67 seconds later. 341 of them complete that sale,
+ * oldest waiting sale first, and only the other 11,000 are held.
  */
 class Lots {
+    /** How long after a sale a purchase can still be what it sold: the website's window. */
+    static final long WAIT_MS = 120_000L;
+
     /** {quantity left, what it cost}, newest last. */
     private final ArrayDeque<long[]> held = new ArrayDeque<>();
+    /** Sales still short, oldest first. */
+    private final List<Owed> owed = new ArrayList<>();
     long qty;
 
-    void buy(long quantity, long cost) {
+    /** Books units a later purchase found for a sale: how many, what they cost, what they sold for. */
+    interface Booker {
+        void book(long quantity, long cost, long revenue);
+    }
+
+    @AllArgsConstructor
+    private static final class Owed {
+        long qty;
+        long revenue;
+        final long atMs;
+        final Booker booker;
+    }
+
+    /** Completes the sales waiting for it, then holds the rest, which it returns. */
+    long buy(long quantity, long cost, long atMs) {
+        cost = Math.max(0L, cost);
+        for (Iterator<Owed> it = owed.iterator(); quantity > 0 && it.hasNext(); ) {
+            Owed sale = it.next();
+            // Too late for this purchase. The replay can step back within a bucket (TradeDeltaUtils),
+            // so it is dropped only once no later purchase can reach it either.
+            if (atMs - sale.atMs > WAIT_MS) {
+                if (atMs - sale.atMs > WAIT_MS + Const.LOCAL_EVENT_BUCKET_MS) {
+                    it.remove();
+                }
+                continue;
+            }
+            long taken = Math.min(quantity, sale.qty);
+            // Shared as take() shares, so neither side loses a coin to division.
+            long paid = cost * taken / quantity;
+            long revenue = sale.revenue * taken / sale.qty;
+            sale.booker.book(taken, paid, revenue);
+            cost -= paid;
+            quantity -= taken;
+            sale.revenue -= revenue;
+            if ((sale.qty -= taken) == 0) {
+                it.remove();
+            }
+        }
         if (quantity > 0) {
-            held.addLast(new long[] {quantity, Math.max(0L, cost)});
+            held.addLast(new long[] {quantity, cost});
             qty += quantity;
+        }
+        return Math.max(0L, quantity);
+    }
+
+    /** A sale found nothing for {@code quantity} of its units, sold for {@code revenue}, at {@code atMs}. */
+    void owe(long quantity, long revenue, long atMs, Booker booker) {
+        if (quantity > 0) {
+            owed.add(new Owed(quantity, revenue, atMs, booker));
         }
     }
 

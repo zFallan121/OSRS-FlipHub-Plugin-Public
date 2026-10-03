@@ -92,6 +92,9 @@ final class LocalFlipHistoryService {
 
         Map<Integer, Lots> inventoryByItem = new HashMap<>();
         Map<Integer, PendingSellFlip> pendingSellBySlot = new HashMap<>();
+        // Offers over, in the order they ended. Written up only once the replay is done, because a
+        // purchase up to two minutes after a sale can still complete it (Lots).
+        List<PendingSellFlip> ended = new ArrayList<>();
         for (Delta delta : snapshot) {
             if (delta == null || delta.itemId <= 0) {
                 continue;
@@ -108,52 +111,50 @@ final class LocalFlipHistoryService {
             // Folding it into the next sale of the same item on that slot counted two offers as one.
             PendingSellFlip abandoned = pendingSellBySlot.get(resolveSlotKey(delta));
             if (abandoned != null && !TradeOfferCollapser.sameOffer(abandoned.first, delta)) {
-                pendingSellBySlot.remove(resolveSlotKey(delta));
-                if (sinceMs == null || abandoned.lastSellTsMs >= sinceMs) {
-                    recordPendingFlip(byItem, abandoned, abandoned.first.itemId, abandoned.lastSellTsMs, 0, false);
-                }
+                ended.add(pendingSellBySlot.remove(resolveSlotKey(delta)));
             }
 
             Lots inventory = inventoryByItem.computeIfAbsent(delta.itemId, ignored -> new Lots());
             if (delta.isBuy) {
-                inventory.buy(delta.deltaQty, delta.deltaGp);
+                inventory.buy(delta.deltaQty, delta.deltaGp, delta.tsClientMs);
                 continue;
             }
-            // A record that ended is a whole offer: one the slot moved on from is as finished as one
-            // that completed.
-            boolean ended = isCompletion || delta.endMs > 0;
 
             long matchQty = Math.max(0L, Math.min((long) delta.deltaQty, inventory.qty));
-            if (matchQty <= 0) {
-                if (ended) {
-                    finalizePendingFlip(byItem, pendingSellBySlot, delta, sinceMs);
-                }
-                continue;
-            }
-
             long matchRevenue = Math.max(0L, delta.deltaGp);
             if (matchQty < delta.deltaQty) {
                 matchRevenue = (matchRevenue * matchQty) / delta.deltaQty;
             }
 
             PendingSellFlip pending = pendingSellBySlot.computeIfAbsent(resolveSlotKey(delta), ignored -> new PendingSellFlip(delta));
-            pending.matchedQty += matchQty;
-            pending.matchedCost += inventory.take(matchQty);
-            pending.matchedRevenue += matchRevenue;
-            // Per fill, on the units matched here, exactly as the stats cache
-            // books it - so the two ledgers name the same tax for the same offer.
-            pending.matchedTax += GeTax.forSale(delta.itemId, delta.price, matchQty);
-            pending.lastSellTsMs = Math.max(pending.lastSellTsMs, delta.closedAtMs());
-            if (delta.price > 0) {
-                pending.lastSellPriceGp = delta.price;
-            }
+            pending.book(delta, matchQty, inventory.take(matchQty), matchRevenue);
+            inventory.owe(delta.deltaQty - matchQty, Math.max(0L, delta.deltaGp) - matchRevenue, delta.closedAtMs(),
+                (quantity, cost, revenue) -> pending.book(delta, quantity, cost, revenue));
 
-            if (ended) {
-                finalizePendingFlip(byItem, pendingSellBySlot, delta, sinceMs);
+            // A record that ended is a whole offer: one the slot moved on from is as finished as one
+            // that completed.
+            if (isCompletion || delta.endMs > 0) {
+                pendingSellBySlot.remove(resolveSlotKey(delta));
+                pending.endMs = delta.closedAtMs();
+                if (delta.price > 0) {
+                    pending.lastSellPriceGp = delta.price;
+                }
+                ended.add(pending);
             }
         }
 
-        flushOpenSellFlips(byItem, pendingSellBySlot, sinceMs);
+        for (PendingSellFlip flip : ended) {
+            recordPendingFlip(byItem, flip, false, sinceMs);
+        }
+        // Sell offers that have filled part-way and are still sitting in the Grand Exchange when
+        // the replay runs out of deltas. The coins are real and the running totals already hold
+        // them, so the ledger has to hold them too: the totals are reconciled against it, and what
+        // the ledger has never heard of is erased. Recorded as in progress rather than as a flip -
+        // the offer has not finished, and it will be finalized properly by the completion when it
+        // arrives.
+        for (PendingSellFlip flip : pendingSellBySlot.values()) {
+            recordPendingFlip(byItem, flip, true, sinceMs);
+        }
 
         for (List<StatsFlipInstance> history : byItem.values()) {
             history.sort(Comparator.comparingLong((StatsFlipInstance instance) -> instance.completionTsMs).reversed());
@@ -171,76 +172,24 @@ final class LocalFlipHistoryService {
         return -1 - Math.max(0, delta.itemId);
     }
 
-    private static void finalizePendingFlip(Map<Integer, List<StatsFlipInstance>> byItem,
-                                            Map<Integer, PendingSellFlip> pendingSellBySlot,
-                                            Delta completion,
-                                            Long sinceMs) {
-        if (byItem == null || pendingSellBySlot == null || completion == null || completion.itemId <= 0) {
-            return;
-        }
-        int slotKey = resolveSlotKey(completion);
-        PendingSellFlip pending = pendingSellBySlot.remove(slotKey);
-        if (pending == null || pending.matchedQty <= 0) {
-            return;
-        }
-
-        long completionTsMs = completion.closedAtMs() > 0
-            ? completion.closedAtMs()
-            : Math.max(0L, pending.lastSellTsMs);
-        if (sinceMs != null && completionTsMs < sinceMs) {
-            return;
-        }
-
-        recordPendingFlip(byItem, pending, completion.itemId, completionTsMs, completion.price, false);
-    }
-
-    /**
-     * Sell offers that have filled part-way and are still sitting in the Grand
-     * Exchange when the replay runs out of deltas.
-     *
-     * <p>The coins are real and the running totals already hold them, so the
-     * ledger has to hold them too: the totals are reconciled against it, and
-     * what the ledger has never heard of is erased. Recorded as in progress
-     * rather than as a flip - the offer has not finished, and it will be
-     * finalized properly by the completion when it arrives.
-     */
-    private static void flushOpenSellFlips(Map<Integer, List<StatsFlipInstance>> byItem,
-                                           Map<Integer, PendingSellFlip> pendingSellBySlot,
-                                           Long sinceMs) {
-        if (byItem == null || pendingSellBySlot == null || pendingSellBySlot.isEmpty()) {
-            return;
-        }
-        for (PendingSellFlip pending : pendingSellBySlot.values()) {
-            if (pending == null || pending.matchedQty <= 0) {
-                continue;
-            }
-            long tsMs = Math.max(0L, pending.lastSellTsMs);
-            if (sinceMs != null && tsMs < sinceMs) {
-                continue;
-            }
-            recordPendingFlip(byItem, pending, pending.first.itemId, tsMs, 0, true);
-        }
-        pendingSellBySlot.clear();
-    }
-
+    /** One offer's flip, when anything it sold found stock and it falls in the range. */
     private static void recordPendingFlip(Map<Integer, List<StatsFlipInstance>> byItem,
                                           PendingSellFlip pending,
-                                          int itemId,
-                                          long tsMs,
-                                          int fallbackSellPrice,
-                                          boolean inProgress) {
+                                          boolean inProgress,
+                                          Long sinceMs) {
         long qty = pending.matchedQty;
+        long tsMs = pending.endMs > 0 ? pending.endMs : Math.max(0L, pending.lastSellTsMs);
+        if (qty <= 0 || sinceMs != null && tsMs < sinceMs) {
+            return;
+        }
+        int itemId = pending.first.itemId;
         long buyCost = Math.max(0L, pending.matchedCost);
         long sellRevenue = Math.max(0L, pending.matchedRevenue);
         // Use integer division so displayed per-item prices never round up above realized totals.
         long buyPrice = Math.max(0L, pending.matchedCost / qty);
         long sellPrice = Math.max(0L, pending.matchedRevenue / qty);
         if (sellPrice <= 0L) {
-            sellPrice = fallbackSellPrice > 0
-                ? fallbackSellPrice
-                : pending.lastSellPriceGp > 0
-                    ? pending.lastSellPriceGp
-                    : 0L;
+            sellPrice = pending.lastSellPriceGp;
         }
         long profit = sellRevenue - buyCost;
         StatsFlipInstance instance = new StatsFlipInstance(
@@ -268,5 +217,23 @@ final class LocalFlipHistoryService {
         private long matchedTax;
         private long lastSellPriceGp;
         private long lastSellTsMs;
+        /** When the offer ended; 0 while it is open or when the slot moved on from it. */
+        private long endMs;
+
+        /** Units of {@code sale} paired with stock, at once or by a purchase made just after it. */
+        void book(Delta sale, long quantity, long cost, long revenue) {
+            if (quantity > 0) {
+                matchedQty += quantity;
+                matchedCost += cost;
+                matchedRevenue += revenue;
+                // Per fill, on the units matched here, exactly as the stats cache
+                // books it - so the two ledgers name the same tax for the same offer.
+                matchedTax += GeTax.forSale(sale.itemId, sale.price, quantity);
+                lastSellTsMs = Math.max(lastSellTsMs, sale.closedAtMs());
+                if (sale.price > 0) {
+                    lastSellPriceGp = sale.price;
+                }
+            }
+        }
     }
 }

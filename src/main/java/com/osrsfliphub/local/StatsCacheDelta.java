@@ -57,22 +57,19 @@ final class StatsCacheDelta {
         }
         LocalInventoryState state = inventory.computeIfAbsent(delta.itemId, ignored -> new LocalInventoryState());
         if (delta.isBuy) {
-            if (delta.deltaQty <= 0) {
-                return;
-            }
-            state.buy(delta.deltaQty, delta.deltaGp);
-            state.positionQty += delta.deltaQty;
-            if (state.firstBuyTs == null || delta.tsClientMs < state.firstBuyTs) {
-                state.firstBuyTs = delta.tsClientMs;
+            // Only what is held opens or adds to a position; units that completed a sale made
+            // just before (Lots) were sold as soon as they were bought.
+            long held = state.buy(delta.deltaQty, delta.deltaGp, delta.tsClientMs);
+            if (held > 0) {
+                state.positionQty += held;
+                if (state.firstBuyTs == null || delta.tsClientMs < state.firstBuyTs) {
+                    state.firstBuyTs = delta.tsClientMs;
+                }
             }
             return;
         }
 
         boolean includeInStats = sellSinceMs == null || delta.closedAtMs() >= sellSinceMs;
-
-        if (state.qty <= 0 && !isCompletion) {
-            return;
-        }
 
         // Paired as the flip-history ledger pairs it (Lots): the newest purchase first.
         long matchQty = Math.max(0L, Math.min((long) delta.deltaQty, state.qty));
@@ -92,6 +89,14 @@ final class StatsCacheDelta {
                 state.firstBuyTs = null;
             }
         }
+        // The rest waits for a purchase, as in the flip history. Bought after the sale, it was
+        // never held, so it adds no time. Out of the range, it is still not stock.
+        state.owe(delta.deltaQty - matchQty, delta.deltaGp - matchRevenue, delta.closedAtMs(),
+            (quantity, cost, revenue) -> {
+                if (includeInStats) {
+                    book(delta, quantity, cost, revenue, 0L);
+                }
+            });
 
         if (includeInStats && matchQty > 0) {
             rememberMatchedSell(delta);
@@ -115,40 +120,47 @@ final class StatsCacheDelta {
             return;
         }
 
-        ItemAgg agg = itemAggs.computeIfAbsent(delta.itemId, ItemAgg::new);
-        agg.buyCost += matchCost;
-        agg.buyQty += matchQty;
-        agg.sellRevenue += Math.max(0L, matchRevenue);
-        agg.sellQty += matchQty;
-        long tax = GeTax.forSale(delta.itemId, delta.price, matchQty);
-        agg.taxPaid += Math.max(0L, tax);
         if (matchedBuyTs == null) {
             matchedBuyTs = delta.tsClientMs;
         }
+        ItemAgg agg = book(delta, matchQty, matchCost, matchRevenue,
+            heldShare(delta.closedAtMs() - matchedBuyTs, matchQty, positionQty));
         if (agg.firstBuyTs == null || matchedBuyTs < agg.firstBuyTs) {
             agg.firstBuyTs = matchedBuyTs;
         }
-        long duration = heldShare(delta.closedAtMs() - matchedBuyTs, matchQty, positionQty);
-        agg.activeMs += duration;
-        totals.totalProfit += Math.max(0L, matchRevenue) - matchCost;
-        totals.totalCost += matchCost;
-        totals.totalQty += matchQty;
-        totals.totalTax += Math.max(0L, tax);
-        totals.totalActiveMs += duration;
-        if (agg.lastSellTs == null || delta.closedAtMs() > agg.lastSellTs) {
-            agg.lastSellTs = delta.closedAtMs();
-        }
-        if (isCompletion && !delta.isBuy) {
+        if (isCompletion) {
             agg.completedSells += 1;
             totals.totalCompleted += 1;
             clearMatchedSell(delta);
         }
-        if (agg.firstBuyTs != null && (totals.firstBuyTs == null || agg.firstBuyTs < totals.firstBuyTs)) {
+        if (totals.firstBuyTs == null || agg.firstBuyTs < totals.firstBuyTs) {
             totals.firstBuyTs = agg.firstBuyTs;
         }
-        if (agg.lastSellTs != null && (totals.lastSellTs == null || agg.lastSellTs > totals.lastSellTs)) {
+    }
+
+    /** Sold units, paired with what they cost, into the item's figures and the totals. */
+    private ItemAgg book(Delta sale, long quantity, long cost, long revenue, long heldMs) {
+        ItemAgg agg = itemAggs.computeIfAbsent(sale.itemId, ItemAgg::new);
+        long tax = Math.max(0L, GeTax.forSale(sale.itemId, sale.price, quantity));
+        revenue = Math.max(0L, revenue);
+        agg.buyCost += cost;
+        agg.buyQty += quantity;
+        agg.sellRevenue += revenue;
+        agg.sellQty += quantity;
+        agg.taxPaid += tax;
+        agg.activeMs += heldMs;
+        totals.totalProfit += revenue - cost;
+        totals.totalCost += cost;
+        totals.totalQty += quantity;
+        totals.totalTax += tax;
+        totals.totalActiveMs += heldMs;
+        if (agg.lastSellTs == null || sale.closedAtMs() > agg.lastSellTs) {
+            agg.lastSellTs = sale.closedAtMs();
+        }
+        if (totals.lastSellTs == null || agg.lastSellTs > totals.lastSellTs) {
             totals.lastSellTs = agg.lastSellTs;
         }
+        return agg;
     }
 
     /**
