@@ -258,6 +258,24 @@ public class RankUpTest {
         assertEquals("5.52B", SkillTab.shortGp(5_520_460_000L));
     }
 
+    /**
+     * The game's own numbers do not change with the PC's language, and neither may the skill's: on
+     * a German Windows the tooltip read 1.904.221 and the guide 5,52B.
+     */
+    @Test
+    public void theSkillsNumbersAreWrittenTheGamesWayWhateverThePcsLanguage() {
+        java.util.Locale before = java.util.Locale.getDefault();
+        java.util.Locale.setDefault(java.util.Locale.GERMANY);
+        try {
+            assertEquals("5.52B", SkillTab.shortGp(5_520_460_000L));
+            assertEquals("94.9M", SkillTab.shortGp(94_871_000L));
+            assertEquals("133.5k", SkillTab.shortGp(133_492L));
+            assertEquals("1,904,221", SkillTab.exact(1_904_221L));
+        } finally {
+            java.util.Locale.setDefault(before);
+        }
+    }
+
     /** Neither step may round up into a number the next one should have carried. */
     @Test
     public void theShortFormNeverReadsAThousandOfItsOwnUnit() {

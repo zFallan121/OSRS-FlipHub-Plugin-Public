@@ -27,6 +27,7 @@ package com.osrsfliphub;
 import java.awt.*;
 import java.awt.event.MouseWheelEvent;
 import java.awt.image.BufferedImage;
+import java.util.Locale;
 import javax.inject.*;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
@@ -1438,9 +1439,9 @@ final class SkillTab {
         return rankUp != null ? rankUp.profit : 0L;
     }
 
-    /** 1,904,221. */
-    private static String exact(long gp) {
-        return String.format("%,d", gp);
+    /** 1,904,221, on any PC: left to its own language a German one wrote 1.904.221 and 5,52B. */
+    static String exact(long gp) {
+        return String.format(Locale.US, "%,d", gp);
     }
 
     /**
@@ -1451,13 +1452,13 @@ final class SkillTab {
      */
     static String shortGp(long gp) {
         if (gp >= 999_500_000L) {
-            return String.format("%.2fB", gp / 1_000_000_000d);
+            return String.format(Locale.US, "%.2fB", gp / 1_000_000_000d);
         }
         if (gp >= 999_950L) {
-            return String.format("%.1fM", gp / 1_000_000d);
+            return String.format(Locale.US, "%.1fM", gp / 1_000_000d);
         }
         if (gp >= 1_000L) {
-            return String.format("%.1fk", gp / 1_000d);
+            return String.format(Locale.US, "%.1fk", gp / 1_000d);
         }
         return exact(gp);
     }
