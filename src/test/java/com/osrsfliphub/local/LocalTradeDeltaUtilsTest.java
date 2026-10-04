@@ -35,6 +35,10 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 public class LocalTradeDeltaUtilsTest {
+    /** 25 June 2026, 00:00 UTC: the day of the first public release. */
+    private static final long THE_PUBLIC_RELEASE = 1_782_345_600_000L;
+    private static final long BEFORE_THE_PUBLIC_RELEASE = THE_PUBLIC_RELEASE - 1L;
+
     /**
      * A legacy completion repeating its update's quantity is first zeroed as the
      * duplicate it is, and then, as the offer's completion, folds the update into one
@@ -104,15 +108,44 @@ public class LocalTradeDeltaUtilsTest {
         assertEquals(2_147_483_647L, result.get(0).deltaGp);
     }
 
-    /** Before that day nothing could sell past max cash: a sale at exactly it, stored before tax, still is. */
+    /**
+     * Only a build from before the first public release (25 June 2026) ever stored a sale before
+     * tax: one from then at exactly max cash still is brought to what was received.
+     */
     @Test
-    public void aSaleAtExactlyMaxCashFromBeforePricesCouldPassItIsStillBroughtToNet() {
-        Delta sale = new Delta(1_790_771_399_999L, 1, 20011, false, 1, 2_147_483_647L, "OFFER_UPDATED",
+    public void aSaleAtExactlyMaxCashFromBeforeThePublicReleaseIsStillBroughtToNet() {
+        Delta sale = new Delta(BEFORE_THE_PUBLIC_RELEASE, 1, 20011, false, 1, 2_147_483_647L, "OFFER_UPDATED",
             Integer.MAX_VALUE, false);
 
         List<Delta> result = TradeDeltaUtils.dedupeLocalTrades(Arrays.asList(sale), 600L, 2_000L);
 
         assertEquals(2_142_483_647L, result.get(0).deltaGp);
+    }
+
+    /**
+     * Listed at 980 each, 100 sold to a buyer offering 1,000: the game takes 20 an item and 980 an
+     * item arrive, 98,000 in all, which is also the listed price times the quantity. Every public
+     * build stores what arrived, so this is not a sale stored before tax, and reading it as one
+     * took the tax a second time at every load: 96,100, and 1,900 of the player's profit gone.
+     */
+    @Test
+    public void aSaleThatFetchedMoreThanItsPriceIsNotTaxedAgainAtLoad() {
+        Delta sale = new Delta(THE_PUBLIC_RELEASE, 1, 4151, false, 100, 98_000L, "OFFER_COMPLETED", 980, false);
+
+        List<Delta> result = TradeDeltaUtils.dedupeLocalTrades(Arrays.asList(sale), 600L, 2_000L);
+
+        assertEquals(1, result.size());
+        assertEquals(98_000L, result.get(0).deltaGp);
+    }
+
+    /** The same record from before the public release is the old kind, and still is brought to net. */
+    @Test
+    public void theSameSaleFromBeforeThePublicReleaseIsStillBroughtToNet() {
+        Delta sale = new Delta(BEFORE_THE_PUBLIC_RELEASE, 1, 4151, false, 100, 98_000L, "OFFER_COMPLETED", 980, false);
+
+        List<Delta> result = TradeDeltaUtils.dedupeLocalTrades(Arrays.asList(sale), 600L, 2_000L);
+
+        assertEquals(96_100L, result.get(0).deltaGp);
     }
 
     @Test

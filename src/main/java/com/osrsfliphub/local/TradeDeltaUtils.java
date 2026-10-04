@@ -271,11 +271,14 @@ final class TradeDeltaUtils {
     }
 
     private static Delta normalizeSellDeltaIfGross(Delta delta) {
-        // Since one item could pass max cash (30 Sep 2026, 12:30 UTC) a price at the cap is not
-        // the price, and coins equal to it are no sign of a sale stored before tax: sold at
-        // 2,152,483,647, they are what was left after it, and would be taxed a second time.
+        // Only a build from before the first public release (25 June 2026, 00:00 UTC here) stored a
+        // sale before tax; every one since stores what was received. From then on, coins equal to
+        // the price times the quantity are no sign of the old kind: listed at 980 and sold to a
+        // buyer offering 1,000, 980 an item is what was left after the tax, and it was taken a
+        // second time at every load. The same holds for a price at the max-cash cap, which since
+        // 30 Sep 2026 is not the price at all: sold at 2,152,483,647, the coins equal the cap.
         if (delta == null || delta.isBuy || delta.deltaQty <= 0 || delta.price <= 0
-            || delta.price == Integer.MAX_VALUE && delta.tsClientMs >= 1_790_771_400_000L) {
+            || delta.tsClientMs >= 1_782_345_600_000L) {
             return delta;
         }
         long grossFromPrice = (long) delta.price * (long) delta.deltaQty;
