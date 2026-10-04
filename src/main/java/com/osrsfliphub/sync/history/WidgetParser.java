@@ -118,18 +118,18 @@ final class WidgetParser {
             return null;
         }
         // What the row came to, and what one item came to, are read the same way on both sides.
-        // A sale's are what was left after tax: its price before tax is in the brackets, or is
-        // worked back from them.
+        // A sale's are what was left after tax, and its price before tax is in the brackets. The
+        // game writes them whenever it took a fee (its script 1645 tests the fee alone), so a
+        // sale with none was not taxed and its price is what was received: no tax is worked back
+        // onto it, which for an item the game has stopped taxing made up a price nobody paid.
         long totalGp = totalCoins > 0L ? totalCoins : eachPrice * resolvedQuantity;
         if (totalGp <= 0L) {
             return null;
         }
         long unitPrice = eachPrice > 0 ? eachPrice : Math.max(1L, totalGp / resolvedQuantity);
-        if (!isBuy) {
-            long grossFromBreakdown = parseGrossCoins(details);
-            unitPrice = grossFromBreakdown > 0L
-                ? Math.max(1L, Math.round((double) grossFromBreakdown / (double) resolvedQuantity))
-                : inferGrossUnitPrice(itemId, unitPrice, resolvedQuantity, totalGp);
+        long grossFromBreakdown = isBuy ? 0L : parseGrossCoins(details);
+        if (grossFromBreakdown > 0L) {
+            unitPrice = Math.max(1L, Math.round((double) grossFromBreakdown / (double) resolvedQuantity));
         }
         return new Trade(itemId, isBuy, resolvedQuantity, unitPrice, totalGp);
     }
@@ -180,47 +180,6 @@ final class WidgetParser {
             return 0;
         }
         return (int) Math.min(Integer.MAX_VALUE, parsed);
-    }
-
-    static long inferGrossUnitPrice(int itemId, long netUnitPrice, int quantity, long netTotal) {
-        if (netUnitPrice <= 0 || quantity <= 0) {
-            return 0;
-        }
-        // Nothing was taken off, so there is nothing to add back. Below fifty coins the tax
-        // rounds away to nothing, and an exempt item is never taxed at any price.
-        if (netUnitPrice < 50 || GeTax.isExempt(itemId)) {
-            return netUnitPrice;
-        }
-        // From 250,000,000 the tax is its cap and no longer 2%: 2,389,000,000 received was sold
-        // at 2,394,000,000, and worked back at 2% it came out 44 million too high.
-        if (netUnitPrice >= 49 * GeTax.MAX_TAX_PER_ITEM) {
-            return netUnitPrice + GeTax.MAX_TAX_PER_ITEM;
-        }
-        long approx = (long) Math.ceil(netUnitPrice * 50.0d / 49.0d);
-        long start = Math.max(netUnitPrice, approx - 20);
-        long end = Math.max(start, approx + 200);
-        long best = approx;
-        long bestError = Long.MAX_VALUE;
-        long bestDistance = Long.MAX_VALUE;
-        for (long candidate = start; candidate <= end; candidate++) {
-            long netPerItem = candidate - GeTax.perItem(itemId, candidate);
-            long impliedNetTotal = netPerItem * quantity;
-            long error = netTotal > 0L
-                ? Math.abs(impliedNetTotal - netTotal)
-                : Math.abs(netPerItem - netUnitPrice);
-            long distance = Math.abs(candidate - approx);
-            if (error < bestError
-                || (error == bestError && distance < bestDistance)
-                || (error == bestError && distance == bestDistance && candidate > best)) {
-                best = candidate;
-                bestError = error;
-                bestDistance = distance;
-                if (bestError == 0L && bestDistance == 0) {
-                    break;
-                }
-            }
-        }
-        return Math.max(netUnitPrice, best);
     }
 
     private static long parseLongDigits(String input) {

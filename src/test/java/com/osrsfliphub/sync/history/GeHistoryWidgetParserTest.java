@@ -47,8 +47,14 @@ public class GeHistoryWidgetParserTest {
         assertEquals(5_543_860L, trade.totalGp);
     }
 
+    /**
+     * The game writes the brackets on every sale it took a fee from (its history script, 1645,
+     * tests the fee and nothing else), so a sale row without them was not taxed and its price is
+     * what one item fetched. Adding a tax back, as this used to, made up a price that was never
+     * paid: 420 here.
+     */
     @Test
-    public void parseTradeInfersGrossSellPriceWhenOnlyNetShown() {
+    public void aSaleRowWithNoBracketsWasNotTaxedAndItsPriceIsWhatOneFetched() {
         Trade trade = WidgetParser.parseTrade(
             "Sold:",
             20997,
@@ -57,7 +63,7 @@ public class GeHistoryWidgetParserTest {
         );
 
         assertNotNull(trade);
-        assertEquals(420, trade.price);
+        assertEquals(412, trade.price);
         assertEquals(3_681_220L, trade.totalGp);
     }
 
@@ -233,18 +239,20 @@ public class GeHistoryWidgetParserTest {
     }
 
     /**
-     * With no brackets to read, the price is worked back from what was received. From
-     * 250,000,000 the tax is its 5,000,000 cap, not 2%: worked back at 2%, 295,000,000 gave
-     * 301,020,389 and 2,389,000,000 gave 2,437,755,103.
+     * No brackets, no fee, at any price: what was received is the price. An item the game stops
+     * taxing before the plugin's own list hears of it is the case that matters, and a tax worked
+     * back onto it gave 300,000,000, 2,394,000,000 and 245,000,000 here.
      */
     @Test
-    public void aSaleWithNoBracketsAddsTheCappedTaxBack() {
-        assertEquals(300_000_000L,
+    public void aSaleWithNoBracketsHasNoTaxAddedBackAtAnyPrice() {
+        assertEquals(295_000_000L,
             WidgetParser.parseTrade("Sold:", 13652, 1, "<col=ffb83f>295,000,000\u00A0coins</col>").price);
-        assertEquals(2_394_000_000L,
+        assertEquals(2_389_000_000L,
             WidgetParser.parseTrade("Sold:", 20011, 1, "<col=ffb83f>2,389,000,000\u00A0coins</col>").price);
-        // Just under the cap the old working still applies: 240,100,000 is 245,000,000 less 2%.
-        assertEquals(245_000_000L,
+        assertEquals(240_100_000L,
             WidgetParser.parseTrade("Sold:", 13652, 1, "<col=ffb83f>240,100,000\u00A0coins</col>").price);
+        // A bond, which is on the list, read the same before and after.
+        assertEquals(14_000_000L,
+            WidgetParser.parseTrade("Sold:", 13190, 1, "<col=ffb83f>14,000,000\u00A0coins</col>").price);
     }
 }
