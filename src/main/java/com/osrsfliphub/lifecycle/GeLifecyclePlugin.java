@@ -25,7 +25,7 @@
 package com.osrsfliphub;
 
 import com.google.gson.Gson;
-import com.google.inject.Provides;
+import com.google.inject.*;
 import java.nio.file.Path;
 import java.util.concurrent.*;
 import javax.inject.Inject;
@@ -121,6 +121,26 @@ public class GeLifecyclePlugin extends Plugin {
     @Provides
     PluginConfig provideConfig(ConfigManager configManager) {
         return configManager.getConfig(PluginConfig.class);
+    }
+
+    /**
+     * Keeps the trades runtime in the plugin's own injector, which is all that lets the plugin
+     * start.
+     *
+     * <p>RuneLite builds a plugin in an injector of its own beneath the client's, and Guice tries
+     * every service in the client's first. That one cannot finish any service that needs the
+     * config, which only the plugin's holds, and when it gives one up it throws away whatever was
+     * half built along the way. A service thrown away while its own constructor is still being
+     * worked out, and then reached again, is "Recursive load": the first start fails, or never
+     * returns, and RuneLite does not try a second time by itself. Only a service that leads back
+     * to itself can be reached again, and every such loop in the plugin runs through this one
+     * (the others take it or are taken by it as a Provider). Bound here it belongs to the
+     * plugin's injector alone, the client's refuses it at once, and no loop is left for it to
+     * half build. EveryServiceCanBeBuiltTest starts the plugin from every service in turn.
+     */
+    @Override
+    public void configure(Binder binder) {
+        binder.bind(LocalTradesRuntime.class);
     }
 
     @Override

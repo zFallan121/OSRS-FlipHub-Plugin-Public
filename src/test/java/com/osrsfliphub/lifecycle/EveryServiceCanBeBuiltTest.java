@@ -34,11 +34,20 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Stream;
 import net.runelite.api.Client;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.input.KeyManager;
+import net.runelite.client.ui.ClientToolbar;
+import net.runelite.client.ui.overlay.OverlayManager;
 import okhttp3.OkHttpClient;
 import org.junit.After;
 import org.junit.Test;
@@ -90,6 +99,75 @@ public class EveryServiceCanBeBuiltTest {
         assertTrue("Guice cannot build these, and the client would only find out at runtime: " + failures,
             failures.isEmpty());
         assertTrue("expected to build the plugin's services, built " + built, built >= 80);
+    }
+
+    /**
+     * The same, in the two injectors the client really has.
+     *
+     * <p>RuneLite builds a plugin in an injector of its own, made as a child of the client's, and
+     * the child alone holds the plugin and its config. Guice tries each service in the client's
+     * injector first and falls back to the plugin's when something it needs is only there. A
+     * service that takes another in its constructor across that fall-back can be asked for a second
+     * time while it is still being worked out, and Guice then throws "Recursive load" or never
+     * answers. The release of 4 October 2026 did exactly that at the first thing start-up asks
+     * for, at every launch: FlipHub stayed off until it was switched off and on by hand, RuneLite
+     * never tries a second time by itself, and the one injector of the test above cannot see it.
+     *
+     * <p>What is asked for first decides what fails, so every service takes a turn at being first,
+     * each in injectors made afresh.
+     */
+    @Test
+    public void everySingletonCanBeTheFirstAskedForInThePluginsOwnInjector() throws Exception {
+        ExecutorService asker = Executors.newCachedThreadPool(work -> {
+            Thread thread = new Thread(work, "first-ask");
+            // One that never answers is left behind, and must not keep the test run alive.
+            thread.setDaemon(true);
+            return thread;
+        });
+        List<String> failures = new ArrayList<>();
+        int built = 0;
+        for (Class<?> first : singletons()) {
+            Injector plugin = pluginInjector();
+            Bridge.set(plugin);
+            Future<?> asked = asker.submit(() -> plugin.getInstance(first));
+            try {
+                asked.get(10, TimeUnit.SECONDS);
+                built++;
+            } catch (ExecutionException ex) {
+                failures.add(first.getSimpleName() + ": " + firstLineOf(ex.getCause()));
+            } catch (TimeoutException ex) {
+                failures.add(first.getSimpleName() + ": never answered");
+                break;
+            }
+        }
+        assertTrue("asked for first in a plugin's own injector, these cannot be built, and FlipHub would"
+            + " not start: " + failures, failures.isEmpty());
+        assertTrue("expected to build the plugin's services, built " + built, built >= 80);
+    }
+
+    /** RuneLite's injector with a plugin's own beneath it, as PluginManager.instantiate makes them. */
+    private static Injector pluginInjector() {
+        Injector client = Guice.createInjector(binder -> {
+            binder.bind(Client.class).toInstance(hollow(Client.class));
+            binder.bind(Gson.class).toInstance(new Gson());
+            binder.bind(OkHttpClient.class).toInstance(new OkHttpClient());
+            for (Class<?> type : new Class<?>[] {ClientThread.class, ConfigManager.class, ItemManager.class,
+                ClientToolbar.class, OverlayManager.class, KeyManager.class}) {
+                bindUnbuilt(binder, type);
+            }
+        });
+        GeLifecyclePlugin plugin = new GeLifecyclePlugin();
+        return client.createChildInjector(binder -> {
+            binder.bind(GeLifecyclePlugin.class).toInstance(plugin);
+            // What the plugin's own provideConfig gives; RuneLite's ConfigManager is not built here to ask.
+            binder.bind(PluginConfig.class).toInstance(hollow(PluginConfig.class));
+            // RuneLite installs the plugin as a module too: whatever its configure() binds is bound here.
+            plugin.configure(binder);
+        });
+    }
+
+    private static <T> void bindUnbuilt(com.google.inject.Binder binder, Class<T> type) {
+        binder.bind(type).toInstance(unbuilt(type));
     }
 
     /** An interface with every method answering nothing: false, zero or null. */
