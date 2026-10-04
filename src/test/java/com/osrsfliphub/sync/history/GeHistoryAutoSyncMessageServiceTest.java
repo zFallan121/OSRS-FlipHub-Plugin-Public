@@ -91,9 +91,14 @@ public class GeHistoryAutoSyncMessageServiceTest {
     public void syncResultMessageHandlesAddedAndEmptyCases() {
         AutoSyncMessage service = new AutoSyncMessage();
 
+        // One record is stored for a trade; "(8 events added)" was from when it took two.
         assertEquals(
-            "FlipHub GE history sync: 4 trades synced (8 events added).",
+            "FlipHub GE history sync: 4 trades synced.",
             service.syncResultMessage(4)
+        );
+        assertEquals(
+            "FlipHub GE history sync: 1 trade synced.",
+            service.syncResultMessage(1)
         );
         assertEquals(
             "FlipHub GE history sync: no new trades found.",

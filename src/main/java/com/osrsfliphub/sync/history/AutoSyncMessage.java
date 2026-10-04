@@ -65,11 +65,7 @@ final class AutoSyncMessage {
         if (safeAddedTrades <= 0) {
             return "FlipHub GE history sync: no new trades found.";
         }
-        int eventsAdded = safeAddedTrades * 2;
-        return "FlipHub GE history sync: "
-            + safeAddedTrades
-            + " trades synced ("
-            + eventsAdded
-            + " events added).";
+        return "FlipHub GE history sync: " + safeAddedTrades
+            + (safeAddedTrades == 1 ? " trade synced." : " trades synced.");
     }
 }
