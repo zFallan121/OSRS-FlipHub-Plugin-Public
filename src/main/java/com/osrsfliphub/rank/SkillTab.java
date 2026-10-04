@@ -348,7 +348,6 @@ final class SkillTab {
             return;
         }
         if (universe != built && universe != tried) {
-            tried = universe;
             build(universe);
         } else if (universe == built) {
             hold(universe, client.getWidget(InterfaceID.Stats.TOTAL));
@@ -504,23 +503,38 @@ final class SkillTab {
             return;
         }
         if (originalStep < 0) {
-            originalStep = stepY;
             // Captured before anything moves. Reading these back afterwards would take our own
             // adjustment as the starting point and creep further on every rebuild.
-            childY = new int[SKILLS][];
-            gameY = new int[SKILLS];
-            gameHeight = new int[SKILLS];
+            //
+            // Kept only once every square has been read, each with a height of its own. It is
+            // read once for the session, and a look with a square missing used to keep its half:
+            // every later build then threw, and the way out put the squares it had not seen at
+            // the top of the tab with no height.
+            int[][] kidsY = new int[SKILLS][];
+            int[] squareY = new int[SKILLS];
+            int[] squareHeight = new int[SKILLS];
             for (int i = 0; i < SKILLS; i++) {
                 Widget square = client.getWidget(InterfaceID.Stats.ATTACK + i);
-                Widget[] kids = parts(square);
-                childY[i] = new int[kids.length];
-                for (int k = 0; k < kids.length; k++) {
-                    childY[i][k] = kids[k].getRelativeY();
+                if (square == null || square.getHeight() <= 0) {
+                    return;
                 }
-                gameY[i] = square.getRelativeY();
-                gameHeight[i] = square.getHeight();
+                Widget[] kids = parts(square);
+                kidsY[i] = new int[kids.length];
+                for (int k = 0; k < kids.length; k++) {
+                    kidsY[i][k] = kids[k].getRelativeY();
+                }
+                squareY[i] = square.getRelativeY();
+                squareHeight[i] = square.getHeight();
             }
+            childY = kidsY;
+            gameY = squareY;
+            gameHeight = squareHeight;
+            originalStep = stepY;
         }
+        // From here on things are moved and made, so this counts as the one try the tab gets.
+        // Every way out above it found the tab not all there yet and touched nothing: those are
+        // looked at again on the next tick, which they were said to be and were not.
+        tried = universe;
         // A pixel out of each of the nine rows, and the squares shortened to match so they sit
         // flush instead of overlapping. The grid starts at the very top of the tab.
         //

@@ -231,6 +231,66 @@ public class SkillTabTest {
     }
 
     /**
+     * One of the twenty-four squares not there yet when the tab is first looked at. What the game
+     * had is read once and kept for the session, so a look that did not see every square must
+     * keep nothing: it used to keep half, fail, and from then on throw at every build and put the
+     * squares it had not seen at the very top of the tab with no height.
+     */
+    @Test
+    public void aSquareMissingAtTheFirstLookIsWaitedForAndNothingIsKeptFromThatLook() {
+        statsTab(2);
+        String before = layout();
+        Widget late = game.widgets.remove(InterfaceID.Stats.ATTACK + 10);
+        tab.tick();
+        game.widgets.put(InterfaceID.Stats.ATTACK + 10, late);
+        assertNull("no row from a tab that is not all there", cell());
+        assertEquals("and nothing moved", before, layout());
+
+        tab.tick();
+        assertNotNull("the row goes in once every square is there", cell());
+
+        showing = false;
+        tab.tick();
+        assertEquals("and every square goes back where the game had it", before, layout());
+    }
+
+    /** A square that is there but has no height yet has not been laid out, and is not read either. */
+    @Test
+    public void aSquareNotLaidOutAtTheFirstLookIsWaitedForToo() {
+        statsTab(2);
+        String before = layout();
+        FakeGame.Node square = FakeGame.node(game.widgets.get(InterfaceID.Stats.ATTACK + 17));
+        int height = square.height;
+        square.height = 0;
+        tab.tick();
+        assertNull(cell());
+
+        square.height = height;
+        tab.tick();
+        assertNotNull(cell());
+        showing = false;
+        tab.tick();
+        assertEquals("every square goes back at the height the game gave it", before, layout());
+    }
+
+    /**
+     * The same with the Total plate, or with sizes not worked out yet: a look that came too early
+     * is no try at all. It used to count as the tab's one try, and the row never went in until
+     * the game happened to rebuild the tab.
+     */
+    @Test
+    public void aTabNotAllThereAtTheFirstLookGetsItsRowOnTheNextTick() {
+        statsTab(2);
+        Widget plate = game.widgets.remove(InterfaceID.Stats.TOTAL);
+        tab.tick();
+        assertNull(cell());
+
+        game.widgets.put(InterfaceID.Stats.TOTAL, plate);
+        tab.tick();
+        assertNotNull("the row goes in once the plate is there", cell());
+    }
+
+    /**
      * Nothing about the way out may assume the grid is regular. Today only the bottom row's
      * height breaks the pattern; Jagex moved this interface for Sailing and can again, so here
      * the bottom row sits two pixels lower as well, and still goes back exactly.
