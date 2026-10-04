@@ -127,8 +127,12 @@ final class UploadDiagnosticsState {
                 "Upload queue exceeded " + maxPendingUploadEvents + " events. Oldest events were dropped.",
                 dropped);
         }
-        eventQueue.offer(event);
+        // Counted before it can be taken. The other way round, a flush on its own thread could take
+        // the trade first and lower a count still at nothing, which never goes below it: the count
+        // then stood at one for good with nothing queued, nothing was ever idle again, and stored
+        // trades stopped being sent to the website (RecordSync) until a restart.
         pendingUploadEvents.incrementAndGet();
+        eventQueue.offer(event);
     }
 
     GeEvent dequeueEvent() {

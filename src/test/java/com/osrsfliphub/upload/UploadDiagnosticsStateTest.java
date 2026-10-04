@@ -57,6 +57,34 @@ public class UploadDiagnosticsStateTest {
         assertEquals(60_000L, state.getCurrentBackoffMs());
     }
 
+    /**
+     * A trade is queued on the game thread while a flush empties the queue on another. The count
+     * of what is queued was raised after the trade went in, so a flush that took the trade in
+     * between lowered a count still at nothing, which it never goes below, and the count then
+     * stood at one for the rest of the session with nothing queued. Nothing is idle while anything
+     * is counted, so stored trades stopped being sent to the website until a restart.
+     */
+    @Test(timeout = 120_000)
+    public void theCountOfWhatIsQueuedComesBackToNothingHoweverTheTwoThreadsMeet() throws Exception {
+        UploadDiagnosticsState state = new UploadDiagnosticsState();
+        int trades = 400_000;
+        Thread flush = new Thread(() -> {
+            for (int taken = 0; taken < trades; ) {
+                if (state.dequeueEvent() != null) {
+                    taken++;
+                }
+            }
+        });
+        flush.start();
+        for (int i = 0; i < trades; i++) {
+            state.enqueueEvent(new GeEvent(), Integer.MAX_VALUE);
+        }
+        flush.join();
+
+        assertEquals("everything queued was taken, so nothing is", 0, state.getPendingUploadEvents());
+        assertTrue(state.idle(System.currentTimeMillis()));
+    }
+
     @Test
     public void anythingGettingThroughClearsTheWait() {
         UploadDiagnosticsState state = new UploadDiagnosticsState();
