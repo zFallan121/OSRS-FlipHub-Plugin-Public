@@ -395,24 +395,25 @@ final class SiteFiguresWorld {
     // ---- what the tab shows ----
 
     String total() throws Exception {
-        return text("statsTotalProfitValue");
+        return text(view -> view.totalProfitValue);
     }
 
     String roi() throws Exception {
-        return text("statsRoiValue");
+        return text(view -> view.roiValue);
     }
 
     String flipCount() throws Exception {
-        return text("statsFlipsValue");
+        return text(view -> view.flipsValue);
     }
 
     String tax() throws Exception {
-        return text("statsTaxValue");
+        return text(view -> view.taxValue);
     }
 
-    private String text(String name) throws Exception {
+    private String text(java.util.function.Function<StatsPanelContentBuilder.ContentResult, JLabel> pick)
+        throws Exception {
         String[] text = new String[1];
-        onSwing(() -> text[0] = this.<JLabel>field(name).getText());
+        onSwing(() -> text[0] = pick.apply(this.<StatsPanelBuilder>field("statsPanelBuilder").content).getText());
         return text[0];
     }
 
@@ -554,7 +555,7 @@ final class SiteFiguresWorld {
                 @Override
                 public void hideItem(int itemId) {
                 }
-            }, config);
+            });
         }
 
         @Override
@@ -581,7 +582,7 @@ final class SiteFiguresWorld {
 
         @Override
         void setStatsData(StatsSummary summary, List<StatsItem> items,
-                          Map<Integer, List<StatsFlipInstance>> historyByItem, long asOfMs) {
+                          Map<Integer, List<StatsFlipInstance>> historyByItem) {
             draws.incrementAndGet();
             CountDownLatch wait = hold;
             if (wait != null) {
@@ -593,7 +594,7 @@ final class SiteFiguresWorld {
                     Thread.currentThread().interrupt();
                 }
             }
-            super.setStatsData(summary, items, historyByItem, asOfMs);
+            super.setStatsData(summary, items, historyByItem);
         }
     }
 

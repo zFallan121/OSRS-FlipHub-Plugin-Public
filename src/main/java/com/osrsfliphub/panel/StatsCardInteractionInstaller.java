@@ -58,7 +58,6 @@ final class StatsCardInteractionInstaller {
             return;
         }
         RoundedPanel card = (RoundedPanel) root;
-        card.setHoverBorderColor(Skin.SURFACE_BORDER_HOVER);
         MouseAdapter hoverHandler = new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent event) {

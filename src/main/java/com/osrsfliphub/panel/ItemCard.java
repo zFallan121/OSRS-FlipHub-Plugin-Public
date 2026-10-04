@@ -39,8 +39,6 @@ import lombok.RequiredArgsConstructor;
 final class ItemCard {
     final JPanel panel;
     final int itemId;
-    /** The offer preview draws its values tighter, so a card built for one cannot serve the list. */
-    final boolean compactRightPadding;
     final JLabel nameLabel;
     final JLabel sellValue;
     final JLabel buyValue;

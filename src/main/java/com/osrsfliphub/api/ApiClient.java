@@ -26,6 +26,7 @@ package com.osrsfliphub;
 
 import com.google.gson.*;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import javax.inject.*;
 import lombok.RequiredArgsConstructor;
@@ -51,8 +52,6 @@ public class ApiClient {
     private final OkHttpClient httpClient;
     private final Gson gson;
     private final PluginConfig config;
-    private final ApiClientRequestFactory requestFactory =
-        new ApiClientRequestFactory(API_BASE_URL, JSON);
 
     /**
      * All traffic to FlipHub's server is opt-in. Every method that performs an
@@ -77,7 +76,7 @@ public class ApiClient {
         body.put("plugin_version", pluginVersion);
 
         String json = gson.toJson(body);
-        Request request = requestFactory.newPostRequest(PATH_LINK, json);
+        Request request = newPostBuilder(PATH_LINK, json).build();
 
         try (Response response = httpClient.newCall(request).execute()) {
             if (!response.isSuccessful()) {
@@ -104,13 +103,13 @@ public class ApiClient {
             payload.put("sent_at_ms", System.currentTimeMillis());
         }
         String json = gson.toJson(payload);
-        Request.Builder requestBuilder = requestFactory.newPostBuilder(PATH_REFRESH, json);
+        Request.Builder requestBuilder = newPostBuilder(PATH_REFRESH, json);
         if (Str.hasText(sessionToken)) {
             requestBuilder.addHeader("X-Plugin-Token", sessionToken);
         }
 
         if (Str.hasText(signingSecret) && Str.hasText(deviceId)) {
-            requestFactory.addSignedHeaders(requestBuilder, "POST", PATH_REFRESH, signingSecret, json);
+            addSignedHeaders(requestBuilder, PATH_REFRESH, signingSecret, json);
         }
 
         try (Response response = httpClient.newCall(requestBuilder.build()).execute()) {
@@ -122,90 +121,83 @@ public class ApiClient {
         }
     }
 
-    public int sendEvents(String sessionToken, String signingSecret, List<GeEvent> events) throws IOException {
-        EventUploadResponse response = sendEventsDetailed(sessionToken, signingSecret, events);
-        return response != null ? response.status_code : 500;
+    private static Request.Builder newPostBuilder(String path, String jsonBody) {
+        return new Request.Builder()
+            .url(API_BASE_URL + path)
+            .post(RequestBody.create(JSON, jsonBody));
+    }
+
+    private static void addSignedHeaders(Request.Builder requestBuilder, String path, String signingSecret, String jsonBody) {
+        byte[] bodyBytes = jsonBody.getBytes(StandardCharsets.UTF_8);
+        String nonce = UUID.randomUUID().toString().replace("-", "");
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String bodyHash = Signer.sha256Hex(bodyBytes);
+        String canonical = "POST\n" +
+            path + "\n" +
+            timestamp + "\n" +
+            nonce + "\n" +
+            bodyHash;
+        String signature = Signer.hmacBase64(signingSecret, canonical);
+
+        requestBuilder.addHeader("X-Nonce", nonce);
+        requestBuilder.addHeader("X-Timestamp", timestamp);
+        requestBuilder.addHeader("X-Signature", signature);
+    }
+
+    private static Map<String, Object> payload() {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("schema_version", 1);
+        payload.put("sent_at_ms", System.currentTimeMillis());
+        return payload;
+    }
+
+    private Response post(String path, String sessionToken, String signingSecret, Map<String, Object> payload)
+        throws IOException {
+        ensureSyncEnabled();
+        String json = gson.toJson(payload);
+        Request.Builder requestBuilder = newPostBuilder(path, json);
+        requestBuilder.addHeader("X-Plugin-Token", sessionToken);
+        addSignedHeaders(requestBuilder, path, signingSecret, json);
+        return httpClient.newCall(requestBuilder.build()).execute();
     }
 
     public EventUploadResponse sendEventsDetailed(String sessionToken,
                                                      String signingSecret,
                                                      List<GeEvent> events) throws IOException {
-        ensureSyncEnabled();
-        EventUploadResponse result = new EventUploadResponse();
-        if (events == null || events.isEmpty()) {
-            result.status_code = 0;
-            result.status = "ok";
-            result.accepted = 0;
-            result.duplicates = 0;
-            result.rejected = 0;
-            return result;
-        }
-
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("schema_version", 1);
-        payload.put("sent_at_ms", System.currentTimeMillis());
+        Map<String, Object> payload = payload();
         payload.put("events", events);
-
-        String json = gson.toJson(payload);
-        Request request = requestFactory.newSignedPostRequest(PATH_EVENTS, sessionToken, signingSecret, json);
-
-        try (Response response = httpClient.newCall(request).execute()) {
-            result.status_code = response.code();
+        try (Response response = post(PATH_EVENTS, sessionToken, signingSecret, payload)) {
+            EventUploadResponse result = null;
             String responseBody = response.body() != null ? response.body().string() : null;
             if (Str.hasText(responseBody)) {
                 try {
-                    EventUploadResponse parsed = gson.fromJson(responseBody, EventUploadResponse.class);
-                    if (parsed != null) {
-                        if (parsed.status != null) {
-                            result.status = parsed.status;
-                        }
-                        result.accepted = parsed.accepted;
-                        result.duplicates = parsed.duplicates;
-                        result.rejected = parsed.rejected;
-                        result.error = parsed.error;
-                        result.records = parsed.records;
-                    }
+                    result = gson.fromJson(responseBody, EventUploadResponse.class);
                 } catch (JsonParseException ignored) {
                     // The upload went through; only the counts in the reply are unreadable.
                 }
             }
+            if (result == null) {
+                result = new EventUploadResponse();
+            }
+            result.status_code = response.code();
             return result;
         }
-    }
-
-    public int sendAccountwideSummary(String sessionToken, String signingSecret, StatsSummary summary) throws IOException {
-        return sendAccountwideSummary(sessionToken, signingSecret, summary, null);
     }
 
     public int sendAccountwideSummary(String sessionToken,
                                String signingSecret,
                                StatsSummary summary,
                                List<StatsItem> items) throws IOException {
-        ensureSyncEnabled();
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("schema_version", 1);
-        payload.put("sent_at_ms", System.currentTimeMillis());
-        payload.put("summary", summary != null ? summary : new StatsSummary());
-        payload.put("items", items != null ? items : new ArrayList<>());
-
-        String json = gson.toJson(payload);
-        Request request = requestFactory.newSignedPostRequest(PATH_STATS_ACCOUNTWIDE, sessionToken, signingSecret, json);
-
-        try (Response response = httpClient.newCall(request).execute()) {
+        Map<String, Object> payload = payload();
+        payload.put("summary", summary);
+        payload.put("items", items);
+        try (Response response = post(PATH_STATS_ACCOUNTWIDE, sessionToken, signingSecret, payload)) {
             return response.code();
         }
     }
 
     public WipeStatsResponse wipeWebsiteStats(String sessionToken, String signingSecret) throws IOException {
-        ensureSyncEnabled();
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("schema_version", 1);
-        payload.put("sent_at_ms", System.currentTimeMillis());
-
-        String json = gson.toJson(payload);
-        Request request = requestFactory.newSignedPostRequest(PATH_STATS_WIPE, sessionToken, signingSecret, json);
-
-        try (Response response = httpClient.newCall(request).execute()) {
+        try (Response response = post(PATH_STATS_WIPE, sessionToken, signingSecret, payload())) {
             if (!response.isSuccessful()) {
                 throw new ApiException("Website wipe failed", response.code());
             }
@@ -240,14 +232,22 @@ public class ApiClient {
     private <T> T get(String path, String sessionToken, String scope, Integer itemId, Long sinceMs, Class<T> type)
         throws IOException {
         ensureSyncEnabled();
-        HttpUrl.Builder url = HttpUrl.get(requestFactory.apiUrl(path)).newBuilder().addQueryParameter("scope", scope);
+        HttpUrl.Builder url = HttpUrl.get(API_BASE_URL + path).newBuilder().addQueryParameter("scope", scope);
         if (itemId != null) {
             url.addQueryParameter("item_id", itemId.toString());
         }
         if (sinceMs != null) {
             url.addQueryParameter("since_ms", sinceMs.toString());
         }
-        Request request = requestFactory.newGetRequest(url.toString(), sessionToken);
+        Request request = new Request.Builder()
+            .url(url.toString())
+            .get()
+            .addHeader("X-Plugin-Token", sessionToken)
+            // Never kept by the HTTP client, nor answered from what it kept: it files an answer
+            // under the address alone, which is the same for every account, and the session is
+            // not part of it. A new link would be shown the last link's figures.
+            .addHeader("Cache-Control", "no-store")
+            .build();
         try (Response response = httpClient.newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 ApiException refused = new ApiException("Fetch figures failed", response.code());

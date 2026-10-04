@@ -38,10 +38,6 @@ final class SummaryUploader {
 
     private final PluginRuntime pluginRuntime;
 
-    private final long minUploadIntervalMs =
-        Math.max(0L, ACCOUNTWIDE_UPLOAD_MIN_INTERVAL_MS);
-    private final long resyncIntervalMs =
-        Math.max(0L, ACCOUNTWIDE_UPLOAD_RESYNC_INTERVAL_MS);
     private final AtomicBoolean dirty = new AtomicBoolean(true);
     private volatile long lastUploadAttemptMs;
     private volatile long lastUploadSuccessMs;
@@ -53,13 +49,6 @@ final class SummaryUploader {
      */
     private boolean isClientFullyReady() {
         return pluginRuntime.isClientFullyReady();
-    }
-
-    private void clearSession() {
-        SessionRefresh service = Bridge.get(SessionRefresh.class);
-        if (service != null) {
-            service.clearSession();
-        }
     }
 
     void markDirty() {
@@ -85,23 +74,20 @@ final class SummaryUploader {
         }
 
         long nowMs = System.currentTimeMillis();
-        if (nowMs - lastUploadAttemptMs < minUploadIntervalMs) {
+        if (nowMs - lastUploadAttemptMs < ACCOUNTWIDE_UPLOAD_MIN_INTERVAL_MS) {
             return;
         }
 
         boolean wasDirty = dirty.get();
         boolean shouldResync = lastSnapshotHash == Integer.MIN_VALUE
-            || (nowMs - lastUploadSuccessMs) >= resyncIntervalMs;
+            || (nowMs - lastUploadSuccessMs) >= ACCOUNTWIDE_UPLOAD_RESYNC_INTERVAL_MS;
         if (!wasDirty && !shouldResync) {
             return;
         }
 
         StatsSnapshot snapshot = Access.plugin().getProfileWorkflowService().buildReconciledAccountwideSnapshot();
-        StatsSummary summary = snapshot != null && snapshot.summary != null ? snapshot.summary : new StatsSummary();
-        List<StatsItem> items = snapshot != null ? snapshot.items : null;
-        if (items == null) {
-            items = new ArrayList<>();
-        }
+        StatsSummary summary = snapshot.summary;
+        List<StatsItem> items = snapshot.items;
         int snapshotHash = computeSnapshotHash(summary, items);
 
         if (wasDirty && lastSnapshotHash != Integer.MIN_VALUE && snapshotHash == lastSnapshotHash) {
@@ -116,52 +102,33 @@ final class SummaryUploader {
         try {
             int status = apiClient.sendAccountwideSummary(sessionToken, signingSecret, summary, items);
             if (ApiStatusPolicy.isAuthStatus(status)) {
-                SessionRefresh.Outcome outcome = SessionRefresh.refreshOrUnavailable(sessionToken);
-                if (outcome == SessionRefresh.Outcome.REFRESHED) {
-                    String refreshedToken = config.sessionToken();
-                    String refreshedSecret = config.signingSecret();
-                    if (ApiStatusPolicy.hasCredentials(refreshedToken, refreshedSecret)) {
-                        status = apiClient.sendAccountwideSummary(refreshedToken, refreshedSecret, summary, items);
-                        if (status < 400) {
-                            lastUploadSuccessMs = System.currentTimeMillis();
-                            lastSnapshotHash = snapshotHash;
-                            dirty.set(false);
-                            return;
-                        }
-                        if (ApiStatusPolicy.isAuthStatus(status)) {
-                            clearSession();
-                        }
-                    }
+                if (SessionRefresh.refreshOrUnavailable(sessionToken) != SessionRefresh.Outcome.REFRESHED) {
+                    return;
                 }
-                // Only a refusal ends the link. Anything else leaves the credentials alone and
-                // waits for the next sync, which is a minute away at most.
-                if (wasDirty) {
-                    markDirty();
+                String refreshedToken = config.sessionToken();
+                String refreshedSecret = config.signingSecret();
+                if (!ApiStatusPolicy.hasCredentials(refreshedToken, refreshedSecret)) {
+                    return;
                 }
-                return;
+                status = apiClient.sendAccountwideSummary(refreshedToken, refreshedSecret, summary, items);
+                if (ApiStatusPolicy.isAuthStatus(status)) {
+                    SessionRefresh.clearIfRunning();
+                }
             }
             if (status < 400) {
                 lastUploadSuccessMs = System.currentTimeMillis();
                 lastSnapshotHash = snapshotHash;
                 dirty.set(false);
-                return;
-            }
-            if (wasDirty) {
-                markDirty();
             }
         } catch (IOException | RuntimeException ex) {
-            if (wasDirty) {
-                markDirty();
-            }
+            // Only a refusal ends the link. Anything else waits for the next sync.
         }
     }
 
     private int computeSnapshotHash(StatsSummary summary, List<StatsItem> items) {
-        int hash = computeSummaryHash(summary);
-        if (items == null || items.isEmpty()) {
-            return hash;
-        }
-
+        int hash = Objects.hash(summary.total_profit_gp, summary.total_cost_gp, summary.roi_percent,
+            summary.gp_per_hour, summary.fill_count, summary.total_qty, summary.active_ms, summary.tax_paid_gp,
+            summary.first_buy_ts_ms, summary.last_sell_ts_ms);
         List<StatsItem> sortedItems = new ArrayList<>();
         for (StatsItem item : items) {
             if (item != null && item.item_id > 0) {
@@ -169,32 +136,10 @@ final class SummaryUploader {
             }
         }
         sortedItems.sort(Comparator.comparingInt(item -> item.item_id));
-
         for (StatsItem item : sortedItems) {
-            hash = 31 * hash + Integer.hashCode(item.item_id);
-            hash = 31 * hash + (item.item_name != null ? item.item_name.hashCode() : 0);
-            hash = 31 * hash + Long.hashCode(item.total_profit_gp != null ? item.total_profit_gp : 0L);
-            hash = 31 * hash + Long.hashCode(item.total_cost_gp != null ? item.total_cost_gp : 0L);
-            hash = 31 * hash + Double.hashCode(item.roi_percent != null ? item.roi_percent : 0.0);
-            hash = 31 * hash + Integer.hashCode(item.total_qty != null ? item.total_qty : 0);
-            hash = 31 * hash + Integer.hashCode(item.fill_count != null ? item.fill_count : 0);
-            hash = 31 * hash + Long.hashCode(item.last_sell_ts_ms != null ? item.last_sell_ts_ms : 0L);
+            hash = 31 * hash + Objects.hash(item.item_id, item.item_name, item.total_profit_gp, item.total_cost_gp,
+                item.roi_percent, item.total_qty, item.fill_count, item.last_sell_ts_ms);
         }
-        return hash;
-    }
-
-    private int computeSummaryHash(StatsSummary summary) {
-        int hash = 17;
-        hash = 31 * hash + Long.hashCode(summary.total_profit_gp != null ? summary.total_profit_gp : 0L);
-        hash = 31 * hash + Long.hashCode(summary.total_cost_gp != null ? summary.total_cost_gp : 0L);
-        hash = 31 * hash + Double.hashCode(summary.roi_percent != null ? summary.roi_percent : 0.0);
-        hash = 31 * hash + Double.hashCode(summary.gp_per_hour != null ? summary.gp_per_hour : 0.0);
-        hash = 31 * hash + Integer.hashCode(summary.fill_count != null ? summary.fill_count : 0);
-        hash = 31 * hash + Long.hashCode(summary.total_qty != null ? summary.total_qty : 0L);
-        hash = 31 * hash + Long.hashCode(summary.active_ms != null ? summary.active_ms : 0L);
-        hash = 31 * hash + Long.hashCode(summary.tax_paid_gp != null ? summary.tax_paid_gp : 0L);
-        hash = 31 * hash + Long.hashCode(summary.first_buy_ts_ms != null ? summary.first_buy_ts_ms : 0L);
-        hash = 31 * hash + Long.hashCode(summary.last_sell_ts_ms != null ? summary.last_sell_ts_ms : 0L);
         return hash;
     }
 }

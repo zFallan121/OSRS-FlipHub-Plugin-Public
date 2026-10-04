@@ -53,21 +53,16 @@ final class StatsRender {
     void updateSummary(StatsSummary statsSummary,
                        StatsProfitSlice slice,
                        PanelValueFormat valueFormatService,
-                       JLabel statsTotalProfitValue,
-                       JLabel statsRoiValue,
-                       JLabel statsFlipsValue,
-                       JLabel statsTaxValue,
-                       JLabel statsSessionTimeValue,
-                       JLabel statsHourlyValue) {
-        if (statsTotalProfitValue == null || statsRoiValue == null) {
+                       StatsPanelContentBuilder.ContentResult view) {
+        if (view == null) {
             return;
         }
         if (statsSummary == null) {
-            setLabel(statsTotalProfitValue, unanswered ? "--" : "0 gp", unanswered ? MUTED : SUCCESS);
-            setLabel(statsRoiValue, unanswered ? "--" : "0.00%", TEXT);
-            setLabel(statsFlipsValue, unanswered ? "--" : "0", null);
-            setLabel(statsTaxValue, unanswered ? "--" : "0 gp", null);
-            applySessionRows(valueFormatService, statsSessionTimeValue, statsHourlyValue, 0L);
+            setLabel(view.totalProfitValue, unanswered ? "--" : "0 gp", unanswered ? MUTED : SUCCESS);
+            setLabel(view.roiValue, unanswered ? "--" : "0.00%", TEXT);
+            setLabel(view.flipsValue, unanswered ? "--" : "0", null);
+            setLabel(view.taxValue, unanswered ? "--" : "0 gp", null);
+            applySessionRows(valueFormatService, view.sessionTimeValue, view.hourlyValue, 0L);
             return;
         }
 
@@ -81,21 +76,21 @@ final class StatsRender {
             : (statsSummary.total_profit_gp != null ? statsSummary.total_profit_gp : 0);
         // Green means profit. The figure was amber whatever its sign, which spent the caution
         // tint on the one number on the tab that is never a caution.
-        setLabel(statsTotalProfitValue, valueFormatService.formatGp(totalProfit), totalProfit >= 0 ? SUCCESS : DANGER);
+        setLabel(view.totalProfitValue, valueFormatService.formatGp(totalProfit), totalProfit >= 0 ? SUCCESS : DANGER);
 
         // Boxed on both sides: a bare double here makes the whole ternary a double, and a summary
         // with no ROI yet then throws on unboxing instead of reading as N/A.
         Double roi = sliced ? Double.valueOf(slice.roiPercent()) : statsSummary.roi_percent;
-        setLabel(statsRoiValue, valueFormatService.formatPercent(roi), roi != null && roi < 0 ? DANGER : SUCCESS);
+        setLabel(view.roiValue, valueFormatService.formatPercent(roi), roi != null && roi < 0 ? DANGER : SUCCESS);
 
         int flips = sliced
             ? slice.count
             : (statsSummary.fill_count != null ? statsSummary.fill_count : 0);
-        setLabel(statsFlipsValue, String.valueOf(flips), null);
+        setLabel(view.flipsValue, String.valueOf(flips), null);
 
-        setLabel(statsTaxValue, valueFormatService.formatGp(statsSummary.tax_paid_gp), null);
+        setLabel(view.taxValue, valueFormatService.formatGp(statsSummary.tax_paid_gp), null);
 
-        applySessionRows(valueFormatService, statsSessionTimeValue, statsHourlyValue, totalProfit);
+        applySessionRows(valueFormatService, view.sessionTimeValue, view.hourlyValue, totalProfit);
     }
 
     /**
@@ -126,14 +121,8 @@ final class StatsRender {
     }
 
     private void renderSessionRows() {
-        if (sessionFormatService == null || sessionTimeLabel == null) {
-            return;
-        }
         long sessionElapsedMs = resolveSessionElapsedMs();
         setLabel(sessionTimeLabel, sessionFormatService.formatDuration(sessionElapsedMs), null);
-        if (sessionHourlyLabel == null) {
-            return;
-        }
         if (unanswered) {
             setLabel(sessionHourlyLabel, "--", MUTED);
             return;
@@ -152,7 +141,6 @@ final class StatsRender {
         }
         if (sessionTimer == null) {
             sessionTimer = new Timer(1000, e -> renderSessionRows());
-            sessionTimer.setRepeats(true);
         }
         if (!sessionTimer.isRunning()) {
             sessionTimer.start();
@@ -191,9 +179,6 @@ final class StatsRender {
      * Rows are built as a panel holding the label and its value, so the value's parent is the row.
      */
     private void setRowVisible(JLabel valueLabel, boolean visible) {
-        if (valueLabel == null) {
-            return;
-        }
         Container row = valueLabel.getParent();
         if (row == null || row.isVisible() == visible) {
             return;
@@ -220,45 +205,32 @@ final class StatsRender {
                     BiFunction<String, String, JPanel> emptyCardBuilder,
                     StatsPagerBuilder pagerBuilder,
                     IntConsumer onPageSelected) {
-        if (statsItemsListPanel == null) {
-            return clampPage(requestedPage, 1);
-        }
         statsItemsListPanel.removeAll();
 
-        List<StatsItem> items = statsItems != null ? statsItems : new ArrayList<>();
-        String normalizedQuery = statsSearchQuery != null ? statsSearchQuery : "";
         List<StatsItem> filtered = new ArrayList<>();
-        for (StatsItem item : items) {
+        for (StatsItem item : statsItems) {
             if (item == null) {
                 continue;
             }
             String name = Str.hasText(item.item_name)
                 ? item.item_name
                 : "Item " + item.item_id;
-            if (!normalizedQuery.isEmpty() && !name.toLowerCase(Locale.US).contains(normalizedQuery)) {
+            if (!name.toLowerCase(Locale.US).contains(statsSearchQuery)) {
                 continue;
             }
-            if (recipeFilter != null && !recipeFilter.matches(item.conversionKinds, item.hasPlainFlip)) {
+            if (!recipeFilter.matches(item.conversionKinds, item.hasPlainFlip)) {
                 continue;
             }
             // Cut the item down to the activities the filter leaves before it is sorted or
             // paged. Sorting the full totals and then drawing the filtered ones put an item
             // with a large flip profit and a small assembly profit above one that had made far
             // more from assembling, which is the opposite of what the filter was asked for.
-            StatsItem view = filteredView != null ? filteredView.apply(item) : item;
-            filtered.add(view != null ? view : item);
+            filtered.add(filteredView.apply(item));
         }
 
-        StatsItemSort effectiveSort = sort != null ? sort : StatsItemSort.COMPLETION;
-        boolean hasSellTimestamp = false;
-        for (StatsItem item : filtered) {
-            if (item != null && item.last_sell_ts_ms != null && item.last_sell_ts_ms > 0) {
-                hasSellTimestamp = true;
-                break;
-            }
-        }
-        if (effectiveSort != StatsItemSort.COMPLETION || hasSellTimestamp || statsSortAscending) {
-            Comparator<StatsItem> comparator = StatsItemSort.comparatorFor(effectiveSort);
+        if (sort != StatsItemSort.COMPLETION || statsSortAscending
+            || filtered.stream().anyMatch(item -> item.last_sell_ts_ms != null && item.last_sell_ts_ms > 0)) {
+            Comparator<StatsItem> comparator = StatsItemSort.comparatorFor(sort);
             if (statsSortAscending) {
                 comparator = comparator.reversed();
             }
@@ -270,19 +242,19 @@ final class StatsRender {
 
         if (filtered.isEmpty()) {
             if (emptyCardBuilder != null) {
-                boolean filtering = recipeFilter != null && recipeFilter != StatsRecipeFilter.ALL;
-                if (normalizedQuery.isEmpty() && filtering) {
+                boolean filtering = recipeFilter != StatsRecipeFilter.ALL;
+                if (statsSearchQuery.isEmpty() && filtering) {
                     // An empty list here is a real answer, not a missing feature:
                     // the player has not done this kind of trade yet.
                     statsItemsListPanel.add(emptyCardBuilder.apply(
                         "Nothing to show", "No " + recipeFilter.toString().toLowerCase(Locale.US) + " activity in this range."));
-                } else if (normalizedQuery.isEmpty()) {
+                } else if (statsSearchQuery.isEmpty()) {
                     statsItemsListPanel.add(emptyCardBuilder.apply("No stats yet", "Make a trade to see your items here."));
                 } else {
                     statsItemsListPanel.add(emptyCardBuilder.apply("No matches", "Try a different search term."));
                 }
             }
-        } else if (statsItemCardBuilder != null) {
+        } else {
             int firstIndex = (page - 1) * STATS_ITEMS_PER_PAGE;
             int lastIndex = Math.min(filtered.size(), firstIndex + STATS_ITEMS_PER_PAGE);
             for (StatsItem item : filtered.subList(firstIndex, lastIndex)) {
@@ -302,18 +274,11 @@ final class StatsRender {
     }
 
     static int totalPages(int itemCount) {
-        if (itemCount <= 0) {
-            return 1;
-        }
-        return (itemCount + STATS_ITEMS_PER_PAGE - 1) / STATS_ITEMS_PER_PAGE;
+        return Math.max(1, (itemCount + STATS_ITEMS_PER_PAGE - 1) / STATS_ITEMS_PER_PAGE);
     }
 
     static int clampPage(int page, int totalPages) {
-        int lastPage = Math.max(1, totalPages);
-        if (page < 1) {
-            return 1;
-        }
-        return Math.min(page, lastPage);
+        return Math.max(1, Math.min(page, totalPages));
     }
 
     Integer toggleItemExpanded(Integer expandedStatsItemId, Set<Integer> expandedStatsHistoryItems, int itemId) {
@@ -332,12 +297,7 @@ final class StatsRender {
     }
 
     void toggleHistoryExpanded(Set<Integer> expandedStatsHistoryItems, int itemId) {
-        if (itemId <= 0) {
-            return;
-        }
-        if (expandedStatsHistoryItems.contains(itemId)) {
-            expandedStatsHistoryItems.remove(itemId);
-        } else {
+        if (itemId > 0 && !expandedStatsHistoryItems.remove(itemId)) {
             expandedStatsHistoryItems.add(itemId);
         }
     }
@@ -352,9 +312,6 @@ final class StatsRender {
     static StatsProfitSlice sliceActivities(Map<Integer, List<StatsFlipInstance>> historyByItem,
                                             StatsRecipeFilter filter) {
         StatsProfitSlice slice = new StatsProfitSlice();
-        if (historyByItem == null || filter == null) {
-            return slice;
-        }
         for (List<StatsFlipInstance> history : historyByItem.values()) {
             if (history == null) {
                 continue;
@@ -365,7 +322,6 @@ final class StatsRender {
                 }
                 slice.profitGp += instance.profitGp;
                 slice.costGp += instance.buyCostGp;
-                slice.quantity += Math.max(0, instance.quantity);
                 if (!instance.inProgress) {
                     slice.count += 1;
                 }
@@ -382,7 +338,6 @@ final class StatsRender {
                 if (filter.matchesKind(SiteFigures.kind(kind))) {
                     slice.profitGp += part.profit_gp;
                     slice.costGp += part.cost_gp;
-                    slice.quantity += part.qty;
                     slice.count += part.count;
                 }
             });
@@ -394,7 +349,6 @@ final class StatsRender {
     static final class StatsProfitSlice {
         long profitGp;
         long costGp;
-        long quantity;
         int count;
 
         double roiPercent() {
@@ -403,9 +357,6 @@ final class StatsRender {
     }
 
     private void setLabel(JLabel label, String text, Color color) {
-        if (label == null) {
-            return;
-        }
         label.setText(text);
         if (color != null) {
             label.setForeground(color);

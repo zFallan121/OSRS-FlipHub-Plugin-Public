@@ -155,8 +155,7 @@ final class ItemListContentRenderer {
         // slot two, whatever the list happens to hold twice.
         for (int index = 0; index < plan.items.size(); index++) {
             ItemCard card = renderedCards.get(index);
-            if (card.itemId != plan.items.get(index).item_id
-                || card.compactRightPadding != plan.offerPreview) {
+            if (card.itemId != plan.items.get(index).item_id) {
                 return false;
             }
         }
@@ -180,7 +179,7 @@ final class ItemListContentRenderer {
                 listPanel.add(Box.createVerticalStrut(6));
             }
             for (FlipHubItem item : plan.items) {
-                ItemCard card = itemCardBuilder.buildItemCard(item, asOfMs, plan.offerPreview);
+                ItemCard card = itemCardBuilder.buildItemCard(item, asOfMs);
                 renderedCards.add(card);
                 listPanel.add(card.panel);
                 if (!plan.offerPreview) {

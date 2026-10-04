@@ -35,14 +35,6 @@ final class StatsAggregator {
     private final LocalStatsSnapshotService localStatsSnapshotService;
     private final LocalTradesRuntime localTradesRuntime;
 
-    private StatsSnapshot buildSnapshotForProfile(long accountKey, Long sinceMs) {
-        StatsCache cache = localStatsCacheService.getOrBuild(accountKey);
-        if (cache == null) {
-            return new StatsSnapshot(new StatsSummary(), new ArrayList<>());
-        }
-        return cache.buildSnapshotSince(sinceMs);
-    }
-
     StatsSnapshot buildFromProfiles(Set<Long> profileKeys, Long sinceMs, StatsItemSort sort) {
         if (profileKeys == null || profileKeys.isEmpty()) {
             return new StatsSnapshot(new StatsSummary(), new ArrayList<>());
@@ -63,33 +55,24 @@ final class StatsAggregator {
                 continue;
             }
             localTradesRuntime.ensureProfileLoaded(key);
-            StatsSnapshot snapshot = buildSnapshotForProfile(key, sinceMs);
-            if (snapshot == null) {
-                continue;
-            }
+            StatsSnapshot snapshot = localStatsCacheService.getOrBuild(key).buildSnapshotSince(sinceMs);
             StatsSummary summary = snapshot.summary;
-            if (summary != null) {
-                totalProfit += summary.total_profit_gp != null ? summary.total_profit_gp : 0L;
-                totalCost += summary.total_cost_gp != null ? summary.total_cost_gp : 0L;
-                totalQty += summary.total_qty != null ? summary.total_qty : 0L;
-                totalTax += summary.tax_paid_gp != null ? summary.tax_paid_gp : 0L;
-                totalActiveMs += summary.active_ms != null ? summary.active_ms : 0L;
-                totalCompleted += summary.fill_count != null ? summary.fill_count : 0;
-                Long profileFirstBuy = summary.first_buy_ts_ms;
-                if (profileFirstBuy != null && profileFirstBuy > 0 && (firstBuyTs == null || profileFirstBuy < firstBuyTs)) {
-                    firstBuyTs = profileFirstBuy;
-                }
-                Long profileLastSell = summary.last_sell_ts_ms;
-                if (profileLastSell != null && profileLastSell > 0 && (lastSellTs == null || profileLastSell > lastSellTs)) {
-                    lastSellTs = profileLastSell;
-                }
+            totalProfit += summary.total_profit_gp;
+            totalCost += summary.total_cost_gp;
+            totalQty += summary.total_qty;
+            totalTax += summary.tax_paid_gp;
+            totalActiveMs += summary.active_ms;
+            totalCompleted += summary.fill_count;
+            Long profileFirstBuy = summary.first_buy_ts_ms;
+            if (profileFirstBuy != null && profileFirstBuy > 0 && (firstBuyTs == null || profileFirstBuy < firstBuyTs)) {
+                firstBuyTs = profileFirstBuy;
             }
-            List<StatsItem> items = snapshot.items;
-            if (items == null || items.isEmpty()) {
-                continue;
+            Long profileLastSell = summary.last_sell_ts_ms;
+            if (profileLastSell != null && profileLastSell > 0 && (lastSellTs == null || profileLastSell > lastSellTs)) {
+                lastSellTs = profileLastSell;
             }
-            for (StatsItem item : items) {
-                if (item == null || item.item_id <= 0) {
+            for (StatsItem item : snapshot.items) {
+                if (item.item_id <= 0) {
                     continue;
                 }
                 StatsItem agg = itemMap.computeIfAbsent(item.item_id, id -> {
@@ -98,13 +81,13 @@ final class StatsAggregator {
                     return next;
                 });
                 long nextProfit = (agg.total_profit_gp != null ? agg.total_profit_gp : 0L)
-                    + (item.total_profit_gp != null ? item.total_profit_gp : 0L);
+                    + item.total_profit_gp;
                 long nextCost = (agg.total_cost_gp != null ? agg.total_cost_gp : 0L)
-                    + (item.total_cost_gp != null ? item.total_cost_gp : 0L);
+                    + item.total_cost_gp;
                 int nextQty = (agg.total_qty != null ? agg.total_qty : 0)
-                    + (item.total_qty != null ? item.total_qty : 0);
+                    + item.total_qty;
                 int nextFillCount = (agg.fill_count != null ? agg.fill_count : 0)
-                    + (item.fill_count != null ? item.fill_count : 0);
+                    + item.fill_count;
                 Long aggActive = agg.active_ms;
                 Long itemActive = item.active_ms;
                 if (aggActive != null || itemActive != null) {
@@ -128,43 +111,11 @@ final class StatsAggregator {
         }
 
         List<StatsItem> aggregatedItems = new ArrayList<>(itemMap.values());
-        StatsSummary summary = finalizeSnapshot(
-            aggregatedItems,
-            sort,
-            totalProfit,
-            totalCost,
-            totalQty,
-            totalTax,
-            totalActiveMs,
-            totalCompleted,
-            firstBuyTs,
-            lastSellTs
-        );
-        return new StatsSnapshot(summary, aggregatedItems);
-    }
-
-    private StatsSummary finalizeSnapshot(List<StatsItem> items,
-                                          StatsItemSort sort,
-                                          long totalProfit,
-                                          long totalCost,
-                                          long totalQty,
-                                          long totalTax,
-                                          long totalActiveMs,
-                                          int totalCompleted,
-                                          Long firstBuyTs,
-                                          Long lastSellTs) {
-        if (items != null) {
-            for (StatsItem item : items) {
-                if (item == null) {
-                    continue;
-                }
-                long cost = item.total_cost_gp != null ? item.total_cost_gp : 0L;
-                long profit = item.total_profit_gp != null ? item.total_profit_gp : 0L;
-                item.roi_percent = cost > 0 ? (profit * 100.0) / cost : 0.0;
-            }
-            localStatsSnapshotService.hydrateItemNames(items);
-            items.sort(StatsItemSort.comparatorFor(sort));
+        for (StatsItem item : aggregatedItems) {
+            item.roi_percent = item.total_cost_gp > 0 ? (item.total_profit_gp * 100.0) / item.total_cost_gp : 0.0;
         }
+        localStatsSnapshotService.hydrateItemNames(aggregatedItems);
+        aggregatedItems.sort(StatsItemSort.comparatorFor(sort));
         StatsSummary summary = new StatsSummary();
         summary.total_profit_gp = totalProfit;
         summary.total_cost_gp = totalCost;
@@ -176,6 +127,6 @@ final class StatsAggregator {
         summary.tax_paid_gp = totalTax;
         summary.first_buy_ts_ms = firstBuyTs;
         summary.last_sell_ts_ms = lastSellTs;
-        return summary;
+        return new StatsSnapshot(summary, aggregatedItems);
     }
 }

@@ -198,7 +198,7 @@ public class GeLifecyclePlugin extends Plugin {
             // open until this returns.
             flushUnsavedProfilesQuietly();
             if (canUpload) {
-                dispatch.flushPendingBeforeShutdown(apiClient, config, log, SHUTDOWN_FLUSH_MAX_BATCHES);
+                dispatch.flushPendingBeforeShutdown(apiClient, config, SHUTDOWN_FLUSH_MAX_BATCHES);
             }
         }));
     }

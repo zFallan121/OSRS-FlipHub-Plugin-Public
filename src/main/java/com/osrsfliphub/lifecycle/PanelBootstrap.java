@@ -56,8 +56,7 @@ final class PanelBootstrap {
             itemManager,
             new PanelPluginListener(),
             Bridge.get(PanelBookmarkStoreImpl.class),
-            Bridge.get(PanelHiddenItemStoreImpl.class),
-            config
+            Bridge.get(PanelHiddenItemStoreImpl.class)
         );
 
         BufferedImage icon = panel.buildNavIcon();

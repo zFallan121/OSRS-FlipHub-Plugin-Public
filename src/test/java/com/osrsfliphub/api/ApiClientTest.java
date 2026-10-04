@@ -48,22 +48,6 @@ public class ApiClientTest
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
     @Test
-    public void sendEventsDetailedSkipsHttpWhenEventsEmpty() throws Exception
-    {
-        AtomicInteger callCount = new AtomicInteger(0);
-        ApiClient client = newApiClient(200, "{\"status\":\"ok\"}", callCount, null, null);
-
-        ApiClient.EventUploadResponse response = client.sendEventsDetailed("token", "secret", Collections.emptyList());
-
-        assertEquals(0, callCount.get());
-        assertEquals(0, response.status_code);
-        assertEquals("ok", response.status);
-        assertEquals(Integer.valueOf(0), response.accepted);
-        assertEquals(Integer.valueOf(0), response.duplicates);
-        assertEquals(Integer.valueOf(0), response.rejected);
-    }
-
-    @Test
     public void sendEventsDetailedParsesStructuredUploadResponse() throws Exception
     {
         AtomicInteger callCount = new AtomicInteger(0);
@@ -82,7 +66,7 @@ public class ApiClientTest
         assertEquals(Integer.valueOf(3), response.accepted);
         assertEquals(Integer.valueOf(1), response.duplicates);
         assertEquals(Integer.valueOf(2), response.rejected);
-        assertEquals(200, client.sendEvents("token", "secret", Arrays.asList(sampleEvent())));
+        assertEquals(200, client.sendEventsDetailed("token", "secret", Arrays.asList(sampleEvent())).status_code);
     }
 
     @Test
@@ -112,7 +96,7 @@ public class ApiClientTest
         AtomicReference<String> pathRef = new AtomicReference<>();
         ApiClient client = newApiClient(200, "{}", callCount, pathRef, null);
 
-        int status = client.sendAccountwideSummary("token", "secret", new StatsSummary());
+        int status = client.sendAccountwideSummary("token", "secret", new StatsSummary(), new java.util.ArrayList<>());
 
         assertEquals(1, callCount.get());
         assertEquals(200, status);
@@ -149,11 +133,9 @@ public class ApiClientTest
         assertThrows(IllegalStateException.class,
             () -> client.refreshSession("token", "secret", "device"));
         assertThrows(IllegalStateException.class,
-            () -> client.sendEvents("token", "secret", Arrays.asList(sampleEvent())));
-        assertThrows(IllegalStateException.class,
             () -> client.sendEventsDetailed("token", "secret", Arrays.asList(sampleEvent())));
         assertThrows(IllegalStateException.class,
-            () -> client.sendAccountwideSummary("token", "secret", new StatsSummary()));
+            () -> client.sendAccountwideSummary("token", "secret", new StatsSummary(), new java.util.ArrayList<>()));
         assertThrows(IllegalStateException.class,
             () -> client.wipeWebsiteStats("token", "secret"));
 

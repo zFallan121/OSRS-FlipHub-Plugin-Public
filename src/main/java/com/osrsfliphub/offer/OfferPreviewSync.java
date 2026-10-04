@@ -34,10 +34,10 @@ final class OfferPreviewSync {
     private final ChatboxSuggestionRuntimeState chatboxSuggestionRuntimeState;
     private final PanelDataRuntime panelDataRuntime;
 
-    private void setPanelOfferPreview(FlipHubItem item, long asOfMs, Long priceCacheMs) {
+    private void setPanelOfferPreview(FlipHubItem item, long asOfMs) {
         Panel panel = Access.plugin().panel;
         if (panel != null) {
-            panel.setOfferPreview(item, asOfMs, priceCacheMs);
+            panel.setOfferPreview(item, asOfMs);
         }
     }
 
@@ -55,7 +55,7 @@ final class OfferPreviewSync {
         }
         Access.plugin().offerPreviewItemId = null;
         Access.plugin().offerPreviewItem = null;
-        setPanelOfferPreview(null, 0L, null);
+        setPanelOfferPreview(null, 0L);
         // Returning from offer setup should show the same prices the setup view just used.
         scheduleRefreshSoon();
     }
@@ -84,7 +84,7 @@ final class OfferPreviewSync {
         Access.plugin().offerPreviewItem = next;
         if (changed) {
             chatboxSuggestionRuntimeState.markSuggestionDirty();
-            setPanelOfferPreview(next, System.currentTimeMillis(), null);
+            setPanelOfferPreview(next, System.currentTimeMillis());
         }
         // Keep Activity cards in sync with offer-setup prices when they change.
         if (pricesChanged) {

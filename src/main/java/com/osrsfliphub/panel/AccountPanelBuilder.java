@@ -25,7 +25,6 @@
 package com.osrsfliphub;
 
 import java.awt.*;
-import java.awt.event.*;
 import javax.swing.*;
 import lombok.RequiredArgsConstructor;
 import static com.osrsfliphub.Skin.*;
@@ -64,45 +63,33 @@ final class AccountPanelBuilder {
             + "Nothing else is sent, and you can unlink at any time."
             + "</div></html>";
 
-    @RequiredArgsConstructor
-    static final class BuildResult {
-        final JPanel panel;
-        final JLabel stateLabel;
-        final JLabel keyHintLabel;
-        final JLabel messageLabel;
-        final JPanel linkedRows;
-        final JPanel unlinkedRows;
-    }
-
     private final UiStyler uiStyler;
     private final PanelListener listener;
     private final ExternalLink linkCoordinator;
     private JPasswordField keyField;
+    private JPanel panel;
+    private JLabel stateLabel;
+    private JLabel keyHintLabel;
+    private JLabel messageLabel;
+    private JPanel linkedRows;
+    private JPanel unlinkedRows;
 
-    BuildResult build() {
-        JPanel panel = plain(new BorderLayout());
+    JPanel build() {
+        panel = plain(new BorderLayout());
 
         JPanel column = stack();
 
         JLabel heading = new JLabel("FlipHub account");
         uiStyler.styleMicroLabel(heading, 10f);
-        heading.setAlignmentX(Component.LEFT_ALIGNMENT);
         heading.setBorder(BorderFactory.createEmptyBorder(0, 2, 8, 0));
         column.add(heading);
 
-        JPanel card = RoundedPanel.glass(CARD_ARC);
-        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-        card.setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
-        card.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JPanel card = RoundedPanel.card(14, 14, 14, 14);
 
-        JLabel stateLabel = new JLabel("Not linked");
-        stateLabel.setFont(uiStyler.fontSemiBold(13f));
-        stateLabel.setForeground(TEXT);
-        stateLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        stateLabel = styled(new JLabel("Not linked"), TEXT, uiStyler.fontSemiBold(13f));
         card.add(stateLabel);
 
-        JLabel keyHintLabel = styled(new JLabel(" "), MUTED_2, uiStyler.font(10.5f));
-        keyHintLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        keyHintLabel = styled(new JLabel(" "), MUTED_2, uiStyler.font(10.5f));
         keyHintLabel.setBorder(BorderFactory.createEmptyBorder(2, 0, 0, 0));
         card.add(keyHintLabel);
 
@@ -112,51 +99,46 @@ final class AccountPanelBuilder {
         pitchRows.setAlignmentX(Component.LEFT_ALIGNMENT);
         card.add(pitchRows);
 
-        JPanel unlinkedRows = buildUnlinkedRows();
+        unlinkedRows = buildUnlinkedRows();
         unlinkedRows.setAlignmentX(Component.LEFT_ALIGNMENT);
         card.add(unlinkedRows);
 
-        JPanel linkedRows = buildLinkedRows();
+        linkedRows = buildLinkedRows();
         linkedRows.setAlignmentX(Component.LEFT_ALIGNMENT);
         linkedRows.setVisible(false);
         card.add(linkedRows);
 
-        JLabel messageLabel = styled(new JLabel(" "), MUTED, uiStyler.font(10.5f));
-        messageLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        messageLabel = styled(new JLabel(" "), MUTED, uiStyler.font(10.5f));
         messageLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
         card.add(messageLabel);
 
         column.add(card);
         panel.add(column, BorderLayout.NORTH);
 
-        return new BuildResult(panel, stateLabel, keyHintLabel, messageLabel,
-            linkedRows, unlinkedRows);
+        return panel;
     }
 
     private JPanel buildPitchRows() {
         JPanel rows = stack();
         rows.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
 
-        JLabel pitch = new JLabel(wrap(
-            "Your completed flips build a private personalised insight page on fliphubosrs.com."));
-        pitch.setFont(uiStyler.font(10.5f));
-        pitch.setForeground(MUTED);
-        pitch.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JLabel pitch = styled(new JLabel("<html><div width=175>Your completed flips build a private"
+            + " personalised insight page on fliphubosrs.com.</div></html>"), MUTED, uiStyler.font(10.5f));
         rows.add(pitch);
 
-        JLabel see = new JLabel("See");
-        see.setFont(uiStyler.font(10.5f));
-        see.setForeground(MUTED);
-        see.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JLabel see = styled(new JLabel("See"), MUTED, uiStyler.font(10.5f));
         see.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
         rows.add(see);
 
-        rows.add(benefit("Earnings over time"));
-        rows.add(benefit("Personalised analytics to make you a smarter flipper"));
-        rows.add(benefit("Flips worth repeating"));
-        rows.add(benefit("Unlock ranks and achievements"));
-        rows.add(benefit("Optional: share your wins/losses"));
-        rows.add(benefit("Find out where you rank against other flippers"));
+        for (String text : new String[] {
+            "Earnings over time",
+            "Personalised analytics to make you a smarter flipper",
+            "Flips worth repeating",
+            "Unlock ranks and achievements",
+            "Optional: share your wins/losses",
+            "Find out where you rank against other flippers"}) {
+            rows.add(benefit(text));
+        }
 
         return rows;
     }
@@ -166,7 +148,6 @@ final class AccountPanelBuilder {
 
         JLabel keyCaption = new JLabel("License key");
         uiStyler.styleMicroLabel(keyCaption, 9.5f);
-        keyCaption.setAlignmentX(Component.LEFT_ALIGNMENT);
         keyCaption.setBorder(BorderFactory.createEmptyBorder(14, 0, 4, 0));
         rows.add(keyCaption);
 
@@ -179,7 +160,6 @@ final class AccountPanelBuilder {
         JButton link = new TipButton("Link account");
         uiStyler.styleGhostControl(link, 11.5f, new Insets(7, 14, 7, 14), INPUT_ARC);
         link.setForeground(ACCENT);
-        link.setAlignmentX(Component.LEFT_ALIGNMENT);
         link.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createEmptyBorder(10, 0, 0, 0), link.getBorder()));
         link.addActionListener(e -> submit());
@@ -197,7 +177,6 @@ final class AccountPanelBuilder {
         JButton unlink = new TipButton("Unlink this device");
         uiStyler.styleGhostControl(unlink, 11f, new Insets(6, 12, 6, 12), INPUT_ARC);
         unlink.setForeground(MUTED);
-        unlink.setAlignmentX(Component.LEFT_ALIGNMENT);
         unlink.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createEmptyBorder(12, 0, 0, 0), unlink.getBorder()));
         unlink.addActionListener(e -> confirmUnlink(unlink));
@@ -208,24 +187,13 @@ final class AccountPanelBuilder {
 
     private JLabel externalLink(String text, int topGap) {
         JLabel label = styled(new JLabel(text), ACCENT, uiStyler.font(10.5f));
-        label.setAlignmentX(Component.LEFT_ALIGNMENT);
         label.setBorder(BorderFactory.createEmptyBorder(topGap, 0, 0, 0));
         label.setCursor(HAND);
         // The shared handler, so a few pixels of drift between press and release does not
         // silently swallow the click.
         label.addMouseListener(new StatsClickMouseAdapter(
             () -> linkCoordinator.openExternalUrl(DEFAULT_BASE_URL + INSIGHTS_PATH)));
-        label.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseEntered(MouseEvent event) {
-                label.setForeground(TEXT);
-            }
-
-            @Override
-            public void mouseExited(MouseEvent event) {
-                label.setForeground(ACCENT);
-            }
-        });
+        label.addMouseListener(new TabHoverAdapter(label, ACCENT));
         return label;
     }
 
@@ -241,16 +209,13 @@ final class AccountPanelBuilder {
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
         row.setBorder(BorderFactory.createEmptyBorder(5, 2, 0, 0));
 
-        JLabel dot = new JLabel("•");
-        dot.setFont(uiStyler.font(10.5f));
-        dot.setForeground(ACCENT);
+        JLabel dot = styled(new JLabel("•"), ACCENT, uiStyler.font(10.5f));
         dot.setVerticalAlignment(SwingConstants.TOP);
         dot.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 5));
         row.add(dot, BorderLayout.WEST);
 
-        JLabel body = new JLabel("<html><div width=155>" + text + "</div></html>");
-        body.setFont(uiStyler.font(10.5f));
-        body.setForeground(MUTED);
+        JLabel body = styled(
+            new JLabel("<html><div width=155>" + text + "</div></html>"), MUTED, uiStyler.font(10.5f));
         body.setVerticalAlignment(SwingConstants.TOP);
         row.add(body, BorderLayout.CENTER);
 
@@ -258,73 +223,50 @@ final class AccountPanelBuilder {
         return row;
     }
 
-    /** A sidebar is narrow, so prose has to be told where it may break. */
-    private String wrap(String text) {
-        return "<html><div width=175>" + text + "</div></html>";
-    }
-
     /**
      * The consent is asked here rather than by a config warning, because the settings toggle is no
      * longer how a user opts in - this button is.
      */
     private void submit() {
-        String key = keyField == null ? "" : new String(keyField.getPassword()).trim();
+        String key = new String(keyField.getPassword()).trim();
         if (key.isEmpty()) {
             listener.onLinkSubmitted("");
             return;
         }
-        int result = JOptionPane.showOptionDialog(
-            keyField,
-            CONSENT_BODY,
-            "Link this device to FlipHub",
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.WARNING_MESSAGE,
-            null,
-            new String[] {"Link account", "Cancel"},
-            "Cancel");
-        if (result != JOptionPane.YES_OPTION) {
-            return;
+        if (confirm(keyField, CONSENT_BODY, "Link this device to FlipHub", "Link account")) {
+            keyField.setText("");
+            listener.onLinkSubmitted(key);
         }
-        keyField.setText("");
-        listener.onLinkSubmitted(key);
+    }
+
+    /** The question both buttons ask before they do anything, with Cancel as the answer it starts on. */
+    private static boolean confirm(Component parent, String body, String title, String yes) {
+        return JOptionPane.showOptionDialog(parent, body, title, JOptionPane.YES_NO_OPTION,
+            JOptionPane.WARNING_MESSAGE, null, new String[] {yes, "Cancel"}, "Cancel") == JOptionPane.YES_OPTION;
     }
 
     private void confirmUnlink(Component parent) {
-        int result = JOptionPane.showOptionDialog(
-            parent,
+        if (confirm(parent,
             "<html><div width=300>Unlink this device from FlipHub?<br><br>"
                 + "Uploads stop and the panel goes back to local-only stats. Your flip history on "
                 + "this computer is kept, and your insight page stays on fliphubosrs.com."
                 + "</div></html>",
-            "Unlink from FlipHub",
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.WARNING_MESSAGE,
-            null,
-            new String[] {"Unlink", "Cancel"},
-            "Cancel");
-        if (result == JOptionPane.YES_OPTION) {
+            "Unlink from FlipHub", "Unlink")) {
             listener.onUnlinkRequested();
         }
     }
 
     /** Applied on the EDT by the panel; the view holds no state of its own. */
-    static void applyState(BuildResult view,
-                           boolean linked,
-                           String keyHint,
-                           String message,
-                           Color messageColor) {
-        if (view == null) {
-            return;
-        }
-        view.stateLabel.setText(linked ? "Linked" : "Not linked");
-        view.stateLabel.setForeground(linked ? SUCCESS : TEXT);
+    void applyState(boolean linked, String keyHint, String message, Color messageColor) {
+        stateLabel.setText(linked ? "Linked" : "Not linked");
+        stateLabel.setForeground(linked ? SUCCESS : TEXT);
         boolean hasHint = linked && Str.hasText(keyHint);
-        view.keyHintLabel.setText(hasHint ? "Key ending " + keyHint : " ");
-        view.linkedRows.setVisible(linked);
-        view.unlinkedRows.setVisible(!linked);
-        view.messageLabel.setText(Str.isBlank(message) ? " " : message);
-        view.messageLabel.setForeground(messageColor != null ? messageColor : MUTED);
-        view.panel.revalidate();
-        view.panel.repaint();
+        keyHintLabel.setText(hasHint ? "Key ending " + keyHint : " ");
+        linkedRows.setVisible(linked);
+        unlinkedRows.setVisible(!linked);
+        messageLabel.setText(Str.isBlank(message) ? " " : message);
+        messageLabel.setForeground(messageColor != null ? messageColor : MUTED);
+        panel.revalidate();
+        panel.repaint();
     }
 }

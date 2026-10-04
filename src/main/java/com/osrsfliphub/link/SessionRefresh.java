@@ -71,6 +71,14 @@ final class SessionRefresh {
         return service != null ? service.attemptRefresh(currentToken) : Outcome.UNAVAILABLE;
     }
 
+    /** Ends the session if the plugin is running; both upload paths carried their own copy of this. */
+    static void clearIfRunning() {
+        SessionRefresh service = Bridge.get(SessionRefresh.class);
+        if (service != null) {
+            service.clearSession();
+        }
+    }
+
     Outcome attemptRefresh(String currentToken) {
         if (config == null || !config.enableFlipHubSync()) {
             return Outcome.UNAVAILABLE;
@@ -85,7 +93,7 @@ final class SessionRefresh {
             }
             try {
                 ApiClient.LinkResponse response =
-                    refreshSession(currentToken, config.signingSecret(), config.deviceId());
+                    apiClient.refreshSession(currentToken, config.signingSecret(), config.deviceId());
                 if (response != null && response.session_token != null) {
                     // Secret first: a reader that sees the new token must not still be holding
                     // the old secret, or its signature will not verify.
@@ -141,14 +149,6 @@ final class SessionRefresh {
         if (facade != null) {
             facade.markBlocked(SESSION_CLEARED_REASON);
         }
-    }
-
-    private ApiClient.LinkResponse refreshSession(String currentToken, String signingSecret, String deviceId)
-        throws IOException {
-        if (apiClient == null) {
-            throw new IllegalStateException("Refresh failed: api client unavailable");
-        }
-        return apiClient.refreshSession(currentToken, signingSecret, deviceId);
     }
 
     private void setConfiguration(String group, String key, String value) {

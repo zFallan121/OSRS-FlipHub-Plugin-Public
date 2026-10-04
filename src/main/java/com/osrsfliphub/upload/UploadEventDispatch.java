@@ -38,10 +38,9 @@ final class UploadEventDispatch {
     private static final long UPLOAD_BACKOFF_INITIAL_MS = 5_000L;
     /** Longest the flush will wait before trying again. */
     private static final long UPLOAD_BACKOFF_MAX_MS = 5L * 60L * 1000L;
+    private static final Logger log = GeLifecyclePlugin.log;
     private final Client client;
     private final UploadDiagnosticsState uploadState;
-    private final int maxPendingUploadEvents = MAX_PENDING_UPLOAD_EVENTS;
-    private final int maxBatchSize = Const.MAX_BATCH_SIZE;
     /**
      * When the batch now on its way left the queue ({@link SiteFigures#uploaded}), by the clock
      * every trade's own time is told by ({@link GeEvent#createBase}).
@@ -59,14 +58,7 @@ final class UploadEventDispatch {
     }
 
     private void requeue(List<GeEvent> batch) {
-        Access.plugin().runtimeUtilityServices.requeue(this, batch);
-    }
-
-    private void clearSession() {
-        SessionRefresh service = Bridge.get(SessionRefresh.class);
-        if (service != null) {
-            service.clearSession();
-        }
+        batch.forEach(this::enqueueEvent);
     }
 
     private void updateProfileHeader() {
@@ -74,7 +66,7 @@ final class UploadEventDispatch {
     }
 
     void enqueueEvent(GeEvent event) {
-        uploadState.enqueueEvent(event, maxPendingUploadEvents);
+        uploadState.enqueueEvent(event, MAX_PENDING_UPLOAD_EVENTS);
     }
 
     void resetStatus() {
@@ -107,8 +99,8 @@ final class UploadEventDispatch {
         }
     }
 
-    void markFailure(Integer statusCode, String errorMessage, boolean dropped, int droppedCount) {
-        uploadState.markFailure(statusCode, errorMessage, dropped, droppedCount);
+    void markFailure(Integer statusCode, String errorMessage, int droppedCount) {
+        uploadState.markFailure(statusCode, errorMessage, droppedCount);
         updateUploadDiagnosticsUi();
     }
 
@@ -133,20 +125,20 @@ final class UploadEventDispatch {
      * from the file next session ({@link RecordSync}), but this saves the website the wait.
      * Bounded, and stops the moment a pass makes no progress.
      */
-    void flushPendingBeforeShutdown(ApiClient apiClient, PluginConfig config, Logger log, int maxBatches) {
+    void flushPendingBeforeShutdown(ApiClient apiClient, PluginConfig config, int maxBatches) {
         // Whatever wait was in force, this is the last chance to use it up.
         uploadState.clearBackOff();
         for (int attempt = 0; attempt < maxBatches && uploadState.getPendingUploadEvents() > 0; attempt++) {
             int before = uploadState.getPendingUploadEvents();
-            flushEvents(apiClient, config, log, false);
+            flushEvents(apiClient, config, false);
             if (uploadState.getPendingUploadEvents() >= before) {
                 return;
             }
         }
     }
 
-    void flushEvents(ApiClient apiClient, PluginConfig config, Logger log) {
-        flushEvents(apiClient, config, log, true);
+    void flushEvents(ApiClient apiClient, PluginConfig config) {
+        flushEvents(apiClient, config, true);
     }
 
     /**
@@ -155,29 +147,23 @@ final class UploadEventDispatch {
      *                          client closes must not: a player who logs out to the lobby and
      *                          then quits used to have their queued trades thrown away.
      */
-    private void flushEvents(ApiClient apiClient, PluginConfig config, Logger log,
-                             boolean onlyWhileLoggedIn) {
-        if (apiClient == null || config == null || log == null) {
+    private void flushEvents(ApiClient apiClient, PluginConfig config, boolean onlyWhileLoggedIn) {
+        if (apiClient == null || config == null) {
             return;
         }
         if (onlyWhileLoggedIn && !Access.loggedIn(client)) {
             return;
         }
-        if (!config.enableFlipHubSync()) {
-            updateProfileHeader();
-            if (uploadState.getPendingUploadEvents() > 0) {
-                markBlocked("FlipHub sync is disabled in the plugin settings. Pending uploads are buffered locally.");
-            } else {
-                updateUploadDiagnosticsUi();
-            }
-            return;
-        }
         String sessionToken = config.sessionToken();
         String signingSecret = config.signingSecret();
-        if (!ApiStatusPolicy.hasCredentials(sessionToken, signingSecret)) {
+        String blocked = !config.enableFlipHubSync()
+            ? "FlipHub sync is disabled in the plugin settings. Pending uploads are buffered locally."
+            : ApiStatusPolicy.hasCredentials(sessionToken, signingSecret) ? null
+            : "Not linked. Pending uploads are buffered locally.";
+        if (blocked != null) {
             updateProfileHeader();
             if (uploadState.getPendingUploadEvents() > 0) {
-                markBlocked("Not linked. Pending uploads are buffered locally.");
+                markBlocked(blocked);
             } else {
                 updateUploadDiagnosticsUi();
             }
@@ -211,17 +197,17 @@ final class UploadEventDispatch {
                     apiClient.sendEventsDetailed(sessionToken, signingSecret, batch);
                 // Not if a new link was made while it was on its way (RecordSync.linked).
                 uploadState.answered(upload, sessionToken.equals(config.sessionToken()));
-                int status = upload != null ? upload.status_code : -1;
+                int status = upload.status_code;
                 if (ApiStatusPolicy.isAuthStatus(status)) {
-                    handleAuthFailure(apiClient, config, log, batch, sessionToken, status);
+                    handleAuthFailure(apiClient, config, batch, sessionToken, status);
                     return;
                 }
-                handlePrimaryStatus(status, upload, log, batch);
+                handlePrimaryStatus(status, upload, batch);
             } catch (IOException | RuntimeException ex) {
                 requeue(batch);
                 backOff();
                 String message = ex.getMessage() != null ? ex.getMessage() : "Unknown upload exception";
-                markFailure(-1, "Upload exception: " + message + ". Events queued for retry.", false, 0);
+                markFailure(-1, "Upload exception: " + message + ". Events queued for retry.", 0);
             }
         } finally {
             uploadState.flushing.decrementAndGet();
@@ -230,7 +216,6 @@ final class UploadEventDispatch {
 
     private void handleAuthFailure(ApiClient apiClient,
                                    PluginConfig config,
-                                   Logger log,
                                    List<GeEvent> batch,
                                    String currentToken,
                                    int initialStatus) throws IOException {
@@ -242,8 +227,8 @@ final class UploadEventDispatch {
                 ApiClient.EventUploadResponse retryUpload =
                     apiClient.sendEventsDetailed(refreshedToken, refreshedSecret, batch);
                 uploadState.answered(retryUpload, refreshedToken.equals(config.sessionToken()));
-                handleRetryStatus(retryUpload != null ? retryUpload.status_code : -1,
-                    retryUpload, log, batch);
+                handleRetryStatus(retryUpload.status_code,
+                    retryUpload, batch);
                 return;
             }
         }
@@ -252,14 +237,14 @@ final class UploadEventDispatch {
         if (outcome == SessionRefresh.Outcome.REJECTED) {
             // The server refused the session itself, so the link is genuinely dead and
             // clearSession has already said so. Retrying would only repeat the refusal.
-            markFailure(initialStatus, "Session was rejected. Relink to resume uploads.", false, 0);
+            markFailure(initialStatus, "Session was rejected. Relink to resume uploads.", 0);
             log.warn("FlipHub session was rejected on refresh; relink required");
         } else {
             // Nobody refused anything: the refresh could not be completed. The credentials are
             // very probably still good, so they stay put and the batch waits for the next tick.
             backOff();
             markFailure(initialStatus, "Could not reach FlipHub to refresh the session. Events queued for retry.",
-                false, 0);
+                0);
         }
         if (Access.plugin().runtimeUtilityServices.isPanelVisible(Access.plugin().panel)) {
             updateProfileHeader();
@@ -267,10 +252,10 @@ final class UploadEventDispatch {
     }
 
     private void handleRetryStatus(int retryStatus, ApiClient.EventUploadResponse upload,
-                                   Logger log, List<GeEvent> batch) {
+                                   List<GeEvent> batch) {
         if (retryStatus < 400) {
             if (!ApiStatusPolicy.keptSomething(upload, batch.size())) {
-                reportNothingKept(retryStatus, log, batch);
+                reportNothingKept(retryStatus, batch);
                 return;
             }
             updateProfileHeader();
@@ -281,7 +266,7 @@ final class UploadEventDispatch {
         }
         if (ApiStatusPolicy.isAuthStatus(retryStatus)) {
             log.warn("FlipHub event upload unauthorized after refresh; clearing session to force relink");
-            clearSession();
+            SessionRefresh.clearIfRunning();
             if (Access.plugin().runtimeUtilityServices.isPanelVisible(Access.plugin().panel)) {
                 updateProfileHeader();
             }
@@ -294,9 +279,7 @@ final class UploadEventDispatch {
             markFailure(
                 retryStatus,
                 "Upload rejected with status " + retryStatus + ". Events queued for retry.",
-                false,
-                0
-            );
+                0);
             return;
         }
         log.warn("FlipHub event upload failed after refresh with status {} (dropping {} events)",
@@ -304,22 +287,18 @@ final class UploadEventDispatch {
         markFailure(
             retryStatus,
             "Upload failed with status " + retryStatus + ". Events were dropped.",
-            true,
-            batch.size()
-        );
+            batch.size());
     }
 
     private void handlePrimaryStatus(int status, ApiClient.EventUploadResponse upload,
-                                     Logger log, List<GeEvent> batch) {
+                                     List<GeEvent> batch) {
         if (ApiStatusPolicy.isRetryableUploadStatus(status)) {
             requeue(batch);
             backOff();
             markFailure(
                 status,
                 "Upload failed with status " + status + ". Events queued for retry.",
-                false,
-                0
-            );
+                0);
             return;
         }
         if (status >= 400) {
@@ -332,13 +311,11 @@ final class UploadEventDispatch {
                 "Timestamp out of range".equals(upload.error)
                     ? "Your PC clock is more than five minutes off; trades will be sent when it is right"
                     : "Upload failed with status " + status + ". Events were dropped.",
-                true,
-                batch.size()
-            );
+                batch.size());
             return;
         }
         if (!ApiStatusPolicy.keptSomething(upload, batch.size())) {
-            reportNothingKept(status, log, batch);
+            reportNothingKept(status, batch);
             return;
         }
         updateProfileHeader();
@@ -351,19 +328,17 @@ final class UploadEventDispatch {
      * again gets the same answer, so they are dropped rather than queued, and the player is
      * told, instead of being shown a success that did not happen.
      */
-    private void reportNothingKept(int status, Logger log, List<GeEvent> batch) {
+    private void reportNothingKept(int status, List<GeEvent> batch) {
         log.warn("FlipHub accepted the request and rejected all {} events", batch.size());
         markFailure(
             status,
             "FlipHub rejected every event in that batch. They were not uploaded.",
-            true,
-            batch.size()
-        );
+            batch.size());
     }
 
     private List<GeEvent> dequeueBatch() {
-        List<GeEvent> batch = new ArrayList<>(maxBatchSize);
-        while (batch.size() < maxBatchSize) {
+        List<GeEvent> batch = new ArrayList<>(Const.MAX_BATCH_SIZE);
+        while (batch.size() < Const.MAX_BATCH_SIZE) {
             GeEvent event = uploadState.dequeueEvent();
             if (event == null) {
                 break;

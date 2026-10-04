@@ -125,9 +125,7 @@ final class UploadDiagnosticsState {
             markFailure(
                 null,
                 "Upload queue exceeded " + maxPendingUploadEvents + " events. Oldest events were dropped.",
-                true,
-                dropped
-            );
+                dropped);
         }
         eventQueue.offer(event);
         pendingUploadEvents.incrementAndGet();
@@ -139,15 +137,6 @@ final class UploadDiagnosticsState {
             pendingUploadEvents.updateAndGet(value -> value > 0 ? value - 1 : 0);
         }
         return event;
-    }
-
-    void requeue(List<GeEvent> batch, int maxPendingUploadEvents) {
-        if (batch == null || batch.isEmpty()) {
-            return;
-        }
-        for (GeEvent event : batch) {
-            enqueueEvent(event, maxPendingUploadEvents);
-        }
     }
 
     int getPendingUploadEvents() {
@@ -199,22 +188,21 @@ final class UploadDiagnosticsState {
         }
     }
 
-    void markFailure(Integer statusCode, String errorMessage, boolean dropped, int droppedCount) {
+    void markFailure(Integer statusCode, String errorMessage, int droppedCount) {
         if (statusCode != null) {
             lastUploadStatusCode = statusCode;
         }
         if (Str.hasText(errorMessage)) {
             lastUploadError = errorMessage.trim();
         }
-        if (dropped && droppedCount > 0) {
+        if (droppedCount > 0) {
             droppedEventCount.addAndGet(droppedCount);
         }
     }
 
     String buildTooltip(boolean linked) {
-        int pending = Math.max(0, pendingUploadEvents.get());
-        long uploaded = Math.max(0L, uploadedEventCount.get());
-        long dropped = Math.max(0L, droppedEventCount.get());
+        int pending = pendingUploadEvents.get();
+        long uploaded = uploadedEventCount.get();
 
         String statusLabel;
         if (lastUploadStatusCode != null) {
@@ -239,15 +227,13 @@ final class UploadDiagnosticsState {
             errorLabel = "none";
         }
 
-        StringBuilder tooltip = new StringBuilder("<html><div style='font-size:10px;'>");
-        tooltip.append("Pending uploads: ").append(pending).append("<br>");
-        tooltip.append("Uploaded events: ").append(uploaded).append("<br>");
-        tooltip.append("Dropped events: ").append(dropped).append("<br>");
-        tooltip.append("Last attempt: ").append(formatUploadTime(lastUploadAttemptMs)).append("<br>");
-        tooltip.append("Last success: ").append(formatUploadTime(lastUploadSuccessMs)).append("<br>");
-        tooltip.append("Last status: ").append(statusLabel).append("<br>");
-        tooltip.append("Last error: ").append(errorLabel).append("</div></html>");
-        return tooltip.toString();
+        return "<html><div style='font-size:10px;'>Pending uploads: " + pending
+            + "<br>Uploaded events: " + uploaded
+            + "<br>Dropped events: " + droppedEventCount.get()
+            + "<br>Last attempt: " + formatUploadTime(lastUploadAttemptMs)
+            + "<br>Last success: " + formatUploadTime(lastUploadSuccessMs)
+            + "<br>Last status: " + statusLabel
+            + "<br>Last error: " + errorLabel + "</div></html>";
     }
 
     private String formatUploadTime(long timestampMs) {
@@ -268,9 +254,6 @@ final class UploadDiagnosticsState {
     }
 
     private String sanitizeHtml(String value) {
-        if (value == null || value.isEmpty()) {
-            return "";
-        }
         return value
             .replace("&", "&amp;")
             .replace("<", "&lt;")

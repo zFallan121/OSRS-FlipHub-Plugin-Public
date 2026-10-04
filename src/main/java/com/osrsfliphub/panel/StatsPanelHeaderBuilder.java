@@ -34,16 +34,13 @@ final class StatsPanelHeaderBuilder {
     private final UiStyler uiStyler;
     private final PanelState panelState;
 
-    JPanel buildHeader(
-        JComboBox<StatsRange> statsRangeCombo,
-        JLabel statsUpdatedLabel
-    ) {
+    JPanel buildHeader(JComboBox<StatsRange> statsRangeCombo) {
         JPanel header = stack();
 
         JPanel rangeRow = plain(new BorderLayout(8, 0));
         rangeRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         wide(rangeRow, 28);
-        uiStyler.styleComboBox(statsRangeCombo);
+        uiStyler.styleComboBox(statsRangeCombo, 4, 8);
         statsRangeCombo.setSelectedItem(StatsRange.SESSION);
         statsRangeCombo.addActionListener(e -> {
             StatsRange range = (StatsRange) statsRangeCombo.getSelectedItem();
@@ -71,9 +68,6 @@ final class StatsPanelHeaderBuilder {
             rankUp.panelPicture = rankPicture;
         }
 
-        statsUpdatedLabel.setForeground(MUTED_2);
-        statsUpdatedLabel.setFont(uiStyler.font(10.5f));
-        statsUpdatedLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         // The range is the only thing pinned above the list now: it says which trades the whole
         // tab is about, so it stays put while everything it describes scrolls under it.

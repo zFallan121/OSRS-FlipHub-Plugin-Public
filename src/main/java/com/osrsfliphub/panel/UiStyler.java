@@ -90,9 +90,7 @@ final class UiStyler {
      * a number or over a section — never on a value, and never on a row label inside a ledger.
      */
     Font fontMicro(float size) {
-        Map<TextAttribute, Object> tracking = new HashMap<>();
-        tracking.put(TextAttribute.TRACKING, 0.06);
-        return resolveFont(Font.BOLD, size).deriveFont(tracking);
+        return resolveFont(Font.BOLD, size).deriveFont(Map.of(TextAttribute.TRACKING, 0.06));
     }
 
     /**
@@ -105,14 +103,12 @@ final class UiStyler {
      * gives the stop room to be seen and evens out the run.
      */
     Font fontNumeric(float size) {
-        Map<TextAttribute, Object> tracking = new HashMap<>();
-        tracking.put(TextAttribute.TRACKING, 0.045);
-        return resolveFont(Font.BOLD, size).deriveFont(tracking);
+        return resolveFont(Font.BOLD, size).deriveFont(Map.of(TextAttribute.TRACKING, 0.045));
     }
 
     /** Applies the micro-label to a label wholesale: the case, the type and the colour. */
     void styleMicroLabel(JLabel label, float size) {
-        label.setText(label.getText() != null ? label.getText().toUpperCase(Locale.US) : "");
+        label.setText(label.getText().toUpperCase(Locale.US));
         label.setFont(fontMicro(size));
         label.setForeground(MUTED_2);
     }
@@ -127,7 +123,7 @@ final class UiStyler {
         button.setBorder(BorderFactory.createCompoundBorder(
             // A marker, not a container: the inactive tab gets a transparent rule of the same
             // height so the two never shift by a pixel as the selection moves.
-            BorderFactory.createMatteBorder(0, 0, 2, 0, active ? ACCENT : new Color(0, 0, 0, 0)),
+            BorderFactory.createMatteBorder(0, 0, 2, 0, active ? ACCENT : TRANSPARENT),
             BorderFactory.createEmptyBorder(6, 10, 6, 10)
         ));
         // The selected tab is already at full strength; an unselected one lifts
@@ -137,7 +133,7 @@ final class UiStyler {
                 button.removeMouseListener(existing);
             }
         }
-        button.addMouseListener(new TabHoverAdapter(button, active));
+        button.addMouseListener(new TabHoverAdapter(button, active ? TEXT : MUTED));
     }
 
     /**
@@ -162,7 +158,6 @@ final class UiStyler {
         button.setOpaque(false);
         button.setFont(fontSemiBold(size));
         button.setForeground(TEXT);
-        button.setBorder(roundedBorder(arc, CONTROL_BORDER, padding));
         button.setCursor(HAND);
         installGhostHover(button, arc, padding);
     }
@@ -202,14 +197,8 @@ final class UiStyler {
             new Insets(3, 8, 3, INLINE_CLEAR_SLOT + INLINE_CLEAR_GAP)));
 
         JButton clear = new TipButton(new ClearIcon(CLEAR_MARK_SIZE));
-        clear.setFocusPainted(false);
-        clear.setContentAreaFilled(false);
-        clear.setBorderPainted(false);
-        clear.setOpaque(false);
-        clear.setBorder(BorderFactory.createEmptyBorder());
-        clear.setMargin(new Insets(0, 0, 0, 0));
+        styleBareControl(clear);
         clear.setForeground(MUTED_2);
-        clear.setCursor(HAND);
         clear.setToolTipText("Clear");
         // Focus stays with the caret: the mark is an edit to the field, not somewhere to be.
         clear.setFocusable(false);
@@ -261,26 +250,7 @@ final class UiStyler {
 
         // A document cannot be asked what it will hold after the edit that is being announced, so
         // the mark is set from the field once the edit has landed.
-        field.getDocument().addDocumentListener(new DocumentListener() {
-            private void sync() {
-                SwingUtilities.invokeLater(() -> clear.setVisible(!field.getText().isEmpty()));
-            }
-
-            @Override
-            public void insertUpdate(DocumentEvent event) {
-                sync();
-            }
-
-            @Override
-            public void removeUpdate(DocumentEvent event) {
-                sync();
-            }
-
-            @Override
-            public void changedUpdate(DocumentEvent event) {
-                sync();
-            }
-        });
+        onEdit(field, () -> SwingUtilities.invokeLater(() -> clear.setVisible(!field.getText().isEmpty())));
     }
 
     /**
@@ -308,9 +278,6 @@ final class UiStyler {
      * swallowing the keyboard - however far away the user clicks.
      */
     void installClickToDefocus(JComponent surface) {
-        if (surface == null) {
-            return;
-        }
         surface.setFocusable(true);
         surface.addMouseListener(new MouseAdapter() {
             @Override
@@ -330,20 +297,10 @@ final class UiStyler {
 
     /** The same, at a width of its own, for a trailing control that holds a mark and not a word. */
     void sizeTrailingControl(AbstractButton button, JComponent field, int width) {
-        int height = Math.max(field.getPreferredSize().height, button.getPreferredSize().height);
-        Dimension size = new Dimension(width, height);
+        Dimension size = new Dimension(width, field.getPreferredSize().height);
         button.setPreferredSize(size);
         button.setMinimumSize(size);
         button.setMaximumSize(size);
-    }
-
-    /** Pins a control to the height of the field it sits next to, so the row reads as one bar. */
-    void matchFieldHeight(JComponent control, JComponent field) {
-        int height = field.getPreferredSize().height;
-        Dimension preferred = control.getPreferredSize();
-        control.setPreferredSize(new Dimension(preferred.width, height));
-        control.setMinimumSize(new Dimension(preferred.width, height));
-        control.setMaximumSize(new Dimension(preferred.width, height));
     }
 
     /**
@@ -353,7 +310,7 @@ final class UiStyler {
      */
     static final float DROPDOWN_TEXT_SIZE = 11f;
 
-    void styleComboBox(JComboBox<?> combo) {
+    void styleComboBox(JComboBox<?> combo, int padY, int padX) {
         // The whole delegate, not just the colours: this renders under whichever look-and-feel
         // RuneLite has installed, so the arrow, the body and the popup are all drawn by us. The
         // body is the one pre-blended fill in the panel - a combo cannot go transparent without
@@ -363,7 +320,7 @@ final class UiStyler {
         combo.setForeground(TEXT);
         combo.setFont(font(DROPDOWN_TEXT_SIZE));
         combo.setRenderer(new ComboRenderer(font(DROPDOWN_TEXT_SIZE)));
-        combo.setBorder(roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(4, 8, 4, 8)));
+        combo.setBorder(roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(padY, padX, padY, padX)));
         combo.setFocusable(false);
         combo.setOpaque(false);
         combo.setCursor(HAND);
@@ -377,10 +334,31 @@ final class UiStyler {
         }
     }
 
+    /** A scroll surface the backdrop shows through: no border, no bars, and never blitted, which smears the washes. */
+    void styleScrollPane(JScrollPane scrollPane) {
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        scrollPane.getViewport().setScrollMode(JViewport.SIMPLE_SCROLL_MODE);
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        JScrollBar bar = scrollPane.getVerticalScrollBar();
+        bar.setUnitIncrement(SCROLL_UNIT_INCREMENT);
+        bar.setBlockIncrement(SCROLL_BLOCK_INCREMENT);
+    }
+
+    /** The sort direction as a drawn mark: which way it points, its colour and what it says of itself. */
+    void sortMark(JButton button, boolean ascending, int markSize) {
+        button.setText(null);
+        button.setIcon(new SortIcon(ascending, markSize));
+        button.setForeground(ascending ? ACCENT : TEXT);
+        button.setToolTipText(ascending ? "Sorted low to high" : "Sorted high to low");
+    }
+
     /** A ruled input rather than a boxed one: no fill, one hairline, the caret in --text. */
     void styleTextField(JTextField field) {
         field.setOpaque(false);
-        field.setBackground(new Color(0, 0, 0, 0));
+        field.setBackground(TRANSPARENT);
         field.setForeground(TEXT);
         field.setCaretColor(TEXT);
         field.setSelectionColor(new Color(91, 159, 237, 70));
@@ -400,17 +378,7 @@ final class UiStyler {
         link.setToolTipText(tooltip);
         link.setCursor(HAND);
         link.addMouseListener(new StatsClickMouseAdapter(action));
-        link.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseEntered(MouseEvent event) {
-                link.setForeground(TEXT);
-            }
-
-            @Override
-            public void mouseExited(MouseEvent event) {
-                link.setForeground(ACCENT);
-            }
-        });
+        link.addMouseListener(new TabHoverAdapter(link, ACCENT));
         return link;
     }
 
@@ -440,12 +408,7 @@ final class UiStyler {
 
     /** The same, for a control whose outline colour depends on what the pointer is doing. */
     Border roundedBorder(int arc, java.util.function.Supplier<Color> color, Insets padding) {
-        Insets borderInsets = new Insets(1, 1, 1, 1);
-        Border border = new RoundedBorder(arc, color, borderInsets);
-        if (padding == null) {
-            return border;
-        }
-        return BorderFactory.createCompoundBorder(border, new EmptyBorder(padding));
+        return BorderFactory.createCompoundBorder(new RoundedBorder(arc, color), new EmptyBorder(padding));
     }
 
     private Font resolveFont(int style, float size) {
@@ -461,11 +424,8 @@ final class UiStyler {
 
     /** The card a list shows in place of rows: a title and one line saying why it is empty. */
     JPanel emptyCard(String title, String body) {
-        JPanel card = RoundedPanel.glass(CARD_ARC);
-        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-        card.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        JPanel card = RoundedPanel.card(12, 12, 12, 12);
         wide(card, 100);
-        card.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel titleLabel = styled(new JLabel(title), TEXT, fontSemiBold(12f));
 

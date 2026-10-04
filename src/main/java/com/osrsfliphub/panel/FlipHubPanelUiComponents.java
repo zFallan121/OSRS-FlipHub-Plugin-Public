@@ -32,8 +32,8 @@ import javax.swing.*;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicComboBoxUI;
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
+import static com.osrsfliphub.Skin.*;
 
 /**
  * A label counting down, and the point it is counting from.
@@ -58,7 +58,7 @@ final class CountdownEntry {
 }
 
 /** The two prices a row shows an age for, and when each of them last traded. */
-@AllArgsConstructor
+@RequiredArgsConstructor
 final class AgePairEntry {
     final JComponent[] components;
     long buyTimestampMs;
@@ -66,18 +66,7 @@ final class AgePairEntry {
 
 }
 
-@RequiredArgsConstructor
-final class LineComponents {
-    final JPanel row;
-    final JLabel left;
-    final JLabel right;
-}
-
-@RequiredArgsConstructor
 final class TrackingPanel extends JPanel implements Scrollable {
-    private final int scrollUnitIncrement;
-    private final int scrollBlockIncrement;
-
     @Override
     public Dimension getPreferredScrollableViewportSize() {
         return getPreferredSize();
@@ -85,12 +74,12 @@ final class TrackingPanel extends JPanel implements Scrollable {
 
     @Override
     public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) {
-        return scrollUnitIncrement;
+        return SCROLL_UNIT_INCREMENT;
     }
 
     @Override
     public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
-        return scrollBlockIncrement;
+        return SCROLL_BLOCK_INCREMENT;
     }
 
     @Override
@@ -110,18 +99,9 @@ final class TrackingPanel extends JPanel implements Scrollable {
  * else in the panel is allowed to paint an opaque slab over an area this size.
  */
 final class BackdropPanel extends JPanel {
-    private static final Color TRANSPARENT = new Color(0, 0, 0, 0);
-
-    private final Color base;
-    private final Color greenWash;
-    private final Color blueWash;
-
-    BackdropPanel(Color base, Color greenWash, Color blueWash) {
-        this.base = base;
-        this.greenWash = greenWash;
-        this.blueWash = blueWash;
+    BackdropPanel() {
         setOpaque(true);
-        setBackground(base);
+        setBackground(BG);
     }
 
     @Override
@@ -129,18 +109,18 @@ final class BackdropPanel extends JPanel {
         int width = getWidth();
         int height = getHeight();
         Graphics2D g2 = (Graphics2D) g.create();
-        g2.setColor(base);
+        g2.setColor(BG);
         g2.fillRect(0, 0, width, height);
         // Both washes are sized off the panel WIDTH, not its height: the sidebar is a tall column
         // and the site's washes sit in the top corners of a wide page, so tying them to the height
         // would smear one glow down the whole rail.
-        paintWash(g2, greenWash, 0.20f * width, -0.06f * width, 1.55f * width);
-        paintWash(g2, blueWash, 0.92f * width, 0.16f * width, 1.35f * width);
+        paintWash(g2, GRAD_GREEN, 0.20f * width, -0.06f * width, 1.55f * width);
+        paintWash(g2, GRAD_BLUE, 0.92f * width, 0.16f * width, 1.35f * width);
         g2.dispose();
     }
 
     private void paintWash(Graphics2D g2, Color color, float centerX, float centerY, float radius) {
-        if (color == null || radius <= 0f) {
+        if (radius <= 0f) {
             return;
         }
         g2.setPaint(new RadialGradientPaint(
@@ -184,11 +164,9 @@ final class CardSection extends JPanel {
      */
     static JPanel of(JComponent content, int rightPadding) {
         RoundedPanel well = new RoundedPanel(
-            Skin.WELL_ARC,
-            Skin.SURFACE_WELL,
-            Skin.SURFACE_WELL);
+            WELL_ARC, SURFACE_WELL, SURFACE_WELL, SURFACE_WELL, false);
         well.setLayout(new BorderLayout());
-        well.setBorder(BorderFactory.createEmptyBorder(5, 6, 5, Math.max(0, rightPadding)));
+        well.setBorder(BorderFactory.createEmptyBorder(5, 6, 5, rightPadding));
         well.add(content, BorderLayout.CENTER);
 
         // No inset of its own. The card's own padding is the margin, so the block sits the same
@@ -218,17 +196,12 @@ final class RoundedPanel extends JPanel {
     private final Color bottomColor;
     private final Color borderColor;
     private final boolean seated;
-    private Color hoverBorderColor;
     private boolean hovered;
-
-    RoundedPanel(int arc, Color background, Color borderColor) {
-        this(arc, background, background, borderColor, false);
-    }
 
     RoundedPanel(int arc, Color topColor, Color bottomColor, Color borderColor, boolean seated) {
         this.arc = arc;
         this.topColor = topColor;
-        this.bottomColor = bottomColor != null ? bottomColor : topColor;
+        this.bottomColor = bottomColor;
         this.borderColor = borderColor;
         this.seated = seated;
         setOpaque(false);
@@ -240,10 +213,6 @@ final class RoundedPanel extends JPanel {
      * fill to brighten and no shadow to raise, so the edge is the whole of the
      * affordance - the same move every ghost control in the panel makes.
      */
-    void setHoverBorderColor(Color color) {
-        this.hoverBorderColor = color;
-    }
-
     void setHovered(boolean value) {
         if (hovered != value) {
             hovered = value;
@@ -252,14 +221,13 @@ final class RoundedPanel extends JPanel {
     }
 
     /** A glass card: the surface that groups. */
-    static RoundedPanel glass(int arc) {
-        return new RoundedPanel(
-            arc,
-            Skin.SURFACE_TOP,
-            Skin.SURFACE_BOTTOM,
-            Skin.SURFACE_BORDER,
-            true
-        );
+    static JPanel card(int top, int left, int bottom, int right) {
+        JPanel card = new RoundedPanel(
+            CARD_ARC, SURFACE_TOP, SURFACE_BOTTOM, SURFACE_BORDER, true);
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setBorder(BorderFactory.createEmptyBorder(top, left, bottom, right));
+        card.setAlignmentX(LEFT_ALIGNMENT);
+        return card;
     }
 
     @Override
@@ -272,19 +240,17 @@ final class RoundedPanel extends JPanel {
         }
         int radius = clampArc(arc, width, height);
         Graphics2D g2 = (Graphics2D) g.create();
-        Skin.smooth(g2);
-        if (topColor != null) {
-            g2.setPaint(topColor.equals(bottomColor)
-                ? topColor
-                : new GradientPaint(0f, 0f, topColor, 0f, height, bottomColor));
-            g2.fillRoundRect(0, 0, width, height, radius, radius);
-        }
+        smooth(g2);
+        g2.setPaint(topColor.equals(bottomColor)
+            ? topColor
+            : new GradientPaint(0f, 0f, topColor, 0f, height, bottomColor));
+        g2.fillRoundRect(0, 0, width, height, radius, radius);
         if (seated) {
             // The inset highlight along the top and the seat along the bottom: together they are
             // what makes the card read as an object resting on the navy instead of a decal on it.
-            g2.setColor(Skin.SURFACE_HIGHLIGHT);
+            g2.setColor(SURFACE_HIGHLIGHT);
             g2.drawLine(radius / 2, 1, width - 1 - radius / 2, 1);
-            g2.setColor(Skin.SURFACE_SEAT);
+            g2.setColor(SURFACE_SEAT);
             g2.drawLine(radius / 2, height - 1, width - 1 - radius / 2, height - 1);
         }
         g2.dispose();
@@ -293,13 +259,9 @@ final class RoundedPanel extends JPanel {
 
     @Override
     protected void paintBorder(Graphics g) {
-        Color edge = hovered && hoverBorderColor != null ? hoverBorderColor : borderColor;
-        if (edge == null) {
-            return;
-        }
         Graphics2D g2 = (Graphics2D) g.create();
-        Skin.smooth(g2);
-        g2.setColor(edge);
+        smooth(g2);
+        g2.setColor(hovered ? SURFACE_BORDER_HOVER : borderColor);
         int radius = clampArc(arc, getWidth(), getHeight());
         g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, radius, radius);
         g2.dispose();
@@ -320,9 +282,9 @@ final class ComboBoxUI extends BasicComboBoxUI {
     @Override
     public void update(Graphics g, JComponent c) {
         Graphics2D g2 = (Graphics2D) g.create();
-        Skin.smooth(g2);
-        g2.setColor(Skin.CONTROL_FILL);
-        int arc = RoundedPanel.clampArc(Skin.INPUT_ARC, c.getWidth(), c.getHeight());
+        smooth(g2);
+        g2.setColor(CONTROL_FILL);
+        int arc = RoundedPanel.clampArc(INPUT_ARC, c.getWidth(), c.getHeight());
         g2.fillRoundRect(0, 0, c.getWidth(), c.getHeight(), arc, arc);
         g2.dispose();
         paint(g, c);
@@ -343,8 +305,8 @@ final class ComboBoxUI extends BasicComboBoxUI {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
-                Skin.smooth(g2);
-                g2.setColor(Skin.MUTED);
+                smooth(g2);
+                g2.setColor(MUTED);
                 int cx = getWidth() / 2;
                 int cy = getHeight() / 2;
                 g2.fillPolygon(
@@ -367,8 +329,6 @@ final class ComboBoxUI extends BasicComboBoxUI {
 /** The popup's rows: the overlay ground, the action colour on the one that is current. */
 @RequiredArgsConstructor
 final class ComboRenderer extends DefaultListCellRenderer {
-    private static final Color TRANSPARENT = new Color(0, 0, 0, 0);
-
     private final Font font;
 
     @Override
@@ -380,31 +340,25 @@ final class ComboRenderer extends DefaultListCellRenderer {
         // ground nor an inset of its own.
         boolean inPopup = index >= 0;
         setOpaque(inPopup);
-        setBackground(inPopup ? Skin.OVERLAY_BASE : TRANSPARENT);
-        setForeground(inPopup && isSelected ? Skin.ACCENT : Skin.TEXT);
+        setBackground(inPopup ? OVERLAY_BASE : TRANSPARENT);
+        setForeground(inPopup && isSelected ? ACCENT : TEXT);
         setBorder(inPopup
             ? new EmptyBorder(3, 8, 3, 8)
             : new EmptyBorder(0, 0, 0, 0));
-        if (font != null) {
-            setFont(font);
-        }
+        setFont(font);
         return this;
     }
 }
 
 /** Lifts an unselected tab out of the muted ramp while the pointer is on it. */
+@RequiredArgsConstructor
 final class TabHoverAdapter extends java.awt.event.MouseAdapter {
-    private final AbstractButton button;
+    private final JComponent button;
     private final Color resting;
-
-    TabHoverAdapter(AbstractButton button, boolean active) {
-        this.button = button;
-        this.resting = active ? Skin.TEXT : Skin.MUTED;
-    }
 
     @Override
     public void mouseEntered(MouseEvent event) {
-        button.setForeground(Skin.TEXT);
+        button.setForeground(TEXT);
     }
 
     @Override
@@ -417,11 +371,6 @@ final class TabHoverAdapter extends java.awt.event.MouseAdapter {
 final class RoundedBorder implements Border {
     private final int arc;
     private final Supplier<Color> color;
-    private final Insets insets;
-
-    RoundedBorder(int arc, Color color, Insets insets) {
-        this(arc, () -> color, insets);
-    }
 
     /**
      * A border whose colour is asked for each time it is drawn.
@@ -434,13 +383,9 @@ final class RoundedBorder implements Border {
 
     @Override
     public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
-        Color color = this.color != null ? this.color.get() : null;
-        if (color == null) {
-            return;
-        }
         Graphics2D g2 = (Graphics2D) g.create();
-        Skin.smooth(g2);
-        g2.setColor(color);
+        smooth(g2);
+        g2.setColor(color.get());
         // CHIP_ARC is 999 so a pill stays a pill at any height; clamping is what turns that into
         // the short side rather than a Java2D artefact.
         int radius = RoundedPanel.clampArc(arc, width, height);
@@ -450,7 +395,7 @@ final class RoundedBorder implements Border {
 
     @Override
     public Insets getBorderInsets(Component c) {
-        return insets;
+        return new Insets(1, 1, 1, 1);
     }
 
     @Override
@@ -463,12 +408,9 @@ final class RoundedBorder implements Border {
  * A field that says what it searches while it is empty. The hint is painted rather than typed
  * into the document, so it never becomes the query and never has to be stripped back out.
  */
+@RequiredArgsConstructor
 final class PlaceholderTextField extends JTextField {
     private final String placeholder;
-
-    PlaceholderTextField(String placeholder) {
-        this.placeholder = placeholder != null ? placeholder : "";
-    }
 
     @Override
     public Point getToolTipLocation(MouseEvent event) {
@@ -479,7 +421,7 @@ final class PlaceholderTextField extends JTextField {
     protected void paintComponent(Graphics g) {
         paintWell(g);
         super.paintComponent(g);
-        if (placeholder.isEmpty() || !getText().isEmpty()) {
+        if (!getText().isEmpty()) {
             return;
         }
         Graphics2D g2 = (Graphics2D) g.create();
@@ -487,7 +429,7 @@ final class PlaceholderTextField extends JTextField {
             g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
                 RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             g2.setFont(getFont());
-            g2.setColor(Skin.MUTED_2);
+            g2.setColor(MUTED_2);
             FontMetrics metrics = g2.getFontMetrics();
             Insets insets = getInsets();
             int baseline = (getHeight() - metrics.getHeight()) / 2 + metrics.getAscent();
@@ -512,11 +454,11 @@ final class PlaceholderTextField extends JTextField {
         }
         Graphics2D g2 = (Graphics2D) g.create();
         try {
-            Skin.smooth(g2);
+            smooth(g2);
             g2.setPaint(new GradientPaint(
-                0f, 0f, Skin.INPUT_WELL_TOP,
-                0f, height, Skin.INPUT_WELL_BOTTOM));
-            int arc = Skin.INPUT_ARC;
+                0f, 0f, INPUT_WELL_TOP,
+                0f, height, INPUT_WELL_BOTTOM));
+            int arc = INPUT_ARC;
             g2.fillRoundRect(0, 0, width, height, arc, arc);
         } finally {
             g2.dispose();
@@ -530,15 +472,11 @@ final class EllipsisLabel extends TipLabel {
 
     EllipsisLabel(String text) {
         super(null, LEADING);
-        setFullText(text);
+        setText(text);
     }
 
     @Override
     public void setText(String text) {
-        setFullText(text);
-    }
-
-    private void setFullText(String text) {
         fullText = text != null ? text : "";
         updateDisplayedText();
     }
@@ -623,7 +561,7 @@ final class Tip {
         JToolTip tip = on.createToolTip();
         tip.setTipText(on.getToolTipText(event));
         Dimension size = tip.getPreferredSize();
-        int x = event.getX() - size.width - Skin.AGE_TOOLTIP_LEFT_GAP;
+        int x = event.getX() - size.width - AGE_TOOLTIP_LEFT_GAP;
         int y = event.getY() + 18;
         Window window = SwingUtilities.getWindowAncestor(on);
         if (window != null) {

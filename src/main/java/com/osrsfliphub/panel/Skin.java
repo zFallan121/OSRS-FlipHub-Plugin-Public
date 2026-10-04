@@ -48,6 +48,7 @@ final class Skin {
     static final Color GRAD_BLUE = new Color(59, 130, 246, 26);
     /** --overlay-base: opaque ground for a popup that floats over the panel rather than in it. */
     static final Color OVERLAY_BASE = new Color(0x08, 0x0D, 0x1C);
+    static final Color TRANSPARENT = new Color(0, 0, 0, 0);
     /**
      * The ground a mark drawn over an item icon brings with it. An icon is a full-colour sprite,
      * so a bare glyph laid on one is legible over a herb and invisible over a rune - the disc is
@@ -164,7 +165,6 @@ final class Skin {
     static final DateTimeFormatter REFRESH_TIME_FORMATTER =
         DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault());
     static final int VALUE_RIGHT_PADDING = 4;
-    static final int OFFER_VALUE_RIGHT_PADDING = 4;
     static final int SCROLL_UNIT_INCREMENT = 64;
     static final int SCROLL_BLOCK_INCREMENT = 256;
     /** The site's --surface-radius is 18px on a 1200px page; 14 is the same proportion at 225px. */

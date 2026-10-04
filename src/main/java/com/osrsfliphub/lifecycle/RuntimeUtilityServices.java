@@ -24,7 +24,6 @@
  */
 package com.osrsfliphub;
 
-import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import net.runelite.api.*;
 
@@ -44,15 +43,6 @@ final class RuntimeUtilityServices {
     void triggerStatsRefresh(PanelRefresh coordinator, ScheduledExecutorService scheduler) {
         if (coordinator != null) {
             coordinator.triggerStatsRefresh(scheduler);
-        }
-    }
-
-    void requeue(UploadEventDispatch dispatchService, List<GeEvent> batch) {
-        if (dispatchService == null || batch == null || batch.isEmpty()) {
-            return;
-        }
-        for (GeEvent event : batch) {
-            dispatchService.enqueueEvent(event);
         }
     }
 

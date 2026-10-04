@@ -82,8 +82,7 @@ final class PanelDataRuntime {
             local != null ? local.items : null,
             local != null ? local.page : 1,
             local != null ? local.total_pages : 1,
-            local != null ? local.as_of_ms : System.currentTimeMillis(),
-            local != null ? local.price_cache_ms : null
+            local != null ? local.as_of_ms : System.currentTimeMillis()
         );
     }
 
@@ -94,7 +93,7 @@ final class PanelDataRuntime {
         }
         StatsView.Result statsView = statsViews.build();
         panel.setSite(statsView.site);
-        panel.setStatsData(statsView.summary, statsView.items, statsView.flipHistory, statsView.asOfMs);
+        panel.setStatsData(statsView.summary, statsView.items, statsView.flipHistory);
         panel.setWaiting(recordSync.waiting());
         rankUp.refreshPanel();
     }

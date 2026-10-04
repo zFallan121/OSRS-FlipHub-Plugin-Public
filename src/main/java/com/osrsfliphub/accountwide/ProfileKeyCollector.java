@@ -37,22 +37,20 @@ final class ProfileKeyCollector {
                       Object localStatsLock,
                       Supplier<Map<Long, String>> fallbackProfilesSupplier) {
         Set<Long> keys = new HashSet<>();
-        collectFromDir(keys, profilesDir);
-        collectFromDir(keys, legacyProfilesDir);
+        ProfileHashFileWalker.walk(profilesDir, (hash, path) -> keys.add(hash));
+        ProfileHashFileWalker.walk(legacyProfilesDir, (hash, path) -> keys.add(hash));
 
-        if (localTradeDeltasByAccount != null) {
-            if (localStatsLock != null) {
-                synchronized (localStatsLock) {
-                    addKeysFromLocalTrades(keys, localTradeDeltasByAccount);
+        synchronized (localStatsLock) {
+            localTradeDeltasByAccount.forEach((key, deltas) -> {
+                if (key != null && key > 0 && deltas != null && !deltas.isEmpty()) {
+                    keys.add(key);
                 }
-            } else {
-                addKeysFromLocalTrades(keys, localTradeDeltasByAccount);
-            }
+            });
         }
 
-        if (keys.isEmpty() && fallbackProfilesSupplier != null) {
+        if (keys.isEmpty()) {
             Map<Long, String> fallback = fallbackProfilesSupplier.get();
-            if (fallback != null && !fallback.isEmpty()) {
+            if (fallback != null) {
                 for (Long key : fallback.keySet()) {
                     if (key != null && key > 0) {
                         keys.add(key);
@@ -61,25 +59,5 @@ final class ProfileKeyCollector {
             }
         }
         return keys;
-    }
-
-    private void collectFromDir(Set<Long> keys, Path dir) {
-        if (keys == null) {
-            return;
-        }
-        ProfileHashFileWalker.walk(dir, (hash, path) -> keys.add(hash));
-    }
-
-    private void addKeysFromLocalTrades(Set<Long> keys, Map<Long, List<Delta>> localTradeDeltasByAccount) {
-        for (Map.Entry<Long, List<Delta>> entry : localTradeDeltasByAccount.entrySet()) {
-            if (entry == null) {
-                continue;
-            }
-            Long key = entry.getKey();
-            List<Delta> deltas = entry.getValue();
-            if (key != null && key > 0 && deltas != null && !deltas.isEmpty()) {
-                keys.add(key);
-            }
-        }
     }
 }

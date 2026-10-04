@@ -27,21 +27,11 @@ package com.osrsfliphub;
 import java.awt.*;
 import java.awt.event.MouseWheelListener;
 import javax.swing.*;
-import lombok.RequiredArgsConstructor;
 import static com.osrsfliphub.Skin.*;
 
 final class StatsPanelBuilder {
-    @RequiredArgsConstructor
-    static final class BuildResult {
-        final JPanel panel;
-        final JScrollPane scrollPane;
-        final JLabel totalProfitValue;
-        final JLabel roiValue;
-        final JLabel flipsValue;
-        final JLabel taxValue;
-        final JLabel sessionTimeValue;
-        final JLabel hourlyValue;
-    }
+    /** The tab's scroll surface and the six figures of its summary, once the tab is built. */
+    StatsPanelContentBuilder.ContentResult content;
 
     private static final String TAB_CARD = "tab";
     private static final String RECORDER_CARD = "recorder";
@@ -89,10 +79,9 @@ final class StatsPanelBuilder {
         return recorderOpen ? recorder.view() : null;
     }
 
-    BuildResult build(
+    JPanel build(
         JComboBox<StatsRange> statsRangeCombo,
         JTextField statsSearchField,
-        JLabel statsUpdatedLabel,
         JPanel statsContentPanel,
         JPanel statsItemsListPanel,
         JComboBox<StatsItemSort> statsSortCombo,
@@ -101,8 +90,8 @@ final class StatsPanelBuilder {
     ) {
         JPanel panel = plain(new BorderLayout());
 
-        JPanel header = headerBuilder.buildHeader(statsRangeCombo, statsUpdatedLabel);
-        StatsPanelContentBuilder.ContentResult content = contentBuilder.buildContent(
+        JPanel header = headerBuilder.buildHeader(statsRangeCombo);
+        content = contentBuilder.buildContent(
             statsContentPanel,
             statsItemsListPanel,
             statsSearchField,
@@ -119,15 +108,6 @@ final class StatsPanelBuilder {
         deck.add(tabCard, TAB_CARD);
         deck.add(recorder.view(), RECORDER_CARD);
         panel.add(deck, BorderLayout.CENTER);
-        return new BuildResult(
-            panel,
-            content.scrollPane,
-            content.totalProfitValue,
-            content.roiValue,
-            content.flipsValue,
-            content.taxValue,
-            content.sessionTimeValue,
-            content.hourlyValue
-        );
+        return panel;
     }
 }

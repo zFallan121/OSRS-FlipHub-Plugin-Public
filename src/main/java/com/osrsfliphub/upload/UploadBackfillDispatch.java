@@ -52,7 +52,7 @@ final class UploadBackfillDispatch {
         // so the two-second flush can arrive just after they close.
         if (!executeIo(() -> {
             try {
-                eventDispatch.flushEvents( Access.plugin().apiClient, pluginConfig, GeLifecyclePlugin.log);
+                eventDispatch.flushEvents( Access.plugin().apiClient, pluginConfig);
                 // Here and nowhere else: only one flush runs at a time, so once this one has
                 // returned nothing of the live queue is on its way, and a stored trade is judged
                 // by the website only after its own live upload has arrived.

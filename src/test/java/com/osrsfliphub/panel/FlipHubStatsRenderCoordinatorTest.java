@@ -327,8 +327,9 @@ public class FlipHubStatsRenderCoordinatorTest {
         javax.swing.JLabel profit = new javax.swing.JLabel();
         javax.swing.JLabel roi = new javax.swing.JLabel();
 
-        coordinator.updateSummary(new StatsSummary(), null, new PanelValueFormat(), profit, roi,
-            new javax.swing.JLabel(), new javax.swing.JLabel(), new javax.swing.JLabel(), new javax.swing.JLabel());
+        coordinator.updateSummary(new StatsSummary(), null, new PanelValueFormat(),
+            new StatsPanelContentBuilder.ContentResult(null, profit, roi,
+                new javax.swing.JLabel(), new javax.swing.JLabel(), new javax.swing.JLabel(), new javax.swing.JLabel()));
 
         assertEquals("N/A", roi.getText());
         assertEquals("0 gp", profit.getText());

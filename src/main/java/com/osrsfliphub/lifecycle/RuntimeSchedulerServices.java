@@ -210,10 +210,9 @@ final class RuntimeSchedulerServices {
         UploadEventDispatch uploadDispatch = Bridge.get(UploadEventDispatch.class);
         if (uploadDispatch != null && ioExecutor != null && !ioExecutor.isShutdown()) {
             PluginConfig shutdownConfig = Access.plugin().config;
-            Logger shutdownLog = GeLifecyclePlugin.log;
             try {
                 ioExecutor.execute(() ->
-                    uploadDispatch.flushEvents(apiClient, shutdownConfig, shutdownLog));
+                    uploadDispatch.flushEvents(apiClient, shutdownConfig));
             } catch (RejectedExecutionException ignored) {
                 // Already stopping. The queue is drained on client shutdown as well.
             }

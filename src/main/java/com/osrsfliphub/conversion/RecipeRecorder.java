@@ -94,7 +94,7 @@ final class RecipeRecorder {
     private final PanelValueFormat valueFormat;
     private final Runnable onClose;
 
-    private final JPanel content = new TrackingPanel(SCROLL_UNIT_INCREMENT, SCROLL_BLOCK_INCREMENT);
+    private final JPanel content = new TrackingPanel();
     private final JScrollPane scrollPane = new JScrollPane(content);
     /**
      * What a recipe did. A move is not one of them: it has its own way in (the Move link) and its
@@ -308,8 +308,7 @@ final class RecipeRecorder {
         // was hold the dropdown off the title above it, so the room stays and the words go.
         form.add(Box.createVerticalStrut(18));
         for (JComboBox<?> combo : new JComboBox<?>[] {kindCombo, toCombo}) {
-            uiStyler.styleComboBox(combo);
-            combo.setBorder(uiStyler.roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
+            uiStyler.styleComboBox(combo, 2, 6);
             wide(combo, kindCombo.getPreferredSize().height);
             // The whole screen, not the button alone: a move shows the account it went to and
             // hides the fee, the tally and every sale.
@@ -367,17 +366,7 @@ final class RecipeRecorder {
         storedSection.add(headingRow(micro("Recorded"), null));
         storedSection.add(CardSection.of(storedBody));
 
-        scrollPane.setBorder(BorderFactory.createEmptyBorder());
-        scrollPane.setOpaque(false);
-        scrollPane.getViewport().setOpaque(false);
-        // As on the Profile tab: a transparent viewport that is blitted as it scrolls smears
-        // the backdrop's washes down the column.
-        scrollPane.getViewport().setScrollMode(JViewport.SIMPLE_SCROLL_MODE);
-        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
-        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        JScrollBar bar = scrollPane.getVerticalScrollBar();
-        bar.setUnitIncrement(SCROLL_UNIT_INCREMENT);
-        bar.setBlockIncrement(SCROLL_BLOCK_INCREMENT);
+        uiStyler.styleScrollPane(scrollPane);
     }
 
     /** Redraw the trade list, the tally and the recorded list from the current picks. */

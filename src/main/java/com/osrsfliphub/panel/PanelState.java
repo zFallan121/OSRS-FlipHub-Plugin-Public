@@ -45,10 +45,8 @@ final class PanelState {
     int totalPages = 1;
     List<FlipHubItem> lastItems;
     long lastAsOfMs;
-    Long lastPriceCacheMs;
     FlipHubItem offerPreviewItem;
     long offerAsOfMs;
-    Long offerPriceCacheMs;
     String searchQuery = "";
     boolean showBookmarkedOnly;
     StatsItemSort itemSort = StatsItemSort.COMPLETION;
@@ -120,11 +118,10 @@ final class PanelState {
         listener.onSearchChanged(text);
     }
 
-    void setOfferPreview(FlipHubItem item, long asOfMs, Long priceCacheMs) {
+    void setOfferPreview(FlipHubItem item, long asOfMs) {
         boolean shown = item != null && item.item_id > 0;
         offerPreviewItem = shown ? item : null;
         offerAsOfMs = shown ? asOfMs : 0;
-        offerPriceCacheMs = shown ? priceCacheMs : null;
         renderItems.run();
     }
 

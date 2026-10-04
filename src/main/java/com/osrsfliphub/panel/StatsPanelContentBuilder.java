@@ -115,20 +115,9 @@ final class StatsPanelContentBuilder {
         statsContentPanel.add(statsItemsListPanel);
 
         JScrollPane statsScrollPane = new JScrollPane(statsContentPanel);
-        statsScrollPane.setBorder(BorderFactory.createEmptyBorder());
-        statsScrollPane.setOpaque(false);
-        statsScrollPane.getViewport().setOpaque(false);
-        // See FlippingPanelBuilder: a transparent viewport must not be blitted, or the
-        // backdrop's washes smear down the column as the list scrolls.
-        statsScrollPane.getViewport().setScrollMode(JViewport.SIMPLE_SCROLL_MODE);
-        statsScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
-        statsScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        statsScrollPane.setWheelScrollingEnabled(true);
+        uiStyler.styleScrollPane(statsScrollPane);
         statsScrollPane.addMouseWheelListener(wheelForwarder);
         statsScrollPane.getViewport().addMouseWheelListener(wheelForwarder);
-        JScrollBar statsBar = statsScrollPane.getVerticalScrollBar();
-        statsBar.setUnitIncrement(SCROLL_UNIT_INCREMENT);
-        statsBar.setBlockIncrement(SCROLL_BLOCK_INCREMENT);
 
         wheelScrollCoordinator.installWheelForwarder(statsContentPanel);
         panelState.drawStats();
@@ -210,11 +199,7 @@ final class StatsPanelContentBuilder {
         // an even split gave it - and it is the control with the longest words.
         JPanel sortGroup = plain(new BorderLayout(4, 0));
 
-        uiStyler.styleComboBox(statsSortCombo);
-        statsSortCombo.setBorder(uiStyler.roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
-        if (statsSortCombo.getSelectedItem() == null) {
-            statsSortCombo.setSelectedItem(StatsItemSort.COMPLETION);
-        }
+        uiStyler.styleComboBox(statsSortCombo, 2, 6);
         statsSortCombo.addActionListener(e -> {
             StatsItemSort sort = (StatsItemSort) statsSortCombo.getSelectedItem();
             if (sort != null) {
@@ -222,11 +207,7 @@ final class StatsPanelContentBuilder {
             }
         });
 
-        uiStyler.styleComboBox(statsFilterCombo);
-        statsFilterCombo.setBorder(uiStyler.roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
-        if (statsFilterCombo.getSelectedItem() == null) {
-            statsFilterCombo.setSelectedItem(StatsRecipeFilter.ALL);
-        }
+        uiStyler.styleComboBox(statsFilterCombo, 2, 6);
         statsFilterCombo.addActionListener(e -> {
             StatsRecipeFilter filter = (StatsRecipeFilter) statsFilterCombo.getSelectedItem();
             if (filter != null) {
@@ -239,30 +220,18 @@ final class StatsPanelContentBuilder {
         // size the flipping tab draws, so one control does not read as two.
         int markSize = uiStyler.sortMarkSize(SORT_DIRECTION_WIDTH);
         uiStyler.styleBareControl(statsSortDirectionButton);
-        uiStyler.matchFieldHeight(statsSortDirectionButton, statsSortCombo);
         uiStyler.sizeTrailingControl(statsSortDirectionButton, statsSortCombo, SORT_DIRECTION_WIDTH);
         statsSortDirectionButton.addActionListener(e -> {
             panelState.toggleStatsSortDirection();
-            updateStatsSortDirectionButton(statsSortDirectionButton,
-                panelState.statsSortAscending, markSize);
+            uiStyler.sortMark(statsSortDirectionButton, panelState.statsSortAscending, markSize);
         });
-        updateStatsSortDirectionButton(statsSortDirectionButton,
-            panelState.statsSortAscending, markSize);
+        uiStyler.sortMark(statsSortDirectionButton, panelState.statsSortAscending, markSize);
         sortGroup.add(statsSortCombo, BorderLayout.CENTER);
         sortGroup.add(statsSortDirectionButton, BorderLayout.EAST);
         row.add(sortGroup, BorderLayout.WEST);
         row.add(statsFilterCombo, BorderLayout.CENTER);
         wide(row, row.getPreferredSize().height);
         return row;
-    }
-
-    private void updateStatsSortDirectionButton(JButton statsSortDirectionButton,
-                                                boolean ascending,
-                                                int markSize) {
-        statsSortDirectionButton.setText(null);
-        statsSortDirectionButton.setIcon(new SortIcon(ascending, markSize));
-        statsSortDirectionButton.setForeground(ascending ? ACCENT : TEXT);
-        statsSortDirectionButton.setToolTipText(ascending ? "Sorted low to high" : "Sorted high to low");
     }
 
     /**
@@ -281,17 +250,8 @@ final class StatsPanelContentBuilder {
         // already invisible and there is nothing left to ask. The moment it
         // closed is the only evidence that the press was a close, not an open.
         long[] closedAtMs = {0L};
+        trigger.addMouseListener(new TabHoverAdapter(trigger, MUTED_2));
         trigger.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseEntered(MouseEvent event) {
-                trigger.setForeground(TEXT);
-            }
-
-            @Override
-            public void mouseExited(MouseEvent event) {
-                trigger.setForeground(MUTED_2);
-            }
-
             @Override
             public void mousePressed(MouseEvent event) {
                 if (System.currentTimeMillis() - closedAtMs[0] < 250L) {
@@ -316,14 +276,11 @@ final class StatsPanelContentBuilder {
                 menu.setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createLineBorder(LINE_STRONG),
                     BorderFactory.createEmptyBorder(2, 0, 2, 0)));
-                StatsRecipeFilter active = panelState.statsProfitFilter != null
-                    ? panelState.statsProfitFilter
-                    : StatsRecipeFilter.ALL;
                 for (StatsRecipeFilter filter : StatsRecipeFilter.values()) {
                     JMenuItem entry = new JMenuItem(filter.toString());
                     entry.setOpaque(true);
                     entry.setBackground(OVERLAY_BASE);
-                    entry.setForeground(filter == active ? ACCENT : TEXT);
+                    entry.setForeground(filter == panelState.statsProfitFilter ? ACCENT : TEXT);
                     entry.setFont(uiStyler.font(UiStyler.DROPDOWN_TEXT_SIZE));
                     entry.setBorder(BorderFactory.createEmptyBorder(3, 10, 3, 14));
                     entry.addChangeListener(e -> entry.setBackground(
@@ -338,16 +295,12 @@ final class StatsPanelContentBuilder {
 
     private JPanel buildSummaryCard(JLabel totalProfitValue,
                                     Object[][] rows) {
-        JPanel card = RoundedPanel.glass(CARD_ARC);
-        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-        card.setBorder(BorderFactory.createEmptyBorder(12, 14, 8, 14));
-        card.setAlignmentX(JPanel.LEFT_ALIGNMENT);
+        JPanel card = RoundedPanel.card(12, 14, 8, 14);
 
         JPanel answer = plain(new BorderLayout());
         answer.setAlignmentX(JPanel.LEFT_ALIGNMENT);
         // Sized to what it holds. The old fixed 46 cut the descenders off the
         // one number the whole tab exists to show.
-        wide(answer, Integer.MAX_VALUE);
 
         // No control of its own: the label is the control. A caret after the
         // words is enough to say there is something to open, and the card still
@@ -363,8 +316,7 @@ final class StatsPanelContentBuilder {
         labelView.setToolTipText("One kind of activity");
         installProfitFilterMenu(labelView);
 
-        totalProfitValue.setForeground(SUCCESS);
-        totalProfitValue.setFont(uiStyler.fontBold(20f));
+        styled(totalProfitValue, SUCCESS, uiStyler.fontBold(20f));
 
         JPanel labelRow = plain(new BorderLayout());
         labelRow.add(labelView, BorderLayout.WEST);
@@ -389,8 +341,7 @@ final class StatsPanelContentBuilder {
         JLabel labelView = styled(new TipLabel(label, SwingConstants.LEADING), MUTED, uiStyler.font(10.5f));
 
         valueView.setHorizontalAlignment(SwingConstants.RIGHT);
-        valueView.setForeground(valueColor);
-        valueView.setFont(uiStyler.fontSemiBold(12f));
+        styled(valueView, valueColor, uiStyler.fontSemiBold(12f));
 
         row.add(labelView, BorderLayout.WEST);
         row.add(valueView, BorderLayout.EAST);

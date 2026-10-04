@@ -43,7 +43,6 @@ public class Panel extends PluginPanel {
     private final JToggleButton statsTab = new JToggleButton("Profile");
     private final JToggleButton linkTab = new JToggleButton("Link");
     private final JTextField searchField = new PlaceholderTextField("GE search");
-    private final JLabel refreshLabel = new JLabel("Updated: --");
     private final JButton profileButton = new TipButton("Accountwide");
     private final JLabel pageLabel = new JLabel("Page 0 of 0");
     private final JButton prevButton = new TipButton("<");
@@ -51,15 +50,14 @@ public class Panel extends PluginPanel {
     private final JButton bookmarkFilterButton = new TipButton(BOOKMARK_GLYPH);
     private final JComboBox<StatsItemSort> itemSortCombo = new JComboBox<>(StatsItemSort.values());
     private final JButton itemSortDirectionButton = new TipButton();
-    private final JPanel listPanel = new TrackingPanel(SCROLL_UNIT_INCREMENT, SCROLL_BLOCK_INCREMENT);
+    private final JPanel listPanel = new TrackingPanel();
     private final JScrollPane scrollPane = new JScrollPane(listPanel);
     private final JComboBox<StatsRange> statsRangeCombo = new JComboBox<>(StatsRange.values());
     private final JComboBox<StatsItemSort> statsSortCombo = new JComboBox<>(StatsItemSort.values());
     private final JComboBox<StatsRecipeFilter> statsFilterCombo = new JComboBox<>(StatsRecipeFilter.values());
     private final JButton statsSortDirectionButton = new TipButton();
     private final JTextField statsSearchField = new PlaceholderTextField("Search items");
-    private final JLabel statsUpdatedLabel = new JLabel("Updated: --");
-    private final JPanel statsContentPanel = new TrackingPanel(SCROLL_UNIT_INCREMENT, SCROLL_BLOCK_INCREMENT);
+    private final JPanel statsContentPanel = new TrackingPanel();
     private final JPanel statsItemsListPanel = new JPanel();
     private Integer expandedStatsItemId;
     private final Set<Integer> expandedStatsHistoryItems = new HashSet<>();
@@ -76,24 +74,16 @@ public class Panel extends PluginPanel {
     private final StatsPanelBuilder statsPanelBuilder;
     private final StatsItemCardBuilder statsItemCardBuilder;
     private final ItemListContentRenderer itemListContentRenderer;
-    private final AccountPanelBuilder.BuildResult accountView;
+    private final AccountPanelBuilder accountView;
     // Filled in by the two tabs as they are built. The Profile tab asks for its summary while it
     // is still being built, before these exist, and StatsRender leaves a summary with no labels alone.
     private final JPanel footerPanel;
-    private final JScrollPane statsScrollPane;
-    private final JLabel statsTotalProfitValue;
-    private final JLabel statsRoiValue;
-    private final JLabel statsFlipsValue;
-    private final JLabel statsTaxValue;
-    private final JLabel statsSessionTimeValue;
-    private final JLabel statsHourlyValue;
 
     Panel(
         ItemManager itemManager,
         PanelListener listener,
         PanelBookmarkStore bookmarkStore,
-        PanelHiddenItemStore hiddenItemStore,
-        PluginConfig config
+        PanelHiddenItemStore hiddenItemStore
     ) {
         super(false);
         panelState = new PanelState(listener, this::renderItems, this::renderStatsItems, this::updateStatsSummary);
@@ -123,7 +113,7 @@ public class Panel extends PluginPanel {
         setBackground(BG);
         setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
 
-        JPanel backdrop = new BackdropPanel(BG, GRAD_GREEN, GRAD_BLUE);
+        JPanel backdrop = new BackdropPanel();
         backdrop.setLayout(new BorderLayout());
         // Two at the bottom, not twelve: the pager is meant to sit on the panel's edge.
         backdrop.setBorder(BorderFactory.createEmptyBorder(12, 12, 2, 12));
@@ -139,13 +129,13 @@ public class Panel extends PluginPanel {
 
         cardPanel.setOpaque(false);
         FlippingPanelBuilder.BuildResult flipping = flippingPanelBuilder.build(
-            searchField, bookmarkFilterButton, itemSortCombo, itemSortDirectionButton, refreshLabel,
-            profileButton, listPanel, scrollPane, prevButton, nextButton, pageLabel);
-        StatsPanelBuilder.BuildResult stats = statsPanelBuilder.build(
-            statsRangeCombo, statsSearchField, statsUpdatedLabel, statsContentPanel,
+            searchField, bookmarkFilterButton, itemSortCombo, itemSortDirectionButton,
+            listPanel, scrollPane, prevButton, nextButton, pageLabel);
+        JPanel stats = statsPanelBuilder.build(
+            statsRangeCombo, statsSearchField, statsContentPanel,
             statsItemsListPanel, statsSortCombo, statsFilterCombo, statsSortDirectionButton);
         cardPanel.add(flipping.panel, "flipping");
-        cardPanel.add(stats.panel, "stats");
+        cardPanel.add(stats, "stats");
 
         JPanel top = stack();
         top.add(header);
@@ -159,17 +149,10 @@ public class Panel extends PluginPanel {
         backdrop.add(cardPanel, BorderLayout.CENTER);
 
         footerPanel = flipping.footerPanel;
-        statsScrollPane = stats.scrollPane;
-        statsTotalProfitValue = stats.totalProfitValue;
-        statsRoiValue = stats.roiValue;
-        statsFlipsValue = stats.flipsValue;
-        statsTaxValue = stats.taxValue;
-        statsSessionTimeValue = stats.sessionTimeValue;
-        statsHourlyValue = stats.hourlyValue;
         // The account view shares none of the flipping/stats plumbing, so it goes straight onto
         // the card stack.
-        accountView = new AccountPanelBuilder(uiStyler, listener, externalLinkCoordinator).build();
-        cardPanel.add(accountView.panel, "account");
+        accountView = new AccountPanelBuilder(uiStyler, listener, externalLinkCoordinator);
+        cardPanel.add(accountView.build(), "account");
         addMouseWheelListener(wheelForwarder);
         cardPanel.addMouseWheelListener(wheelForwarder);
         wheelScrollCoordinator.installGlobalWheelListener();
@@ -203,7 +186,7 @@ public class Panel extends PluginPanel {
      */
     private JScrollPane activeStatsScrollPane() {
         JScrollPane recorder = statsPanelBuilder.openRecorderPane();
-        return recorder != null ? recorder : statsScrollPane;
+        return recorder != null ? recorder : statsPanelBuilder.content.scrollPane;
     }
 
     @Override
@@ -259,11 +242,10 @@ public class Panel extends PluginPanel {
 
     // Everything below that sets something is called off the Swing thread, so each hops onto it.
 
-    void setItems(List<FlipHubItem> items, int page, int totalPages, long asOfMs, Long priceCacheMs) {
+    void setItems(List<FlipHubItem> items, int page, int totalPages, long asOfMs) {
         SwingUtilities.invokeLater(() -> {
             panelState.lastItems = items;
             panelState.lastAsOfMs = asOfMs;
-            panelState.lastPriceCacheMs = priceCacheMs;
             panelState.currentPage = page;
             panelState.totalPages = Math.max(1, totalPages);
             // The page actually drawn, which is the requested one clamped to what exists. Leaving
@@ -282,8 +264,7 @@ public class Panel extends PluginPanel {
 
     void setStatsData(StatsSummary summary,
                       List<StatsItem> items,
-                      Map<Integer, List<StatsFlipInstance>> historyByItem,
-                      long asOfMs) {
+                      Map<Integer, List<StatsFlipInstance>> historyByItem) {
         SwingUtilities.invokeLater(() -> {
             StatsState.Result shown = statsStateCoordinator.normalize(
                 summary, items, historyByItem, expandedStatsItemId, expandedStatsHistoryItems);
@@ -291,9 +272,6 @@ public class Panel extends PluginPanel {
             panelState.statsItems = shown.statsItems;
             panelState.statsFlipHistoryByItem = shown.flipHistoryByItem;
             expandedStatsItemId = shown.expandedStatsItemId;
-            if (asOfMs > 0) {
-                statsUpdatedLabel.setText(refreshText(asOfMs, null));
-            }
             panelState.drawStats();
         });
     }
@@ -355,13 +333,12 @@ public class Panel extends PluginPanel {
         return statsTab.isSelected();
     }
 
-    void setOfferPreview(FlipHubItem item, long asOfMs, Long priceCacheMs) {
-        SwingUtilities.invokeLater(() -> panelState.setOfferPreview(item, asOfMs, priceCacheMs));
+    void setOfferPreview(FlipHubItem item, long asOfMs) {
+        SwingUtilities.invokeLater(() -> panelState.setOfferPreview(item, asOfMs));
     }
 
     void setAccountState(boolean linked, String keyHint, String message, Color messageColor) {
-        SwingUtilities.invokeLater(
-            () -> AccountPanelBuilder.applyState(accountView, linked, keyHint, message, messageColor));
+        SwingUtilities.invokeLater(() -> accountView.applyState(linked, keyHint, message, messageColor));
     }
 
     void setStatusMessage(String message) {
@@ -380,15 +357,6 @@ public class Panel extends PluginPanel {
         SwingUtilities.invokeLater(() -> profileMenuCoordinator.setProfileOptions(options, selectedKey));
     }
 
-    private static String refreshText(long asOfMs, Long priceCacheMs) {
-        String asOf = REFRESH_TIME_FORMATTER.format(Instant.ofEpochMilli(asOfMs));
-        if (priceCacheMs != null) {
-            String cache = REFRESH_TIME_FORMATTER.format(Instant.ofEpochMilli(priceCacheMs));
-            return "Updated: " + asOf + " (Prices: " + cache + ")";
-        }
-        return "Updated: " + asOf;
-    }
-
     private void renderItems() {
         FlipHubItem offer = panelState.offerPreviewItem;
         // The renderer answers whether it had to rebuild the panel or could write the new
@@ -396,11 +364,6 @@ public class Panel extends PluginPanel {
         // layout to run and no hover to put back - that is the whole point of asking.
         boolean rebuilt = itemListContentRenderer.renderList(listPanel, offer, panelState.offerAsOfMs,
             panelState.lastItems, panelState.lastAsOfMs, panelState.showBookmarkedOnly, panelState.searchQuery);
-        long refreshAsOf = panelState.lastAsOfMs > 0 ? panelState.lastAsOfMs : panelState.offerAsOfMs;
-        if (refreshAsOf > 0) {
-            refreshLabel.setText(refreshText(refreshAsOf,
-                panelState.lastPriceCacheMs != null ? panelState.lastPriceCacheMs : panelState.offerPriceCacheMs));
-        }
         // Null only while the constructor is still building the tabs.
         if (footerPanel != null) {
             footerPanel.setVisible(offer == null);
@@ -422,16 +385,15 @@ public class Panel extends PluginPanel {
         // exactly as it always has - no slice is computed at all.
         SiteFigures.View site = panelState.statsSite;
         StatsRender.StatsProfitSlice slice =
-            panelState.statsProfitFilter == null || panelState.statsProfitFilter == StatsRecipeFilter.ALL
+            panelState.statsProfitFilter == StatsRecipeFilter.ALL
                 ? null
                 // The website sends its figures split by kind; this computer adds its own flips up.
                 : site != null ? StatsRender.sliceKinds(site.answer, panelState.statsProfitFilter)
                 : StatsRender.sliceActivities(
                     panelState.statsFlipHistoryByItem, panelState.statsProfitFilter);
         statsRenderCoordinator.unanswered = unanswered();
-        statsRenderCoordinator.updateSummary(panelState.statsSummary, slice, valueFormatService,
-            statsTotalProfitValue, statsRoiValue, statsFlipsValue, statsTaxValue,
-            statsSessionTimeValue, statsHourlyValue);
+        statsRenderCoordinator.updateSummary(
+            panelState.statsSummary, slice, valueFormatService, statsPanelBuilder.content);
     }
 
     private void renderStatsItems() {

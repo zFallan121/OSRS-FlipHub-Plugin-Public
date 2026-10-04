@@ -54,27 +54,25 @@ final class ItemCardBuilder {
      * A row, built once. The values are written into it by {@link #applyValues} rather than baked
      * in here, so the same call fills a new row and refreshes an existing one.
      */
-    ItemCard buildItemCard(FlipHubItem item, long asOfMs, boolean compactRightPadding) {
-        JPanel card = RoundedPanel.glass(CARD_ARC);
-        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+    ItemCard buildItemCard(FlipHubItem item, long asOfMs) {
         // The same on every side. It used to be ten on the left and four on the right, which
         // put the block off centre inside its own card.
-        card.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        card.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JPanel card = RoundedPanel.card(10, 10, 10, 10);
 
         JPanel header = plain(new BorderLayout(7, 0));
 
         JLabel iconLabel = new JLabel();
-        iconLabel.setPreferredSize(new Dimension(32, 32));
+        Dimension tile = new Dimension(32, 32);
+        iconLabel.setPreferredSize(tile);
         if (itemIconResolver != null) {
             itemIconResolver.setItemIcon(iconLabel, item.item_id);
         }
 
         JLayeredPane iconLayer = new JLayeredPane();
         iconLayer.setLayout(null);
-        iconLayer.setPreferredSize(new Dimension(32, 32));
-        iconLayer.setMinimumSize(new Dimension(32, 32));
-        iconLayer.setMaximumSize(new Dimension(32, 32));
+        iconLayer.setPreferredSize(tile);
+        iconLayer.setMinimumSize(tile);
+        iconLayer.setMaximumSize(tile);
         iconLabel.setBounds(0, 0, 32, 32);
         iconLayer.add(iconLabel, JLayeredPane.DEFAULT_LAYER);
 
@@ -133,52 +131,34 @@ final class ItemCardBuilder {
 
         card.add(header);
         card.add(Box.createVerticalStrut(6));
-        int rightPadding = compactRightPadding ? OFFER_VALUE_RIGHT_PADDING : VALUE_RIGHT_PADDING;
         // Every row below is coloured by its own state and by nothing else: the label stays --muted
         // and the value carries the reading. A row with nothing to say stays on --text, which is
         // what keeps the ones that do say something worth looking at - your own last two trades
         // included, because a price you already paid is a fact rather than a state.
-        LineComponents instaSellLine = buildLineComponents("Sell price", "", TEXT, rightPadding);
-        LineComponents instaBuyLine = buildLineComponents("Buy price", "", TEXT, rightPadding);
-        LineComponents lastSellLine = buildLineComponents("Last sell price", "", TEXT, rightPadding);
-        LineComponents lastBuyLine = buildLineComponents("Last buy price", "", TEXT, rightPadding);
-        LineComponents marginLine = buildLineComponents("Margin", "", TEXT, rightPadding);
-        LineComponents marginLimitLine = buildLineComponents("Margin x limit", "", TEXT, rightPadding);
-        LineComponents roiLine = buildLineComponents("ROI", "", TEXT, rightPadding);
-        LineComponents limitLine = buildLineComponents("GE limit remaining", "", TEXT, rightPadding);
-        LineComponents resetLine = buildLineComponents("GE limit reset", "", MUTED_2, rightPadding);
         // One section, sunk into the card and set in from its left edge, so the card has a
         // front and a back instead of being a flat list. The heading above, with the picture
         // and the name, deliberately stays at full width.
         JPanel figures = stack();
-        for (LineComponents line : new LineComponents[]{
-            instaSellLine, instaBuyLine, lastSellLine, lastBuyLine,
-            marginLine, marginLimitLine, roiLine, limitLine, resetLine}) {
-            figures.add(line.row);
-        }
         // The values carry a right padding of their own, so the block gives them less, and the
         // text ends up the same distance from both edges.
-        card.add(CardSection.of(figures, Math.max(0, 6 - rightPadding)));
-
         ItemCard built = new ItemCard(
             card,
             item.item_id,
-            compactRightPadding,
             nameLabel,
-            instaSellLine.right,
-            instaBuyLine.right,
-            lastSellLine.right,
-            lastBuyLine.right,
-            marginLine.right,
-            marginLimitLine.right,
-            roiLine.right,
-            limitLine.right,
-            resetLine.right,
+            buildLine(figures, "Sell price"),
+            buildLine(figures, "Buy price"),
+            buildLine(figures, "Last sell price"),
+            buildLine(figures, "Last buy price"),
+            buildLine(figures, "Margin"),
+            buildLine(figures, "Margin x limit"),
+            buildLine(figures, "ROI"),
+            buildLine(figures, "GE limit remaining"),
+            buildLine(figures, "GE limit reset"),
             paintBookmark
         );
+        card.add(CardSection.of(figures, 6 - VALUE_RIGHT_PADDING));
         if (ageTooltipCoordinator != null) {
-            built.agePair = ageTooltipCoordinator.registerAgePair(
-                item.instabuy_ts_ms, item.instasell_ts_ms, instaBuyLine, instaSellLine);
+            built.agePair = ageTooltipCoordinator.registerAgePair(built.buyValue, built.sellValue);
         }
         applyValues(built, item, asOfMs);
 
@@ -319,19 +299,21 @@ final class ItemCardBuilder {
         return remainingMs != null && remainingMs > 0 ? WARNING : MUTED_2;
     }
 
-    private LineComponents buildLineComponents(String label, String value, Color valueColor, int rightPadding) {
+    private JLabel buildLine(JPanel figures, String label) {
         JPanel row = plain(new BorderLayout());
 
         // Centre, not west: the value keeps its corner and the label gives way, so a narrow
         // row shortens the wording instead of printing the two halves over each other.
         EllipsisLabel left = styled(new EllipsisLabel(label), MUTED, uiStyler.font(10.5f));
 
-        JLabel right = styled(new JLabel(value, SwingConstants.RIGHT), valueColor, uiStyler.fontSemiBold(12f));
-        right.setBorder(new EmptyBorder(0, 0, 0, rightPadding));
+        JLabel right = new JLabel("", SwingConstants.RIGHT);
+        right.setFont(uiStyler.fontSemiBold(12f));
+        right.setBorder(new EmptyBorder(0, 0, 0, VALUE_RIGHT_PADDING));
 
         row.add(left, BorderLayout.CENTER);
         row.add(right, BorderLayout.EAST);
-        return new LineComponents(row, left, right);
+        figures.add(row);
+        return right;
     }
 
     /**

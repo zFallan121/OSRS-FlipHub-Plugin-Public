@@ -115,14 +115,9 @@ final class AgeTooltip {
         updateCountdownEntry(entry, System.currentTimeMillis());
     }
 
-    AgePairEntry registerAgePair(Long buyTimestampMs, Long sellTimestampMs, LineComponents buyLine, LineComponents sellLine) {
-        long buyTs = buyTimestampMs != null ? buyTimestampMs : 0;
-        long sellTs = sellTimestampMs != null ? sellTimestampMs : 0;
-        JComponent[] components = new JComponent[] {
-            buyLine.right,
-            sellLine.right
-        };
-        AgePairEntry entry = new AgePairEntry(components, buyTs, sellTs);
+    AgePairEntry registerAgePair(JComponent buyValue, JComponent sellValue) {
+        JComponent[] components = new JComponent[] {buyValue, sellValue};
+        AgePairEntry entry = new AgePairEntry(components);
         ageEntries.add(entry);
         MouseAdapter hoverListener = new MouseAdapter() {
             @Override

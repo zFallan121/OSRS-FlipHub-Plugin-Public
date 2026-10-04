@@ -49,8 +49,6 @@ final class FlippingPanelBuilder {
         JButton bookmarkFilterButton,
         JComboBox<StatsItemSort> itemSortCombo,
         JButton itemSortDirectionButton,
-        JLabel refreshLabel,
-        JButton profileButton,
         JPanel listPanel,
         JScrollPane scrollPane,
         JButton prevButton,
@@ -71,7 +69,6 @@ final class FlippingPanelBuilder {
         bookmarkFilterButton.setFont(uiStyler.fontSymbol(BOOKMARK_GLYPH_SIZE));
         bookmarkFilterButton.setForeground(ACCENT);
         bookmarkFilterButton.setToolTipText("Show bookmarks only");
-        uiStyler.matchFieldHeight(bookmarkFilterButton, searchField);
         // Pinned rather than left to the glyph, so the sort row underneath can take the same
         // width and the two rows share a right edge instead of ending a few pixels apart.
         uiStyler.sizeTrailingControl(bookmarkFilterButton, searchField);
@@ -87,8 +84,6 @@ final class FlippingPanelBuilder {
         searchRow.add(searchField, BorderLayout.CENTER);
         searchRow.add(bookmarkFilterButton, BorderLayout.EAST);
 
-        refreshLabel.setForeground(MUTED_2);
-        refreshLabel.setFont(uiStyler.font(10.5f));
 
         JPanel top = stack();
         top.add(searchRow);
@@ -99,16 +94,7 @@ final class FlippingPanelBuilder {
         listPanel.setOpaque(false);
         listPanel.setLayout(new BoxLayout(listPanel, BoxLayout.Y_AXIS));
 
-        scrollPane.setBorder(BorderFactory.createEmptyBorder());
-        scrollPane.setOpaque(false);
-        scrollPane.getViewport().setOpaque(false);
-        // A transparent viewport over a painted backdrop cannot be blitted: the blit copies the
-        // old pixels and the washes smear down the column as the list scrolls. SIMPLE repaints
-        // the exposed strip from the backdrop up, which is the price of keeping the glow.
-        scrollPane.getViewport().setScrollMode(JViewport.SIMPLE_SCROLL_MODE);
-        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
-        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        scrollPane.setWheelScrollingEnabled(true);
+        uiStyler.styleScrollPane(scrollPane);
         scrollPane.addMouseWheelListener(wheelForwarder);
         scrollPane.getViewport().addMouseWheelListener(wheelForwarder);
         listPanel.addMouseWheelListener(wheelForwarder);
@@ -117,9 +103,6 @@ final class FlippingPanelBuilder {
         uiStyler.installClickToDefocus(listPanel);
         uiStyler.installClickToDefocus(scrollPane);
 
-        JScrollBar vBar = scrollPane.getVerticalScrollBar();
-        vBar.setUnitIncrement(SCROLL_UNIT_INCREMENT);
-        vBar.setBlockIncrement(SCROLL_BLOCK_INCREMENT);
 
         JPanel footerPanel = plain(new BorderLayout());
 
@@ -168,8 +151,7 @@ final class FlippingPanelBuilder {
 
         panelState.restoreItemSort();
 
-        uiStyler.styleComboBox(itemSortCombo);
-        itemSortCombo.setBorder(uiStyler.roundedBorder(INPUT_ARC, CONTROL_BORDER, new Insets(2, 6, 2, 6)));
+        uiStyler.styleComboBox(itemSortCombo, 2, 6);
         itemSortCombo.setSelectedItem(panelState.itemSort);
         itemSortCombo.addActionListener(e -> {
             StatsItemSort sort = (StatsItemSort) itemSortCombo.getSelectedItem();
@@ -183,27 +165,18 @@ final class FlippingPanelBuilder {
         // half a slot apart, and the mark is drawn at the star's own size for the same reason.
         int markSize = uiStyler.sortMarkSize(TRAILING_CONTROL_WIDTH);
         uiStyler.styleBareControl(itemSortDirectionButton);
-        uiStyler.matchFieldHeight(itemSortDirectionButton, itemSortCombo);
         uiStyler.sizeTrailingControl(itemSortDirectionButton, itemSortCombo);
         itemSortDirectionButton.addActionListener(e -> {
             boolean ascending = !panelState.itemSortAscending;
             panelState.setItemSort(panelState.itemSort, ascending);
-            updateSortDirectionButton(itemSortDirectionButton, ascending, markSize);
+            uiStyler.sortMark(itemSortDirectionButton, ascending, markSize);
         });
-        updateSortDirectionButton(itemSortDirectionButton,
-            panelState.itemSortAscending, markSize);
+        uiStyler.sortMark(itemSortDirectionButton, panelState.itemSortAscending, markSize);
 
         row.add(itemSortCombo, BorderLayout.CENTER);
         row.add(itemSortDirectionButton, BorderLayout.EAST);
         wide(row, row.getPreferredSize().height);
         return row;
-    }
-
-    private void updateSortDirectionButton(JButton button, boolean ascending, int markSize) {
-        button.setText(null);
-        button.setIcon(new SortIcon(ascending, markSize));
-        button.setForeground(ascending ? ACCENT : TEXT);
-        button.setToolTipText(ascending ? "Sorted low to high" : "Sorted high to low");
     }
 
     private void stylePagerButton(JButton button) {

@@ -26,8 +26,10 @@ package com.osrsfliphub;
 
 import java.util.*;
 import javax.inject.*;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 final class FlipHistory {
     private final ProfileSelectionPresentation profileSelectionPresentation;
     private final LocalTradesRuntime localTradesRuntime;
@@ -36,25 +38,6 @@ final class FlipHistory {
     private final ProfileStorage profileStorage;
     private final ProfileKeyCollector profileKeyCollector;
     private final PluginState state;
-
-    @Inject
-    FlipHistory(
-        PluginState state,
-        LocalFlipHistoryService localFlipHistoryService,
-        ProfileStorage profileStorage,
-        ProfileKeyCollector profileKeyCollector,
-        ProfileSelectionPresentation profileSelectionPresentation,
-        LocalTradesRuntime localTradesRuntime,
-        TradeSession tradeSession
-    ) {
-        this.profileSelectionPresentation = profileSelectionPresentation;
-        this.localTradesRuntime = localTradesRuntime;
-        this.tradeSession = tradeSession;
-        this.localFlipHistoryService = localFlipHistoryService;
-        this.profileStorage = profileStorage;
-        this.profileKeyCollector = profileKeyCollector;
-        this.state = state;
-    }
 
     private Set<Long> collectAccountwideProfileKeys() {
         return profileKeyCollector.collect(
@@ -70,51 +53,31 @@ final class FlipHistory {
         localTradesRuntime.ensureProfileLoaded(accountwideKey);
 
         Map<Integer, List<StatsFlipInstance>> merged = new HashMap<>();
-        Set<Long> profileKeys = collectAccountwideProfileKeys();
-        if (profileKeys != null && !profileKeys.isEmpty()) {
-            for (Long key : profileKeys) {
-                if (key == null || key <= 0 || key == accountwideKey) {
-                    continue;
-                }
-                localTradesRuntime.ensureProfileLoaded(key);
-                Map<Integer, List<StatsFlipInstance>> perProfile = localFlipHistoryService.buildHistory(
-                    (tradeSession.snapshotLocalTradeDeltas(key)),
-                    sinceMs,
-                    key
-                );
-                mergeHistory(merged, perProfile);
+        for (Long key : collectAccountwideProfileKeys()) {
+            if (key == null || key <= 0) {
+                continue;
             }
-            if (!merged.isEmpty()) {
-                sortHistory(merged);
-                return merged;
-            }
+            localTradesRuntime.ensureProfileLoaded(key);
+            mergeHistory(merged, localFlipHistoryService.buildHistory(
+                (tradeSession.snapshotLocalTradeDeltas(key)),
+                sinceMs,
+                key
+            ));
         }
-
-        Map<Integer, List<StatsFlipInstance>> accountwide = localFlipHistoryService.buildHistory(
-            (tradeSession.snapshotLocalTradeDeltas(accountwideKey)),
-            sinceMs,
-            accountwideKey
-        );
-        if (accountwide == null || accountwide.isEmpty()) {
-            return new HashMap<>();
+        if (merged.isEmpty()) {
+            merged = localFlipHistoryService.buildHistory(
+                (tradeSession.snapshotLocalTradeDeltas(accountwideKey)),
+                sinceMs,
+                accountwideKey
+            );
         }
-        sortHistory(accountwide);
-        return accountwide;
-    }
-
-    private void sortHistory(Map<Integer, List<StatsFlipInstance>> history) {
-        if (history == null || history.isEmpty()) {
-            return;
-        }
-        for (List<StatsFlipInstance> entries : history.values()) {
+        for (List<StatsFlipInstance> entries : merged.values()) {
             entries.sort(Comparator.comparingLong((StatsFlipInstance instance) -> instance.completionTsMs).reversed());
         }
+        return merged;
     }
 
     private void mergeHistory(Map<Integer, List<StatsFlipInstance>> target, Map<Integer, List<StatsFlipInstance>> source) {
-        if (target == null || source == null || source.isEmpty()) {
-            return;
-        }
         for (Map.Entry<Integer, List<StatsFlipInstance>> entry : source.entrySet()) {
             Integer itemId = entry.getKey();
             List<StatsFlipInstance> values = entry.getValue();

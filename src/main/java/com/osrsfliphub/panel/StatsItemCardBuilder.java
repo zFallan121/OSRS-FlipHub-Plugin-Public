@@ -82,14 +82,11 @@ final class StatsItemCardBuilder {
     }
 
     private List<StatsFlipInstance> getStatsFlipHistory(int itemId) {
-        if (panelState.statsFlipHistoryByItem == null) {
-            return new ArrayList<>();
-        }
         List<StatsFlipInstance> history = panelState.statsFlipHistoryByItem.get(itemId);
         if (history == null) {
             return new ArrayList<>();
         }
-        StatsRecipeFilter filter = activeFilter();
+        StatsRecipeFilter filter = panelState.statsRecipeFilter;
         if (filter == StatsRecipeFilter.ALL) {
             return history;
         }
@@ -136,12 +133,6 @@ final class StatsItemCardBuilder {
         return kinds.size() > MAX_TYPE_MARKS ? kinds.subList(0, MAX_TYPE_MARKS) : kinds;
     }
 
-    private StatsRecipeFilter activeFilter() {
-        return panelState.statsRecipeFilter != null
-            ? panelState.statsRecipeFilter
-            : StatsRecipeFilter.ALL;
-    }
-
     /**
      * The item as the filter leaves it: totals rebuilt from the activities still
      * on show, so the headline figure and the entries under it are the same
@@ -149,7 +140,7 @@ final class StatsItemCardBuilder {
      * it sends an item's totals whole, and the item is listed when any of its flips is of the kind.
      */
     StatsItem visibleItem(StatsItem item) {
-        if (item == null || activeFilter() == StatsRecipeFilter.ALL || panelState.statsSite != null) {
+        if (panelState.statsRecipeFilter == StatsRecipeFilter.ALL || panelState.statsSite != null) {
             return item;
         }
         List<StatsFlipInstance> visible = getStatsFlipHistory(item.item_id);
@@ -165,9 +156,6 @@ final class StatsItemCardBuilder {
         int flips = 0;
         long lastSellTs = 0L;
         for (StatsFlipInstance instance : visible) {
-            if (instance == null) {
-                continue;
-            }
             profit += instance.profitGp;
             cost += instance.buyCostGp;
             qty += Math.max(0, instance.quantity);
@@ -188,10 +176,7 @@ final class StatsItemCardBuilder {
     JPanel buildStatsItemCard(StatsItem sourceItem) {
         StatsItem item = visibleItem(sourceItem);
         boolean expanded = isStatsItemExpanded(item.item_id);
-        JPanel card = RoundedPanel.glass(CARD_ARC);
-        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-        card.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-        card.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JPanel card = RoundedPanel.card(8, 8, 8, 8);
         card.setCursor(HAND);
 
         String name = Str.hasText(item.item_name)
@@ -211,12 +196,12 @@ final class StatsItemCardBuilder {
         EllipsisLabel nameLabel = styled(new EllipsisLabel(name), TEXT, uiStyler.fontBold(12.5f));
 
         long profit = item.total_profit_gp != null ? item.total_profit_gp : 0;
-        JLabel profitLabel = new JLabel(valueFormatService.formatGpCompact(profit), SwingConstants.RIGHT);
-        profitLabel.setForeground(profit >= 0 ? SUCCESS : DANGER);
+        JLabel profitLabel = styled(
+            new JLabel(valueFormatService.formatGpCompact(profit), SwingConstants.RIGHT),
+            profit >= 0 ? SUCCESS : DANGER, uiStyler.fontNumeric(11.5f));
         // One point up from where it was, and tracked. This is the figure the card is read for
         // and the one that was losing its decimal point, but it must not grow to the size of
         // the item's own name above it, which leads.
-        profitLabel.setFont(uiStyler.fontNumeric(11.5f));
 
         EllipsisLabel metaLabel = styled(new EllipsisLabel(formattingService.buildStatsItemMetaShort(item)),
             MUTED_2, font(10f));
@@ -227,9 +212,7 @@ final class StatsItemCardBuilder {
         metaRow.add(metaLabel, BorderLayout.CENTER);
         metaRow.add(profitLabel, BorderLayout.EAST);
 
-        JLabel expandLabel = new JLabel(expanded ? "\u25B2" : "\u25BC", SwingConstants.RIGHT);
-        expandLabel.setForeground(MUTED_2);
-        expandLabel.setFont(font(10f));
+        JLabel expandLabel = chevron(expanded);
 
         // These ride on the name's line, which is what lets the line below it run all the way
         // to the card's edge and put the profit in the corner where it is looked for.
@@ -257,10 +240,7 @@ final class StatsItemCardBuilder {
         if (expanded) {
             card.add(Box.createVerticalStrut(6));
             card.add(buildStatsItemDetails(item));
-        }
-        if (expanded) {
-            Dimension preferred = card.getPreferredSize();
-            wide(card, preferred.height);
+            wide(card, card.getPreferredSize().height);
         } else {
             card.setPreferredSize(new Dimension(0, 56));
             wide(card, 56);
@@ -329,9 +309,6 @@ final class StatsItemCardBuilder {
         JPanel section = stack();
 
         List<StatsFlipInstance> history = getStatsFlipHistory(itemId);
-        if (history == null) {
-            history = new ArrayList<>();
-        }
         boolean expanded = isStatsHistoryExpanded(itemId);
         // The website sends one item's flips only when asked: asked for as the list is drawn
         // open, so it is asked for again once an answer has changed the item's row.
@@ -346,9 +323,7 @@ final class StatsItemCardBuilder {
         JLabel title = styled(
             new JLabel(site != null && history.isEmpty() ? "Flip history" : historySectionTitle(history)),
             MUTED, uiStyler.fontSemiBold(10f));
-        JLabel chevron = new JLabel(expanded ? "\u25B2" : "\u25BC", SwingConstants.RIGHT);
-        chevron.setForeground(MUTED_2);
-        chevron.setFont(font(10f));
+        JLabel chevron = chevron(expanded);
         header.add(title, BorderLayout.WEST);
         header.add(chevron, BorderLayout.EAST);
         section.add(header);
@@ -434,31 +409,26 @@ final class StatsItemCardBuilder {
         // profit goes last, where the eye lands after the two prices it comes from.
         JPanel topRow = plain(new BorderLayout(6, 0));
         JLabel flipLabel = styled(new JLabel(label), MUTED_2, font(9.5f));
-        JLabel qtyLabel = new JLabel("Qty: " + valueFormatService.formatNumber(instance.quantity),
-            SwingConstants.RIGHT);
-        qtyLabel.setForeground(MUTED_2);
-        qtyLabel.setFont(font(9.5f));
+        JLabel qtyLabel = styled(new JLabel("Qty: " + valueFormatService.formatNumber(instance.quantity),
+            SwingConstants.RIGHT), MUTED_2, font(9.5f));
         topRow.add(flipLabel, BorderLayout.WEST);
         topRow.add(qtyLabel, BorderLayout.EAST);
 
         JPanel pricesRow = plain(new BorderLayout(6, 0));
         wide(pricesRow, 14);
-        JLabel buyLabel = new JLabel("Buy: " + valueFormatService.formatGp(instance.buyPriceGp));
-        buyLabel.setForeground(TEXT);
-        buyLabel.setFont(font(9.5f));
-        JLabel sellLabel = new JLabel("Sell: " + valueFormatService.formatGp(instance.sellPriceGp), SwingConstants.RIGHT);
-        sellLabel.setForeground(TEXT);
-        sellLabel.setFont(font(9.5f));
+        JLabel buyLabel = styled(
+            new JLabel("Buy: " + valueFormatService.formatGp(instance.buyPriceGp)), TEXT, font(9.5f));
+        JLabel sellLabel = styled(
+            new JLabel("Sell: " + valueFormatService.formatGp(instance.sellPriceGp), SwingConstants.RIGHT),
+            TEXT, font(9.5f));
         pricesRow.add(buyLabel, BorderLayout.WEST);
         pricesRow.add(sellLabel, BorderLayout.EAST);
 
         JPanel profitRow = plain(new BorderLayout(6, 0));
         wide(profitRow, 16);
-        Color profitColor = instance.profitGp >= 0 ? SUCCESS : DANGER;
-        JLabel profitLabel = new JLabel("Profit: " + valueFormatService.formatGp(instance.profitGp),
-            SwingConstants.RIGHT);
-        profitLabel.setForeground(profitColor);
-        profitLabel.setFont(uiStyler.fontNumeric(10.5f));
+        JLabel profitLabel = styled(
+            new JLabel("Profit: " + valueFormatService.formatGp(instance.profitGp), SwingConstants.RIGHT),
+            instance.profitGp >= 0 ? SUCCESS : DANGER, uiStyler.fontNumeric(10.5f));
         profitRow.add(profitLabel, BorderLayout.EAST);
 
         entry.add(topRow);
@@ -525,9 +495,6 @@ final class StatsItemCardBuilder {
      * filed against the thing taken apart and lists what came out.
      */
     static String conversionHeading(ConversionKind kind) {
-        if (kind == null) {
-            return "Made from";
-        }
         switch (kind) {
             case DISASSEMBLE:
                 return "Disassembled into";
@@ -537,7 +504,6 @@ final class StatsItemCardBuilder {
                 return "Repaired from";
             case SET_COMBINE:
                 return "Combined from";
-            case ASSEMBLE:
             default:
                 return "Assembled from";
         }
@@ -550,9 +516,7 @@ final class StatsItemCardBuilder {
         // left and clips itself. Both used to be pinned to opposite edges, and a row too narrow
         // for the pair of them printed one on top of the other rather than shortening either.
         EllipsisLabel left = styled(new EllipsisLabel(label), MUTED, font(10f));
-        JLabel right = new JLabel(value != null ? value : "N/A", SwingConstants.RIGHT);
-        right.setForeground(valueColor != null ? valueColor : TEXT);
-        right.setFont(uiStyler.fontNumeric(10.5f));
+        JLabel right = styled(new JLabel(value, SwingConstants.RIGHT), valueColor, uiStyler.fontNumeric(10.5f));
         row.add(left, BorderLayout.CENTER);
         row.add(right, BorderLayout.EAST);
         return row;
@@ -560,6 +524,11 @@ final class StatsItemCardBuilder {
 
     private Font font(float size) {
         return uiStyler.font(size);
+    }
+
+    /** The mark that says a block opens, and which way it is at the moment. */
+    private JLabel chevron(boolean expanded) {
+        return styled(new JLabel(expanded ? "\u25B2" : "\u25BC", SwingConstants.RIGHT), MUTED_2, font(10f));
     }
 
     /** Type for a figure: see {@link UiStyler#uiStyler.fontNumeric(float)}. */

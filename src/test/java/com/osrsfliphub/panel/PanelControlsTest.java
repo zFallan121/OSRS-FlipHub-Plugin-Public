@@ -89,7 +89,7 @@ public class PanelControlsTest {
                 Class<?> r = m.getReturnType();
                 return r == boolean.class ? (Object) false : r == int.class ? (Object) 0 : null;
             });
-        onSwing(() -> panel = new Panel(null, listener, bookmarks, hidden, config));
+        onSwing(() -> panel = new Panel(null, listener, bookmarks, hidden));
         heard.clear();
     }
 
@@ -108,7 +108,7 @@ public class PanelControlsTest {
 
     @Test
     public void thePagerAsksForTheNeighbouringPagesOnlyWhenTheyExist() throws Exception {
-        panel.setItems(new ArrayList<>(), 2, 3, 1L, null);
+        panel.setItems(new ArrayList<>(), 2, 3, 1L);
         onSwing(() -> {
         });
         assertEquals("Page 2 of 3", this.<JLabel>field("pageLabel").getText());
@@ -117,7 +117,7 @@ public class PanelControlsTest {
         assertEquals(Arrays.asList("onPageChanged[1]", "onPageChanged[3]"), heard);
 
         heard.clear();
-        panel.setItems(new ArrayList<>(), 1, 1, 1L, null);
+        panel.setItems(new ArrayList<>(), 1, 1, 1L);
         onSwing(() -> {
         });
         assertFalse(this.<AbstractButton>field("prevButton").isEnabled());
