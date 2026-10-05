@@ -90,7 +90,8 @@ after GE tax, that margin times what is left of your buy limit, ROI, and how muc
 buy limit is left with a countdown to the reset.
 
 Search the whole Grand Exchange, not only the items you have already flipped, and sort the list by
-completion, profit or ROI, either way round. Click an item's name to open it on fliphubosrs.com.
+completion, profit or ROI, either way round. Click an item's name to open it on fliphubosrs.com, or
+right-click the name to copy it.
 
 ![The FlipHub Activity panel in the RuneLite sidebar, showing sell and buy price, last traded prices, margin, margin x limit, ROI and remaining GE buy limit](docs/panel-activity.png)
 
@@ -159,7 +160,16 @@ The line only shows when what you copied is part of a Grand Exchange item's name
 you have copied, a password or a message, never appears. The search box takes 25 characters, so a
 longer name goes in as its first 25, which still finds it.
 
-Turn it off with **Paste button in the GE search** in the plugin settings.
+Right-click an item's name in the FlipHub panel, on the Activity or the Profile tab, and it is
+copied for you, so a name goes from the panel to the search in two clicks.
+
+<img src="docs/panel-copy-name-tooltip.png" width="514" alt="Hovering Twisted bow on an Activity card, with the tooltip: Open Twisted bow on FlipHub. Right-click copies the name.">
+
+The name reads **Copied** for a moment, so you can see it worked.
+
+<img src="docs/panel-copy-name-copied.png" width="223" alt="The same card just after a right-click, its name replaced by the word Copied">
+
+Turn the Paste line off with **Paste button in the GE search** in the plugin settings.
 
 <img src="docs/divider.png" width="100%" alt="">
 
@@ -352,7 +362,8 @@ text in a chatbox prompt you opened yourself: a suggested price or quantity when
 item's name you copied when you click its Paste line in the item search, or an amount like `9.4m`
 turned into whole coins when you press Enter. You still pick every item and confirm every offer.
 To offer the Paste line the plugin reads the text you have copied, only while the item search is
-open. It is checked against item names on your computer and is never stored or sent anywhere.
+open. It is checked against item names on your computer and is never stored or sent anywhere. The
+only thing the plugin copies for you is an item's name, when you right-click it in the panel.
 Everything else it adds in game — the Merchant row and its guide, the level-up message, fireworks
 and dance, the offer timers and its chat messages — is drawn on your screen only. No RuneScape or
 Jagex credentials are requested, read, or transmitted.

@@ -194,6 +194,8 @@ final class StatsItemCardBuilder {
         // The name gets a row to itself: sharing one line with the profit left it barely half
         // the panel width, which is not enough for most item names to survive.
         EllipsisLabel nameLabel = styled(new EllipsisLabel(name), TEXT, uiStyler.fontBold(12.5f));
+        nameLabel.setToolTipText("Right-click copies the name.");
+        nameLabel.copyOnRightClick();
 
         long profit = item.total_profit_gp != null ? item.total_profit_gp : 0;
         JLabel profitLabel = styled(

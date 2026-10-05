@@ -88,6 +88,7 @@ final class ItemCardBuilder {
         if (externalLinkCoordinator != null) {
             externalLinkCoordinator.attachOpenItemPageHandler(nameLabel, item.item_id, resolvedName);
         }
+        nameLabel.copyOnRightClick();
 
         header.add(iconLayer, BorderLayout.WEST);
         header.add(nameLabel, BorderLayout.CENTER);

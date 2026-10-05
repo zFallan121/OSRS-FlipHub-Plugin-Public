@@ -468,11 +468,46 @@ final class PlaceholderTextField extends JTextField {
 
 final class EllipsisLabel extends TipLabel {
     private static final String ELLIPSIS = "...";
+    private static final int NOTICE_MS = 900;
+    // Swapped in tests, which must never touch the real clipboard.
+    static java.util.function.Consumer<String> clipboard = text -> Toolkit.getDefaultToolkit()
+        .getSystemClipboard().setContents(new java.awt.datatransfer.StringSelection(text), null);
     private String fullText = "";
+    private String notice;
 
     EllipsisLabel(String text) {
         super(null, LEADING);
         setText(text);
+    }
+
+    /**
+     * Makes a right-click copy the whole text, however much of it fits on screen. The label reads
+     * "Copied" for a moment; that word is kept apart from the text, so a refresh that writes the
+     * text again in that moment neither removes it nor gets copied in its place.
+     */
+    void copyOnRightClick() {
+        addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                if (!SwingUtilities.isRightMouseButton(e) || !contains(e.getPoint()) || fullText.isEmpty()) {
+                    return;
+                }
+                try {
+                    clipboard.accept(fullText);
+                } catch (IllegalStateException busy) {
+                    // Another program is holding the clipboard; nothing was copied.
+                    return;
+                }
+                notice = "Copied";
+                updateDisplayedText();
+                Timer back = new Timer(NOTICE_MS, done -> {
+                    notice = null;
+                    updateDisplayedText();
+                });
+                back.setRepeats(false);
+                back.start();
+            }
+        });
     }
 
     @Override
@@ -502,7 +537,7 @@ final class EllipsisLabel extends TipLabel {
             return;
         }
         int availableWidth = getAvailableWidth();
-        super.setText(clipText(fullText, availableWidth));
+        super.setText(notice != null ? notice : clipText(fullText, availableWidth));
     }
 
     private int getAvailableWidth() {
