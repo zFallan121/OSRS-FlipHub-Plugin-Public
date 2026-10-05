@@ -101,14 +101,15 @@ Search the whole Grand Exchange, not only the items you have already flipped, an
 completion, profit or ROI, either way round. Click an item's name to open it on fliphubosrs.com, or
 right-click the name to copy it.
 
-![The FlipHub Activity panel in the RuneLite sidebar, showing sell and buy price, last traded prices, margin, margin x limit, ROI and remaining GE buy limit](docs/panel-activity.png)
+<img src="docs/panel-activity.png" width="239" alt="The FlipHub Activity panel in the RuneLite sidebar, showing sell and buy price, last traded prices, margin, margin x limit, ROI and remaining GE buy limit"> <img src="docs/panel-price-age.png" width="239" alt="Three Grand Exchange items in the panel: one with a red sell price beside a white buy price, one with both prices amber, and prices in white on an item still trading"> <img src="docs/panel-price-age-tooltip.png" width="239" alt="A tooltip over the sell price reading &quot;Sell price age: 01:30:14&quot; in red and &quot;Buy price age: 00:06:54&quot; in white">
 
 <img src="docs/divider.png" width="100%" alt="">
 
 #### You can see how old a price is
 
 A live price is only ever the last trade someone made, and plenty of items go an hour between
-trades. So the two live prices are coloured by the age of the trade behind them:
+trades. So the two live prices are coloured by the age of the trade behind them, as in the second
+picture above:
 
 - **white** — traded within the last half hour
 - **amber** — nothing for 30 minutes, and going cold
@@ -117,11 +118,7 @@ trades. So the two live prices are coloured by the age of the trade behind them:
 Each side is judged on its own. An item that sells briskly but is bought rarely shows one of each,
 which is the whole point: it is the stale side that costs you.
 
-![Three Grand Exchange items in the panel: one with a red sell price beside a white buy price, one with both prices amber, and prices in white on an item still trading](docs/panel-price-age.png)
-
-Hover either price for the exact age of both.
-
-![A tooltip over the sell price reading "Sell price age: 01:30:14" in red and "Buy price age: 00:06:54" in white](docs/panel-price-age-tooltip.png)
+Hover either price for the exact age of both, as in the third picture.
 
 Your own offers get the same treatment in game. Each Grand Exchange slot carries an **offer
 timer**: the time since that offer last moved, in green under five minutes, yellow under thirty and
