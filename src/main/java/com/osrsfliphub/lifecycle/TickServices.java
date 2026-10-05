@@ -81,6 +81,7 @@ final class TickServices {
                 suggestionCycleService.update();
             }
         });
+        step("search paste", () -> Bridge.get(GeSearchPaste.class).tick());
         step("history sync", () -> {
             AutoSyncCoordinator autoSync =
                 Bridge.get(AutoSyncCoordinator.class);

@@ -39,6 +39,7 @@ final class ChatboxSuggestionWidgetFactory {
     private static final String PRICE_SUGGESTION_WIDGET_NAME = "FlipHub Current Price";
     private static final String LIMIT_SUGGESTION_WIDGET_NAME = "FlipHub Remaining Limit";
     private static final String AFFORDABLE_LIMIT_SUGGESTION_WIDGET_NAME = "FlipHub Affordable Limit";
+    private static final String PASTE_WIDGET_NAME = "FlipHub clipboard";
 
     private final int suggestionTextColor;
     private final int suggestionHoverTextColor;
@@ -64,26 +65,35 @@ final class ChatboxSuggestionWidgetFactory {
     Widget ensurePriceSuggestionWidget(Widget container, Widget currentWidget) {
         return ensureSuggestionWidget(container, currentWidget, priceSuggestionWidgetName,
             WidgetPositionMode.ABSOLUTE_LEFT, 10, 16, WidgetSizeMode.MINUS, WidgetTextAlignment.LEFT,
-            false, ChatboxSuggestionApply::applySuggestedPriceToChat);
+            false, () -> applySuggested(ChatboxSuggestionApply::applySuggestedPriceToChat));
     }
 
     Widget ensureLimitSuggestionWidget(Widget container, Widget currentWidget) {
         return ensureSuggestionWidget(container, currentWidget, limitSuggestionWidgetName,
             WidgetPositionMode.ABSOLUTE_LEFT, 10, 16, WidgetSizeMode.ABSOLUTE, WidgetTextAlignment.LEFT,
-            true, ChatboxSuggestionApply::applySuggestedLimitToChat);
+            true, () -> applySuggested(ChatboxSuggestionApply::applySuggestedLimitToChat));
     }
 
     Widget ensureAffordableLimitSuggestionWidget(Widget container, Widget currentWidget) {
         return ensureSuggestionWidget(container, currentWidget, affordableLimitSuggestionWidgetName,
             WidgetPositionMode.ABSOLUTE_RIGHT, suggestionRightX, suggestionRightWidthPadding,
             WidgetSizeMode.ABSOLUTE, WidgetTextAlignment.RIGHT,
-            true, ChatboxSuggestionApply::applySuggestedAffordableLimitToChat);
+            true, () -> applySuggested(ChatboxSuggestionApply::applySuggestedAffordableLimitToChat));
+    }
+
+    /** The Paste line of the item search: the top left corner, in the game's small font. */
+    Widget ensurePasteWidget(Widget container, Widget currentWidget, Runnable onClick) {
+        Widget widget = ensureSuggestionWidget(container, currentWidget, PASTE_WIDGET_NAME,
+            WidgetPositionMode.ABSOLUTE_LEFT, 4, 16, WidgetSizeMode.ABSOLUTE, WidgetTextAlignment.LEFT,
+            true, onClick);
+        widget.setFontId(FontID.PLAIN_11);
+        widget.setAction(0, "Paste");
+        return widget;
     }
 
     private Widget ensureSuggestionWidget(Widget container, Widget currentWidget, String name,
                                           int positionMode, int originalX, int originalWidth, int widthMode,
-                                          int textAlignment, boolean reapplyLayout,
-                                          Consumer<ChatboxSuggestionApply> onApply) {
+                                          int textAlignment, boolean reapplyLayout, Runnable onApply) {
         if (container == null) {
             return currentWidget;
         }
@@ -106,7 +116,7 @@ final class ChatboxSuggestionWidgetFactory {
             widget.setYTextAlignment(WidgetTextAlignment.CENTER);
             widget.setName(name);
             widget.setAction(0, "Select");
-            widget.setOnOpListener((JavaScriptCallback) ev -> applySuggested(onApply));
+            widget.setOnOpListener((JavaScriptCallback) ev -> onApply.run());
             widget.setHasListener(true);
             widget.revalidate();
         }

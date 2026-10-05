@@ -222,7 +222,7 @@ final class ChatboxSuggestionPresentation {
         lastSuggestedAffordableLimit = null;
     }
 
-    private boolean applySuggestionTextAndWidth(Widget suggestion, String text) {
+    static boolean applySuggestionTextAndWidth(Widget suggestion, String text) {
         if (suggestion == null) {
             return false;
         }

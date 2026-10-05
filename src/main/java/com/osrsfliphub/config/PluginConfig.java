@@ -182,6 +182,20 @@ public interface PluginConfig extends Config {
     }
 
     @ConfigItem(
+        keyName = "enableSearchPaste",
+        name = "Paste button in the GE search",
+        description = "When you have copied an item's name, shows it as a<br>"
+            + "Paste line in the top left of the Grand Exchange item<br>"
+            + "search. Click it to put the name in the search box,<br>"
+            + "then pick the item as usual. Only copied text that<br>"
+            + "names an item is shown, and it never leaves this<br>"
+            + "computer."
+    )
+    default boolean enableSearchPaste() {
+        return true;
+    }
+
+    @ConfigItem(
         keyName = "showMerchantSkill",
         name = "Show Merchant in the skills tab",
         description = "Adds Merchant to the game's own skills tab as a<br>"

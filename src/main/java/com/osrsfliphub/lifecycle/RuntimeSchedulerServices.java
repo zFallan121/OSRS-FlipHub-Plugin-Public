@@ -249,6 +249,7 @@ final class RuntimeSchedulerServices {
         presentation.clearPriceSuggestion();
         presentation.clearLimitSuggestion();
         presentation.clearAffordableLimitSuggestion();
+        Bridge.get(GeSearchPaste.class).hide();
         Bridge.get(RemainingLimitSuggestion.class).clearCache();
         ChatboxSuggestionRuntimeState runtimeState =
             Bridge.get(ChatboxSuggestionRuntimeState.class);

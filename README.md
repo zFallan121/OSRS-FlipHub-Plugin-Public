@@ -27,6 +27,7 @@ for your profit and what the next level takes. [More about Merchant](#merchant-s
   - [You can see how old a price is](#you-can-see-how-old-a-price-is)
   - [Bookmarks](#bookmarks)
   - [Grand Exchange suggestions](#grand-exchange-suggestions)
+  - [Paste an item's name](#paste-an-items-name)
   - [Decimal prices](#decimal-prices)
   - [Profile](#profile)
   - [Recipes](#recipes)
@@ -143,6 +144,22 @@ On a buy, the quantity prompt adds your remaining limit and how many the coins a
 in your inventory buy at the price you entered.
 
 ![The GE quantity prompt showing "Remaining GE limit: 3,000" and "Cash limit: 5,585"](docs/ge-suggestion-buy-limit.png)
+
+<img src="docs/divider.png" width="100%" alt="">
+
+#### Paste an item's name
+
+Copied an item's name from the website, the Wiki or Discord? Open a buy offer and it is waiting in
+the top left of the item search. Click it and the name goes into the search box, then pick the item
+from the list as usual.
+
+![The Grand Exchange item search headed "What would you like to buy?", with "Paste: Amulet of torture" in red in its top left corner](docs/ge-search-paste.png)
+
+The line only shows when what you copied is part of a Grand Exchange item's name, so anything else
+you have copied, a password or a message, never appears. The search box takes 25 characters, so a
+longer name goes in as its first 25, which still finds it.
+
+Turn it off with **Paste button in the GE search** in the plugin settings.
 
 <img src="docs/divider.png" width="100%" alt="">
 
@@ -331,8 +348,11 @@ uploads end immediately and the plugin returns to local-only.
 
 The plugin is local-first. It watches Grand Exchange events the client already exposes and performs
 no automation — it never clicks, moves, or trades for you. The only thing it writes into the game is
-text in a chatbox prompt you opened yourself: a suggested price or quantity when you click one, or
-an amount like `9.4m` turned into whole coins when you press Enter. You still confirm every offer.
+text in a chatbox prompt you opened yourself: a suggested price or quantity when you click one, an
+item's name you copied when you click its Paste line in the item search, or an amount like `9.4m`
+turned into whole coins when you press Enter. You still pick every item and confirm every offer.
+To offer the Paste line the plugin reads the text you have copied, only while the item search is
+open. It is checked against item names on your computer and is never stored or sent anywhere.
 Everything else it adds in game — the Merchant row and its guide, the level-up message, fireworks
 and dance, the offer timers and its chat messages — is drawn on your screen only. No RuneScape or
 Jagex credentials are requested, read, or transmitted.
