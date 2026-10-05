@@ -9,6 +9,14 @@ Track your Grand Exchange flips — margins, buy limits and live Wiki prices, ri
 Works entirely offline. Linking a [FlipHub](https://www.fliphubosrs.com) account is optional and
 **off by default**.
 
+## New: paste an item's name
+
+No more typing an item's name into the Grand Exchange. Copy it anywhere, or right-click it in
+the FlipHub panel, and it is waiting in the top left of the item search when you open a buy
+offer. One click puts it in the search box. [More about Paste](#paste-an-items-name)
+
+<img src="docs/ge-search-paste.png" width="520" alt="The Grand Exchange item search headed &quot;What would you like to buy?&quot;, with &quot;Paste: Amulet of torture&quot; in red in its top left corner">
+
 ## New: the Merchant skill
 
 Your flipping is now a skill. Merchant sits in the game's own skills tab, levelled by your lifetime
@@ -26,8 +34,8 @@ for your profit and what the next level takes. [More about Merchant](#merchant-s
   - [Activity panel](#activity-panel)
   - [You can see how old a price is](#you-can-see-how-old-a-price-is)
   - [Bookmarks](#bookmarks)
-  - [Grand Exchange suggestions](#grand-exchange-suggestions)
   - [Paste an item's name](#paste-an-items-name)
+  - [Grand Exchange suggestions](#grand-exchange-suggestions)
   - [Decimal prices](#decimal-prices)
   - [Profile](#profile)
   - [Recipes](#recipes)
@@ -132,22 +140,6 @@ again can be hidden from its icon.
 
 <img src="docs/divider.png" width="100%" alt="">
 
-#### Grand Exchange suggestions
-
-Setting up an offer puts the numbers you'd otherwise alt-tab for above the prompt. Click one to
-type it in.
-
-![The GE price prompt showing "Current Buy Price: 702 gp"](docs/ge-suggestion-buy-price.png)
-
-![The GE price prompt showing "Current Sell Price: 183,211 gp"](docs/ge-suggestion-sell-price.png)
-
-On a buy, the quantity prompt adds your remaining limit and how many the coins and platinum tokens
-in your inventory buy at the price you entered.
-
-![The GE quantity prompt showing "Remaining GE limit: 3,000" and "Cash limit: 5,585"](docs/ge-suggestion-buy-limit.png)
-
-<img src="docs/divider.png" width="100%" alt="">
-
 #### Paste an item's name
 
 Copied an item's name from the website, the Wiki or Discord? Open a buy offer and it is waiting in
@@ -161,15 +153,30 @@ you have copied, a password or a message, never appears. The search box takes 25
 longer name goes in as its first 25, which still finds it.
 
 Right-click an item's name in the FlipHub panel, on the Activity or the Profile tab, and it is
-copied for you, so a name goes from the panel to the search in two clicks.
+copied for you, so a name goes from the panel to the search in two clicks. The name reads
+**Copied** for a moment, so you can see it worked.
 
-<img src="docs/panel-copy-name-tooltip.png" width="514" alt="Hovering Twisted bow on an Activity card, with the tooltip: Open Twisted bow on FlipHub. Right-click copies the name.">
-
-The name reads **Copied** for a moment, so you can see it worked.
-
-<img src="docs/panel-copy-name-copied.png" width="223" alt="The same card just after a right-click, its name replaced by the word Copied">
+<img src="docs/panel-copy-name-tooltip.png" width="514" alt="Hovering Twisted bow on an Activity card, with the tooltip: Open Twisted bow on FlipHub. Right-click copies the name."> <img src="docs/panel-copy-name-copied.png" width="223" alt="The same card just after a right-click, its name replaced by the word Copied">
 
 Turn the Paste line off with **Paste button in the GE search** in the plugin settings.
+
+<img src="docs/setting-search-paste.png" width="232" alt="The Paste button in the GE search setting, ticked">
+
+<img src="docs/divider.png" width="100%" alt="">
+
+#### Grand Exchange suggestions
+
+Setting up an offer puts the numbers you'd otherwise alt-tab for above the prompt. Click one to
+type it in.
+
+![The GE price prompt showing "Current Buy Price: 702 gp"](docs/ge-suggestion-buy-price.png)
+
+![The GE price prompt showing "Current Sell Price: 183,211 gp"](docs/ge-suggestion-sell-price.png)
+
+On a buy, the quantity prompt adds your remaining limit and how many the coins and platinum tokens
+in your inventory buy at the price you entered.
+
+![The GE quantity prompt showing "Remaining GE limit: 3,000" and "Cash limit: 5,585"](docs/ge-suggestion-buy-limit.png)
 
 <img src="docs/divider.png" width="100%" alt="">
 
