@@ -40,6 +40,38 @@ tasks.withType(JavaCompile).configureEach {
 	options.release.set(11)
 }
 
+// RuneLite takes .runelite from user.home, and the plugin asking for its folder makes RuneLite move
+// .runelite/fliphub into .runelite/plugin-data. Tests get a home of the build's own, so none of them
+// can do that to the folder of whoever runs them (TestsRunInAHomeOfTheirOwnTest fails otherwise).
+test {
+	systemProperty 'user.home', layout.buildDirectory.dir('test-home').get().asFile.path
+}
+
+// -Phome=<folder> gives the development client a home of its own for the same reason: without it,
+// run, runDebug and runSafe use the real .runelite and move the real folder. So that it is never
+// moved by accident they refuse to start while that move is still to come, unless
+// -PmoveMyRealFolder says it is meant. Once the folder has moved they run as they always did.
+tasks.withType(JavaExec).configureEach {
+	def ownHome = project.hasProperty('home')
+	def moveIsMeant = project.hasProperty('moveMyRealFolder')
+	if (ownHome) {
+		systemProperty 'user.home', project.property('home')
+	}
+	// Looked at when the task runs, not when Gradle configures: the folder may have moved since.
+	doFirst { task ->
+		def runeLite = new File(System.getProperty('user.home'), '.runelite')
+		def oldFolder = new File(runeLite, 'fliphub')
+		def newFolder = new File(runeLite, 'plugin-data/osrs-fliphub')
+		if (!ownHome && !moveIsMeant && oldFolder.exists() && !newFolder.exists()) {
+			throw new GradleException("Not started: this client would move your real FlipHub folder.\n"
+				+ "${oldFolder} is there and ${newFolder} is not, and RuneLite renames the one to the other"
+				+ " the moment the plugin starts.\n"
+				+ "Give the client a home of its own:  gradlew ${task.name} -Phome=<folder>\n"
+				+ "Or, to have your real folder moved:  gradlew ${task.name} -PmoveMyRealFolder")
+		}
+	}
+}
+
 tasks.register('run', JavaExec) {
 	classpath = sourceSets.test.runtimeClasspath
 	mainClass = devClientMainClass

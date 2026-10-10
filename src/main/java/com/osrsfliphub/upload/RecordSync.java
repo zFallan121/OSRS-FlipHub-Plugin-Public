@@ -26,7 +26,6 @@ package com.osrsfliphub;
 
 import com.google.gson.Gson;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.util.*;
 import javax.inject.*;
 import lombok.RequiredArgsConstructor;
@@ -138,9 +137,7 @@ final class RecordSync {
         if (now >= nextReadMs) {
             // Every character's file on this computer, the logged-in one's or not.
             nextReadMs = now + SETTLE_MS;
-            for (Path dir : new Path[] {storage.getProfilesDir(), storage.getLegacyProfilesDir()}) {
-                ProfileHashFileWalker.walk(dir, (key, file) -> tradesRuntime.ensureProfileLoaded(key));
-            }
+            ProfileHashFileWalker.walk(storage.getProfilesDir(), (key, file) -> tradesRuntime.ensureProfileLoaded(key));
         }
         List<GeEvent> batch = unconfirmed(Const.ACCOUNTWIDE_KEY, true);
         boolean left = batch.removeIf(event -> sent.contains(event.event_id));

@@ -26,32 +26,25 @@ package com.osrsfliphub;
 
 import com.google.gson.Gson;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import net.runelite.client.util.Filepath;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 public class ProfileCatalogServiceTest {
     @Test
-    public void loadProfilesMergesDevLegacyAndConfigSources() throws Exception {
-        withTemporaryHome(() -> {
+    public void loadProfilesMergesTheFilesAndTheNamesAlreadyKnown() throws Exception {
+        withTemporaryFolder(folder -> {
             Gson gson = new Gson();
-            Path runeliteDir = Path.of(System.getProperty("user.home"), ".runelite");
-            ProfileStore profileStore = new ProfileStore(gson, "fliphub-dev", "fliphub", runeliteDir);
+            ProfileStore profileStore = Folders.store(gson, folder);
             ProfileCatalog service = new ProfileCatalog(profileStore);
 
-            Path devDir = profileStore.getProfilesDir();
-            Path legacyDir = profileStore.getLegacyProfilesDir();
-            assertTrue(devDir != null && legacyDir != null);
-
-            writeProfile(gson, devDir.resolve("hash_111.json"), 111L, "Main Profile");
-            writeProfile(gson, devDir.resolve("hash_222.json"), 222L, null);
-            writeProfile(gson, legacyDir.resolve("hash_333.json"), 333L, "Legacy File");
+            writeProfile(gson, profileStore.getProfileFile(111L, Const.ACCOUNTWIDE_KEY), 111L, "Main Profile");
+            writeProfile(gson, profileStore.getProfileFile(222L, Const.ACCOUNTWIDE_KEY), 222L, null);
 
             Map<Long, String> displayNames = new HashMap<>();
             displayNames.put(555L, "Existing");
@@ -60,24 +53,20 @@ public class ProfileCatalogServiceTest {
 
             assertEquals("Main Profile", profiles.get(111L));
             assertEquals("Profile 222", profiles.get(222L));
-            assertEquals("Legacy File", profiles.get(333L));
             assertEquals("Existing", profiles.get(555L));
+            assertEquals(3, profiles.size());
         });
     }
 
     @Test
     public void persistedPlaceholderNamesNeverOverwriteRealDisplayNames() throws Exception {
-        withTemporaryHome(() -> {
+        withTemporaryFolder(folder -> {
             Gson gson = new Gson();
-            Path runeliteDir = Path.of(System.getProperty("user.home"), ".runelite");
-            ProfileStore profileStore = new ProfileStore(gson, "fliphub-dev", "fliphub", runeliteDir);
+            ProfileStore profileStore = Folders.store(gson, folder);
             ProfileCatalog service = new ProfileCatalog(profileStore);
 
-            Path devDir = profileStore.getProfilesDir();
-            assertTrue(devDir != null);
-
             // Older builds baked the placeholder into displayName on disk.
-            writeProfile(gson, devDir.resolve("hash_444.json"), 444L, "Profile 444");
+            writeProfile(gson, profileStore.getProfileFile(444L, Const.ACCOUNTWIDE_KEY), 444L, "Profile 444");
 
             Map<Long, String> displayNames = new HashMap<>();
             displayNames.put(444L, "Sips Potion");
@@ -89,30 +78,33 @@ public class ProfileCatalogServiceTest {
         });
     }
 
-    private static void writeProfile(Gson gson, Path file, long hash, String displayName) throws IOException {
+    /** A player with no folder yet has no characters to list, and listing them is not an error. */
+    @Test
+    public void aPlayerWithNoFolderYetHasNothingToList() throws Exception {
+        withTemporaryFolder(parent -> {
+            ProfileCatalog service = new ProfileCatalog(Folders.store(parent.resolve("osrs-fliphub")));
+
+            assertEquals(new HashMap<Long, String>(), service.loadProfiles(new HashMap<>()));
+            assertEquals(new HashMap<Long, String>(), service.listed(new HashMap<>()));
+        });
+    }
+
+    private static void writeProfile(Gson gson, Filepath file, long hash, String displayName) throws IOException {
         ProfileData data = new ProfileData();
         data.accountHash = hash;
         data.displayName = displayName;
         data.updatedMs = System.currentTimeMillis();
         data.deltas = java.util.Collections.emptyList();
-        Files.createDirectories(file.getParent());
-        Files.writeString(file, gson.toJson(data), StandardCharsets.UTF_8);
+        Folders.write(file, gson.toJson(data));
     }
 
-    private static void withTemporaryHome(ThrowingRunnable runnable) throws Exception {
-        String previousHome = System.getProperty("user.home");
-        Path tempHome = Files.createTempDirectory("profile-catalog-test-home");
+    /** The player's plugin folder, as RuneLite hands it over. */
+    private static void withTemporaryFolder(ThrowingConsumer runnable) throws Exception {
+        Path folder = Files.createTempDirectory("profile-catalog-test");
         try {
-            Files.createDirectories(tempHome.resolve(".runelite"));
-            System.setProperty("user.home", tempHome.toString());
-            runnable.run();
+            runnable.run(folder);
         } finally {
-            if (previousHome != null) {
-                System.setProperty("user.home", previousHome);
-            } else {
-                System.clearProperty("user.home");
-            }
-            deleteRecursively(tempHome);
+            deleteRecursively(folder);
         }
     }
 
@@ -131,7 +123,7 @@ public class ProfileCatalogServiceTest {
     }
 
     @FunctionalInterface
-    private interface ThrowingRunnable {
-        void run() throws Exception;
+    private interface ThrowingConsumer {
+        void run(Path folder) throws Exception;
     }
 }

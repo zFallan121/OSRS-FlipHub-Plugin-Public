@@ -24,10 +24,10 @@
  */
 package com.osrsfliphub;
 
-import java.nio.file.Path;
 import java.util.*;
 import javax.inject.*;
 import lombok.RequiredArgsConstructor;
+import net.runelite.client.util.Filepath;
 
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
@@ -82,7 +82,7 @@ final class ProfileTradesLoader {
             return null;
         }
         long fileMs = 0L;
-        Path file = storage.getProfileFile(accountHash);
+        Filepath file = storage.getProfileFile(accountHash);
         if (file != null) {
             fileMs = Access.plugin().getProfileFileModifiedMs(file);
         }

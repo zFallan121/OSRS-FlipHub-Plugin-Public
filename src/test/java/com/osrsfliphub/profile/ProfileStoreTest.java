@@ -28,13 +28,13 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import net.runelite.client.util.Filepath;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -48,7 +48,7 @@ public class ProfileStoreTest {
     public void writeProfileDataRoundTripsAndLeavesNoTemporaryFileBehind() throws Exception {
         Path baseDir = Files.createTempDirectory("profile-store-write");
         try {
-            ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
+            ProfileStore store = Folders.store(baseDir);
             List<Delta> deltas = new ArrayList<>();
             deltas.add(new Delta(1000L, 1, 4151, true, 5, 500L, "OFFER_UPDATED", 100, false));
 
@@ -60,7 +60,7 @@ public class ProfileStoreTest {
             assertEquals(1, read.deltas.size());
             assertEquals(4151, read.deltas.get(0).itemId);
             try (java.util.stream.Stream<Path> files =
-                     Files.list(baseDir.resolve("fliphub").resolve("profiles"))) {
+                     Files.list(baseDir.resolve("profiles"))) {
                 assertFalse(files.anyMatch(path -> path.getFileName().toString().endsWith(".tmp")));
             }
         } finally {
@@ -76,11 +76,11 @@ public class ProfileStoreTest {
     public void aCorruptProfileFileIsDistinguishableFromAMissingOne() throws Exception {
         Path baseDir = Files.createTempDirectory("profile-store-corrupt");
         try {
-            ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
-            Path file = store.getProfileFile(123L, 0L);
+            ProfileStore store = Folders.store(baseDir);
+            Filepath file = store.getProfileFile(123L, 0L);
             assertEquals(0L, store.getProfileFileModifiedMs(file));
 
-            Files.writeString(file, "{\"deltas\":[{\"itemId\"", StandardCharsets.UTF_8);
+            Folders.write(file, "{\"deltas\":[{\"itemId\"");
 
             assertNull(store.readProfileData(file));
             assertTrue(store.getProfileFileModifiedMs(file) > 0);
@@ -91,31 +91,31 @@ public class ProfileStoreTest {
 
     @Test
     public void parseAccountKeyFromProfileFileParsesValidHashFile() {
-        ProfileStore store = new ProfileStore(new Gson(), "fliphub-dev", "fliphub");
+        ProfileStore store = new ProfileStore(new Gson(), () -> null);
 
-        long parsed = store.parseAccountKeyFromProfileFile(Path.of("hash_123.json"));
+        long parsed = store.parseAccountKeyFromProfileFile(Folders.named("hash_123.json"));
 
         assertEquals(123L, parsed);
     }
 
     @Test
     public void parseAccountKeyFromProfileFileRejectsInvalidFiles() {
-        ProfileStore store = new ProfileStore(new Gson(), "fliphub-dev", "fliphub");
+        ProfileStore store = new ProfileStore(new Gson(), () -> null);
 
         assertEquals(-1L, store.parseAccountKeyFromProfileFile(null));
-        assertEquals(-1L, store.parseAccountKeyFromProfileFile(Path.of("accountwide.json")));
-        assertEquals(-1L, store.parseAccountKeyFromProfileFile(Path.of("hash_invalid.json")));
-        assertEquals(-1L, store.parseAccountKeyFromProfileFile(Path.of("hash_0.json")));
-        assertEquals(-1L, store.parseAccountKeyFromProfileFile(Path.of("profile_123.json")));
+        assertEquals(-1L, store.parseAccountKeyFromProfileFile(Folders.named("accountwide.json")));
+        assertEquals(-1L, store.parseAccountKeyFromProfileFile(Folders.named("hash_invalid.json")));
+        assertEquals(-1L, store.parseAccountKeyFromProfileFile(Folders.named("hash_0.json")));
+        assertEquals(-1L, store.parseAccountKeyFromProfileFile(Folders.named("profile_123.json")));
     }
 
     @Test
     public void readProfileDataReturnsNullForInvalidJson() throws Exception {
         Path baseDir = Files.createTempDirectory("profile-store-invalid-json");
         try {
-            Path file = baseDir.resolve("hash_123.json");
-            Files.writeString(file, "{not valid json", StandardCharsets.UTF_8);
-            ProfileStore store = new ProfileStore(new Gson(), "fliphub-dev", "fliphub");
+            Filepath file = Folders.rooted(baseDir).joinSegment("hash_123.json");
+            Folders.write(file, "{not valid json");
+            ProfileStore store = new ProfileStore(new Gson(), () -> null);
 
             ProfileData data = store.readProfileData(file);
 
@@ -135,22 +135,22 @@ public class ProfileStoreTest {
         Path baseDir = Files.createTempDirectory("profile-store-newer");
         try {
             Gson gson = new Gson();
-            ProfileStore store = new ProfileStore(gson, "fliphub", "fliphub-dev", baseDir);
-            Path file = store.getProfileFile(123L, 0L);
+            ProfileStore store = Folders.store(gson, baseDir);
+            Filepath file = store.getProfileFile(123L, 0L);
             String future = "{\"kind\":\"SOME_FUTURE_KIND\",\"name\":\"a future record\","
                 + "\"inputs\":[{\"trade\":{\"tsMs\":1000,\"slot\":1,\"itemId\":4151},\"quantity\":5,\"gp\":500,\"futurePart\":7}],"
                 + "\"feeGp\":0,\"recordedMs\":9000,\"toAccount\":456,\"futureField\":\"keep me\"}";
-            Files.writeString(file, "{\"accountHash\":123,\"displayName\":\"Zezima\",\"deltas\":["
+            Folders.write(file, "{\"accountHash\":123,\"displayName\":\"Zezima\",\"deltas\":["
                 + "{\"tsClientMs\":1000,\"slot\":1,\"itemId\":4151,\"isBuy\":true,\"deltaQty\":5,\"deltaGp\":500,"
                 + "\"eventType\":\"OFFER_COMPLETED\",\"price\":100,\"baselineSynthetic\":false}],"
-                + "\"updatedMs\":1,\"recipeFlips\":[" + future + "],\"futureMember\":{\"a\":1}}", StandardCharsets.UTF_8);
+                + "\"updatedMs\":1,\"recipeFlips\":[" + future + "],\"futureMember\":{\"a\":1}}");
 
             ProfileData read = store.readProfileData(file);
             RecipeFlipStore records = new RecipeFlipStore();
             records.replace(123L, read.recipeFlips);
             store.writeProfileData(123L, 0L, read.displayName, read.deltas, records.snapshotForFile(123L));
 
-            JsonObject saved = new JsonParser().parse(Files.readString(file, StandardCharsets.UTF_8)).getAsJsonObject();
+            JsonObject saved = new JsonParser().parse(Folders.read(file)).getAsJsonObject();
             assertEquals(new JsonParser().parse(future), saved.getAsJsonArray("recipeFlips").get(0));
             assertEquals(new JsonParser().parse("{\"a\":1}"), saved.get("futureMember"));
             assertEquals(1, saved.getAsJsonArray("deltas").size());
@@ -172,16 +172,16 @@ public class ProfileStoreTest {
     public void aFileHoldingAnUnknownMemberOfNullStillReadsAfterASave() throws Exception {
         Path baseDir = Files.createTempDirectory("profile-store-null-member");
         try {
-            ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
-            Path file = store.getProfileFile(123L, 0L);
-            Files.writeString(file, "{\"accountHash\":123,\"displayName\":\"Zezima\",\"deltas\":[" + ONE_TRADE + "],"
-                + "\"updatedMs\":1,\"futureMember\":null}", StandardCharsets.UTF_8);
+            ProfileStore store = Folders.store(baseDir);
+            Filepath file = store.getProfileFile(123L, 0L);
+            Folders.write(file, "{\"accountHash\":123,\"displayName\":\"Zezima\",\"deltas\":[" + ONE_TRADE + "],"
+                + "\"updatedMs\":1,\"futureMember\":null}");
 
             ProfileData read = store.readProfileData(file);
             store.writeProfileData(123L, 0L, read.displayName, read.deltas, null);
 
             ProfileData again = store.readProfileData(file);
-            assertNotNull("the file as saved: " + Files.readString(file, StandardCharsets.UTF_8), again);
+            assertNotNull("the file as saved: " + Folders.read(file), again);
             assertEquals(1, again.deltas.size());
         } finally {
             deleteRecursively(baseDir);
@@ -196,16 +196,16 @@ public class ProfileStoreTest {
     public void aFileWithACommentInItStillKeepsWhatANewerVersionSaved() throws Exception {
         Path baseDir = Files.createTempDirectory("profile-store-lenient");
         try {
-            ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
-            Path file = store.getProfileFile(123L, 0L);
-            Files.writeString(file, "{\"accountHash\":123, /* edited by hand */ \"deltas\":[" + ONE_TRADE + "],"
-                + "\"updatedMs\":1,\"futureMember\":{\"a\":1}}", StandardCharsets.UTF_8);
+            ProfileStore store = Folders.store(baseDir);
+            Filepath file = store.getProfileFile(123L, 0L);
+            Folders.write(file, "{\"accountHash\":123, /* edited by hand */ \"deltas\":[" + ONE_TRADE + "],"
+                + "\"updatedMs\":1,\"futureMember\":{\"a\":1}}");
 
             ProfileData read = store.readProfileData(file);
             assertNotNull(read);
             store.writeProfileData(123L, 0L, read.displayName, read.deltas, null);
 
-            JsonObject saved = new JsonParser().parse(Files.readString(file, StandardCharsets.UTF_8)).getAsJsonObject();
+            JsonObject saved = new JsonParser().parse(Folders.read(file)).getAsJsonObject();
             assertEquals(new JsonParser().parse("{\"a\":1}"), saved.get("futureMember"));
         } finally {
             deleteRecursively(baseDir);
@@ -217,7 +217,7 @@ public class ProfileStoreTest {
     public void twoMovesOfOnePurchaseToTwoAltsBothSurviveASave() throws Exception {
         Path baseDir = Files.createTempDirectory("profile-store-two-moves");
         try {
-            ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
+            ProfileStore store = Folders.store(baseDir);
             Delta bought = new Delta(1_000L, 1, 385, true, 10, 8_000L, "OFFER_COMPLETED", 800, false);
             RecipeFlip toFirstAlt = new RecipeFlip(ConversionKind.TRANSFER, "Shark to A",
                 new ArrayList<>(List.of(new RecipeFlip.Part(TradeKey.of(bought), 4, 3_200L))), null, 0L, 5_000L, 456L, null);
@@ -242,7 +242,7 @@ public class ProfileStoreTest {
     public void aRecordMadeSinceIsWrittenByThisBuildAndOneForgottenIsNotBroughtBack() throws Exception {
         Path baseDir = Files.createTempDirectory("profile-store-records");
         try {
-            ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
+            ProfileStore store = Folders.store(baseDir);
             Delta bought = new Delta(1_000L, 1, 385, true, 10, 8_000L, "OFFER_COMPLETED", 800, false);
             RecipeFlip kept = move(bought, 1_000L);
             RecipeFlip forgotten = move(bought, 2_000L);

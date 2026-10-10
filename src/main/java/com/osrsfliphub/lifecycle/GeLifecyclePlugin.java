@@ -26,9 +26,9 @@ package com.osrsfliphub;
 
 import com.google.gson.Gson;
 import com.google.inject.*;
-import java.nio.file.Path;
 import java.util.concurrent.*;
 import javax.inject.Inject;
+import javax.swing.Timer;
 import net.runelite.api.*;
 import net.runelite.api.events.*;
 import net.runelite.api.widgets.*;
@@ -41,12 +41,17 @@ import net.runelite.client.input.KeyManager;
 import net.runelite.client.plugins.*;
 import net.runelite.client.ui.*;
 import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.client.util.Filepath;
 import okhttp3.OkHttpClient;
 import org.slf4j.*;
 import static com.osrsfliphub.Const.*;
 
 @PluginDescriptor(
     name = "FlipHub OSRS",
+    // The folder RuneLite keeps for the plugin, .runelite/plugin-data/osrs-fliphub, and the one
+    // every build before this kept for itself, .runelite/fliphub, which RuneLite renames to it.
+    internalName = "osrs-fliphub",
+    legacyDataDirectory = "fliphub",
     description = "Track Grand Exchange flips locally (offer history, margins, buy limits, wiki prices). "
         + "Optionally link a FlipHub account to sync flips to the fliphubosrs.com dashboard.",
     configName = FliphubConfigGroups.CONFIG_GROUP,
@@ -89,6 +94,30 @@ public class GeLifecyclePlugin extends Plugin {
 
     /** Batches the closing drain will try before giving up, so the client is never held long. */
     private static final int SHUTDOWN_FLUSH_MAX_BATCHES = 10;
+    private static final String CLOSE_OTHER_WINDOWS = "FlipHub: close your other RuneLite windows to finish"
+        + " its update. Nothing is recorded in this window until then.";
+
+    /**
+     * Asks RuneLite for the plugin's folder. RuneLite answers by renaming the old folder to the new
+     * place first, and throws when it cannot: another RuneLite window is using the old one.
+     */
+    Callable<Filepath> folderSource = this::getPluginDirectory;
+    /** FlipHub's start, run once the folder is there. */
+    Runnable start = () -> PluginLifecycle.startUp(this);
+    /** How long before RuneLite is asked again for a folder it could not hand over. */
+    long folderRetryMs = 2_000L;
+    /** Where the trade files are kept, or null until RuneLite has handed it over. */
+    volatile Filepath folder;
+    /**
+     * Set while RuneLite cannot hand the folder over. Until it can FlipHub is as good as switched
+     * off: with nowhere to read the player's history from, anything it recorded would in the end
+     * be saved over that history.
+     */
+    private volatile boolean waitingForFolder;
+    /** Asks again while {@link #waitingForFolder}, on the thread RuneLite starts plugins on. */
+    private volatile Timer folderRetry;
+    /** Whether this login has been told why nothing is recorded: once is enough. */
+    private volatile boolean toldToCloseWindows;
 
     ApiClient apiClient;
     final PanelBootstrap panelBootstrapService = new PanelBootstrap();
@@ -147,26 +176,123 @@ public class GeLifecyclePlugin extends Plugin {
     protected void startUp() {
         Bridge.set(getInjector());
         Access.set(this);
-        PluginLifecycle.startUp(this);
+        // One still asking from a start before this one would start FlipHub a second time.
+        stopAskingForFolder();
+        if (folderReady()) {
+            start.run();
+            waitingForFolder = false;
+            return;
+        }
+        waitingForFolder = true;
+        toldToCloseWindows = false;
+        Timer retry = new Timer((int) folderRetryMs, tick -> {
+            // Only the one that ends the asking starts FlipHub: a tick already on its way when the
+            // plugin was switched off, or the client closed, starts nothing.
+            if (folderReady() && stopAskingForFolder()) {
+                startAfterWaiting();
+            }
+        });
+        folderRetry = retry;
+        retry.start();
+        tellPlayerToCloseOtherWindows();
+    }
+
+    /**
+     * The handlers stay shut until the start has returned, as RuneLite itself sends a plugin
+     * nothing before its startUp has. A fill handled part way through would be recorded with no
+     * scheduler to save it on, and the start would then clear the slot position it had just set.
+     * A start that throws leaves them shut for good, as RuneLite leaves such a plugin unregistered.
+     */
+    private void startAfterWaiting() {
+        try {
+            start.run();
+        } catch (RuntimeException ex) {
+            // RuneLite reports a start that threw only when the call was its own.
+            log.error("FlipHub: unable to start", ex);
+            return;
+        }
+        waitingForFolder = false;
     }
 
     @Override
     protected void shutDown() {
+        if (waitingForFolder) {
+            // Nothing was started, so there is nothing to stop or to save.
+            stopAskingForFolder();
+            waitingForFolder = false;
+            return;
+        }
         PluginLifecycle.shutDown(this);
+    }
+
+    /**
+     * Whether RuneLite handed the folder over. A refusal is "not yet", and never "this player has
+     * no history": the history is whole in the old folder, where this build does not look.
+     */
+    private boolean folderReady() {
+        try {
+            Filepath given = folderSource.call();
+            folder = given;
+            return given != null;
+        } catch (Exception ex) {
+            if (!waitingForFolder) {
+                log.warn("FlipHub: RuneLite could not move the plugin's folder, so nothing is recorded"
+                    + " until it can. Another RuneLite window is probably using it.", ex);
+            }
+            return false;
+        }
+    }
+
+    /** @return whether it was still asking. */
+    private synchronized boolean stopAskingForFolder() {
+        Timer retry = folderRetry;
+        folderRetry = null;
+        if (retry != null) {
+            retry.stop();
+        }
+        return retry != null;
+    }
+
+    /** One line in the chat for each login while it waits, written on the game thread. */
+    private void tellPlayerToCloseOtherWindows() {
+        invokeOnClientThread(() -> {
+            // Only while it is still asking: once the folder is there, closing a window changes
+            // nothing, whether FlipHub is part way through its start or the start threw.
+            if (waitingForFolder && folderRetry != null && !toldToCloseWindows && Access.loggedIn(client)) {
+                toldToCloseWindows = true;
+                runtimeUtilityServices.pushGameMessage(client, CLOSE_OTHER_WINDOWS);
+            }
+        });
     }
 
     @Subscribe
     public void onConfigChanged(ConfigChanged event) {
+        if (waitingForFolder) {
+            return;
+        }
         Bridge.get(ConfigChangedHandler.class).handle(event);
     }
 
     @Subscribe
     public void onGameStateChanged(GameStateChanged event) {
+        if (waitingForFolder) {
+            // LOGGED_IN comes again after every loading screen and world hop; only a login from
+            // the login screen is told.
+            if (event.getGameState() == GameState.LOGIN_SCREEN) {
+                toldToCloseWindows = false;
+            } else if (event.getGameState() == GameState.LOGGED_IN) {
+                tellPlayerToCloseOtherWindows();
+            }
+            return;
+        }
         Bridge.get(GameStateChangedHandler.class).handle(event.getGameState());
     }
 
     @Subscribe
     public void onGrandExchangeOfferChanged(GrandExchangeOfferChanged event) {
+        if (waitingForFolder) {
+            return;
+        }
         Bridge.get(GrandExchangeOfferChangedHandler.class).handle(event);
     }
 
@@ -177,6 +303,12 @@ public class GeLifecyclePlugin extends Plugin {
      */
     @Subscribe
     public void onClientShutdown(ClientShutdown event) {
+        if (waitingForFolder) {
+            // Nothing was recorded, so nothing is unsaved. It goes on waiting, without asking, so
+            // that whatever the game still reports on its way out is not recorded either.
+            stopAskingForFolder();
+            return;
+        }
         ExecutorService activeIoExecutor = ioExecutor;
         UploadEventDispatch dispatch =
             Bridge.get(UploadEventDispatch.class);
@@ -222,12 +354,18 @@ public class GeLifecyclePlugin extends Plugin {
 
     @Subscribe
     public void onPostClientTick(PostClientTick event) {
+        if (waitingForFolder) {
+            return;
+        }
         panelVisible = Bridge.get(TickServices.class).handlePostClientTick(panelVisible);
         // local profile loads are handled on login/selection
     }
 
     @Subscribe
     public void onScriptPostFired(ScriptPostFired event) {
+        if (waitingForFolder) {
+            return;
+        }
         int scriptId = event.getScriptId();
         if (scriptId == ScriptID.CHAT_TEXT_INPUT_REBUILD ||
             scriptId == ScriptID.CHAT_PROMPT_INIT ||
@@ -238,12 +376,15 @@ public class GeLifecyclePlugin extends Plugin {
 
     @Subscribe
     public void onMenuOptionClicked(MenuOptionClicked event) {
+        if (waitingForFolder) {
+            return;
+        }
         Bridge.get(SkillTab.class).clicked(event);
     }
 
     @Subscribe
     public void onVarClientIntChanged(VarClientIntChanged event) {
-        if (event.getIndex() != VarClientInt.INPUT_TYPE) {
+        if (waitingForFolder || event.getIndex() != VarClientInt.INPUT_TYPE) {
             return;
         }
         // Fallback trigger for GE chatbox prompts when specific chat scripts do not fire on some client builds.
@@ -308,7 +449,7 @@ public class GeLifecyclePlugin extends Plugin {
         return Bridge.get(PanelRefresh.class);
     }
 
-    long getProfileFileModifiedMs(Path file) {
+    long getProfileFileModifiedMs(Filepath file) {
         return Bridge.get(ProfileStore.class).getProfileFileModifiedMs(file);
     }
 

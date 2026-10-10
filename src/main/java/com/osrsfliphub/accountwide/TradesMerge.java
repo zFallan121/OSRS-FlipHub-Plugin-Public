@@ -24,10 +24,10 @@
  */
 package com.osrsfliphub;
 
-import java.nio.file.Path;
 import java.util.*;
 import javax.inject.*;
 import lombok.RequiredArgsConstructor;
+import net.runelite.client.util.Filepath;
 
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
@@ -38,7 +38,6 @@ final class TradesMerge {
         List<Delta> merged = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         mergeAccountwideFromDir(merged, seen, profileStorage.getProfilesDir());
-        mergeAccountwideFromDir(merged, seen, profileStorage.getLegacyProfilesDir());
         if (merged.isEmpty()) {
             return null;
         }
@@ -46,7 +45,7 @@ final class TradesMerge {
         return merged;
     }
 
-    private void mergeAccountwideFromDir(List<Delta> merged, Set<String> seen, Path dir) {
+    private void mergeAccountwideFromDir(List<Delta> merged, Set<String> seen, Filepath dir) {
         ProfileHashFileWalker.walk(dir, (profileHash, path) -> {
             ProfileData data = profileStorage.readProfileData(path);
             if (data == null || data.deltas == null || data.deltas.isEmpty()) {

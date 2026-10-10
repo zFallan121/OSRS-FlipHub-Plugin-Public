@@ -24,15 +24,19 @@
  */
 package com.osrsfliphub;
 
-import java.io.IOException;
-import java.nio.file.*;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import net.runelite.client.util.Filepath;
 
-@Slf4j
+/**
+ * Notices what another RuneLite window saved, by looking at the trade files every two seconds.
+ *
+ * <p>It used to be told at once as well, by a thread of its own waiting on the folder. While
+ * anything waits on a folder Windows will not let it be renamed, and a rename is how RuneLite
+ * moves a plugin's folder.
+ */
 @RequiredArgsConstructor
 final class ProfileWatcher {
     private static final long SCAN_INTERVAL_MS = 2_000L;
@@ -41,33 +45,9 @@ final class ProfileWatcher {
     private final long debounceMs;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final Map<Long, ScheduledFuture<?>> pendingReloads = new ConcurrentHashMap<>();
-    private final Map<WatchKey, Path> watchRoots = new ConcurrentHashMap<>();
-    private volatile WatchService watchService;
-    private volatile Thread watchThread;
     private volatile ScheduledFuture<?> scanTask;
 
-    private Path getProfilesDir() {
-        ProfileStorage service = Bridge.get(ProfileStorage.class);
-        return service != null ? service.getProfilesDir() : null;
-    }
-
-    private Path getLegacyProfilesDir() {
-        ProfileStorage service = Bridge.get(ProfileStorage.class);
-        return service != null ? service.getLegacyProfilesDir() : null;
-    }
-
-    private long parseAccountKey(Path file) {
-        if (file != null) {
-            Path fileName = file.getFileName();
-            if (fileName != null && "accountwide.json".equalsIgnoreCase(fileName.toString())) {
-                return Const.ACCOUNTWIDE_KEY;
-            }
-        }
-        ProfileStore store = Bridge.get(ProfileStore.class);
-        return store != null ? store.parseAccountKeyFromProfileFile(file) : -1L;
-    }
-
-    private long getProfileFileModifiedMs(Path file) {
+    private long getProfileFileModifiedMs(Filepath file) {
         ProfileStore store = Bridge.get(ProfileStore.class);
         return store != null ? store.getProfileFileModifiedMs(file) : 0L;
     }
@@ -88,46 +68,14 @@ final class ProfileWatcher {
     }
 
     void start() {
-        if (running.get()) {
+        if (!running.compareAndSet(false, true)) {
             return;
         }
-        Path profilesDir = getProfilesDir();
-        Path legacyDir = getLegacyProfilesDir();
-        if (profilesDir == null && legacyDir == null) {
-            return;
-        }
-        try {
-            watchService = FileSystems.getDefault().newWatchService();
-            int registered = 0;
-            if (profilesDir != null && Files.exists(profilesDir)) {
-                registerDir(profilesDir);
-                registered++;
-            }
-            if (legacyDir != null && Files.exists(legacyDir)) {
-                registerDir(legacyDir);
-                registered++;
-            }
-            if (registered == 0) {
-                closeWatchService();
-                return;
-            }
-        } catch (IOException ignored) {
-            closeWatchService();
-            return;
-        }
-        running.set(true);
-        watchThread = new Thread(this::runLoop, "fliphub-profile-watch");
-        watchThread.setDaemon(true);
-        watchThread.start();
         startPeriodicScan();
     }
 
     void stop() {
         running.set(false);
-        // Closing the watch service unblocks the watch thread's take() with a
-        // ClosedWatchServiceException; interrupting threads is not allowed.
-        closeWatchService();
-        watchThread = null;
         ScheduledFuture<?> task = scanTask;
         if (task != null) {
             task.cancel(false);
@@ -139,46 +87,9 @@ final class ProfileWatcher {
             }
         }
         pendingReloads.clear();
-        watchRoots.clear();
     }
 
-    private void runLoop() {
-        while (running.get()) {
-            WatchService service = watchService;
-            if (service == null) {
-                return;
-            }
-            WatchKey key;
-            try {
-                key = service.take();
-            } catch (InterruptedException | RuntimeException ex) {
-                // ClosedWatchServiceException lands here when stop() closes the service.
-                return;
-            }
-            Path root = watchRoots.get(key);
-            if (root != null) {
-                for (WatchEvent<?> event : key.pollEvents()) {
-                    if (event == null || event.kind() == StandardWatchEventKinds.OVERFLOW) {
-                        continue;
-                    }
-                    Object context = event.context();
-                    if (!(context instanceof Path)) {
-                        continue;
-                    }
-                    Path file = root.resolve((Path) context);
-                    long accountKey = parseAccountKey(file);
-                    if (accountKey >= 0) {
-                        scheduleReload(accountKey, file, true);
-                    }
-                }
-            }
-            if (!key.reset()) {
-                watchRoots.remove(key);
-            }
-        }
-    }
-
-    private void scheduleReload(long accountKey, Path file, boolean allowEqualTimestamp) {
+    private void scheduleReload(long accountKey, Filepath file) {
         if (scheduler == null || accountKey < 0) {
             return;
         }
@@ -190,11 +101,8 @@ final class ProfileWatcher {
             return;
         }
         Long loadedMs = getLoadedProfileFileMs(accountKey);
-        if (fileMs > 0 && loadedMs != null) {
-            // Watch events can arrive with equal-millisecond mtimes; allow those.
-            if (allowEqualTimestamp ? fileMs < loadedMs : fileMs <= loadedMs) {
-                return;
-            }
+        if (fileMs > 0 && loadedMs != null && fileMs <= loadedMs) {
+            return;
         }
         if (fileMs <= 0) {
             return;
@@ -208,19 +116,6 @@ final class ProfileWatcher {
             Access.plugin().getProfileWorkflowService().reloadProfileFromDisk(accountKey);
         }, debounceMs, TimeUnit.MILLISECONDS);
         pendingReloads.put(accountKey, future);
-    }
-
-    private void registerDir(Path dir) throws IOException {
-        WatchService service = watchService;
-        if (service == null) {
-            return;
-        }
-        WatchKey key = dir.register(
-            service,
-            StandardWatchEventKinds.ENTRY_CREATE,
-            StandardWatchEventKinds.ENTRY_MODIFY
-        );
-        watchRoots.put(key, dir);
     }
 
     private void startPeriodicScan() {
@@ -239,41 +134,13 @@ final class ProfileWatcher {
         if (!running.get()) {
             return;
         }
-        scanDirectory(getProfilesDir());
-        scanDirectory(getLegacyProfilesDir());
-    }
-
-    private void scanDirectory(Path dir) {
-        if (dir == null || !Files.exists(dir)) {
+        ProfileStorage storage = Bridge.get(ProfileStorage.class);
+        Filepath dir = storage != null ? storage.getProfilesDir() : null;
+        if (dir == null) {
             return;
         }
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, "*.json")) {
-            for (Path file : stream) {
-                if (file == null) {
-                    continue;
-                }
-                long accountKey = parseAccountKey(file);
-                if (accountKey < 0) {
-                    continue;
-                }
-                scheduleReload(accountKey, file, false);
-            }
-        } catch (IOException ex) {
-            log.warn("FlipHub: could not look for changed profiles in {}", dir, ex);
-        }
-    }
-
-    private void closeWatchService() {
-        WatchService service = watchService;
-        if (service == null) {
-            return;
-        }
-        try {
-            service.close();
-        } catch (IOException ignored) {
-            // Closing on the way out; nothing is left waiting on it.
-        } finally {
-            watchService = null;
-        }
+        // The pool every character's trades are merged into, then each character's own file.
+        scheduleReload(Const.ACCOUNTWIDE_KEY, dir.joinSegment("accountwide.json"));
+        ProfileHashFileWalker.walk(dir, this::scheduleReload);
     }
 }

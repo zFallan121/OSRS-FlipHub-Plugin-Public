@@ -45,7 +45,7 @@ public class ProfileHashFileWalkerTest {
 
             List<Long> visitedHashes = new ArrayList<>();
             List<String> visitedNames = new ArrayList<>();
-            ProfileHashFileWalker.walk(baseDir, (hash, path) -> {
+            ProfileHashFileWalker.walk(Folders.rooted(baseDir), (hash, path) -> {
                 visitedHashes.add(hash);
                 visitedNames.add(path.getFileName().toString());
             });
@@ -62,14 +62,15 @@ public class ProfileHashFileWalkerTest {
     @Test
     public void walkNoOpsForMissingDirectoryOrNullVisitor() throws Exception {
         AtomicInteger visits = new AtomicInteger();
-        Path missingDir = Path.of("C:\\__fliphub_missing_profile_hash_walker__");
-        ProfileHashFileWalker.walk(missingDir, (hash, path) -> visits.incrementAndGet());
-        assertEquals(0, visits.get());
-
         Path baseDir = Files.createTempDirectory("profile-hash-walker-null-visitor");
         try {
+            ProfileHashFileWalker.walk(Folders.rooted(baseDir.resolve("missing")),
+                (hash, path) -> visits.incrementAndGet());
+            ProfileHashFileWalker.walk(null, (hash, path) -> visits.incrementAndGet());
+            assertEquals(0, visits.get());
+
             Files.writeString(baseDir.resolve("hash_123.json"), "{}");
-            ProfileHashFileWalker.walk(baseDir, null);
+            ProfileHashFileWalker.walk(Folders.rooted(baseDir), null);
             assertEquals(0, visits.get());
         } finally {
             deleteRecursively(baseDir);

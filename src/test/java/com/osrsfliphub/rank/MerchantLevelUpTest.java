@@ -128,7 +128,7 @@ public class MerchantLevelUpTest {
                 bind(ConfigManager.class).toInstance(plugin.configManager);
                 bind(ItemManager.class).toInstance(unbuilt(ItemManager.class));
                 // Built without a RuneLite folder, so nothing on this computer is read or written.
-                bind(ProfileStore.class).toInstance(unbuilt(ProfileStore.class));
+                bind(ProfileStore.class).toInstance(new ProfileStore(new Gson(), () -> null));
                 bind(WipeStateStore.class).toProvider(Providers.of(null));
             }
         });

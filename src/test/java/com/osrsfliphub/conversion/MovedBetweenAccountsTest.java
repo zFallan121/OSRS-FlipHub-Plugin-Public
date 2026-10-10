@@ -594,15 +594,14 @@ public class MovedBetweenAccountsTest {
         java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("moved-then-wiped");
         RecipeFlipStore store = new RecipeFlipStore();
         store.add(MAIN, move(BOUGHT, 1000, ALT, 9_000L));
-        ProfileStore files = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", dir);
+        ProfileStore files = Folders.store(dir);
         Bridge.set(com.google.inject.Guice.createInjector(binder -> {
             binder.bind(ProfileStore.class).toInstance(files);
             binder.bind(RecipeFlipStore.class).toInstance(store);
+            binder.bind(Gson.class).toInstance(new Gson());
         }));
         try {
-            PluginState state = new PluginState();
-            assertTrue(new ProfileWipeDataService(state, new Gson(), new ProfileStorage(state), store)
-                .clearProfileDataForWipe(ALT, "Alt"));
+            assertTrue(Bridge.get(ProfileWipeDataService.class).clearProfileDataForWipe(ALT, "Alt"));
         } finally {
             Bridge.set(null);
         }

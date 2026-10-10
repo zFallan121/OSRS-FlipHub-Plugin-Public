@@ -36,6 +36,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import net.runelite.client.util.Filepath;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -69,7 +70,7 @@ public class ProfileWriteDurabilityTest {
     public void writersRacingTheSameProfileNeverPublishAHalfWrittenFile() throws Exception {
         Path baseDir = Files.createTempDirectory("profile-store-race");
         try {
-            ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
+            ProfileStore store = Folders.store(baseDir);
             int[] sizes = {1, 400, 7, 900};
             AtomicReference<Throwable> thrown = new AtomicReference<>();
 
@@ -131,14 +132,13 @@ public class ProfileWriteDurabilityTest {
     public void aFileThatWillNotParseIsNotSavedOverByTheNextTrade() throws Exception {
         Path baseDir = Files.createTempDirectory("profile-store-unreadable");
         try {
-            ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
+            ProfileStore store = Folders.store(baseDir);
             PluginState state = new PluginState();
             RecipeFlipStore recipes = new RecipeFlipStore();
             bindTheGame(store, state, recipes);
-            Path file = store.getProfileFile(ACCOUNT, ACCOUNTWIDE);
-            Files.createDirectories(file.getParent());
+            Filepath file = store.getProfileFile(ACCOUNT, ACCOUNTWIDE);
             String broken = "{\"deltas\":[{\"itemId\"";
-            Files.writeString(file, broken, java.nio.charset.StandardCharsets.UTF_8);
+            Folders.write(file, broken);
 
             Access.set(new GeLifecyclePlugin());
             assertFalse(Bridge.get(ProfileTradesLoad.class).load(ACCOUNT, false));
@@ -149,8 +149,7 @@ public class ProfileWriteDurabilityTest {
             runtime.persistLocalTrades(ACCOUNT);
             runtime.flushUnsavedProfiles();
 
-            assertEquals("the file is as the player left it", broken,
-                Files.readString(file, java.nio.charset.StandardCharsets.UTF_8));
+            assertEquals("the file is as the player left it", broken, Folders.read(file));
 
             // Repaired by hand and read again, it is the plugin's to save once more.
             store.writeProfileData(ACCOUNT, ACCOUNTWIDE, "Mended", trades(3));
@@ -158,8 +157,7 @@ public class ProfileWriteDurabilityTest {
             assertFalse(state.getUnreadableProfiles().contains(ACCOUNT));
             state.getUnreadableProfiles().add(ACCOUNT);
 
-            assertTrue(new ProfileWipeDataService(state, new Gson(), new ProfileStorage(state), recipes)
-                .clearProfileDataForWipe(ACCOUNT, "Wiped"));
+            assertTrue(Bridge.get(ProfileWipeDataService.class).clearProfileDataForWipe(ACCOUNT, "Wiped"));
             assertNotNull("a wipe was asked for, and it writes", store.readProfileData(ACCOUNT, ACCOUNTWIDE));
         } finally {
             Access.set(null);
@@ -176,7 +174,7 @@ public class ProfileWriteDurabilityTest {
     public void anotherCharactersFileIsReadForStatsButOnlyItsOwnClientWritesIt() throws Exception {
         Path baseDir = Files.createTempDirectory("profile-store-other-character");
         try {
-            ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
+            ProfileStore store = Folders.store(baseDir);
             PluginState state = new PluginState();
             RecipeFlipStore recipes = new RecipeFlipStore();
             bindTheGame(store, state, recipes);
@@ -188,20 +186,18 @@ public class ProfileWriteDurabilityTest {
                 Bridge.get(LocalStatsCacheService.class), Bridge.get(ItemLookup.class), runtime);
             String asWritten = "{\"accountHash\": %d, \"deltas\": [{\"tsClientMs\":1000,\"slot\":1,\"itemId\":4151,"
                 + "\"isBuy\":true,\"deltaQty\":5,\"deltaGp\":500,\"eventType\":\"OFFER_COMPLETED\",\"price\":100}]}";
-            Path other = store.getProfileFile(OTHER, ACCOUNTWIDE);
-            Path own = store.getProfileFile(ACCOUNT, ACCOUNTWIDE);
-            Files.createDirectories(other.getParent());
-            Files.writeString(other, String.format(asWritten, OTHER), java.nio.charset.StandardCharsets.UTF_8);
-            Files.writeString(own, String.format(asWritten, ACCOUNT), java.nio.charset.StandardCharsets.UTF_8);
+            Filepath other = store.getProfileFile(OTHER, ACCOUNTWIDE);
+            Filepath own = store.getProfileFile(ACCOUNT, ACCOUNTWIDE);
+            Folders.write(other, String.format(asWritten, OTHER));
+            Folders.write(own, String.format(asWritten, ACCOUNT));
 
             runtime.ensureProfileLoaded(OTHER);
             new TradesLoad(null, runtime).ensureLocalTradesLoaded(ACCOUNT);
 
             assertEquals(1, state.getLocalTradeDeltasByAccount().get(OTHER).size());
-            assertEquals("read, never written", String.format(asWritten, OTHER),
-                Files.readString(other, java.nio.charset.StandardCharsets.UTF_8));
+            assertEquals("read, never written", String.format(asWritten, OTHER), Folders.read(other));
             assertFalse("the logged-in character's file is saved as before",
-                String.format(asWritten, ACCOUNT).equals(Files.readString(own, java.nio.charset.StandardCharsets.UTF_8)));
+                String.format(asWritten, ACCOUNT).equals(Folders.read(own)));
             assertEquals(1, store.readProfileData(ACCOUNT, ACCOUNTWIDE).deltas.size());
         } finally {
             Access.set(null);
@@ -267,7 +263,7 @@ public class ProfileWriteDurabilityTest {
     public void aFailedSaveLeavesTheTradesQueuedForTheNextAttempt() throws Exception {
         Path baseDir = Files.createTempDirectory("profile-store-failed-save");
         try {
-            ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
+            ProfileStore store = Folders.store(baseDir);
             Bridge.set(Guice.createInjector(
                 binder -> binder.bind(ProfileStore.class).toInstance(store)));
             PluginState state = new PluginState();
@@ -301,7 +297,7 @@ public class ProfileWriteDurabilityTest {
     public void aSavedProfileIsNotWrittenAgainByTheFlush() throws Exception {
         Path baseDir = Files.createTempDirectory("profile-store-clean-flush");
         try {
-            ProfileStore store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
+            ProfileStore store = Folders.store(baseDir);
             Bridge.set(Guice.createInjector(
                 binder -> binder.bind(ProfileStore.class).toInstance(store)));
             PluginState state = new PluginState();
@@ -328,6 +324,162 @@ public class ProfileWriteDurabilityTest {
         }
     }
 
+    /**
+     * A history that cannot be written out at all, which serialising a very large one can do. The
+     * save answers "not saved" and the file from the save before is what it was, to the byte.
+     */
+    @Test
+    public void aSaveThatFailsBeforeAnythingIsWrittenLeavesThePreviousFileWhole() throws Exception {
+        Path baseDir = Files.createTempDirectory("profile-store-save-throws");
+        try {
+            ProfileStore store = Folders.store(baseDir);
+            assertTrue(store.writeProfileData(ACCOUNT, ACCOUNTWIDE, "Zezima", trades(3)) >= 0L);
+            Filepath file = store.getProfileFile(ACCOUNT, ACCOUNTWIDE);
+            String before = Folders.read(file);
+            List<Delta> cannotBeWritten = new ArrayList<Delta>(trades(7)) {
+                @Override
+                public java.util.Iterator<Delta> iterator() {
+                    throw new IllegalStateException("this history cannot be written out");
+                }
+            };
+
+            long answer = store.writeProfileData(ACCOUNT, ACCOUNTWIDE, "Zezima", cannotBeWritten);
+
+            assertTrue("not saved", answer < 0L);
+            assertEquals(before, Folders.read(file));
+            assertEquals(3, Folders.store(baseDir).readProfileData(ACCOUNT, ACCOUNTWIDE).deltas.size());
+            assertNoScratchFilesLeftBehind(baseDir);
+        } finally {
+            deleteRecursively(baseDir);
+        }
+    }
+
+    /**
+     * The new document is written beside the file and cannot be moved into its place. The plain
+     * replace is not tried after it: that is kept for a disk that cannot replace in one step, not
+     * for one that refuses. Not saved, nothing thrown, and the scratch file is gone. Something
+     * that cannot be replaced by a file stands in for the disk refusing.
+     */
+    @Test
+    public void aSaveThatCannotBeMovedIntoPlaceSaysNotSavedAndLeavesNoScratchFile() throws Exception {
+        Path baseDir = Files.createTempDirectory("profile-store-save-blocked");
+        try {
+            ProfileStore store = Folders.store(baseDir);
+            Path inTheWay = Folders.path(store.getProfileFile(ACCOUNT, ACCOUNTWIDE)).resolve("in-the-way");
+            Files.createDirectories(inTheWay);
+
+            long answer = store.writeProfileData(ACCOUNT, ACCOUNTWIDE, "Zezima", trades(3));
+
+            assertTrue("not saved", answer < 0L);
+            assertTrue("what was there is still there", Files.isDirectory(inTheWay));
+            assertNoScratchFilesLeftBehind(baseDir);
+        } finally {
+            deleteRecursively(baseDir);
+        }
+    }
+
+    /**
+     * Windows will not replace a file another program holds open (an editor, a backup, a virus
+     * scan). The 3 trades saved before are still the file, the save of 7 says "not saved", and
+     * once the other program lets go the same save goes through.
+     */
+    @Test
+    public void aFileHeldOpenByAnotherProgramIsLeftWholeAndSavedOnceItIsFree() throws Exception {
+        org.junit.Assume.assumeTrue("only Windows refuses to replace an open file",
+            System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win"));
+        Path baseDir = Files.createTempDirectory("profile-store-save-held");
+        try {
+            ProfileStore store = Folders.store(baseDir);
+            assertTrue(store.writeProfileData(ACCOUNT, ACCOUNTWIDE, "Zezima", trades(3)) >= 0L);
+            Filepath file = store.getProfileFile(ACCOUNT, ACCOUNTWIDE);
+            String before = Folders.read(file);
+
+            try (java.io.RandomAccessFile held = new java.io.RandomAccessFile(Folders.path(file).toFile(), "r")) {
+                assertTrue("not saved", store.writeProfileData(ACCOUNT, ACCOUNTWIDE, "Zezima", trades(7)) < 0L);
+                assertNoScratchFilesLeftBehind(baseDir);
+            }
+            assertEquals(before, Folders.read(file));
+
+            assertTrue("saved", store.writeProfileData(ACCOUNT, ACCOUNTWIDE, "Zezima", trades(7)) >= 0L);
+            assertEquals(7, Folders.store(baseDir).readProfileData(ACCOUNT, ACCOUNTWIDE).deltas.size());
+            assertNoScratchFilesLeftBehind(baseDir);
+        } finally {
+            deleteRecursively(baseDir);
+        }
+    }
+
+    /**
+     * Another FlipHub window reloading the file reads it the way Java does, and Windows then lets
+     * the file be deleted but not replaced in one step. The plain replace is a delete followed by a
+     * rename, so it would go through, by way of a moment with no file at all. It is not tried: the
+     * save of 7 says "not saved", the 3 are still the file to the byte, and once the reader lets go
+     * the same save goes through.
+     */
+    @Test
+    public void aFileAnotherWindowIsReadingIsLeftWholeAndSavedOnceTheReaderLetsGo() throws Exception {
+        org.junit.Assume.assumeTrue("only Windows refuses to replace a file that is being read",
+            System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win"));
+        Path baseDir = Files.createTempDirectory("profile-store-save-read");
+        try {
+            ProfileStore store = Folders.store(baseDir);
+            assertTrue(store.writeProfileData(ACCOUNT, ACCOUNTWIDE, "Zezima", trades(3)) >= 0L);
+            Filepath file = store.getProfileFile(ACCOUNT, ACCOUNTWIDE);
+            String before = Folders.read(file);
+
+            try (java.io.InputStream reading = Files.newInputStream(Folders.path(file))) {
+                assertTrue("not saved", store.writeProfileData(ACCOUNT, ACCOUNTWIDE, "Zezima", trades(7)) < 0L);
+                assertEquals(before, Folders.read(file));
+                assertNoScratchFilesLeftBehind(baseDir);
+            }
+            assertEquals(before, Folders.read(file));
+
+            assertTrue("saved", store.writeProfileData(ACCOUNT, ACCOUNTWIDE, "Zezima", trades(7)) >= 0L);
+            assertEquals(7, Folders.store(baseDir).readProfileData(ACCOUNT, ACCOUNTWIDE).deltas.size());
+            assertNoScratchFilesLeftBehind(baseDir);
+        } finally {
+            deleteRecursively(baseDir);
+        }
+    }
+
+    /**
+     * The whole chain for a save the disk refused: the trade stays in memory and marked unsaved, and
+     * the flush when RuneLite closes writes it once the disk takes it.
+     */
+    @Test
+    public void aSaveTheDiskRefusedIsStillOwedAndIsWrittenByTheNextFlush() throws Exception {
+        Path baseDir = Files.createTempDirectory("profile-store-save-owed");
+        try {
+            ProfileStore store = Folders.store(baseDir);
+            Bridge.set(Guice.createInjector(
+                binder -> binder.bind(ProfileStore.class).toInstance(store)));
+            PluginState state = new PluginState();
+            LocalTradesRuntime runtime = runtimeService(state, () -> new ProfileStorage(state));
+            Path file = Folders.path(store.getProfileFile(ACCOUNT, ACCOUNTWIDE));
+            Path inTheWay = file.resolve("in-the-way");
+            Files.createDirectories(inTheWay);
+
+            synchronized (state.getLocalStatsLock()) {
+                runtime.appendTradeDelta(ACCOUNT, trades(1).get(0));
+            }
+            runtime.persistLocalTrades(ACCOUNT);
+
+            assertTrue("nothing was saved", Files.isDirectory(file));
+            assertNull("and it is not remembered as saved", state.getSelfWrittenProfileFileMs().get(ACCOUNT));
+
+            Files.delete(inTheWay);
+            Files.delete(file);
+            runtime.flushUnsavedProfiles();
+
+            ProfileData read = Folders.store(baseDir).readProfileData(ACCOUNT, ACCOUNTWIDE);
+            assertNotNull("the trade was dropped when its save was refused", read);
+            assertEquals(1, read.deltas.size());
+            assertNoScratchFilesLeftBehind(baseDir);
+        } finally {
+            Bridge.set(null);
+            deleteRecursively(baseDir);
+        }
+    }
+
     private static LocalTradesRuntime runtimeService(
         PluginState state, Supplier<ProfileStorage> storageSupplier) {
         return new LocalTradesRuntime(
@@ -343,7 +495,7 @@ public class ProfileWriteDurabilityTest {
     }
 
     private static void assertNoScratchFilesLeftBehind(Path baseDir) throws IOException {
-        try (Stream<Path> files = Files.list(baseDir.resolve("fliphub").resolve("profiles"))) {
+        try (Stream<Path> files = Files.list(baseDir.resolve("profiles"))) {
             assertFalse(files.anyMatch(path -> path.getFileName().toString().endsWith(".tmp")));
         }
     }

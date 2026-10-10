@@ -24,21 +24,19 @@
  */
 package com.osrsfliphub;
 
-import java.nio.file.Path;
 import java.util.*;
 import java.util.function.Supplier;
 import javax.inject.Singleton;
+import net.runelite.client.util.Filepath;
 
 @Singleton
 final class ProfileKeyCollector {
-    Set<Long> collect(Path profilesDir,
-                      Path legacyProfilesDir,
+    Set<Long> collect(Filepath profilesDir,
                       Map<Long, List<Delta>> localTradeDeltasByAccount,
                       Object localStatsLock,
                       Supplier<Map<Long, String>> fallbackProfilesSupplier) {
         Set<Long> keys = new HashSet<>();
         ProfileHashFileWalker.walk(profilesDir, (hash, path) -> keys.add(hash));
-        ProfileHashFileWalker.walk(legacyProfilesDir, (hash, path) -> keys.add(hash));
 
         synchronized (localStatsLock) {
             localTradeDeltasByAccount.forEach((key, deltas) -> {

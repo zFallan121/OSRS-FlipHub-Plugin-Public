@@ -24,9 +24,9 @@
  */
 package com.osrsfliphub;
 
-import java.nio.file.Path;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
+import net.runelite.client.util.Filepath;
 
 @javax.inject.Singleton
 @RequiredArgsConstructor(onConstructor_ = @javax.inject.Inject)
@@ -38,17 +38,12 @@ final class ProfileStorage {
         return Bridge.get(ProfileStore.class);
     }
 
-    Path getProfilesDir() {
+    Filepath getProfilesDir() {
         ProfileStore store = profileStore();
         return store != null ? store.getProfilesDir() : null;
     }
 
-    Path getLegacyProfilesDir() {
-        ProfileStore store = profileStore();
-        return store != null ? store.getLegacyProfilesDir() : null;
-    }
-
-    Path getProfileFile(long accountHash) {
+    Filepath getProfileFile(long accountHash) {
         ProfileStore store = profileStore();
         return store != null ? store.getProfileFile(accountHash, accountwideKey) : null;
     }
@@ -58,7 +53,7 @@ final class ProfileStorage {
         return store != null ? store.readProfileData(accountHash, accountwideKey) : null;
     }
 
-    ProfileData readProfileData(Path file) {
+    ProfileData readProfileData(Filepath file) {
         ProfileStore store = profileStore();
         return store != null ? store.readProfileData(file) : null;
     }

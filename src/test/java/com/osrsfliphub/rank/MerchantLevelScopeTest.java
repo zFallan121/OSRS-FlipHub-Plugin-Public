@@ -90,7 +90,7 @@ public class MerchantLevelScopeTest {
                 bind(ItemManager.class).toInstance(unbuilt(ItemManager.class));
                 // Built without a RuneLite folder, so the only characters are the ones filed
                 // here and nothing on this computer is read or written.
-                bind(ProfileStore.class).toInstance(unbuilt(ProfileStore.class));
+                bind(ProfileStore.class).toInstance(new ProfileStore(new Gson(), () -> null));
                 bind(WipeStateStore.class).toProvider(com.google.inject.util.Providers.of(null));
             }
         });

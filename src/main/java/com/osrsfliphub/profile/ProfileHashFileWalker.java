@@ -25,36 +25,58 @@
 package com.osrsfliphub;
 
 import java.io.IOException;
-import java.nio.file.*;
+import java.io.UncheckedIOException;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.client.util.Filepath;
 
 @Slf4j
 final class ProfileHashFileWalker {
+    /** How many times a listing is tried before it is given up. */
+    private static final int LISTING_TRIES = 3;
+
     interface Visitor {
-        void visit(long profileHash, Path file);
+        void visit(long profileHash, Filepath file);
     }
 
     private ProfileHashFileWalker() {
     }
 
-    static void walk(Path dir, Visitor visitor) {
-        if (dir == null || visitor == null || !Files.exists(dir)) {
+    static void walk(Filepath dir, Visitor visitor) {
+        if (dir == null || visitor == null || !dir.exists()) {
             return;
         }
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, "hash_*.json")) {
-            for (Path path : stream) {
-                if (path == null) {
-                    continue;
-                }
-                Long hash = ProfileHashFileParser.parsePositiveHashFromProfileFileName(path.getFileName().toString());
-                if (hash == null) {
-                    continue;
-                }
-                visitor.visit(hash, path);
+        for (Filepath path : list(dir)) {
+            Long hash = ProfileHashFileParser.parsePositiveHashFromProfileFileName(path.getFileName());
+            if (hash == null) {
+                continue;
             }
-        } catch (IOException ex) {
-            // Silently listing nothing reads as a player with no saved characters.
-            log.warn("FlipHub: could not list the profile files in {}", dir, ex);
+            visitor.visit(hash, path);
+        }
+    }
+
+    /**
+     * Everything in the folder, or nothing: never the part that was read before a listing failed.
+     *
+     * <p>On Mac and Linux a listing reads each entry's details as it goes, so a save's scratch
+     * file moved into place part way through stops it short. The files it had not reached yet
+     * would then read as characters with nothing saved.
+     */
+    private static List<Filepath> list(Filepath dir) {
+        for (int attempt = 1; ; attempt++) {
+            // One level deep: the folder itself comes first, and its name is no character's file.
+            try (Stream<Filepath> files = dir.walk(1)) {
+                return files.collect(Collectors.toList());
+            } catch (IOException | UncheckedIOException ex) {
+                if (attempt >= LISTING_TRIES) {
+                    // Silently listing nothing reads as a player with no saved characters.
+                    log.warn("FlipHub: could not list the profile files in {}", dir, ex);
+                    return Collections.emptyList();
+                }
+            }
         }
     }
 }

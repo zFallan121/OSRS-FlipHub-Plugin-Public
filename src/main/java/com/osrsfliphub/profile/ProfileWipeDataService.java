@@ -24,16 +24,10 @@
  */
 package com.osrsfliphub;
 
-import com.google.gson.Gson;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
 import java.util.*;
 import javax.inject.*;
-import lombok.extern.slf4j.Slf4j;
 
 @Singleton
-@Slf4j
 final class ProfileWipeDataService {
 
     private final ProfileStorage storage;
@@ -46,12 +40,10 @@ final class ProfileWipeDataService {
     private final Set<Long> loadedProfiles;
     private final Map<Long, Long> loadedProfileFileMs;
     private final Set<Long> unreadableProfiles;
-    private final Gson gson;
 
     @Inject
     ProfileWipeDataService(
         PluginState pluginState,
-        Gson gson,
         ProfileStorage storage,
         RecipeFlipStore recipeFlipStore
     ) {
@@ -64,7 +56,6 @@ final class ProfileWipeDataService {
         this.loadedProfiles = pluginState.getLoadedProfiles();
         this.loadedProfileFileMs = pluginState.getLoadedProfileFileMs();
         this.unreadableProfiles = pluginState.getUnreadableProfiles();
-        this.gson = gson;
     }
 
     /**
@@ -76,47 +67,13 @@ final class ProfileWipeDataService {
      */
     boolean clearProfileDataForWipe(long accountKey, String displayName) {
         resetInMemoryProfileData(accountKey);
-        List<Delta> emptyDeltas = new ArrayList<>();
-        boolean written = storage.writeProfileData(accountKey, emptyDeltas);
-        boolean legacyWritten = writeLegacyProfileDataIfPresent(accountKey, displayName, emptyDeltas);
-        return written && legacyWritten;
+        return storage.writeProfileData(accountKey, new ArrayList<>());
     }
 
     /** @return whether the accountwide file was actually cleared; see clearProfileDataForWipe. */
     boolean clearAccountwideDataForWipe() {
         resetInMemoryProfileData(accountwideKey);
-        List<Delta> emptyDeltas = new ArrayList<>();
-        boolean written = storage.writeProfileData(accountwideKey, emptyDeltas);
-        boolean legacyWritten = writeLegacyProfileDataIfPresent(accountwideKey, "Accountwide", emptyDeltas);
-        return written && legacyWritten;
-    }
-
-    /** @return whether the legacy copy was cleared, or true when there is no legacy copy. */
-    boolean writeLegacyProfileDataIfPresent(long accountKey, String displayName, List<Delta> deltas) {
-        Path legacyDir = storage.getLegacyProfilesDir();
-        if (legacyDir == null || !Files.exists(legacyDir)) {
-            return true;
-        }
-        Path file = accountKey == accountwideKey
-            ? legacyDir.resolve("accountwide.json")
-            : legacyDir.resolve("hash_" + accountKey + ".json");
-        if (!Files.exists(file)) {
-            return true;
-        }
-        ProfileData data = new ProfileData();
-        data.accountHash = accountKey;
-        data.displayName = displayName;
-        data.deltas = deltas;
-        data.updatedMs = System.currentTimeMillis();
-        try {
-            Files.writeString(file, gson.toJson(data), StandardCharsets.UTF_8);
-            return true;
-        } catch (IOException ex) {
-            // The legacy copy is not the source of truth, but it still holds the history the
-            // player asked to destroy, so a failure here is reported rather than swallowed.
-            log.warn("FlipHub: could not clear the legacy profile copy at {}", file, ex);
-            return false;
-        }
+        return storage.writeProfileData(accountwideKey, new ArrayList<>());
     }
 
     private void resetInMemoryProfileData(long accountKey) {

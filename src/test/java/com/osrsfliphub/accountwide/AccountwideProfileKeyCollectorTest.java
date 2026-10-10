@@ -34,18 +34,17 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class AccountwideProfileKeyCollectorTest {
     @Test
-    public void collectIncludesDirAndLocalTradeKeys() throws Exception {
+    public void collectIncludesTheFolderAndLocalTradeKeys() throws Exception {
         Path baseDir = Files.createTempDirectory("accountwide-key-collector");
         try {
-            Path dirA = Files.createDirectories(baseDir.resolve("a"));
-            Path dirB = Files.createDirectories(baseDir.resolve("b"));
-            Files.writeString(dirA.resolve("hash_111.json"), "{}");
-            Files.writeString(dirB.resolve("hash_222.json"), "{}");
-            Files.writeString(dirA.resolve("hash_invalid.json"), "{}");
+            Files.writeString(baseDir.resolve("hash_111.json"), "{}");
+            Files.writeString(baseDir.resolve("hash_222.json"), "{}");
+            Files.writeString(baseDir.resolve("hash_invalid.json"), "{}");
 
             Map<Long, List<Delta>> localTrades = new HashMap<>();
             List<Delta> deltas = new ArrayList<>();
@@ -55,16 +54,13 @@ public class AccountwideProfileKeyCollectorTest {
 
             ProfileKeyCollector collector = new ProfileKeyCollector();
             Set<Long> keys = collector.collect(
-                dirA,
-                dirB,
+                Folders.rooted(baseDir),
                 localTrades,
                 new Object(),
                 HashMap::new
             );
 
-            assertTrue(keys.contains(111L));
-            assertTrue(keys.contains(222L));
-            assertTrue(keys.contains(333L));
+            assertEquals(Set.of(111L, 222L, 333L), keys);
         } finally {
             deleteRecursively(baseDir);
         }
@@ -75,7 +71,6 @@ public class AccountwideProfileKeyCollectorTest {
         Map<Long, List<Delta>> localTrades = new HashMap<>();
         ProfileKeyCollector collector = new ProfileKeyCollector();
         Set<Long> keys = collector.collect(
-            null,
             null,
             localTrades,
             new Object(),

@@ -26,7 +26,6 @@ package com.osrsfliphub;
 
 import com.google.gson.Gson;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -34,6 +33,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
+import net.runelite.client.util.Filepath;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -59,7 +59,7 @@ public class ConfirmedRecordsFileTest {
     @Before
     public void setUp() throws IOException {
         baseDir = Files.createTempDirectory("confirmed-records");
-        store = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", baseDir);
+        store = Folders.store(baseDir);
     }
 
     @After
@@ -92,9 +92,8 @@ public class ConfirmedRecordsFileTest {
     /** Every file on every player's computer today: no record in it is confirmed, and every one still reads. */
     @Test
     public void aFileWrittenBeforeTheFieldReadsWithNothingConfirmed() throws IOException {
-        Path file = store.getProfileFile(ACCOUNT, ACCOUNTWIDE);
-        Files.createDirectories(file.getParent());
-        Files.writeString(file, new Gson().toJson(olderDocument(trades())), StandardCharsets.UTF_8);
+        Filepath file = store.getProfileFile(ACCOUNT, ACCOUNTWIDE);
+        Folders.write(file, new Gson().toJson(olderDocument(trades())));
 
         List<Delta> read = store.readProfileData(ACCOUNT, ACCOUNTWIDE).deltas;
 
@@ -118,15 +117,15 @@ public class ConfirmedRecordsFileTest {
             trade.uploadedMs = CONFIRMED_AT;
         }
         store.writeProfileData(ACCOUNT, ACCOUNTWIDE, "Zezima", trades);
-        Path file = store.getProfileFile(ACCOUNT, ACCOUNTWIDE);
+        Filepath file = store.getProfileFile(ACCOUNT, ACCOUNTWIDE);
         Gson gson = new Gson();
 
-        OlderProfileData older = gson.fromJson(Files.readString(file, StandardCharsets.UTF_8), OlderProfileData.class);
+        OlderProfileData older = gson.fromJson(Folders.read(file), OlderProfileData.class);
         assertEquals("the older build reads every record", 3, older.deltas.size());
         assertEquals(4151, older.deltas.get(0).itemId);
         assertEquals(1_000_000L, older.deltas.get(0).deltaGp);
         assertEquals(9_000L, older.deltas.get(1).endMs);
-        Files.writeString(file, gson.toJson(older), StandardCharsets.UTF_8);
+        Folders.write(file, gson.toJson(older));
 
         List<Delta> read = store.readProfileData(ACCOUNT, ACCOUNTWIDE).deltas;
         assertEquals(3, read.size());
@@ -134,7 +133,7 @@ public class ConfirmedRecordsFileTest {
             assertSameTrade(trades.get(i), read.get(i));
             assertEquals("the older build could not keep it, so the record is sent again", 0L, read.get(i).uploadedMs);
         }
-        assertFalse(Files.readString(file, StandardCharsets.UTF_8).contains("uploadedMs"));
+        assertFalse(Folders.read(file).contains("uploadedMs"));
     }
 
     /**

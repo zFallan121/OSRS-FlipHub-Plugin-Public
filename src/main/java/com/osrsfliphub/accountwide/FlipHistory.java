@@ -42,7 +42,6 @@ final class FlipHistory {
     private Set<Long> collectAccountwideProfileKeys() {
         return profileKeyCollector.collect(
             profileStorage.getProfilesDir(),
-            profileStorage.getLegacyProfilesDir(),
             state.getLocalTradeDeltasByAccount(),
             state.getLocalStatsLock(),
             () -> profileSelectionPresentation.loadProfilesFromDisk());

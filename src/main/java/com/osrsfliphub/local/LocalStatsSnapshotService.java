@@ -43,7 +43,6 @@ final class LocalStatsSnapshotService {
     Set<Long> collectAccountwideProfileKeys() {
         return profileKeyCollector.collect(
             profileStorage.getProfilesDir(),
-            profileStorage.getLegacyProfilesDir(),
             pluginState.getLocalTradeDeltasByAccount(),
             pluginState.getLocalStatsLock(),
             this::loadProfilesFromDisk);

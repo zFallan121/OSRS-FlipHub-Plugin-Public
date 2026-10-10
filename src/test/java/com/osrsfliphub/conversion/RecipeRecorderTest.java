@@ -625,15 +625,13 @@ public class RecipeRecorderTest {
     public void theAccountPickedStaysPickedWhenTheScreenIsReadAgain() throws Exception {
         java.nio.file.Path home = java.nio.file.Files.createTempDirectory("recorder-picker-test");
         com.google.gson.Gson gson = new com.google.gson.Gson();
-        ProfileStore files = new ProfileStore(gson, "fliphub", "fliphub-dev", home);
+        ProfileStore files = Folders.store(gson, home);
         for (long account : new long[] {7L, 8L, 9L}) {
             ProfileData data = new ProfileData();
             data.accountHash = account;
             data.displayName = "Account " + account;
             data.deltas = Collections.emptyList();
-            java.nio.file.Files.createDirectories(files.getProfilesDir());
-            java.nio.file.Files.write(files.getProfilesDir().resolve("hash_" + account + ".json"),
-                gson.toJson(data).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            Folders.write(files.getProfileFile(account, Const.ACCOUNTWIDE_KEY), gson.toJson(data));
         }
         // Names come from memory: the files are listed, not read. One is known, one is not yet.
         PluginState state = new PluginState();

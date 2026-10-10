@@ -24,10 +24,10 @@
  */
 package com.osrsfliphub;
 
-import java.nio.file.Path;
 import java.util.*;
 import javax.inject.*;
 import lombok.RequiredArgsConstructor;
+import net.runelite.client.util.Filepath;
 
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
@@ -40,7 +40,6 @@ final class ProfileCatalog {
             profiles.putAll(profileDisplayNames);
         }
         mergeProfilesFromDir(profiles, profileStore.getProfilesDir());
-        mergeProfilesFromDir(profiles, profileStore.getLegacyProfilesDir());
         if (profileDisplayNames != null) {
             profileDisplayNames.putAll(profiles);
         }
@@ -54,14 +53,12 @@ final class ProfileCatalog {
      */
     Map<Long, String> listed(Map<Long, String> known) {
         Map<Long, String> out = new HashMap<>();
-        for (Path dir : new Path[] {profileStore.getProfilesDir(), profileStore.getLegacyProfilesDir()}) {
-            ProfileHashFileWalker.walk(dir, (hash, path) ->
-                out.putIfAbsent(hash, known.getOrDefault(hash, ProfileDisplayNames.placeholderFor(hash))));
-        }
+        ProfileHashFileWalker.walk(profileStore.getProfilesDir(), (hash, path) ->
+            out.putIfAbsent(hash, known.getOrDefault(hash, ProfileDisplayNames.placeholderFor(hash))));
         return out;
     }
 
-    private void mergeProfilesFromDir(Map<Long, String> profiles, Path dir) {
+    private void mergeProfilesFromDir(Map<Long, String> profiles, Filepath dir) {
         if (profiles == null) {
             return;
         }

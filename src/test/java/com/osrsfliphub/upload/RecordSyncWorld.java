@@ -114,6 +114,14 @@ final class RecordSyncWorld {
     static volatile Consumer<Object> configRead = key -> { };
 
     RecordSyncWorld(Path dir, ConfigManager configManager) {
+        this(dir, configManager, true);
+    }
+
+    /**
+     * @param ownStore whether the trade files are a store of this world's own over {@code dir}. Without
+     *        it Guice builds the store as it does in the client, over whatever folder the plugin was given.
+     */
+    RecordSyncWorld(Path dir, ConfigManager configManager, boolean ownStore) {
         this.dir = dir;
         this.configManager = configManager;
         Client client = client();
@@ -134,7 +142,9 @@ final class RecordSyncWorld {
                 bind(PluginState.class).toInstance(state);
                 bind(Gson.class).toInstance(gson);
                 bind(ConfigManager.class).toInstance(configManager);
-                bind(ProfileStore.class).toInstance(new ProfileStore(gson, "fliphub", "fliphub-dev", dir));
+                if (ownStore) {
+                    bind(ProfileStore.class).toInstance(Folders.store(gson, dir));
+                }
                 bind(ApiClient.class).toInstance(website.client);
                 bind(ItemManager.class).toInstance(unbuilt(ItemManager.class));
                 bind(ClientThread.class).toInstance(clientThread);
@@ -143,6 +153,12 @@ final class RecordSyncWorld {
                 }).build());
             }
         });
+        try {
+            // As RuneLite does when it makes a plugin: startUp finds its services through this.
+            set(net.runelite.client.plugins.Plugin.class, plugin, "injector", injector);
+        } catch (Exception ex) {
+            throw new AssertionError(ex);
+        }
         use();
     }
 
@@ -202,6 +218,13 @@ final class RecordSyncWorld {
 
     /** The game reporting one of this character's Grand Exchange offers, as it does on every change to it. */
     void offer(int slot, int totalQty, int filledQty, long spentGp, GrandExchangeOfferState offerState) {
+        injector.getInstance(GrandExchangeOfferChangedHandler.class)
+            .handle(offerEvent(slot, totalQty, filledQty, spentGp, offerState));
+    }
+
+    /** The same report as RuneLite hands it to the plugin: a test of the plugin class itself passes it on. */
+    GrandExchangeOfferChanged offerEvent(int slot, int totalQty, int filledQty, long spentGp,
+                                         GrandExchangeOfferState offerState) {
         GrandExchangeOffer offer = (GrandExchangeOffer) Proxy.newProxyInstance(
             GrandExchangeOffer.class.getClassLoader(), new Class<?>[] {GrandExchangeOffer.class},
             (proxy, method, args) -> {
@@ -225,7 +248,7 @@ final class RecordSyncWorld {
         GrandExchangeOfferChanged event = new GrandExchangeOfferChanged();
         event.setSlot(slot);
         event.setOffer(offer);
-        injector.getInstance(GrandExchangeOfferChangedHandler.class).handle(event);
+        return event;
     }
 
     /** A purchase of ten whips made in the game just now: placed, part filled, finished. */
@@ -285,17 +308,40 @@ final class RecordSyncWorld {
     }
 
     /** Runs what the plugin has handed to the game thread since the last time, as the next client tick would. */
-    @SuppressWarnings("unchecked")
     void runGameThread() {
+        ConcurrentLinkedQueue<java.util.function.BooleanSupplier> queued = gameThreadQueue();
+        java.util.function.BooleanSupplier work;
+        while ((work = queued.poll()) != null) {
+            work.getAsBoolean();
+        }
+    }
+
+    /** How much the plugin has handed to the game thread and {@link #runGameThread} has not yet run. */
+    int waitingForGameThread() {
+        return gameThreadQueue().size();
+    }
+
+    @SuppressWarnings("unchecked")
+    private ConcurrentLinkedQueue<java.util.function.BooleanSupplier> gameThreadQueue() {
         try {
             Field field = ClientThread.class.getDeclaredField("invokes");
             field.setAccessible(true);
-            ConcurrentLinkedQueue<java.util.function.BooleanSupplier> queued =
-                (ConcurrentLinkedQueue<java.util.function.BooleanSupplier>) field.get(clientThread);
-            java.util.function.BooleanSupplier work;
-            while ((work = queued.poll()) != null) {
-                work.getAsBoolean();
-            }
+            return (ConcurrentLinkedQueue<java.util.function.BooleanSupplier>) field.get(clientThread);
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError(ex);
+        }
+    }
+
+    /** Every key RuneLite's config holds now, and its value: a copy, to compare with a later one. */
+    @SuppressWarnings("unchecked")
+    Map<String, String> configKeys() {
+        try {
+            Field profile = ConfigManager.class.getDeclaredField("configProfile");
+            profile.setAccessible(true);
+            Object data = profile.get(configManager);
+            Field properties = data.getClass().getDeclaredField("properties");
+            properties.setAccessible(true);
+            return new HashMap<>((Map<String, String>) properties.get(data));
         } catch (ReflectiveOperationException ex) {
             throw new AssertionError(ex);
         }
@@ -348,18 +394,18 @@ final class RecordSyncWorld {
     // ---- the files ----
 
     Path file(long key) {
-        return dir.resolve("fliphub").resolve("profiles").resolve("hash_" + key + ".json");
+        return dir.resolve("profiles").resolve("hash_" + key + ".json");
     }
 
     /** Writes a character's file the way the window logged in as that character does. */
     void store(long key, Delta... trades) {
-        new ProfileStore(new Gson(), "fliphub", "fliphub-dev", dir)
+        Folders.store(dir)
             .writeProfileData(key, Const.ACCOUNTWIDE_KEY, "Character " + key, new ArrayList<>(Arrays.asList(trades)));
     }
 
     /** What a character's file holds now, read from the disk and nowhere else. */
     List<Delta> stored(long key) {
-        ProfileData data = new ProfileStore(new Gson(), "fliphub", "fliphub-dev", dir)
+        ProfileData data = Folders.store(dir)
             .readProfileData(key, Const.ACCOUNTWIDE_KEY);
         return data != null && data.deltas != null ? data.deltas : new ArrayList<>();
     }

@@ -141,7 +141,7 @@ public class LocalTradeAnalyticsServiceTest {
     public void aTradePastMaxCashStillShowsItsRealPriceAfterAReload() throws Exception {
         java.nio.file.Path baseDir = java.nio.file.Files.createTempDirectory("last-price-past-max-cash");
         try {
-            ProfileStore store = new ProfileStore(new com.google.gson.Gson(), "fliphub", "fliphub-dev", baseDir);
+            ProfileStore store = Folders.store(baseDir);
             store.writeProfileData(123L, 0L, "Zezima", Arrays.asList(
                 delta(1_000L, 1, 20011, true, 1, 2_394_000_000L, "OFFER_COMPLETED", Integer.MAX_VALUE, false),
                 delta(2_000L, 1, 20011, false, 1, 2_395_000_000L, "OFFER_COMPLETED", Integer.MAX_VALUE, false)));

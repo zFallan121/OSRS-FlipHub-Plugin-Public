@@ -24,7 +24,6 @@
  */
 package com.osrsfliphub;
 
-import com.google.gson.Gson;
 import com.google.inject.AbstractModule;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
@@ -126,8 +125,7 @@ public class PluginEnabledWhileLoggedInTest {
                 bind(PluginState.class).toInstance(state);
                 // Reaches ConfigManager through Guice otherwise, which pulls in most of RuneLite.
                 bind(OfferStampStateServices.class).toInstance(stampState(state));
-                bind(ProfileStore.class).toInstance(
-                    new ProfileStore(new Gson(), "fliphub", "fliphub-dev", storeDir));
+                bind(ProfileStore.class).toInstance(Folders.store(storeDir));
                 // Same reason: it already treats an absent config manager as "nothing stored".
                 bind(ProfileSelectionPersistence.class)
                     .toInstance(new ProfileSelectionPersistence(null));
